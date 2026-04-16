@@ -2,7 +2,6 @@ import Link from "next/link";
 import {
   Users,
   Search,
-  Plus,
   Filter,
   MoreHorizontal,
   Phone,
@@ -21,6 +20,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils/cn";
 import { createClient } from "@/lib/supabase/server";
+import { ModalNovoCliente } from "@/components/features/clientes/modal-novo-cliente";
 
 interface ClientesPageProps {
   searchParams: { [key: string]: string | string[] | undefined };
@@ -168,10 +168,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
               <CardTitle>Lista de Clientes</CardTitle>
               <CardDescription>Gerencie seus clientes e prospects</CardDescription>
             </div>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Novo Cliente
-            </Button>
+            <ModalNovoCliente />
           </div>
         </CardHeader>
         <CardContent>
