@@ -9,24 +9,36 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
+  const supabase = createClient();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // TODO: Implementar autenticação com Supabase
-    // Simulando login...
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Redirecionar para o dashboard
+    setError(null);
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    setIsLoading(false);
+
+    if (signInError) {
+      setError("E-mail ou senha incorretos.");
+      return;
+    }
+
     router.push("/atendimento");
+    router.refresh();
   };
 
   return (
@@ -51,6 +63,12 @@ export default function LoginPage() {
           
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4">
+              {error && (
+                <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">
+                  {error}
+                </div>
+              )}
+
               {/* Email */}
               <div className="space-y-2">
                 <Label htmlFor="email">E-mail</Label>

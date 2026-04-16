@@ -1,51 +1,65 @@
-"use client";
-
-import { useState } from "react";
+import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
+import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils/cn";
 
 /**
  * Layout do Dashboard (Rotas Autenticadas)
- * 
+ *
  * Este layout envolve todas as páginas que requerem autenticação.
  * Inclui a sidebar de navegação e o header com título da página.
- * 
- * Estrutura:
- * - Sidebar: Navegação principal (fixa à esquerda)
- * - Header: Título e ações da página (sticky no topo)
- * - Content: Área principal de conteúdo
  */
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const supabase = createClient();
+  const { data, error } = await supabase.auth.getUser();
+
+  if (error || !data?.user) {
+    redirect("/login");
+  }
+
+  // Busca perfil do usuário logado
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("nome_completo, cargo, avatar_url")
+    .eq("id", data.user.id)
+    .single();
+
+  const user = {
+    email: data.user.email ?? "",
+    nome: profile?.nome_completo ?? data.user.email?.split("@")[0] ?? "Usuário",
+    canal: profile?.cargo ?? "Comercial",
+    avatar_url: profile?.avatar_url ?? null,
+  };
 
   return (
+    <DashboardShell user={user}>{children}</DashboardShell>
+  );
+}
+
+function DashboardShell({
+  children,
+  user,
+}: {
+  children: React.ReactNode;
+  user: {
+    email: string;
+    nome: string;
+    canal: string;
+    avatar_url: string | null;
+  };
+}) {
+  return (
     <div className="min-h-screen bg-slate-50">
-      {/* Sidebar */}
-      <Sidebar 
-        isOpen={sidebarOpen} 
-        onToggle={() => setSidebarOpen(!sidebarOpen)} 
-      />
-
-      {/* Main Content */}
-      <main
-        className={cn(
-          "min-h-screen transition-all duration-300 ease-in-out",
-          sidebarOpen ? "ml-64" : "ml-20"
-        )}
-      >
-        {/* Header */}
+      <Sidebar user={user} />
+      <main className="min-h-screen transition-all duration-300 ease-in-out ml-64">
         <Header />
-
-        {/* Page Content */}
-        <div className="p-6">
-          {children}
-        </div>
+        <div className="p-6">{children}</div>
       </main>
     </div>
   );

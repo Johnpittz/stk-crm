@@ -18,56 +18,60 @@ import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { vendedorAtual } from "@/lib/data/mock";
+import { logout } from "@/app/(dashboard)/actions";
 
-// Configuração de navegação
 const navItems = [
-  { 
-    href: "/dashboard", 
-    label: "Dashboard", 
+  {
+    href: "/dashboard",
+    label: "Dashboard",
     icon: LayoutDashboard,
-    description: "Visão gerencial"
+    description: "Visão gerencial",
   },
-  { 
-    href: "/atendimento", 
-    label: "Atendimento", 
+  {
+    href: "/atendimento",
+    label: "Atendimento",
     icon: Headset,
     description: "Minha área de trabalho",
-    badge: "Ativo"
+    badge: "Ativo",
   },
-  { 
-    href: "/clientes", 
-    label: "Clientes", 
+  {
+    href: "/clientes",
+    label: "Clientes",
     icon: Users,
-    description: "Gestão de clientes"
+    description: "Gestão de clientes",
   },
-  { 
-    href: "/vendas", 
-    label: "Vendas", 
+  {
+    href: "/vendas",
+    label: "Vendas",
     icon: ShoppingCart,
-    description: "Histórico de vendas"
+    description: "Histórico de vendas",
   },
-  { 
-    href: "/campanhas", 
-    label: "Campanhas", 
+  {
+    href: "/campanhas",
+    label: "Campanhas",
     icon: Trophy,
-    description: "Incentivos e metas"
+    description: "Incentivos e metas",
   },
-  { 
-    href: "/configuracoes", 
-    label: "Configurações", 
+  {
+    href: "/configuracoes",
+    label: "Configurações",
     icon: Settings,
-    description: "Preferências do sistema"
+    description: "Preferências do sistema",
   },
 ];
 
 interface SidebarProps {
-  isOpen: boolean;
-  onToggle: () => void;
+  user: {
+    email: string;
+    nome: string;
+    canal: string;
+    avatar_url: string | null;
+  };
 }
 
-export function Sidebar({ isOpen, onToggle }: SidebarProps) {
+export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
+  const [isOpen, setIsOpen] = useState(true);
 
   return (
     <aside
@@ -89,7 +93,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
           )}
         </Link>
         <button
-          onClick={onToggle}
+          onClick={() => setIsOpen(!isOpen)}
           className="rounded-lg p-1.5 text-white/60 hover:bg-[#14919B]/20 hover:text-white transition-colors"
         >
           {isOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
@@ -101,7 +105,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
           const Icon = item.icon;
-          
+
           return (
             <Link
               key={item.href}
@@ -114,28 +118,23 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
                   : "text-white/70 hover:bg-[#14919B]/20 hover:text-white"
               )}
             >
-              <Icon size={20} className={cn(
-                "min-w-[20px] transition-transform",
-                isActive && "scale-110"
-              )} />
-              
+              <Icon
+                size={20}
+                className={cn("min-w-[20px] transition-transform", isActive && "scale-110")}
+              />
+
               {isOpen && (
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-medium truncate">{item.label}</span>
                     {item.badge && (
-                      <Badge 
-                        variant="secondary" 
-                        className="bg-emerald-500 text-white border-0 text-xs"
-                      >
+                      <Badge variant="secondary" className="bg-emerald-500 text-white border-0 text-xs">
                         {item.badge}
                       </Badge>
                     )}
                   </div>
                   {isActive && (
-                    <p className="text-xs text-white/70 truncate">
-                      {item.description}
-                    </p>
+                    <p className="text-xs text-white/70 truncate">{item.description}</p>
                   )}
                 </div>
               )}
@@ -153,38 +152,32 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
 
       {/* User */}
       <div className="border-t border-[#14919B]/20 p-4">
-        <div
-          className={cn(
-            "flex items-center gap-3",
-            !isOpen && "flex-col"
-          )}
-        >
+        <div className={cn("flex items-center gap-3", !isOpen && "flex-col")}>
           <Avatar className="h-10 w-10 border-2 border-[#14919B]/30">
-            <AvatarImage src={vendedorAtual.avatar} alt={vendedorAtual.nome} />
+            <AvatarImage src={user.avatar_url ?? undefined} alt={user.nome} />
             <AvatarFallback className="bg-[#14919B] text-white font-semibold">
-              {vendedorAtual.nome.charAt(0)}
+              {user.nome.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          
+
           {isOpen && (
             <div className="flex-1 min-w-0">
-              <p className="truncate text-sm font-medium text-white">
-                {vendedorAtual.nome}
-              </p>
-              <p className="truncate text-xs text-white/60">
-                {vendedorAtual.canal}
-              </p>
+              <p className="truncate text-sm font-medium text-white">{user.nome}</p>
+              <p className="truncate text-xs text-white/60">{user.canal}</p>
             </div>
           )}
-          
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-white/60 hover:text-white hover:bg-[#14919B]/20"
-            title="Sair"
-          >
-            <LogOut size={18} />
-          </Button>
+
+          <form action={logout}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-white/60 hover:text-white hover:bg-[#14919B]/20"
+              title="Sair"
+              type="submit"
+            >
+              <LogOut size={18} />
+            </Button>
+          </form>
         </div>
       </div>
     </aside>
