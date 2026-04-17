@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
+const SERVICE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+const ANON_KEY = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim();
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,12 +13,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
-    const token = authHeader.replace("Bearer ", "");
+    const token = authHeader.replace("Bearer ", "").trim();
 
     // Valida token do usuário
-    const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    const userUrl = `${SUPABASE_URL}/auth/v1/user`;
+    const userRes = await fetch(userUrl, {
       headers: {
-        apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        apikey: ANON_KEY,
         Authorization: `Bearer ${token}`,
       },
     });
@@ -29,15 +31,12 @@ export async function POST(request: NextRequest) {
     const userData = await userRes.json();
     const userId = userData.id;
 
-    console.log("[API] User autenticado:", userId);
-    console.log("[API] SERVICE_KEY presente:", !!SERVICE_KEY);
-    console.log("[API] URL:", SUPABASE_URL);
-
     // Insere cliente via REST API direta com service_role
-    const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/clientes`, {
+    const insertUrl = `${SUPABASE_URL}/rest/v1/clientes`;
+    const insertRes = await fetch(insertUrl, {
       method: "POST",
       headers: {
-        apikey: SERVICE_KEY!,
+        apikey: SERVICE_KEY,
         Authorization: `Bearer ${SERVICE_KEY}`,
         "Content-Type": "application/json",
         Prefer: "return=minimal",
@@ -55,17 +54,13 @@ export async function POST(request: NextRequest) {
       }),
     });
 
-    console.log("[API] Status insert:", insertRes.status, insertRes.statusText);
-
     if (!insertRes.ok) {
       const errorText = await insertRes.text();
-      console.log("[API] Erro insert:", errorText);
       return NextResponse.json({ error: errorText || "Erro ao inserir" }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
-    console.log("[API] Erro geral:", err.message);
     return NextResponse.json({ error: err.message || "Erro interno" }, { status: 500 });
   }
 }
