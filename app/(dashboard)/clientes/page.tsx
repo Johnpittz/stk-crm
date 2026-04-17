@@ -38,7 +38,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
   );
 
   if (busca) {
-    query = query.ilike("nome", `%${busca}%`);
+    query = query.ilike("nome_razao_social", `%${busca}%`);
   }
 
   if (filtroStatus !== "todos") {
@@ -219,17 +219,17 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
                     >
                       <Avatar className="h-12 w-12">
                         <AvatarImage
-                          src={`https://api.dicebear.com/7.x/initials/svg?seed=${cliente.nome}`}
+                          src={`https://api.dicebear.com/7.x/initials/svg?seed=${cliente.nome_razao_social}`}
                         />
                         <AvatarFallback className="bg-slate-200 text-slate-700">
-                          {cliente.nome?.charAt(0) ?? "?"}
+                          {cliente.nome_razao_social?.charAt(0) ?? "?"}
                         </AvatarFallback>
                       </Avatar>
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <h3 className="font-semibold text-slate-900 truncate">
-                            {cliente.nome}
+                            {cliente.nome_razao_social}
                           </h3>
                           {isGrupo && (
                             <Badge variant="secondary" className="bg-purple-100 text-purple-700">
@@ -266,9 +266,9 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
                         <Badge className={cn(statusBadge(cliente.status))}>
                           {statusLabel(cliente.status)}
                         </Badge>
-                        {cliente.ticket_medio > 0 && (
-                          <p className="text-sm font-medium text-slate-900 mt-1">
-                            Ticket: {formatCurrency(cliente.ticket_medio)}
+                        {cliente.cpf_cnpj && (
+                          <p className="text-sm text-slate-500 mt-1">
+                            {cliente.cpf_cnpj}
                           </p>
                         )}
                       </div>

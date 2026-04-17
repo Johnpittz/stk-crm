@@ -59,8 +59,8 @@ export function ModalNovoCliente() {
 
           <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="nome">Nome / Razão Social *</Label>
-              <Input id="nome" name="nome" placeholder="Ex: Rede ABC Ltda" required />
+              <Label htmlFor="nome_razao_social">Nome / Razão Social *</Label>
+              <Input id="nome_razao_social" name="nome_razao_social" placeholder="Ex: Rede ABC Ltda" required />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -93,8 +93,8 @@ export function ModalNovoCliente() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="documento">CNPJ / CPF</Label>
-              <Input id="documento" name="documento" placeholder="00.000.000/0000-00" />
+              <Label htmlFor="cpf_cnpj">CNPJ / CPF</Label>
+              <Input id="cpf_cnpj" name="cpf_cnpj" placeholder="00.000.000/0000-00" />
             </div>
 
             <div className="grid grid-cols-2 gap-4">

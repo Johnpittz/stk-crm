@@ -6,8 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 export async function criarCliente(formData: FormData) {
   const supabase = createClient();
 
-  const nome = formData.get("nome") as string;
-  const documento = formData.get("documento") as string;
+  const nome_razao_social = formData.get("nome_razao_social") as string;
+  const cpf_cnpj = formData.get("cpf_cnpj") as string;
   const telefone = formData.get("telefone") as string;
   const email = formData.get("email") as string;
   const cidade = formData.get("cidade") as string;
@@ -15,7 +15,7 @@ export async function criarCliente(formData: FormData) {
   const status = formData.get("status") as string;
   const tipo = formData.get("tipo") as string;
 
-  if (!nome || !status || !tipo) {
+  if (!nome_razao_social || !status || !tipo) {
     return { error: "Nome, tipo e status são obrigatórios." };
   }
 
@@ -25,8 +25,8 @@ export async function criarCliente(formData: FormData) {
   }
 
   const { error } = await supabase.from("clientes").insert({
-    nome,
-    documento: documento || null,
+    nome_razao_social,
+    cpf_cnpj: cpf_cnpj || null,
     telefone: telefone || null,
     email: email || null,
     cidade: cidade || null,
