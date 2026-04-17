@@ -19,7 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils/cn";
-import { createAdminClient } from "@/lib/supabase/admin-server";
+import { createClient } from "@/lib/supabase/server";
 import { ModalNovoCliente } from "@/components/features/clientes/modal-novo-cliente";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +30,7 @@ interface ClientesPageProps {
 }
 
 export default async function ClientesPage({ searchParams }: ClientesPageProps) {
-  const supabase = createAdminClient();
+  const supabase = createClient();
   const busca = typeof searchParams.q === "string" ? searchParams.q : "";
   const filtroStatus = typeof searchParams.status === "string" ? searchParams.status : "todos";
 
