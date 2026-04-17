@@ -16,8 +16,7 @@ export async function POST(request: NextRequest) {
     const token = authHeader.replace("Bearer ", "").trim();
 
     // Valida token do usuário
-    const userUrl = `${SUPABASE_URL}/auth/v1/user`;
-    const userRes = await fetch(userUrl, {
+    const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
       headers: {
         apikey: ANON_KEY,
         Authorization: `Bearer ${token}`,
@@ -31,9 +30,13 @@ export async function POST(request: NextRequest) {
     const userData = await userRes.json();
     const userId = userData.id;
 
-    // Insere cliente via REST API direta com service_role
-    const insertUrl = `${SUPABASE_URL}/rest/v1/clientes`;
-    const insertRes = await fetch(insertUrl, {
+    // Log para debug
+    console.log("[API] SERVICE_KEY presente:", SERVICE_KEY.length > 0);
+    console.log("[API] SERVICE_KEY primeiros 20 chars:", SERVICE_KEY.substring(0, 20));
+    console.log("[API] SERVICE_KEY últimos 10 chars:", SERVICE_KEY.substring(SERVICE_KEY.length - 10));
+
+    // Tenta inserir com service_role
+    const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/clientes`, {
       method: "POST",
       headers: {
         apikey: SERVICE_KEY,
@@ -56,6 +59,7 @@ export async function POST(request: NextRequest) {
 
     if (!insertRes.ok) {
       const errorText = await insertRes.text();
+      console.log("[API] Erro insert:", errorText);
       return NextResponse.json({ error: errorText || "Erro ao inserir" }, { status: 500 });
     }
 

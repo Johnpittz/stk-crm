@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,7 @@ export function ModalNovoCliente() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
   const supabase = createClient();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -66,7 +68,7 @@ export function ModalNovoCliente() {
     }
 
     setOpen(false);
-    window.location.reload();
+    router.refresh();
   }
 
   return (
