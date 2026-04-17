@@ -35,10 +35,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
   const filtroStatus = typeof searchParams.status === "string" ? searchParams.status : "todos";
 
   // Busca clientes do banco
-  let query = supabase.from("clientes").select(
-    "*, grupos_economicos!clientes_grupo_economico_id_fkey(nome)",
-    { count: "exact" }
-  );
+  let query = supabase.from("clientes").select("*", { count: "exact" });
 
   if (busca) {
     query = query.ilike("nome_razao_social", `%${busca}%`);
@@ -48,7 +45,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
     query = query.eq("status", filtroStatus);
   }
 
-  const { data: clientes, error, count } = await query.order("nome", { ascending: true });
+  const { data: clientes, error, count } = await query.order("nome_razao_social", { ascending: true });
 
   // Estatísticas
   const { data: statsData, error: statsError } = await supabase
@@ -57,9 +54,9 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
 
   const stats = {
     total: statsData?.length ?? 0,
-    ativos: statsData?.filter((c) => c.status === "ativo").length ?? 0,
-    churn: statsData?.filter((c) => c.status === "churn").length ?? 0,
-    prospects: statsData?.filter((c) => c.status === "prospect").length ?? 0,
+    ativos: statsData?.filter((c: any) => c.status === "ativo").length ?? 0,
+    churn: statsData?.filter((c: any) => c.status === "churn").length ?? 0,
+    prospects: statsData?.filter((c: any) => c.status === "prospect").length ?? 0,
   };
 
   const formatCurrency = (value: number | null) =>
@@ -207,13 +204,24 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
             </Button>
           </form>
 
+          {/* Debug: mostrar erros */}
+          {error && (
+            <div className="rounded-md bg-red-50 p-3 text-sm text-red-600 mb-4">
+              <strong>Erro na query:</strong> {error.message} (code: {error.code})
+            </div>
+          )}
+          {statsError && (
+            <div className="rounded-md bg-red-50 p-3 text-sm text-red-600 mb-4">
+              <strong>Erro nas estatísticas:</strong> {statsError.message} (code: {statsError.code})
+            </div>
+          )}
+
           {/* Tabela */}
           <ScrollArea className="h-[500px]">
             <div className="space-y-2">
               {clientes && clientes.length > 0 ? (
                 clientes.map((cliente: any) => {
                   const semCompra = diasSemCompra(cliente.data_ultima_compra);
-                  const isGrupo = !!cliente.grupo_economico_id;
 
                   return (
                     <div
@@ -234,7 +242,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
                           <h3 className="font-semibold text-slate-900 truncate">
                             {cliente.nome_razao_social}
                           </h3>
-                          {isGrupo && (
+                          {cliente.grupo_economico_id && (
                             <Badge variant="secondary" className="bg-purple-100 text-purple-700">
                               <Building2 className="h-3 w-3 mr-1" />
                               Grupo
