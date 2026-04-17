@@ -40,6 +40,7 @@ export default function ConfiguracoesPage() {
           <TabsTrigger value="seguranca">Segurança</TabsTrigger>
           <TabsTrigger value="aparencia">Aparência</TabsTrigger>
           <TabsTrigger value="integracoes">Integrações</TabsTrigger>
+          <TabsTrigger value="equipe">Equipe</TabsTrigger>
         </TabsList>
 
         {/* Perfil */}
@@ -347,6 +348,27 @@ export default function ConfiguracoesPage() {
                   )}
                 </div>
               ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Equipe */}
+        <TabsContent value="equipe" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Gestão de Vendedores</CardTitle>
+              <CardDescription>
+                Cadastre, edite e gerencie os vendedores da equipe.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-slate-500 mb-4">
+                Acesse a página de vendedores para visualizar todos os membros da equipe,
+                seus cargos, status e permissões.
+              </p>
+              <Button asChild>
+                <a href="/configuracoes/vendedores">Gerenciar Vendedores</a>
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
