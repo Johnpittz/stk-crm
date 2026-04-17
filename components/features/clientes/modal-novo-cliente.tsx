@@ -14,25 +14,59 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { criarCliente } from "@/app/(dashboard)/clientes/actions";
+import { createClient } from "@/lib/supabase/client";
 
 export function ModalNovoCliente() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const supabase = createClient();
 
-  async function handleSubmit(formData: FormData) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
     setLoading(true);
     setError(null);
-    const result = await criarCliente(formData);
+
+    const formData = new FormData(e.currentTarget);
+    const body = {
+      nome_razao_social: formData.get("nome_razao_social") as string,
+      cpf_cnpj: formData.get("cpf_cnpj") as string,
+      telefone: formData.get("telefone") as string,
+      email: formData.get("email") as string,
+      cidade: formData.get("cidade") as string,
+      estado: formData.get("estado") as string,
+      status: formData.get("status") as string,
+      tipo: formData.get("tipo") as string,
+    };
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+
+    if (!token) {
+      setError("Sessão expirada. Faça login novamente.");
+      setLoading(false);
+      return;
+    }
+
+    const res = await fetch("/api/clientes", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const result = await res.json();
     setLoading(false);
 
-    if (result.error) {
-      setError(result.error);
+    if (!res.ok) {
+      setError(result.error || "Erro ao salvar cliente.");
       return;
     }
 
     setOpen(false);
+    window.location.reload();
   }
 
   return (
@@ -50,7 +84,7 @@ export function ModalNovoCliente() {
             Preencha os dados do cliente para cadastrá-lo no sistema.
           </DialogDescription>
         </DialogHeader>
-        <form action={handleSubmit} className="space-y-4 py-4">
+        <form onSubmit={handleSubmit} className="space-y-4 py-4">
           {error && (
             <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">
               {error}
