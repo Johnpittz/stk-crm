@@ -22,6 +22,9 @@ import { cn } from "@/lib/utils/cn";
 import { createClient } from "@/lib/supabase/server";
 import { ModalNovoCliente } from "@/components/features/clientes/modal-novo-cliente";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 interface ClientesPageProps {
   searchParams: { [key: string]: string | string[] | undefined };
 }
