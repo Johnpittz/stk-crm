@@ -2,9 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function criarCliente(formData: FormData) {
-  const supabase = createClient();
+  // Verifica autenticação com o client normal
+  const authClient = createClient();
+  const { data: userData, error: userError } = await authClient.auth.getUser();
+
+  if (userError || !userData?.user) {
+    return { error: "Usuário não autenticado." };
+  }
+
+  const supabase = createAdminClient();
 
   const nome_razao_social = formData.get("nome_razao_social") as string;
   const cpf_cnpj = formData.get("cpf_cnpj") as string;
@@ -17,11 +26,6 @@ export async function criarCliente(formData: FormData) {
 
   if (!nome_razao_social || !status || !tipo) {
     return { error: "Nome, tipo e status são obrigatórios." };
-  }
-
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  if (userError || !userData.user) {
-    return { error: "Usuário não autenticado." };
   }
 
   const { error } = await supabase.from("clientes").insert({
