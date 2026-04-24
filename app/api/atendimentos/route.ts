@@ -1,9 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/atendimentos - lista atendimentos (tickets) do vendedor
+// GET /api/atendimentos?status=aberto - lista atendimentos do vendedor logado
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -14,12 +15,29 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status") || "aberto";
 
-  const { data: atendimentos, error } = await supabase
+  // Busca perfil do usuário para verificar se é gestor/admin
+  const { data: meuPerfil } = await supabase
+    .from("profiles")
+    .select("cargo")
+    .eq("id", user.id)
+    .single();
+
+  const isGestor = ["diretor", "admin", "gerente_comercial"].includes(meuPerfil?.cargo || "");
+
+  let query = supabase
     .from("atendimentos")
-    .select("*, clientes(id, nome_razao_social)")
-    .eq("vendedor_id", user.id)
+    .select("*, clientes(id, nome_razao_social), ultima_mensagem_remetente, nao_lido")
     .eq("status", status)
     .order("ultima_mensagem_data", { ascending: false });
+
+  if (isGestor) {
+    // Gestor vê todos os atendimentos
+  } else {
+    // Vendedor vê seus atendimentos + atendimentos não atribuídos (fila geral)
+    query = query.or(`vendedor_id.eq.${user.id},vendedor_id.is.null`);
+  }
+
+  const { data: atendimentos, error } = await query;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -28,133 +46,95 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ atendimentos: atendimentos || [] });
 }
 
-// POST /api/atendimentos - recebe webhook do WhatsApp (ou cria manual)
+// POST /api/atendimentos - cria atendimento (simulacao ou webhook)
 export async function POST(request: NextRequest) {
   const body = await request.json();
 
-  // Se tem authorization, é criação manual pelo usuário logado
-  const authHeader = request.headers.get("authorization") || "";
-  const isWebhook = !authHeader.startsWith("Bearer");
+  const {
+    telefone_cliente,
+    nome_cliente,
+    mensagem,
+    canal = "whatsapp",
+  } = body;
 
-  if (isWebhook) {
-    // Webhook do WhatsApp - precisa de token de verificação
-    const webhookToken = request.headers.get("x-webhook-token") || "";
-    const expectedToken = process.env.WEBHOOK_SECRET || "";
+  if (!telefone_cliente) {
+    return NextResponse.json({ error: "Telefone é obrigatório" }, { status: 400 });
+  }
 
-    if (webhookToken !== expectedToken && expectedToken !== "") {
-      return NextResponse.json({ error: "Token inválido" }, { status: 401 });
-    }
+  // Sempre usa service_role para bypassar RLS na API server-side
+  const supabaseAdmin = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
 
-    const {
-      telefone_cliente,
-      nome_cliente,
-      mensagem,
-      canal = "whatsapp",
-    } = body;
+  // Busca cliente pelo telefone (limpa non-digits)
+  const telefoneLimpo = telefone_cliente.replace(/\D/g, "");
+  
+  // Busca ampla: telefone ou celular contendo parte do número (para lidar com formatos como (055) 623578-2650)
+  const { data: clientesCandidatos } = await supabaseAdmin
+    .from("clientes")
+    .select("id, vendedor_responsavel_id, nome_razao_social, telefone, celular")
+    .or(`telefone.ilike.%${telefoneLimpo.substring(0, 6)}%,celular.ilike.%${telefoneLimpo.substring(0, 6)}%`)
+    .limit(50);
 
-    if (!telefone_cliente) {
-      return NextResponse.json({ error: "Telefone é obrigatório" }, { status: 400 });
-    }
+  // Filtra no JS comparando apenas os dígitos
+  const cliente = clientesCandidatos?.find((c) => {
+    const telLimpo = (c.telefone || "").replace(/\D/g, "");
+    const celLimpo = (c.celular || "").replace(/\D/g, "");
+    return telLimpo === telefoneLimpo || celLimpo === telefoneLimpo ||
+           telLimpo.endsWith(telefoneLimpo) || celLimpo.endsWith(telefoneLimpo) ||
+           telefoneLimpo.endsWith(telLimpo) || telefoneLimpo.endsWith(celLimpo);
+  });
 
-    // Usa service_role para bypassar RLS no webhook
-    const { createClient: createServiceClient } = await import("@supabase/supabase-js");
-    const supabaseAdmin = createServiceClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+  const clienteId = cliente?.id || null;
+  const vendedorId = cliente?.vendedor_responsavel_id || null;
+  const nomeCliente = nome_cliente || cliente?.nome_razao_social || "Cliente";
 
-    // Busca cliente pelo telefone
-    const { data: cliente } = await supabaseAdmin
-      .from("clientes")
-      .select("id, vendedor_responsavel_id, nome_razao_social")
-      .or(`telefone.eq.${telefone_cliente},celular.eq.${telefone_cliente}`)
-      .limit(1)
-      .single();
+  // Verifica se já existe atendimento aberto para esse telefone
+  const { data: existente } = await supabaseAdmin
+    .from("atendimentos")
+    .select("id")
+    .eq("telefone_cliente", telefoneLimpo)
+    .eq("status", "aberto")
+    .limit(1)
+    .single();
 
-    const clienteId = cliente?.id || null;
-    const vendedorId = cliente?.vendedor_responsavel_id || null;
-    const nomeCliente = nome_cliente || cliente?.nome_razao_social || "Cliente";
-
-    // Verifica se já existe atendimento aberto para esse cliente/vendedor
-    const { data: existente } = await supabaseAdmin
+  if (existente) {
+    await supabaseAdmin
       .from("atendimentos")
-      .select("id")
-      .eq("telefone_cliente", telefone_cliente)
-      .eq("status", "aberto")
-      .limit(1)
-      .single();
-
-    if (existente) {
-      // Atualiza o existente
-      await supabaseAdmin
-        .from("atendimentos")
-        .update({
-          ultima_mensagem: mensagem,
-          ultima_mensagem_data: new Date().toISOString(),
-          vendedor_id: vendedorId,
-        })
-        .eq("id", existente.id);
-
-      return NextResponse.json({ success: true, atendimento_id: existente.id, updated: true });
-    }
-
-    // Cria novo atendimento
-    const { data: atendimento, error } = await supabaseAdmin
-      .from("atendimentos")
-      .insert({
-        cliente_id: clienteId,
-        vendedor_id: vendedorId,
-        canal,
-        telefone_cliente: telefone_cliente,
-        nome_cliente: nomeCliente,
-        status: "aberto",
-        assunto: mensagem?.substring(0, 100) || "Nova mensagem",
+      .update({
         ultima_mensagem: mensagem,
         ultima_mensagem_data: new Date().toISOString(),
-      })
-      .select()
-      .single();
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    // Se tem vendedor, cria tarefa urgente no kanban dele
-    if (vendedorId) {
-      await supabaseAdmin.from("tarefas").insert({
         vendedor_id: vendedorId,
+        nome_cliente: nomeCliente,
         cliente_id: clienteId,
-        titulo: `WhatsApp: ${nomeCliente}`,
-        descricao: mensagem?.substring(0, 200),
-        tipo: "whatsapp",
-        prioridade: "alta",
-        status: "pendente",
-        coluna_kanban: "a_fazer",
-        data_inicio: new Date().toISOString().split("T")[0],
-      });
-    }
+      })
+      .eq("id", existente.id);
 
-    return NextResponse.json({ success: true, atendimento_id: atendimento.id });
+    // Adiciona mensagem no histórico
+    await supabaseAdmin.from("atendimento_mensagens").insert({
+      atendimento_id: existente.id,
+      remetente: "cliente",
+      conteudo: mensagem,
+    });
+
+    return NextResponse.json({ success: true, atendimento_id: existente.id, updated: true });
   }
 
-  // Criação manual (usuário logado)
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-  }
-
-  const { cliente_id, assunto, telefone_cliente, nome_cliente } = body;
-
-  const { data: atendimento, error } = await supabase
+  // Cria novo atendimento
+  const { data: atendimento, error } = await supabaseAdmin
     .from("atendimentos")
     .insert({
-      cliente_id: cliente_id || null,
-      vendedor_id: user.id,
-      telefone_cliente: telefone_cliente || null,
-      nome_cliente: nome_cliente || null,
-      assunto: assunto || "Atendimento manual",
+      cliente_id: clienteId,
+      vendedor_id: vendedorId,
+      canal,
+      telefone_cliente: telefoneLimpo,
+      nome_cliente: nomeCliente,
       status: "aberto",
+      prioridade: clienteId ? "normal" : "alta",
+      assunto: mensagem?.substring(0, 100) || "Nova mensagem",
+      ultima_mensagem: mensagem,
+      ultima_mensagem_data: new Date().toISOString(),
     })
     .select()
     .single();
@@ -163,10 +143,32 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ success: true, atendimento });
+  // Adiciona mensagem inicial no histórico
+  await supabaseAdmin.from("atendimento_mensagens").insert({
+    atendimento_id: atendimento.id,
+    remetente: "cliente",
+    conteudo: mensagem,
+  });
+
+  // Se tem vendedor responsavel, cria tarefa no kanban dele
+  if (vendedorId) {
+    await supabaseAdmin.from("tarefas").insert({
+      vendedor_id: vendedorId,
+      cliente_id: clienteId,
+      titulo: `WhatsApp: ${nomeCliente}`,
+      descricao: mensagem?.substring(0, 200) || "Nova mensagem recebida",
+      tipo: "whatsapp",
+      prioridade: "alta",
+      status: "pendente",
+      coluna_kanban: "a_fazer",
+      data_inicio: new Date().toISOString().split("T")[0],
+    });
+  }
+
+  return NextResponse.json({ success: true, atendimento_id: atendimento.id, cliente_encontrado: !!clienteId });
 }
 
-// PATCH /api/atendimentos - fecha ou transfere atendimento
+// PATCH /api/atendimentos - fecha, transfere ou assume atendimento
 export async function PATCH(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -175,7 +177,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { id, status, vendedor_id } = body;
+  const { id, status, vendedor_id, assumir } = body;
 
   if (!id) {
     return NextResponse.json({ error: "ID é obrigatório" }, { status: 400 });
@@ -189,6 +191,10 @@ export async function PATCH(request: NextRequest) {
     updateData.transbordado = true;
     updateData.data_transbordo = new Date().toISOString();
   }
+  if (assumir) {
+    // Vendedor assume atendimento não atribuído
+    updateData.vendedor_id = user.id;
+  }
 
   const { data: atendimento, error } = await supabase
     .from("atendimentos")
@@ -199,6 +205,21 @@ export async function PATCH(request: NextRequest) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // Se assumiu o atendimento, cria tarefa no kanban
+  if (assumir && atendimento) {
+    await supabase.from("tarefas").insert({
+      vendedor_id: user.id,
+      cliente_id: atendimento.cliente_id,
+      titulo: `WhatsApp: ${atendimento.nome_cliente || "Cliente"}`,
+      descricao: atendimento.ultima_mensagem?.substring(0, 200) || "Atendimento assumido",
+      tipo: "whatsapp",
+      prioridade: "alta",
+      status: "pendente",
+      coluna_kanban: "a_fazer",
+      data_inicio: new Date().toISOString().split("T")[0],
+    });
   }
 
   return NextResponse.json({ success: true, atendimento });

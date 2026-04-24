@@ -6,9 +6,9 @@ import { PerformanceRealTime } from "@/components/features/atendimento/performan
 import { KanbanTarefas } from "@/components/features/atendimento/kanban-tarefas";
 import { AgendaDia } from "@/components/features/atendimento/agenda-dia";
 import { MotorOportunidades } from "@/components/features/atendimento/motor-oportunidades";
+import { ListaAtendimentos } from "@/components/features/atendimento/lista-atendimentos";
 import { TogglePresenca } from "@/components/features/atendimento/toggle-presenca";
-import { PainelIncentivos } from "@/components/features/atendimento/painel-incentivos";
-import { ClipboardList, Target, Trophy } from "lucide-react";
+import { ClipboardList, Target, MessageCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export default function AtendimentoPage() {
@@ -33,11 +33,10 @@ export default function AtendimentoPage() {
           <TabsTrigger value="oportunidades" className="gap-1 text-xs">
             <Target className="h-3.5 w-3.5" />
             Oportunidades
-            <Badge variant="secondary" className="h-4 px-1 text-[9px] bg-red-100 text-red-700">5</Badge>
           </TabsTrigger>
-          <TabsTrigger value="campanhas" className="gap-1 text-xs">
-            <Trophy className="h-3.5 w-3.5" />
-            Campanhas
+          <TabsTrigger value="atendimentos" className="gap-1 text-xs">
+            <MessageCircle className="h-3.5 w-3.5" />
+            Atendimentos
           </TabsTrigger>
         </TabsList>
 
@@ -63,10 +62,10 @@ export default function AtendimentoPage() {
             </div>
           </TabsContent>
 
-          {/* ABA 3: CAMPANHAS */}
-          <TabsContent value="campanhas" className="h-full mt-0 data-[state=inactive]:hidden">
+          {/* ABA 3: ATENDIMENTOS WHATSAPP */}
+          <TabsContent value="atendimentos" className="h-full mt-0 data-[state=inactive]:hidden">
             <div className="h-full overflow-hidden">
-              <PainelIncentivos />
+              <ListaAtendimentos />
             </div>
           </TabsContent>
         </div>
