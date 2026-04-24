@@ -8,7 +8,9 @@ import {
   Headset,
   Users,
   ShoppingCart,
+  Package,
   Trophy,
+  Briefcase,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -20,51 +22,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { logout } from "@/app/(dashboard)/actions";
 
-const navItems = [
-  {
-    href: "/dashboard",
-    label: "Dashboard",
-    icon: LayoutDashboard,
-    description: "Visão gerencial",
-  },
-  {
-    href: "/atendimento",
-    label: "Atendimento",
-    icon: Headset,
-    description: "Minha área de trabalho",
-    badge: "Ativo",
-  },
-  {
-    href: "/clientes",
-    label: "Clientes",
-    icon: Users,
-    description: "Gestão de clientes",
-  },
-  {
-    href: "/vendas",
-    label: "Vendas",
-    icon: ShoppingCart,
-    description: "Histórico de vendas",
-  },
-  {
-    href: "/campanhas",
-    label: "Campanhas",
-    icon: Trophy,
-    description: "Incentivos e metas",
-  },
-  {
-    href: "/configuracoes",
-    label: "Configurações",
-    icon: Settings,
-    description: "Preferências do sistema",
-  },
-];
-
 interface SidebarProps {
   user: {
     email: string;
     nome: string;
     canal: string;
+    cargo: string;
     avatar_url: string | null;
   };
 }
@@ -72,6 +35,60 @@ interface SidebarProps {
 export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(true);
+
+  const isGestor = ['gerente_comercial', 'diretor', 'admin'].includes(user.cargo);
+
+  const navItems = [
+    {
+      href: "/dashboard",
+      label: "Dashboard",
+      icon: LayoutDashboard,
+      description: "Visão gerencial",
+    },
+    {
+      href: "/atendimento",
+      label: "Atendimento",
+      icon: Headset,
+      description: "Minha área de trabalho",
+      badge: "Ativo",
+    },
+    {
+      href: "/clientes",
+      label: "Clientes",
+      icon: Users,
+      description: "Gestão de clientes",
+    },
+    {
+      href: "/vendas",
+      label: "Vendas",
+      icon: ShoppingCart,
+      description: "Histórico de vendas",
+    },
+    {
+      href: "/produtos",
+      label: "Produtos",
+      icon: Package,
+      description: "Catálogo de produtos",
+    },
+    {
+      href: "/campanhas",
+      label: "Campanhas",
+      icon: Trophy,
+      description: "Incentivos e metas",
+    },
+    ...(isGestor ? [{
+      href: "/equipes",
+      label: "Equipes",
+      icon: Briefcase,
+      description: "Gestão da equipe",
+    }] : []),
+    {
+      href: "/configuracoes",
+      label: "Configurações",
+      icon: Settings,
+      description: "Preferências do sistema",
+    },
+  ];
 
   return (
     <aside

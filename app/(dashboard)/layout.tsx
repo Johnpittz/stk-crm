@@ -34,6 +34,7 @@ export default async function DashboardLayout({
     email: data.user.email ?? "",
     nome: profile?.nome_completo ?? data.user.email?.split("@")[0] ?? "Usuário",
     canal: profile?.cargo ?? "Comercial",
+    cargo: profile?.cargo ?? "vendedor",
     avatar_url: profile?.avatar_url ?? null,
   };
 
@@ -51,6 +52,7 @@ function DashboardShell({
     email: string;
     nome: string;
     canal: string;
+    cargo: string;
     avatar_url: string | null;
   };
 }) {
