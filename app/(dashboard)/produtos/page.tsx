@@ -95,7 +95,6 @@ export default function ProdutosPage() {
 
       setProdutos(data.produtos || []);
       setTotal(data.total || 0);
-      setFiltros(data.filtros || { marcas: [], categorias: [], status: [] });
     } catch (err: any) {
       setError(err.message || "Erro inesperado");
     } finally {
@@ -103,9 +102,36 @@ export default function ProdutosPage() {
     }
   };
 
+  // Busca filtros apenas 1x no mount
+  const fetchFiltros = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const res = await fetch("/api/produtos/filtros", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setFiltros({
+          marcas: data.marcas || [],
+          categorias: data.categorias || [],
+          status: data.status || [],
+        });
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     fetchProdutos();
   }, [busca, filtroMarca, filtroCategoria, filtroStatus, offset]);
+
+  useEffect(() => {
+    fetchFiltros();
+  }, []);
 
   const formatCurrency = (value: number | null) => {
     if (value === null || value === undefined) return "—";

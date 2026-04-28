@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { MessageCircle, Phone, Check, X, Loader2, User, Hand } from "lucide-react";
+import { useState } from "react";
+import { MessageCircle, Check, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,66 +25,16 @@ interface Atendimento {
   clientes: { id: string; nome_razao_social: string } | null;
 }
 
-export function ListaAtendimentos() {
-  const [atendimentos, setAtendimentos] = useState<Atendimento[]>([]);
-  const [loading, setLoading] = useState(true);
+interface ListaAtendimentosProps {
+  atendimentos: Atendimento[];
+  loading: boolean;
+  onRefresh: () => void;
+}
+
+export function ListaAtendimentos({ atendimentos, loading, onRefresh }: ListaAtendimentosProps) {
   const [chatAberto, setChatAberto] = useState(false);
   const [atendimentoSelecionado, setAtendimentoSelecionado] = useState<Atendimento | null>(null);
   const supabase = createClient();
-
-  const fetchAtendimentos = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const res = await fetch("/api/atendimentos", {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        setAtendimentos(data.atendimentos || []);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [supabase]);
-
-  useEffect(() => {
-    fetchAtendimentos();
-  }, [fetchAtendimentos]);
-
-  // Realtime: escuta atualizações na tabela atendimentos
-  useEffect(() => {
-    const channel = supabase
-      .channel("atendimentos-realtime-lista")
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "atendimentos",
-        },
-        (payload) => {
-          const atualizado = payload.new as Atendimento;
-          setAtendimentos((prev) =>
-            prev.map((a) =>
-              a.id === atualizado.id
-                ? { ...a, ultima_mensagem: atualizado.ultima_mensagem, ultima_mensagem_data: atualizado.ultima_mensagem_data }
-                : a
-            )
-          );
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [supabase]);
 
   const handleFechar = async (id: string) => {
     try {
@@ -101,7 +51,7 @@ export function ListaAtendimentos() {
       });
 
       if (res.ok) {
-        setAtendimentos((prev) => prev.filter((a) => a.id !== id));
+        onRefresh();
       }
     } catch (err) {
       console.error(err);
@@ -123,18 +73,11 @@ export function ListaAtendimentos() {
       });
 
       if (res.ok) {
-        // Remove da lista local (vai para o kanban)
-        setAtendimentos((prev) => prev.filter((a) => a.id !== id));
+        onRefresh();
       }
     } catch (err) {
       console.error(err);
     }
-  };
-
-  const formatData = (data: string) => {
-    if (!data) return "";
-    const d = new Date(data);
-    return d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
   };
 
   return (
@@ -146,7 +89,7 @@ export function ListaAtendimentos() {
             Atendimentos WhatsApp
             <Badge variant="secondary">{atendimentos.length}</Badge>
           </CardTitle>
-          <SimularWhatsAppModal onSuccess={fetchAtendimentos} />
+          <SimularWhatsAppModal onSuccess={onRefresh} />
         </div>
       </CardHeader>
       <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
@@ -158,98 +101,110 @@ export function ListaAtendimentos() {
         ) : atendimentos.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-slate-400 text-sm gap-3">
             <p>Nenhum atendimento pendente</p>
-            <SimularWhatsAppModal onSuccess={fetchAtendimentos} />
+            <SimularWhatsAppModal onSuccess={onRefresh} />
           </div>
         ) : (
           <ScrollArea className="h-full px-3">
             <div className="space-y-2">
-              {atendimentos.map((a) => (
-                <div
-                  key={a.id}
-                  className="p-3 rounded-lg border border-slate-200 bg-white shadow-sm cursor-pointer hover:border-green-300 hover:shadow-md transition-all"
-                  onClick={() => {
-                    setAtendimentoSelecionado(a);
-                    setChatAberto(true);
-                  }}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={cn("text-sm", a.nao_lido ? "font-bold text-slate-900" : "font-semibold text-slate-700")}>
-                          {a.clientes?.nome_razao_social || a.nome_cliente || "Cliente nao identificado"}
+              {atendimentos.map((a) => {
+                const isNaoLido = a.nao_lido;
+                const isCliente = a.ultima_mensagem_remetente === "cliente";
+                const hora = a.ultima_mensagem_data
+                  ? new Date(a.ultima_mensagem_data).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+                  : "";
+                const iniciais = (a.clientes?.nome_razao_social || a.nome_cliente || "C").substring(0, 2).toUpperCase();
+
+                return (
+                  <div
+                    key={a.id}
+                    className={cn(
+                      "flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-all",
+                      isNaoLido
+                        ? "bg-green-50/60 border border-green-200 hover:bg-green-50"
+                        : "bg-white border border-slate-200 hover:border-green-300 hover:shadow-sm"
+                    )}
+                    onClick={() => {
+                      setAtendimentoSelecionado(a);
+                      setChatAberto(true);
+                    }}
+                  >
+                    {/* Avatar */}
+                    <div className="relative shrink-0">
+                      <div
+                        className={cn(
+                          "h-12 w-12 rounded-full flex items-center justify-center text-sm font-bold",
+                          isNaoLido ? "bg-green-600 text-white" : "bg-slate-200 text-slate-600"
+                        )}
+                      >
+                        {iniciais}
+                      </div>
+                      {isNaoLido && (
+                        <span className="absolute -top-0.5 -right-0.5 h-4 w-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center border-2 border-white">
+                          1
                         </span>
-                        {a.nao_lido && (
-                          <span className="h-2 w-2 bg-green-500 rounded-full animate-pulse" title="Nova mensagem" />
-                        )}
-                        {a.transbordado && (
-                          <Badge variant="secondary" className="bg-amber-100 text-amber-700 text-[10px]">
-                            Transbordado
-                          </Badge>
-                        )}
-                        {!a.transbordado && !a.clientes && (
-                          <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-[10px]">
-                            Não atribuído
-                          </Badge>
-                        )}
-                      </div>
-
-                      <p className="text-xs text-slate-500 flex items-center gap-1">
-                        <Phone className="h-3 w-3" />
-                        {a.telefone_cliente}
-                      </p>
-
-                      {a.ultima_mensagem && (
-                        <p className={cn("text-xs mt-1 bg-slate-50 p-2 rounded", a.nao_lido ? "text-slate-900 font-medium" : "text-slate-500")}>
-                          {a.ultima_mensagem_remetente === 'vendedor' ? (
-                            <span className="text-slate-400">Você: </span>
-                          ) : null}
-                          {a.ultima_mensagem}
-                        </p>
                       )}
-
-                      {a.ultima_mensagem_data && (
-                        <p className="text-[10px] text-slate-400 mt-1">
-                          {formatData(a.ultima_mensagem_data)}
-                        </p>
-                      )}
-
-                      <div className="flex items-center gap-2 mt-2">
-                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1">
-                          <Phone className="h-3 w-3" />
-                          Ligar
-                        </Button>
-                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-green-600 text-green-700 hover:bg-green-50">
-                          <MessageCircle className="h-3 w-3" />
-                          Whats
-                        </Button>
-                        {!a.clientes && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-xs gap-1 border-purple-600 text-purple-700 hover:bg-purple-50"
-                            onClick={() => handleAssumir(a.id)}
-                          >
-                            <Hand className="h-3 w-3" />
-                            Assumir
-                          </Button>
-                        )}
-                      </div>
                     </div>
 
-                    <div className="flex flex-col gap-1">
+                    {/* Conteudo */}
+                    <div className="flex-1 min-w-0">
+                      {/* Linha topo: nome + hora + badges */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={cn("text-sm truncate", isNaoLido ? "font-bold text-slate-900" : "font-semibold text-slate-700")}>
+                          {a.clientes?.nome_razao_social || a.nome_cliente || "Cliente não identificado"}
+                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {hora && (
+                            <span className={cn("text-[11px]", isNaoLido ? "text-green-700 font-medium" : "text-slate-400")}>
+                              {hora}
+                            </span>
+                          )}
+                          {isNaoLido && (
+                            <Badge className="h-5 text-[10px] bg-red-500 text-white border-0 px-1.5">NOVO</Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Preview mensagem */}
+                      {a.ultima_mensagem && (
+                        <div className="flex items-center gap-1 mt-0.5">
+                          {a.ultima_mensagem_remetente === "vendedor" ? (
+                            <Check className="h-3 w-3 text-green-500 shrink-0" />
+                          ) : isNaoLido ? (
+                            <span className="h-2 w-2 bg-green-500 rounded-full shrink-0 animate-pulse" />
+                          ) : null}
+                          <p className={cn("text-xs truncate", isNaoLido && isCliente ? "text-slate-900 font-medium" : "text-slate-500")}>
+                            {a.ultima_mensagem_remetente === "vendedor" ? (
+                              <span className="text-slate-400">Você: </span>
+                            ) : (
+                              <span className={isNaoLido ? "text-green-700 font-medium" : "text-slate-400"}>Cliente: </span>
+                            )}
+                            {a.ultima_mensagem}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Telefone */}
+                      <p className="text-[10px] text-slate-400 mt-0.5">{a.telefone_cliente}</p>
+                    </div>
+
+                    {/* Acoes rapidas */}
+                    <div className="flex flex-col gap-1 shrink-0">
                       <Button
                         size="icon"
                         variant="ghost"
                         className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                        onClick={() => handleFechar(a.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleFechar(a.id);
+                        }}
                         title="Marcar como resolvido"
                       >
                         <Check className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </ScrollArea>
         )}
@@ -263,7 +218,7 @@ export function ListaAtendimentos() {
           setAtendimentoSelecionado(null);
         }}
         onMarcarResolvido={handleFechar}
-        onMensagemEnviada={fetchAtendimentos}
+        onMensagemEnviada={onRefresh}
       />
     </Card>
   );

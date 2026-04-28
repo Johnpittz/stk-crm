@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PerformanceRealTime } from "@/components/features/atendimento/performance-realtime";
 import { KanbanTarefas } from "@/components/features/atendimento/kanban-tarefas";
@@ -9,10 +9,55 @@ import { MotorOportunidades } from "@/components/features/atendimento/motor-opor
 import { ListaAtendimentos } from "@/components/features/atendimento/lista-atendimentos";
 import { TogglePresenca } from "@/components/features/atendimento/toggle-presenca";
 import { ClipboardList, Target, MessageCircle } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { createClient } from "@/lib/supabase/client";
+
+interface Atendimento {
+  id: string;
+  telefone_cliente: string;
+  nome_cliente: string;
+  assunto: string;
+  ultima_mensagem: string;
+  ultima_mensagem_data: string;
+  status: string;
+  transbordado: boolean;
+  nao_lido: boolean;
+  ultima_mensagem_remetente: string | null;
+  clientes: { id: string; nome_razao_social: string } | null;
+}
 
 export default function AtendimentoPage() {
   const [abaAtiva, setAbaAtiva] = useState("trabalho");
+  const [atendimentos, setAtendimentos] = useState<Atendimento[]>([]);
+  const [loadingAtendimentos, setLoadingAtendimentos] = useState(true);
+  const supabase = createClient();
+
+  const fetchAtendimentos = useCallback(async () => {
+    setLoadingAtendimentos(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const res = await fetch("/api/atendimentos", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setAtendimentos(data.atendimentos || []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingAtendimentos(false);
+    }
+  }, [supabase]);
+
+  // Busca atendimentos ao carregar a página (para contador de não lidos)
+  useEffect(() => {
+    fetchAtendimentos();
+  }, [fetchAtendimentos]);
+
+  const naoLidosCount = atendimentos.filter((a) => a.nao_lido).length;
 
   return (
     <div className="h-[calc(100vh-9rem)] flex flex-col overflow-hidden">
@@ -34,9 +79,14 @@ export default function AtendimentoPage() {
             <Target className="h-3.5 w-3.5" />
             Oportunidades
           </TabsTrigger>
-          <TabsTrigger value="atendimentos" className="gap-1 text-xs">
+          <TabsTrigger value="atendimentos" className="gap-1 text-xs relative">
             <MessageCircle className="h-3.5 w-3.5" />
             Atendimentos
+            {naoLidosCount > 0 && (
+              <span className="absolute -top-1 -right-1 h-4 min-w-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                {naoLidosCount}
+              </span>
+            )}
           </TabsTrigger>
         </TabsList>
 
@@ -65,7 +115,11 @@ export default function AtendimentoPage() {
           {/* ABA 3: ATENDIMENTOS WHATSAPP */}
           <TabsContent value="atendimentos" className="h-full mt-0 data-[state=inactive]:hidden">
             <div className="h-full overflow-hidden">
-              <ListaAtendimentos />
+              <ListaAtendimentos 
+                atendimentos={atendimentos} 
+                loading={loadingAtendimentos}
+                onRefresh={fetchAtendimentos}
+              />
             </div>
           </TabsContent>
         </div>

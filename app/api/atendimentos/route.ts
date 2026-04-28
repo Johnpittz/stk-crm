@@ -150,21 +150,6 @@ export async function POST(request: NextRequest) {
     conteudo: mensagem,
   });
 
-  // Se tem vendedor responsavel, cria tarefa no kanban dele
-  if (vendedorId) {
-    await supabaseAdmin.from("tarefas").insert({
-      vendedor_id: vendedorId,
-      cliente_id: clienteId,
-      titulo: `WhatsApp: ${nomeCliente}`,
-      descricao: mensagem?.substring(0, 200) || "Nova mensagem recebida",
-      tipo: "whatsapp",
-      prioridade: "alta",
-      status: "pendente",
-      coluna_kanban: "a_fazer",
-      data_inicio: new Date().toISOString().split("T")[0],
-    });
-  }
-
   return NextResponse.json({ success: true, atendimento_id: atendimento.id, cliente_encontrado: !!clienteId });
 }
 
@@ -196,7 +181,13 @@ export async function PATCH(request: NextRequest) {
     updateData.vendedor_id = user.id;
   }
 
-  const { data: atendimento, error } = await supabase
+  // Usa service_role para bypassar RLS (vendedor pode transferir para outro)
+  const supabaseAdmin = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const { data: atendimento, error } = await supabaseAdmin
     .from("atendimentos")
     .update(updateData)
     .eq("id", id)
@@ -205,21 +196,6 @@ export async function PATCH(request: NextRequest) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  // Se assumiu o atendimento, cria tarefa no kanban
-  if (assumir && atendimento) {
-    await supabase.from("tarefas").insert({
-      vendedor_id: user.id,
-      cliente_id: atendimento.cliente_id,
-      titulo: `WhatsApp: ${atendimento.nome_cliente || "Cliente"}`,
-      descricao: atendimento.ultima_mensagem?.substring(0, 200) || "Atendimento assumido",
-      tipo: "whatsapp",
-      prioridade: "alta",
-      status: "pendente",
-      coluna_kanban: "a_fazer",
-      data_inicio: new Date().toISOString().split("T")[0],
-    });
   }
 
   return NextResponse.json({ success: true, atendimento });

@@ -107,10 +107,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Token inválido" }, { status: 401 });
   }
 
-  const { data: vendedores, error } = await supabase
+  // Usa service_role para bypassar RLS e listar todos os vendedores
+  const supabaseAdmin = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const { data: vendedores, error } = await supabaseAdmin
     .from("profiles")
-    .select("id, nome_completo, email, cargo, telefone, status, created_at")
-    .order("created_at", { ascending: false });
+    .select("id, nome_completo, email, cargo, telefone")
+    .order("nome_completo", { ascending: true });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

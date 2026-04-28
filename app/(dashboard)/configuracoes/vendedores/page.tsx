@@ -28,8 +28,8 @@ export default async function VendedoresPage() {
   // Busca todos os vendedores
   const { data: vendedores, error } = await supabase
     .from("profiles")
-    .select("id, nome_completo, email, cargo, telefone, status, created_at")
-    .order("created_at", { ascending: false });
+    .select("id, nome_completo, email, cargo, telefone")
+    .order("nome_completo", { ascending: true });
 
   const cargoBadge = (cargo: string) => {
     switch (cargo) {
@@ -96,13 +96,9 @@ export default async function VendedoresPage() {
                     </Badge>
                     <Badge
                       variant="secondary"
-                      className={
-                        v.status === "ativo"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-amber-100 text-amber-700"
-                      }
+                      className="bg-emerald-100 text-emerald-700"
                     >
-                      {v.status === "ativo" ? "Ativo" : "Inativo"}
+                      Ativo
                     </Badge>
                   </div>
                   {v.telefone && (

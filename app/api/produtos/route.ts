@@ -44,20 +44,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Busca filtros disponíveis (marcas, categorias, status)
-    const { data: filtros } = await supabase
-      .from('produtos')
-      .select('marca, categoria_nome, status_produto')
-      .not('marca', 'is', null)
-
-    const marcas = Array.from(new Set(filtros?.map(p => p.marca).filter(Boolean) || [])).sort()
-    const categorias = Array.from(new Set(filtros?.map(p => p.categoria_nome).filter(Boolean) || [])).sort()
-    const statusList = Array.from(new Set(filtros?.map(p => p.status_produto).filter(Boolean) || [])).sort()
-
     return NextResponse.json({
       produtos: produtos || [],
       total: count || 0,
-      filtros: { marcas, categorias, status: statusList }
     })
   } catch (err) {
     console.error('Erro no endpoint de produtos:', err)

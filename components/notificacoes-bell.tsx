@@ -66,11 +66,31 @@ export function NotificacoesBell() {
     }
   }, [supabase]);
 
-  // Busca inicial e polling a cada 10s
+  // Busca inicial e polling a cada 60s (pausa quando aba invisível)
   useEffect(() => {
     fetchNotificacoes();
-    const interval = setInterval(fetchNotificacoes, 10000);
-    return () => clearInterval(interval);
+    let interval: NodeJS.Timeout;
+    
+    const startPolling = () => {
+      interval = setInterval(fetchNotificacoes, 60000);
+    };
+    
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        fetchNotificacoes();
+        startPolling();
+      } else {
+        clearInterval(interval);
+      }
+    };
+    
+    startPolling();
+    document.addEventListener("visibilitychange", handleVisibility);
+    
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [fetchNotificacoes]);
 
   // Realtime: escuta novas notificações na tabela
