@@ -28,7 +28,8 @@ export async function GET(request: NextRequest) {
     .from("atendimentos")
     .select("*, clientes(id, nome_razao_social), ultima_mensagem_remetente, nao_lido")
     .eq("status", status)
-    .order("ultima_mensagem_data", { ascending: false });
+    .order("ultima_mensagem_data", { ascending: false })
+    .limit(200);
 
   if (isGestor) {
     // Gestor vê todos os atendimentos

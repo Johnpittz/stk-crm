@@ -212,29 +212,16 @@ export function AtendimentoChat({ atendimento, open, onClose, onMarcarResolvido,
     }
   }, [mensagens]);
 
-  // Realtime: escuta novas mensagens
+  // Polling: atualiza mensagens a cada 3s (Realtime desabilitado para evitar reconexões em loop)
   useEffect(() => {
-    if (!atendimento) return;
-    const channel = supabase
-      .channel(`chat-${atendimento.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "atendimento_mensagens",
-          filter: `atendimento_id=eq.${atendimento.id}`,
-        },
-        (payload) => {
-          setMensagens((prev) => [...prev, payload.new as Mensagem]);
-        }
-      )
-      .subscribe();
+    if (!atendimento || !open) return;
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [atendimento, supabase]);
+    const interval = setInterval(() => {
+      fetchMensagens();
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [atendimento, open, fetchMensagens]);
 
   const enviarMensagem = async (e: React.FormEvent) => {
     e.preventDefault();

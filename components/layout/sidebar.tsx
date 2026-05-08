@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
+  Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -51,6 +52,12 @@ export function Sidebar({ user }: SidebarProps) {
       icon: Headset,
       description: "Minha área de trabalho",
       badge: "Ativo",
+    },
+    {
+      href: "/leads",
+      label: "Leads",
+      icon: Target,
+      description: isGestor ? "Prospecção e fila de leads" : "Meus leads atribuídos",
     },
     {
       href: "/clientes",

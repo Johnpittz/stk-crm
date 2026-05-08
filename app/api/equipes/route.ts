@@ -38,7 +38,9 @@ export async function GET(request: NextRequest) {
       vendedoresQuery = vendedoresQuery.eq('gestor_id', user.id)
     }
 
-    const { data: vendedores, error: vError } = await vendedoresQuery.order('nome_completo')
+    const { data: vendedores, error: vError } = await vendedoresQuery
+      .order('nome_completo')
+      .limit(100)
 
     if (vError) {
       return NextResponse.json({ error: vError.message }, { status: 500 })
@@ -60,36 +62,22 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Para cada vendedor, busca stats
+    // Para cada vendedor, busca stats em PARALELO (4 queries por vendedor, todas juntas)
     const vendedoresComStats = await Promise.all(
       todosVendedores.map(async (v) => {
-        // Total de clientes
-        const { count: totalClientes } = await supabase
-          .from('clientes')
-          .select('*', { count: 'exact', head: true })
-          .eq('vendedor_responsavel_id', v.id)
+        const [
+          { count: totalClientes },
+          { count: totalVendas },
+          { data: vendasData },
+          { count: clientesAtivos },
+        ] = await Promise.all([
+          supabase.from('clientes').select('*', { count: 'exact', head: true }).eq('vendedor_responsavel_id', v.id),
+          supabase.from('vendas').select('*', { count: 'exact', head: true }).eq('vendedor_id', v.id),
+          supabase.from('vendas').select('valor_final').eq('vendedor_id', v.id).eq('status', 'confirmada').limit(500),
+          supabase.from('clientes').select('*', { count: 'exact', head: true }).eq('vendedor_responsavel_id', v.id).eq('status', 'ativo'),
+        ]);
 
-        // Total de vendas
-        const { count: totalVendas } = await supabase
-          .from('vendas')
-          .select('*', { count: 'exact', head: true })
-          .eq('vendedor_id', v.id)
-
-        // Faturamento total
-        const { data: vendasData } = await supabase
-          .from('vendas')
-          .select('valor_final')
-          .eq('vendedor_id', v.id)
-          .eq('status', 'confirmada')
-
-        const faturamento = vendasData?.reduce((sum, v) => sum + (v.valor_final || 0), 0) || 0
-
-        // Clientes ativos
-        const { count: clientesAtivos } = await supabase
-          .from('clientes')
-          .select('*', { count: 'exact', head: true })
-          .eq('vendedor_responsavel_id', v.id)
-          .eq('status', 'ativo')
+        const faturamento = vendasData?.reduce((sum, v) => sum + (v.valor_final || 0), 0) || 0;
 
         return {
           ...v,
@@ -97,9 +85,9 @@ export async function GET(request: NextRequest) {
             total_clientes: totalClientes || 0,
             clientes_ativos: clientesAtivos || 0,
             total_vendas: totalVendas || 0,
-            faturamento
-          }
-        }
+            faturamento,
+          },
+        };
       })
     )
 

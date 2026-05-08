@@ -93,34 +93,9 @@ export function NotificacoesBell() {
     };
   }, [fetchNotificacoes]);
 
-  // Realtime: escuta novas notificações na tabela
-  useEffect(() => {
-    const channel = supabase
-      .channel("notificacoes-realtime")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "notificacoes",
-        },
-        (payload) => {
-          const nova = payload.new as Notificacao;
-          setNotificacoes((prev) => [nova, ...prev]);
-          setNaoLidas((prev) => prev + 1);
-          setToast(nova);
-          if (audio) audio.play().catch(() => {});
-
-          if (toastTimer.current) clearTimeout(toastTimer.current);
-          toastTimer.current = setTimeout(() => setToast(null), 5000);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [supabase, audio]);
+  // Realtime removido: o Supabase Realtime estava causando reconexões WebSocket em loop,
+  // sobrecarregando o navegador. O polling a cada 30s (acima) já mantém as notificações atualizadas.
+  // Quando o Realtime for habilitado no dashboard do Supabase, pode-se restaurar este useEffect.
 
   // Fecha dropdown ao clicar fora
   useEffect(() => {
@@ -231,7 +206,7 @@ export function NotificacoesBell() {
 
       {/* Dropdown */}
       {aberto && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden">
+        <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-xl border border-slate-200 z-50">
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
             <h3 className="font-semibold text-sm text-slate-800">Notificações</h3>
             {naoLidas > 0 && (
@@ -244,7 +219,7 @@ export function NotificacoesBell() {
             )}
           </div>
 
-          <ScrollArea className="max-h-80">
+          <ScrollArea className="h-[400px]">
             {notificacoes.length === 0 ? (
               <div className="px-4 py-8 text-center text-sm text-slate-400">
                 <Bell className="h-8 w-8 mx-auto mb-2 opacity-40" />
@@ -268,10 +243,10 @@ export function NotificacoesBell() {
                           <Icone className="h-4 w-4" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-800 truncate">
+                          <p className="text-sm font-medium text-slate-800 break-words">
                             {n.titulo}
                           </p>
-                          <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">
+                          <p className="text-xs text-slate-500 mt-0.5 break-words">
                             {n.mensagem}
                           </p>
                           <div className="flex items-center justify-between mt-1.5">

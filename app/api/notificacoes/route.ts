@@ -14,7 +14,8 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const apenasNaoLidas = searchParams.get("nao_lidas") === "true";
 
-  let query = supabase
+  // Queries em paralelo: lista de notificações + count de não lidas
+  let notifsQuery = supabase
     .from("notificacoes")
     .select("*")
     .eq("user_id", user.id)
@@ -22,20 +23,21 @@ export async function GET(request: NextRequest) {
     .limit(50);
 
   if (apenasNaoLidas) {
-    query = query.eq("lida", false);
+    notifsQuery = notifsQuery.eq("lida", false);
   }
 
-  const { data: notificacoes, error } = await query;
+  const [{ data: notificacoes, error }, { count }] = await Promise.all([
+    notifsQuery,
+    supabase
+      .from("notificacoes")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("lida", false),
+  ]);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
-  const { count } = await supabase
-    .from("notificacoes")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", user.id)
-    .eq("lida", false);
 
   return NextResponse.json({
     notificacoes: notificacoes || [],

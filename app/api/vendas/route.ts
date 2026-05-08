@@ -20,18 +20,6 @@ export async function GET(request: NextRequest) {
   const status = searchParams.get("status") || "todos";
   const periodo = searchParams.get("periodo") || "mes";
 
-  let query = supabase
-    .from("vendas")
-    .select("*, clientes(nome_razao_social)", { count: "exact" });
-
-  if (busca) {
-    query = query.ilike("clientes.nome_razao_social", `%${busca}%`);
-  }
-
-  if (status !== "todos") {
-    query = query.eq("status", status);
-  }
-
   // Filtro de período
   const hoje = new Date();
   let dataInicio: Date;
@@ -48,28 +36,46 @@ export async function GET(request: NextRequest) {
       dataInicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
       break;
   }
+  const dataInicioStr = dataInicio.toISOString().split("T")[0];
 
-  query = query.gte("data_venda", dataInicio.toISOString().split("T")[0]);
+  // Query principal com LIMIT (evita retornar milhares de registros)
+  const limite = Math.min(parseInt(searchParams.get("limite") || "100", 10), 500);
 
-  const { data: vendas, error, count } = await query.order("data_venda", { ascending: false });
+  let query = supabase
+    .from("vendas")
+    .select("*, clientes(nome_razao_social)", { count: "exact" })
+    .gte("data_venda", dataInicioStr);
+
+  if (busca) {
+    query = query.ilike("clientes.nome_razao_social", `%${busca}%`);
+  }
+
+  if (status !== "todos") {
+    query = query.eq("status", status);
+  }
+
+  const { data: vendas, error, count } = await query
+    .order("data_venda", { ascending: false })
+    .limit(limite);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Stats
-  const { data: statsData } = await supabase
+  // Stats — query agregada leve (só sum/count, sem dados)
+  const { data: aggData, error: aggError } = await supabase
     .from("vendas")
-    .select("valor_final, status")
-    .gte("data_venda", dataInicio.toISOString().split("T")[0]);
+    .select("valor_final.sum(), count()")
+    .gte("data_venda", dataInicioStr)
+    .single();
 
   const stats = {
-    total_vendas: statsData?.length || 0,
-    total_faturado: statsData?.reduce((acc, v) => acc + (v.valor_final || 0), 0) || 0,
-    ticket_medio: statsData?.length ? (statsData.reduce((acc, v) => acc + (v.valor_final || 0), 0) / statsData.length) : 0,
+    total_vendas: count || 0,
+    total_faturado: aggData?.sum || 0,
+    ticket_medio: aggData?.count ? (aggData.sum / aggData.count) : 0,
   };
 
-  return NextResponse.json({ vendas, stats, count });
+  return NextResponse.json({ vendas: vendas || [], stats, count });
 }
 
 export async function POST(request: NextRequest) {

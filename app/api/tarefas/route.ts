@@ -20,7 +20,8 @@ export async function GET(request: NextRequest) {
     .select("*, clientes(id, nome_razao_social, telefone, celular)")
     .eq("vendedor_id", user.id)
     .order("ordem", { ascending: true })
-    .order("hora_inicio", { ascending: true });
+    .order("hora_inicio", { ascending: true })
+    .limit(200);
 
   if (data) {
     query = query.eq("data_inicio", data);

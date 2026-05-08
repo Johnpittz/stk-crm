@@ -30,6 +30,7 @@
     "axios-ntlm": "^1.4.6",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "cnpjaberto": "^0.1.0",
     "date-fns": "^3.6.0",
     "httpntlm": "^1.8.13",
     "lucide-react": "^0.436.0",

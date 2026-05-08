@@ -28,7 +28,8 @@ export async function GET(request: NextRequest) {
     .from("oportunidades")
     .select("*, clientes(id, nome_razao_social, telefone, celular)")
     .eq("vendedor_id", user.id)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(200);
 
   if (status) {
     query = query.eq("status", status);
