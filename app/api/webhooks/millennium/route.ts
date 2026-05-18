@@ -29,15 +29,21 @@ function getSupabase() {
 }
 
 // Chave secreta para validar webhooks do Millennium
-const WEBHOOK_SECRET = process.env.MILLENNIUM_WEBHOOK_SECRET || '';
+const WEBHOOK_SECRET = process.env.MILLENNIUM_WEBHOOK_SECRET;
 
 export async function POST(request: NextRequest) {
   try {
-    // Validação de autenticação (opcional, mas recomendada)
-    const authHeader = request.headers.get('Authorization');
+    // Validação de autenticação (obrigatória)
     const secretToken = request.headers.get('X-Millennium-Secret');
     
-    if (WEBHOOK_SECRET && secretToken !== WEBHOOK_SECRET) {
+    if (!WEBHOOK_SECRET) {
+      return NextResponse.json(
+        { error: 'Webhook secret not configured' },
+        { status: 500 }
+      );
+    }
+    
+    if (secretToken !== WEBHOOK_SECRET) {
       return NextResponse.json(
         { error: 'Não autorizado' },
         { status: 401 }
