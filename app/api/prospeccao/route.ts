@@ -38,6 +38,12 @@ interface EmpresaProspeccao {
 
 export async function GET(request: NextRequest) {
   try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const cnae = searchParams.get("cnae");
     const uf = searchParams.get("uf");
