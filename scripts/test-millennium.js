@@ -1,8 +1,18 @@
+require('dotenv').config();
+
 const { NtlmClient } = require('axios-ntlm');
 
+const username = process.env.MILLENNIUM_USERNAME || '';
+const password = process.env.MILLENNIUM_PASSWORD || '';
+
+if (!username || !password) {
+  console.error('Erro: configure MILLENNIUM_USERNAME e MILLENNIUM_PASSWORD no .env.local');
+  process.exit(1);
+}
+
 const client = NtlmClient({
-  username: 'odata',
-  password: '0d@t@123',
+  username: username,
+  password: password,
   domain: '',
   workstation: '',
 });
