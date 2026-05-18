@@ -1,7 +1,26 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
+  // Exige que quem crie usuário seja admin, diretor ou gerente_comercial
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  }
+
+  const { data: meuPerfil } = await supabase
+    .from("profiles")
+    .select("cargo")
+    .eq("id", user.id)
+    .single();
+
+  const isAdmin = ["diretor", "admin", "gerente_comercial"].includes(meuPerfil?.cargo || "");
+  if (!isAdmin) {
+    return NextResponse.json({ error: "Apenas administradores podem criar usuários" }, { status: 403 });
+  }
+
   const body = await request.json();
   const { nome_completo, email, senha, telefone } = body;
 
