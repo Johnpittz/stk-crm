@@ -15,6 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { NovaTarefaModal } from "./nova-tarefa-modal";
+import { ModalDetalhesTarefa } from "./modal-detalhes-tarefa";
 
 const colunas = [
   { id: "a_fazer", titulo: "A Fazer", cor: "bg-slate-100" },
@@ -43,10 +44,16 @@ const coresPrioridade: Record<string, string> = {
 interface Tarefa {
   id: string;
   titulo: string;
+  descricao: string | null;
   tipo: string;
   prioridade: string;
+  status: string;
   data_inicio: string | null;
   hora_inicio: string | null;
+  data_fim: string | null;
+  hora_fim: string | null;
+  resultado: string | null;
+  observacao_resultado: string | null;
   coluna_kanban: string;
   ordem: number;
   clientes: { id: string; nome_razao_social: string } | null;
@@ -55,6 +62,9 @@ interface Tarefa {
 export function KanbanTarefas() {
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tarefaSelecionada, setTarefaSelecionada] = useState<Tarefa | null>(null);
+  const [modalAberto, setModalAberto] = useState(false);
+  const [modalConcluindo, setModalConcluindo] = useState(false);
   const supabase = createClient();
 
   const fetchTarefas = useCallback(async () => {
@@ -90,6 +100,19 @@ export function KanbanTarefas() {
     if (source.droppableId === destination.droppableId) return;
 
     const novaColuna = destination.droppableId;
+
+    // Se arrastou para "Concluído", abre o modal para preencher resultado
+    if (novaColuna === "concluida") {
+      const tarefaArrastada = tarefas.find((t) => t.id === draggableId);
+      if (tarefaArrastada) {
+        setTarefaSelecionada(tarefaArrastada);
+        setModalConcluindo(true);
+        setModalAberto(true);
+        // Não move ainda — o modal vai cuidar da conclusão
+        return;
+      }
+    }
+
     const tarefasNaColunaDestino = tarefas.filter((t) => t.coluna_kanban === novaColuna);
     const novaOrdem = tarefasNaColunaDestino.length;
 
@@ -210,8 +233,12 @@ export function KanbanTarefas() {
                                   ref={provided.innerRef}
                                   {...provided.draggableProps}
                                   {...provided.dragHandleProps}
+                                  onClick={() => {
+                                    setTarefaSelecionada(tarefa);
+                                    setModalAberto(true);
+                                  }}
                                   className={cn(
-                                    "bg-white rounded-lg p-2 shadow-sm border border-slate-200 cursor-grab active:cursor-grabbing group",
+                                    "bg-white rounded-lg p-2 shadow-sm border border-slate-200 cursor-grab active:cursor-grabbing group hover:shadow-md hover:border-blue-300 transition-all",
                                     snapshot.isDragging && "shadow-lg ring-2 ring-blue-500 rotate-2"
                                   )}
                                 >
@@ -280,6 +307,18 @@ export function KanbanTarefas() {
           </DragDropContext>
         )}
       </CardContent>
+
+      <ModalDetalhesTarefa
+        tarefa={tarefaSelecionada}
+        aberto={modalAberto}
+        onClose={() => {
+          setModalAberto(false);
+          setModalConcluindo(false);
+          setTarefaSelecionada(null);
+        }}
+        onAtualizar={fetchTarefas}
+        iniciarConcluindo={modalConcluindo}
+      />
     </Card>
   );
 }

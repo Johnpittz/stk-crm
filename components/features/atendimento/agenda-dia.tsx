@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { ModalDetalhesTarefa } from "./modal-detalhes-tarefa";
 
 const iconesTarefa: Record<string, string> = {
   visita: "🏢",
@@ -24,15 +25,24 @@ interface AgendaItem {
   id: string;
   hora_inicio: string | null;
   titulo: string;
+  descricao: string | null;
   clientes: { id: string; nome_razao_social: string } | null;
   tipo: string;
+  prioridade: string;
   status: string;
   coluna_kanban: string;
+  data_inicio: string | null;
+  data_fim: string | null;
+  hora_fim: string | null;
+  resultado: string | null;
+  observacao_resultado: string | null;
 }
 
 export function AgendaDia() {
   const [itens, setItens] = useState<AgendaItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tarefaSelecionada, setTarefaSelecionada] = useState<AgendaItem | null>(null);
+  const [modalAberto, setModalAberto] = useState(false);
   const supabase = createClient();
 
   const hoje = new Date().toISOString().split("T")[0];
@@ -125,7 +135,14 @@ export function AgendaDia() {
               <div className="absolute left-[52px] top-4 bottom-4 w-px bg-slate-200" />
 
               {itens.map((item) => (
-                <div key={item.id} className="flex gap-4 relative">
+                <div
+                  key={item.id}
+                  className="flex gap-4 relative cursor-pointer hover:bg-slate-50 rounded-lg -mx-1 px-1 py-0.5 transition-colors"
+                  onClick={() => {
+                    setTarefaSelecionada(item);
+                    setModalAberto(true);
+                  }}
+                >
                   {/* Hora */}
                   <div className="w-12 text-right">
                     <span
@@ -269,6 +286,16 @@ export function AgendaDia() {
           </ScrollArea>
         )}
       </CardContent>
+
+      <ModalDetalhesTarefa
+        tarefa={tarefaSelecionada as any}
+        aberto={modalAberto}
+        onClose={() => {
+          setModalAberto(false);
+          setTarefaSelecionada(null);
+        }}
+        onAtualizar={fetchAgenda}
+      />
     </Card>
   );
 }

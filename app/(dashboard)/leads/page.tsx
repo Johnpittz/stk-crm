@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Search,
   MapPin,
@@ -20,11 +20,14 @@ import {
   Calendar,
   Tag,
   User,
+  Users,
   Inbox,
   CheckCircle2,
   XCircle,
+  X,
   Clock,
   ArrowRightLeft,
+  Download,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -75,11 +78,6 @@ interface Vendedor {
   cargo: string;
 }
 
-interface CidadeIBGE {
-  id: number;
-  nome: string;
-}
-
 interface Lead {
   id: string;
   cnpj: string;
@@ -117,11 +115,6 @@ const CNAES_PRESETS = [
   { codigo: "4751201", label: "4751201 - Comércio varejista de material elétrico" },
 ];
 
-const UFS = [
-  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
-  "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
-];
-
 const STATUS_LABELS: Record<string, { label: string; color: string; icon: any }> = {
   novo: { label: "Novo", color: "bg-blue-100 text-blue-700 border-blue-200", icon: Tag },
   em_atendimento: { label: "Em Atendimento", color: "bg-amber-100 text-amber-700 border-amber-200", icon: Clock },
@@ -139,17 +132,14 @@ export default function LeadsPage() {
   // ---------- Auth & Role ----------
   const [user, setUser] = useState<{ id: string; cargo: string } | null>(null);
   const [vendedores, setVendedores] = useState<Vendedor[]>([]);
+  const [carregandoAuth, setCarregandoAuth] = useState(true);
 
   // ---------- Tab state ----------
-  const [activeTab, setActiveTab] = useState("buscar");
+  const [activeTab, setActiveTab] = useState("");
   const [tabInicializado, setTabInicializado] = useState(false);
 
   // ---------- Search tab state ----------
   const [cnae, setCnae] = useState("4321501");
-  const [uf, setUf] = useState("SP");
-  const [cidade, setCidade] = useState("");
-  const [cidades, setCidades] = useState<CidadeIBGE[]>([]);
-  const [carregandoCidades, setCarregandoCidades] = useState(false);
   const [limite, setLimite] = useState("50");
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set());
@@ -162,13 +152,25 @@ export default function LeadsPage() {
   // ---------- Queue tab state ----------
   const [leads, setLeads] = useState<Lead[]>([]);
   const [carregandoLeads, setCarregandoLeads] = useState(false);
-  const [filtroStatus, setFiltroStatus] = useState("");
   const [buscaLeads, setBuscaLeads] = useState("");
+
+  // Filtros independentes para cada aba
+  const [filtroStatusFila, setFiltroStatusFila] = useState("");
+  const [dataInicioFila, setDataInicioFila] = useState("");
+  const [dataFimFila, setDataFimFila] = useState("");
+
+  const [filtroStatusVendedor, setFiltroStatusVendedor] = useState("todos");
+  const [dataInicioVendedor, setDataInicioVendedor] = useState("");
+  const [dataFimVendedor, setDataFimVendedor] = useState("");
+
   const [atribuindoLeadId, setAtribuindoLeadId] = useState<string | null>(null);
   const [vendedorAtribuicao, setVendedorAtribuicao] = useState<string>("");
   const [totalLeads, setTotalLeads] = useState(0);
   const [obsEditando, setObsEditando] = useState<Record<string, string>>({});
   const [salvandoObs, setSalvandoObs] = useState<string | null>(null);
+
+  // ---------- Por Vendedor tab state ----------
+  const [vendedorFiltro, setVendedorFiltro] = useState("");
 
   // ---------- Distribuição modal ----------
   const [modalDistribuirAberto, setModalDistribuirAberto] = useState(false);
@@ -202,49 +204,21 @@ export default function LeadsPage() {
           if (vends) setVendedores(vends);
         }
       }
+      setCarregandoAuth(false);
     }
     init();
   }, []);
 
-  // Aba inicial: vendedores vão direto para a fila
+  // Aba inicial: só define após saber o cargo do usuário
   useEffect(() => {
     if (user && !tabInicializado) {
       const gestor = ["diretor", "admin", "gerente_comercial"].includes(user.cargo);
-      if (!gestor) {
-        setActiveTab("fila");
-      }
+      setActiveTab(gestor ? "buscar" : "fila");
       setTabInicializado(true);
     }
   }, [user, tabInicializado]);
 
-  // ============================================================
-  // Cidades
-  // ============================================================
 
-  useEffect(() => {
-    async function buscarCidades() {
-      if (!uf) {
-        setCidades([]);
-        setCidade("");
-        return;
-      }
-      setCarregandoCidades(true);
-      try {
-        const res = await fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios`, {
-          next: { revalidate: 86400 },
-        });
-        if (res.ok) {
-          const data: CidadeIBGE[] = await res.json();
-          setCidades(data.sort((a, b) => a.nome.localeCompare(b.nome)));
-        }
-      } catch (err) {
-        console.error("Erro ao buscar cidades:", err);
-      } finally {
-        setCarregandoCidades(false);
-      }
-    }
-    buscarCidades();
-  }, [uf]);
 
   // ============================================================
   // Busca de empresas (CNPJ Aberto)
@@ -264,8 +238,6 @@ export default function LeadsPage() {
 
       const params = new URLSearchParams();
       params.set("cnae", cnae);
-      params.set("uf", uf);
-      if (cidade.trim()) params.set("cidade", cidade.trim());
       params.set("limite", limite);
 
       const res = await fetch(`/api/prospeccao?${params.toString()}`, {
@@ -323,8 +295,8 @@ export default function LeadsPage() {
         body: JSON.stringify({
           empresas: selecionados,
           cnae_filtro: cnae,
-          uf_filtro: uf,
-          cidade_filtro: cidade,
+          uf_filtro: null,
+          cidade_filtro: null,
         }),
       });
 
@@ -351,15 +323,17 @@ export default function LeadsPage() {
   // Fila de leads
   // ============================================================
 
-  const buscarLeads = useCallback(async () => {
+  const buscarLeads = useCallback(async (opts?: { status?: string; dataInicio?: string; dataFim?: string }) => {
     setCarregandoLeads(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
 
       const params = new URLSearchParams();
-      if (filtroStatus) params.set("status", filtroStatus);
+      if (opts?.status) params.set("status", opts.status);
       if (buscaLeads.trim()) params.set("busca", buscaLeads.trim());
+      if (opts?.dataInicio) params.set("data_inicio", opts.dataInicio);
+      if (opts?.dataFim) params.set("data_fim", opts.dataFim);
       params.set("limit", "100");
 
       const res = await fetch(`/api/leads?${params.toString()}`, {
@@ -378,13 +352,15 @@ export default function LeadsPage() {
     } finally {
       setCarregandoLeads(false);
     }
-  }, [filtroStatus, buscaLeads]);
+  }, [buscaLeads]);
 
   useEffect(() => {
     if (activeTab === "fila") {
-      buscarLeads();
+      buscarLeads({ status: filtroStatusFila, dataInicio: dataInicioFila, dataFim: dataFimFila });
+    } else if (activeTab === "por_vendedor") {
+      buscarLeads({ status: filtroStatusVendedor === "todos" ? "" : filtroStatusVendedor, dataInicio: dataInicioVendedor, dataFim: dataFimVendedor });
     }
-  }, [activeTab, filtroStatus, buscaLeads, buscarLeads]);
+  }, [activeTab, filtroStatusFila, dataInicioFila, dataFimFila, filtroStatusVendedor, dataInicioVendedor, dataFimVendedor, buscarLeads]);
 
   async function handleAtribuir(leadId: string) {
     if (!vendedorAtribuicao) return;
@@ -563,7 +539,75 @@ export default function LeadsPage() {
     else setSelecionadas(new Set(empresas.map((e) => e.cnpj)));
   }
 
+  function exportarCSV(leadsParaExportar: Lead[], nomeArquivo: string) {
+    if (leadsParaExportar.length === 0) return;
+    const headers = ["CNPJ", "Razão Social", "Nome Fantasia", "CNAE", "Descrição CNAE", "Status", "Cidade", "Estado", "Vendedor", "Data Criação"];
+    const rows = leadsParaExportar.map((l) => [
+      l.cnpj,
+      l.razao_social,
+      l.nome_fantasia || "",
+      l.cnae_principal || "",
+      l.cnae_descricao || "",
+      STATUS_LABELS[l.status]?.label || l.status,
+      l.cidade || "",
+      l.estado || "",
+      l.vendedor?.nome_completo || "Não atribuído",
+      new Date(l.created_at).toLocaleDateString("pt-BR"),
+    ]);
+    const csv = [headers.join(";"), ...rows.map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(";"))].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${nomeArquivo}_${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
   const isGestor = user && ["diretor", "admin", "gerente_comercial"].includes(user.cargo);
+
+  // Leads filtrados para a aba "Por Vendedor"
+  const leadsFiltradosPorVendedor = leads.filter((l) => {
+    if (vendedorFiltro === "nao_atribuido") return !l.vendedor_id;
+    if (vendedorFiltro) return l.vendedor_id === vendedorFiltro;
+    return true;
+  }).filter((l) => {
+    if (filtroStatusVendedor === "todos") return true;
+    return l.status === filtroStatusVendedor;
+  });
+
+  // Leads do vendedor selecionado agrupados por CNAE
+  const leadsPorCnaeDoVendedor = useMemo(() => {
+    if (!vendedorFiltro) return [];
+    const map = new Map<string, { cnae: string; descricao: string | null; leads: Lead[] }>();
+    leadsFiltradosPorVendedor.forEach((l) => {
+      const key = l.cnae_principal || "__sem_cnae";
+      const desc = l.cnae_descricao || null;
+      if (!map.has(key)) {
+        map.set(key, { cnae: key, descricao: desc, leads: [] });
+      }
+      map.get(key)!.leads.push(l);
+    });
+    return Array.from(map.values()).sort((a, b) => (b.leads.length - a.leads.length));
+  }, [leadsFiltradosPorVendedor, vendedorFiltro]);
+
+  // Leads agrupados por CNAE para a aba "Fila"
+  const porCnae = useMemo(() => {
+    const map = new Map<string, { cnae: string; descricao: string | null; leads: Lead[] }>();
+    leads.forEach((l) => {
+      const key = l.cnae_principal || "__sem_cnae";
+      const desc = l.cnae_descricao || null;
+      if (!map.has(key)) {
+        map.set(key, { cnae: key, descricao: desc, leads: [] });
+      }
+      map.get(key)!.leads.push(l);
+    });
+    return Array.from(map.values()).sort((a, b) => (b.leads.length - a.leads.length));
+  }, [leads]);
+
+
 
   // ============================================================
   // Render
@@ -571,17 +615,27 @@ export default function LeadsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Leads</h1>
-        <p className="text-slate-500">
-          {isGestor
-            ? "Busque empresas B2B e gerencie a fila de leads antes de convertê-los em clientes."
-            : "Acompanhe seus leads atribuídos, registre observações e movimente o pipeline."}
-        </p>
-      </div>
+      {/* Loader inicial — evita flash de conteúdo de gestor para vendedores */}
+      {carregandoAuth && (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-[#14919B]" />
+          <span className="ml-3 text-slate-500">Carregando...</span>
+        </div>
+      )}
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className={cn("grid w-full max-w-md", isGestor ? "grid-cols-2" : "grid-cols-1")}>
+      {!carregandoAuth && (
+        <>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Leads</h1>
+            <p className="text-slate-500">
+              {isGestor
+                ? "Busque empresas B2B e gerencie a fila de leads antes de convertê-los em clientes."
+                : "Acompanhe seus leads atribuídos, registre observações e movimente o pipeline."}
+            </p>
+          </div>
+
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className={cn("grid w-full max-w-lg", isGestor ? "grid-cols-3" : "grid-cols-1")}>
           {isGestor && (
             <TabsTrigger value="buscar">
               <Search className="h-4 w-4 mr-2" />
@@ -597,6 +651,12 @@ export default function LeadsPage() {
               </Badge>
             )}
           </TabsTrigger>
+          {isGestor && (
+            <TabsTrigger value="por_vendedor">
+              <Users className="h-4 w-4 mr-2" />
+              Por Vendedor
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* ==========================================================
@@ -610,65 +670,36 @@ export default function LeadsPage() {
                 Filtros de Busca
               </CardTitle>
               <CardDescription>
-                Escolha o CNAE da atividade e a localização das empresas.
+                Escolha o CNAE da atividade e a quantidade de empresas para buscar em todo o Brasil.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700">CNAE</label>
-                  <Select value={cnae} onValueChange={setCnae}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o CNAE" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CNAES_PRESETS.map((c) => (
-                        <SelectItem key={c.codigo} value={c.codigo}>
-                          {c.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Estado (UF)</label>
-                  <Select value={uf} onValueChange={setUf}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="UF" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {UFS.map((u) => (
-                        <SelectItem key={u} value={u}>
-                          {u}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Cidade (opcional)</label>
-                  <Select value={cidade || "__TODAS__"} onValueChange={(v) => setCidade(v === "__TODAS__" ? "" : v)} disabled={carregandoCidades || cidades.length === 0}>
-                    <SelectTrigger>
-                      {carregandoCidades ? (
-                        <span className="flex items-center gap-2 text-slate-400">
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                          Carregando...
-                        </span>
-                      ) : (
-                        <SelectValue placeholder="Todas as cidades" />
-                      )}
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__TODAS__">Todas as cidades</SelectItem>
-                      {cidades.map((c) => (
-                        <SelectItem key={c.id} value={c.nome}>
-                          {c.nome}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Input
+                    value={cnae}
+                    onChange={(e) => setCnae(e.target.value.replace(/\D/g, ""))}
+                    placeholder="Digite o código CNAE (ex: 4321501)"
+                    maxLength={7}
+                  />
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {CNAES_PRESETS.map((c) => (
+                      <button
+                        key={c.codigo}
+                        onClick={() => setCnae(c.codigo)}
+                        className={cn(
+                          "text-xs px-2 py-0.5 rounded-full border transition-colors",
+                          cnae === c.codigo
+                            ? "bg-[#0D3B33] text-white border-[#0D3B33]"
+                            : "bg-slate-50 text-slate-600 border-slate-200 hover:border-[#14919B] hover:text-[#14919B]"
+                        )}
+                        title={c.label}
+                      >
+                        {c.codigo}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -882,9 +913,9 @@ export default function LeadsPage() {
                 <Briefcase className="h-12 w-12 mx-auto mb-4 text-slate-300" />
                 <h3 className="text-lg font-medium text-slate-700">Como funciona?</h3>
                 <p className="text-sm text-slate-500 mt-2 max-w-lg mx-auto">
-                  Escolha um CNAE de atividade (ex: instalação elétrica), selecione o estado e clique
+                  Escolha um CNAE de atividade (ex: instalação elétrica) e clique
                   em <strong>Buscar Empresas</strong>. O sistema consulta a base pública da Receita
-                  Federal via CNPJ Aberto e retorna empresas ativas para importação.
+                  Federal via CNPJ Aberto e retorna empresas ativas de todo o Brasil para importação.
                 </p>
                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto text-left">
                   <div className="bg-white p-4 rounded-lg border">
@@ -939,7 +970,7 @@ export default function LeadsPage() {
                     onChange={(e) => setBuscaLeads(e.target.value)}
                     className="w-[260px]"
                   />
-                  <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+                  <Select value={filtroStatusFila} onValueChange={setFiltroStatusFila}>
                     <SelectTrigger className="w-[160px]">
                       <SelectValue placeholder="Todos os status" />
                     </SelectTrigger>
@@ -951,7 +982,24 @@ export default function LeadsPage() {
                       <SelectItem value="descartado">Descartado</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button variant="outline" onClick={buscarLeads} disabled={carregandoLeads}>
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      type="date"
+                      value={dataInicioFila}
+                      onChange={(e) => setDataInicioFila(e.target.value)}
+                      className="w-[140px] text-sm"
+                      placeholder="De"
+                    />
+                    <span className="text-slate-400 text-sm">→</span>
+                    <Input
+                      type="date"
+                      value={dataFimFila}
+                      onChange={(e) => setDataFimFila(e.target.value)}
+                      className="w-[140px] text-sm"
+                      placeholder="Até"
+                    />
+                  </div>
+                  <Button variant="outline" onClick={() => buscarLeads({ status: filtroStatusFila, dataInicio: dataInicioFila, dataFim: dataFimFila })} disabled={carregandoLeads}>
                     {carregandoLeads ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
@@ -971,6 +1019,14 @@ export default function LeadsPage() {
                       Distribuir Leads
                     </Button>
                   )}
+                  <Button
+                    variant="outline"
+                    onClick={() => exportarCSV(leads, "leads")}
+                    disabled={leads.length === 0}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Exportar CSV
+                  </Button>
                 </div>
               </div>
             </CardHeader>
@@ -1282,6 +1338,285 @@ export default function LeadsPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* ==========================================================
+            ABA: POR VENDEDOR (gestor-only)
+            ========================================================== */}
+        <TabsContent value="por_vendedor" className="space-y-6 mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-[#14919B]" />
+                Leads por Vendedor
+              </CardTitle>
+              <CardDescription>
+                Selecione um vendedor para visualizar seus leads.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {carregandoLeads ? (
+                <div className="flex items-center justify-center py-12 text-slate-400">
+                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                  Carregando leads...
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Filtros sempre visíveis */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Select
+                      value={filtroStatusVendedor}
+                      onValueChange={setFiltroStatusVendedor}
+                    >
+                      <SelectTrigger className="h-8 text-xs w-[140px]">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todos">Todos</SelectItem>
+                        <SelectItem value="novo">Novo</SelectItem>
+                        <SelectItem value="em_atendimento">Em Atendimento</SelectItem>
+                        <SelectItem value="convertido">Convertido</SelectItem>
+                        <SelectItem value="descartado">Descartado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <div className="flex items-center gap-1">
+                      <Input
+                        type="date"
+                        value={dataInicioVendedor}
+                        onChange={(e) => setDataInicioVendedor(e.target.value)}
+                        className="h-8 text-xs w-[130px]"
+                      />
+                      <span className="text-slate-400 text-xs">→</span>
+                      <Input
+                        type="date"
+                        value={dataFimVendedor}
+                        onChange={(e) => setDataFimVendedor(e.target.value)}
+                        className="h-8 text-xs w-[130px]"
+                      />
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-xs text-slate-500"
+                      onClick={() => {
+                        setVendedorFiltro("");
+                        setFiltroStatusVendedor("todos");
+                        setDataInicioVendedor("");
+                        setDataFimVendedor("");
+                      }}
+                    >
+                      <X className="h-3.5 w-3.5 mr-1" />
+                      Limpar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={() => exportarCSV(leadsFiltradosPorVendedor, `leads_${vendedorFiltro === "nao_atribuido" ? "nao_atribuidos" : "vendedor"}`)}
+                      disabled={leadsFiltradosPorVendedor.length === 0}
+                    >
+                      <Download className="h-3.5 w-3.5 mr-1" />
+                      Exportar CSV
+                    </Button>
+                  </div>
+
+                  {leads.length === 0 ? (
+                    <div className="text-center py-12 text-slate-400">
+                      <Inbox className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                      <p className="text-sm">Nenhum lead atribuído ainda.</p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Cards resumo de cada vendedor — clicáveis */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {vendedores
+                      .filter((v) => leads.some((l) => l.vendedor_id === v.id))
+                      .map((vendedor) => {
+                        const lv = leads.filter((l) => l.vendedor_id === vendedor.id);
+                        return (
+                          <button
+                            key={vendedor.id}
+                            onClick={() => setVendedorFiltro(vendedor.id)}
+                            className={cn(
+                              "text-left p-3 rounded-lg border transition-all hover:shadow-md",
+                              vendedorFiltro === vendedor.id
+                                ? "border-[#14919B] bg-[#14919B]/5 ring-1 ring-[#14919B]"
+                                : "border-slate-200 bg-white hover:border-slate-300"
+                            )}
+                          >
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-7 h-7 rounded-full bg-[#14919B] text-white flex items-center justify-center text-xs font-semibold">
+                                {vendedor.nome_completo?.charAt(0).toUpperCase() || "?"}
+                              </div>
+                              <span className="font-medium text-sm truncate">
+                                {vendedor.nome_completo}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs">
+                              <Badge className="bg-blue-100 text-blue-700">
+                                {lv.filter((l) => l.status === "novo").length} novo
+                              </Badge>
+                              <Badge className="bg-amber-100 text-amber-700">
+                                {lv.filter((l) => l.status === "em_atendimento").length} and.
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-1.5">
+                              {lv.length} lead{lv.length !== 1 ? "s" : ""} total
+                            </p>
+                          </button>
+                        );
+                      })}
+
+                    {/* Card "Não atribuídos" */}
+                    {leads.filter((l) => !l.vendedor_id).length > 0 && (
+                      <button
+                        onClick={() => setVendedorFiltro("nao_atribuido")}
+                        className={cn(
+                          "text-left p-3 rounded-lg border transition-all hover:shadow-md",
+                          vendedorFiltro === "nao_atribuido"
+                            ? "border-slate-400 bg-slate-50 ring-1 ring-slate-400"
+                            : "border-dashed border-slate-300 bg-white hover:border-slate-400"
+                        )}
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-7 h-7 rounded-full bg-slate-400 text-white flex items-center justify-center text-xs">
+                            🕳️
+                          </div>
+                          <span className="font-medium text-sm">Não atribuídos</span>
+                        </div>
+                        <Badge className="bg-blue-100 text-blue-700 text-xs">
+                          {leads.filter((l) => !l.vendedor_id).length} na fila
+                        </Badge>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Leads do vendedor selecionado */}
+                  {vendedorFiltro && (
+                    <div className="border rounded-lg overflow-hidden">
+                      <div className="bg-slate-50 px-4 py-3 flex items-center justify-between border-b">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-sm">
+                            {vendedorFiltro === "nao_atribuido"
+                              ? "Leads não atribuídos"
+                              : vendedores.find((v) => v.id === vendedorFiltro)?.nome_completo}
+                          </h3>
+                          <Badge variant="secondary" className="text-xs">
+                            {leadsFiltradosPorVendedor.length} lead
+                            {leadsFiltradosPorVendedor.length !== 1 ? "s" : ""}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      {leadsFiltradosPorVendedor.length === 0 ? (
+                        <div className="text-center py-8 text-slate-400 text-sm">
+                          Nenhum lead com o filtro selecionado.
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {leadsPorCnaeDoVendedor.map((grupo) => {
+                            const novos = grupo.leads.filter((l) => l.status === "novo").length;
+                            const andamento = grupo.leads.filter((l) => l.status === "em_atendimento").length;
+                            const convertidos = grupo.leads.filter((l) => l.status === "convertido").length;
+                            const descartados = grupo.leads.filter((l) => l.status === "descartado").length;
+                            const titulo = grupo.cnae === "__sem_cnae"
+                              ? "Sem CNAE"
+                              : (grupo.descricao || grupo.cnae);
+                            return (
+                              <div key={grupo.cnae} className="border rounded-lg overflow-hidden">
+                                {/* Header do CNAE */}
+                                <div className="bg-slate-50 px-4 py-2.5 border-b flex items-center justify-between flex-wrap gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium text-sm text-slate-700 truncate max-w-[300px]" title={titulo}>
+                                      {titulo}
+                                    </span>
+                                    <Badge variant="secondary" className="text-xs">
+                                      {grupo.leads.length}
+                                    </Badge>
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    {novos > 0 && (
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                                        {novos} novo{novos > 1 ? "s" : ""}
+                                      </span>
+                                    )}
+                                    {andamento > 0 && (
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                                        {andamento} and.
+                                      </span>
+                                    )}
+                                    {convertidos > 0 && (
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                                        {convertidos} conv.
+                                      </span>
+                                    )}
+                                    {descartados > 0 && (
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                                        {descartados} desc.
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                {/* Lista de leads do CNAE */}
+                                <div className="divide-y">
+                                  {grupo.leads.map((lead) => (
+                                    <div
+                                      key={lead.id}
+                                      className="px-4 py-3 hover:bg-slate-50 transition-colors"
+                                    >
+                                      <div className="flex items-start justify-between gap-3">
+                                        <div className="flex-1 min-w-0">
+                                          <p className="font-medium text-sm text-slate-900 truncate">
+                                            {lead.razao_social}
+                                          </p>
+                                          <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                                            <span>{lead.cnpj}</span>
+                                            {lead.cidade && (
+                                              <span className="flex items-center gap-1">
+                                                <MapPin className="h-3 w-3" />
+                                                {lead.cidade}/{lead.estado}
+                                              </span>
+                                            )}
+                                            {lead.data_atribuicao && (
+                                              <span className="flex items-center gap-1">
+                                                <Calendar className="h-3 w-3" />
+                                                {new Date(lead.data_atribuicao).toLocaleDateString("pt-BR")}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                        <Badge
+                                          className={cn(
+                                            "shrink-0 text-xs",
+                                            STATUS_LABELS[lead.status]?.color
+                                          )}
+                                        >
+                                          {STATUS_LABELS[lead.status]?.label}
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {!vendedorFiltro && (
+                    <div className="text-center py-8 text-slate-400 text-sm">
+                      <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      Clique em um vendedor acima para ver seus leads.
+                    </div>
+                  )}
+                    </>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* Modal de Distribuição */}
@@ -1428,6 +1763,8 @@ export default function LeadsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+        </>
+      )}
     </div>
   );
 }

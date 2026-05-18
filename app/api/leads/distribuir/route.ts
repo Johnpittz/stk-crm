@@ -1,7 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
+
+// Helper: cria uma tarefa de prospecção automaticamente quando lead é atribuído
+async function criarTarefaLead(supabaseAdmin: any, lead: any, vendedorId: string) {
+  try {
+    const hoje = new Date();
+    const amanha = new Date(hoje);
+    amanha.setDate(amanha.getDate() + 1);
+
+    await supabaseAdmin.from("tarefas").insert({
+      vendedor_id: vendedorId,
+      titulo: `Prospecção: ${lead.razao_social}`,
+      descricao: `Novo lead em sua fila — CNPJ: ${lead.cnpj}${lead.cidade ? `\nCidade: ${lead.cidade}/${lead.estado}` : ""}`,
+      tipo: "prospeccao",
+      prioridade: "alta",
+      status: "pendente",
+      coluna_kanban: "a_fazer",
+      data_inicio: hoje.toISOString().split("T")[0],
+      data_fim: amanha.toISOString().split("T")[0],
+    });
+  } catch (err) {
+    console.error("[Tarefa Lead Distribuir] Erro ao criar tarefa:", err);
+  }
+}
 
 // ============================================================
 // POST /api/leads/distribuir
@@ -156,6 +180,11 @@ export async function POST(request: NextRequest) {
       detalhes: [] as any[],
     };
 
+    const supabaseAdmin = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
     for (const item of resultadoDistribuicao) {
       for (const lead of item.leads) {
         const { error: updateError } = await supabase
@@ -176,6 +205,8 @@ export async function POST(request: NextRequest) {
           });
         } else {
           resultados.atribuidos++;
+          // Cria tarefa automática na agenda do vendedor
+          await criarTarefaLead(supabaseAdmin, lead, item.vendedor.id);
         }
       }
     }

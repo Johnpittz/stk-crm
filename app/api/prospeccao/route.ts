@@ -44,9 +44,9 @@ export async function GET(request: NextRequest) {
     const cidade = searchParams.get("cidade");
     const limite = Math.min(parseInt(searchParams.get("limite") || "50", 10), 100);
 
-    if (!cnae || !uf) {
+    if (!cnae) {
       return NextResponse.json(
-        { error: "CNAE e UF são obrigatórios" },
+        { error: "CNAE é obrigatório" },
         { status: 400 }
       );
     }
@@ -54,25 +54,29 @@ export async function GET(request: NextRequest) {
     // Limpa CNAE para formato numérico
     const cnaeLimpo = cnae.replace(/[^0-9]/g, "");
 
-    // Busca código IBGE da cidade (se informada)
-    let municipioCodigo: string | undefined;
-    if (cidade && cidade.trim()) {
-      municipioCodigo = await buscarCodigoIBGE(uf, cidade.trim());
-      if (!municipioCodigo) {
-        return NextResponse.json(
-          { error: `Cidade "${cidade}" não encontrada na UF ${uf}. Verifique o nome ou deixe em branco para buscar em todo o estado.` },
-          { status: 400 }
-        );
-      }
-    }
-
     const fonte = process.env.PROSPECCAO_FONTE || "cnpjaberto";
     let empresas: EmpresaProspeccao[] = [];
 
     if (fonte === "cnpjaberto") {
-      empresas = await buscarCnpjAbertoLeads(cnaeLimpo, uf, municipioCodigo, limite);
+      if (uf) {
+        // Busca em UF específica (modo antigo)
+        let municipioCodigo: string | undefined;
+        if (cidade && cidade.trim()) {
+          municipioCodigo = await buscarCodigoIBGE(uf, cidade.trim());
+          if (!municipioCodigo) {
+            return NextResponse.json(
+              { error: `Cidade "${cidade}" não encontrada na UF ${uf}. Verifique o nome ou deixe em branco para buscar em todo o estado.` },
+              { status: 400 }
+            );
+          }
+        }
+        empresas = await buscarCnpjAbertoLeads(cnaeLimpo, uf, municipioCodigo, limite);
+      } else {
+        // Busca em todo o Brasil (todas as UFs em paralelo)
+        empresas = await buscarCnpjAbertoTodasUfs(cnaeLimpo, limite);
+      }
     } else if (fonte === "cnpjota") {
-      empresas = await buscarCnpjota(cnaeLimpo, uf, cidade, limite);
+      empresas = await buscarCnpjota(cnaeLimpo, uf || "", cidade, limite);
     } else {
       return NextResponse.json({
         empresas: [],
@@ -348,8 +352,8 @@ async function buscarCnpjAbertoLeads(
     estado: e.uf,
     cep: e.cep,
     situacao_cadastral: e.situacao_cadastral,
-    cnae_principal: e.cnae || e.cnae_fiscal_principal,
-    cnae_principal_descricao: e.cnae_descricao || e.cnae_descricao,
+    cnae_principal: e.cnae || e.cnae_fiscal || e.cnae_fiscal_principal || e.cnae_principal,
+    cnae_principal_descricao: e.cnae_descricao || e.cnae_fiscal_descricao || e.descricao_cnae || e.cnae_descricao_principal,
     porte: e.porte,
     capital_social: e.capital_social ? String(e.capital_social) : undefined,
   }));
@@ -357,7 +361,7 @@ async function buscarCnpjAbertoLeads(
 
 async function buscarCnpjota(
   cnae: string,
-  uf: string,
+  uf: string | null,
   cidade: string | null,
   limite: number
 ): Promise<EmpresaProspeccao[]> {
@@ -367,7 +371,9 @@ async function buscarCnpjota(
   }
 
   const params = new URLSearchParams();
-  params.set("uf", uf);
+  if (uf) {
+    params.set("uf", uf);
+  }
   params.set("cnae_principal", cnae);
   params.set("limite", String(limite));
   params.set("situacao_cadastral", "02"); // Ativa
@@ -410,6 +416,71 @@ async function buscarCnpjota(
     porte: e.porte_empresa,
     capital_social: e.capital_social,
   }));
+}
+
+const TODAS_UFS = [
+  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
+  "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
+  "RS", "RO", "RR", "SC", "SP", "SE", "TO",
+];
+
+async function buscarCnpjAbertoTodasUfs(
+  cnae: string,
+  limite: number
+): Promise<EmpresaProspeccao[]> {
+  const apiKey = process.env.CNPJ_ABERTO_API_KEY;
+  if (!apiKey) {
+    throw new Error("CNPJ_ABERTO_API_KEY não configurada");
+  }
+
+  // Busca em batches de 5 UFs por vez para evitar rate limiting
+  const BATCH_SIZE = 5;
+  const porUf = Math.max(2, Math.ceil(limite / TODAS_UFS.length));
+  const todasEmpresas: EmpresaProspeccao[] = [];
+
+  for (let i = 0; i < TODAS_UFS.length; i += BATCH_SIZE) {
+    const batch = TODAS_UFS.slice(i, i + BATCH_SIZE);
+
+    const promises = batch.map(async (uf) => {
+      // Tenta até 3 vezes com delay crescente
+      for (let tentativa = 0; tentativa < 3; tentativa++) {
+        try {
+          if (tentativa > 0) {
+            await new Promise((r) => setTimeout(r, tentativa * 500));
+          }
+          const result = await buscarCnpjAbertoLeads(cnae, uf, undefined, porUf);
+          return { uf, result };
+        } catch (err: any) {
+          console.warn(`[Prospeccao] UF ${uf} tentativa ${tentativa + 1} falhou:`, err.message);
+          if (tentativa === 2) return { uf, result: [] as EmpresaProspeccao[] };
+        }
+      }
+      return { uf, result: [] as EmpresaProspeccao[] };
+    });
+
+    const batchResults = await Promise.all(promises);
+    for (const { uf, result } of batchResults) {
+      if (result.length > 0) {
+        todasEmpresas.push(...result);
+        console.log(`[Prospeccao] UF ${uf}: ${result.length} empresas`);
+      }
+    }
+
+    // Pequeno delay entre batches
+    if (i + BATCH_SIZE < TODAS_UFS.length) {
+      await new Promise((r) => setTimeout(r, 200));
+    }
+  }
+
+  console.log(`[Prospeccao] Total coletado: ${todasEmpresas.length} empresas`);
+
+  // Embaralha para dar variedade geográfica nos primeiros resultados
+  for (let i = todasEmpresas.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [todasEmpresas[i], todasEmpresas[j]] = [todasEmpresas[j], todasEmpresas[i]];
+  }
+
+  return todasEmpresas.slice(0, limite);
 }
 
 function formatTelefone(ddd?: string, numero?: string): string {

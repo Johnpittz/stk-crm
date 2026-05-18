@@ -4,6 +4,39 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
+// Helper: cria uma tarefa de prospecção automaticamente quando lead é atribuído
+async function criarTarefaLead(supabaseAdmin: any, leadId: string, vendedorId: string) {
+  try {
+    // Busca dados do lead
+    const { data: lead } = await supabaseAdmin
+      .from("leads")
+      .select("razao_social, cnpj, cidade, estado")
+      .eq("id", leadId)
+      .single();
+
+    if (!lead) return;
+
+    const hoje = new Date();
+    const amanha = new Date(hoje);
+    amanha.setDate(amanha.getDate() + 1);
+
+    await supabaseAdmin.from("tarefas").insert({
+      vendedor_id: vendedorId,
+      titulo: `Prospecção: ${lead.razao_social}`,
+      descricao: `Novo lead em sua fila — CNPJ: ${lead.cnpj}${lead.cidade ? `\nCidade: ${lead.cidade}/${lead.estado}` : ""}`,
+      tipo: "prospeccao",
+      prioridade: "alta",
+      status: "pendente",
+      coluna_kanban: "a_fazer",
+      data_inicio: hoje.toISOString().split("T")[0],
+      data_fim: amanha.toISOString().split("T")[0],
+    });
+  } catch (err) {
+    // Falha silenciosa — não quebra a atribuição do lead
+    console.error("[Tarefa Lead] Erro ao criar tarefa:", err);
+  }
+}
+
 // ============================================================
 // GET /api/leads?status=&origem=&busca=&vendedor_id=&limit=
 // Lista leads (RLS já filtra por gestor/vendedor)
@@ -18,12 +51,37 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
+    // Busca perfil do usuário para saber o cargo
+    const { data: meuPerfil } = await supabase
+      .from("profiles")
+      .select("cargo")
+      .eq("id", user.id)
+      .single();
+
+    const isDiretoria = ["diretor", "admin"].includes(meuPerfil?.cargo || "");
+    const isGestor = meuPerfil?.cargo === "gerente_comercial";
+
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
     const origem = searchParams.get("origem");
     const busca = searchParams.get("busca");
     const vendedorId = searchParams.get("vendedor_id");
+    const dataInicio = searchParams.get("data_inicio");
+    const dataFim = searchParams.get("data_fim");
     const limit = Math.min(parseInt(searchParams.get("limit") || "100", 10), 200);
+
+    // Se for gestor, busca os IDs dos vendedores da sua equipe
+    let vendedoresEquipe: string[] = [];
+    if (isGestor) {
+      const { data: vendedores } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("cargo", "vendedor")
+        .eq("gestor_id", user.id);
+      vendedoresEquipe = vendedores?.map((v) => v.id) || [];
+      // Inclui o próprio gestor caso tenha leads atribuídos
+      vendedoresEquipe.push(user.id);
+    }
 
     let query = supabase
       .from("leads")
@@ -45,6 +103,21 @@ export async function GET(request: NextRequest) {
 
     if (busca) {
       query = query.or(`razao_social.ilike.%${busca}%,cnpj.ilike.%${busca}%`);
+    }
+
+    if (dataInicio) {
+      query = query.gte("created_at", dataInicio);
+    }
+
+    if (dataFim) {
+      query = query.lte("created_at", `${dataFim}T23:59:59.999Z`);
+    }
+
+    // Filtro por equipe para gestores (não-diretoria)
+    // Gestor vê leads dos vendedores da sua equipe + leads não atribuídos
+    if (isGestor && vendedoresEquipe.length > 0) {
+      const ids = vendedoresEquipe.join(",");
+      query = query.or(`vendedor_id.in.(${ids}),vendedor_id.is.null`);
     }
 
     const { data: leads, error, count } = await query;
@@ -127,6 +200,15 @@ export async function PATCH(request: NextRequest) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Se atribuiu vendedor, cria tarefa automática na agenda
+    if (vendedor_id && lead) {
+      const supabaseAdmin = createServiceClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+      await criarTarefaLead(supabaseAdmin, id, vendedor_id);
     }
 
     return NextResponse.json({ success: true, lead });

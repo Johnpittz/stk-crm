@@ -62,9 +62,9 @@ export function AtendimentoChat({ atendimento, open, onClose, onMarcarResolvido,
   const scrollRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
-  const fetchMensagens = useCallback(async () => {
+  const fetchMensagens = useCallback(async (silent = false) => {
     if (!atendimento) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
@@ -93,7 +93,7 @@ export function AtendimentoChat({ atendimento, open, onClose, onMarcarResolvido,
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [atendimento, supabase]);
 
@@ -212,13 +212,13 @@ export function AtendimentoChat({ atendimento, open, onClose, onMarcarResolvido,
     }
   }, [mensagens]);
 
-  // Polling: atualiza mensagens a cada 3s (Realtime desabilitado para evitar reconexões em loop)
+  // Polling: atualiza mensagens a cada 5s em background (sem loading spinner)
   useEffect(() => {
     if (!atendimento || !open) return;
 
     const interval = setInterval(() => {
-      fetchMensagens();
-    }, 3000);
+      fetchMensagens(true); // silent = true
+    }, 5000);
 
     return () => clearInterval(interval);
   }, [atendimento, open, fetchMensagens]);
@@ -295,7 +295,7 @@ export function AtendimentoChat({ atendimento, open, onClose, onMarcarResolvido,
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 pr-8">
                 <Button
                   size="sm"
                   variant="ghost"
