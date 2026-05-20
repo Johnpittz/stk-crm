@@ -25,7 +25,9 @@ export async function GET(request: NextRequest) {
       .select('*', { count: 'exact' })
 
     if (busca) {
-      query = query.or(`nome.ilike.%${busca}%,codigo_erp.ilike.%${busca}%,sku.ilike.%${busca}%`)
+      // Escapa caracteres curinga do SQL para prevenir injeção
+      const buscaLimpa = busca.replace(/%/g, '\\%').replace(/_/g, '\\_')
+      query = query.or(`nome.ilike.%${buscaLimpa}%,codigo_erp.ilike.%${buscaLimpa}%,sku.ilike.%${buscaLimpa}%`)
     }
 
     if (status) {

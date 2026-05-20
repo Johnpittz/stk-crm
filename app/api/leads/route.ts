@@ -102,7 +102,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (busca) {
-      query = query.or(`razao_social.ilike.%${busca}%,cnpj.ilike.%${busca}%`);
+      // Escapa caracteres curinga do SQL para prevenir injeção
+      const buscaLimpa = busca.replace(/%/g, '\\%').replace(/_/g, '\\_');
+      query = query.or(`razao_social.ilike.%${buscaLimpa}%,cnpj.ilike.%${buscaLimpa}%`);
     }
 
     if (dataInicio) {
