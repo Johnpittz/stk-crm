@@ -107,6 +107,14 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "ID e status são obrigatórios" }, { status: 400 });
   }
 
+  // Verifica se usuário é gestor
+  const { data: meuPerfil } = await supabase
+    .from("profiles")
+    .select("cargo")
+    .eq("id", user.id)
+    .single();
+  const isGestor = ["diretor", "admin", "gerente_comercial"].includes(meuPerfil?.cargo || "");
+
   const updateData: any = { status };
   if (status === "ganha") {
     updateData.data_conversao = new Date().toISOString().split("T")[0];
@@ -116,15 +124,20 @@ export async function PATCH(request: NextRequest) {
     updateData.motivo_perda = motivo_perda;
   }
 
-  const { data: oportunidade, error } = await supabase
+  let updateQuery = supabase
     .from("oportunidades")
     .update(updateData)
-    .eq("id", id)
+    .eq("id", id);
+  if (!isGestor) {
+    updateQuery = updateQuery.eq("vendedor_id", user.id);
+  }
+
+  const { data: oportunidade, error } = await updateQuery
     .select()
     .single();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error || !oportunidade) {
+    return NextResponse.json({ error: "Oportunidade não encontrada ou sem permissão" }, { status: 403 });
   }
 
   return NextResponse.json({ success: true, oportunidade });

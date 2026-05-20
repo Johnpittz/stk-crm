@@ -175,6 +175,26 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "ID é obrigatório" }, { status: 400 });
   }
 
+  // Verifica se usuário é gestor
+  const { data: meuPerfil } = await supabase
+    .from("profiles")
+    .select("cargo")
+    .eq("id", user.id)
+    .single();
+  const isGestor = ["diretor", "admin", "gerente_comercial"].includes(meuPerfil?.cargo || "");
+
+  // Se não é gestor e não está assumindo, verifica se o atendimento é dele
+  if (!isGestor && !assumir) {
+    const { data: atendimentoAtual } = await supabase
+      .from("atendimentos")
+      .select("vendedor_id")
+      .eq("id", id)
+      .single();
+    if (atendimentoAtual?.vendedor_id !== user.id) {
+      return NextResponse.json({ error: "Sem permissão para alterar este atendimento" }, { status: 403 });
+    }
+  }
+
   const updateData: any = {};
   if (status) updateData.status = status;
   if (status === "fechado") updateData.data_fechamento = new Date().toISOString();
@@ -201,8 +221,8 @@ export async function PATCH(request: NextRequest) {
     .select()
     .single();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error || !atendimento) {
+    return NextResponse.json({ error: error?.message || "Atendimento não encontrado" }, { status: 500 });
   }
 
   return NextResponse.json({ success: true, atendimento });

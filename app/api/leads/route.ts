@@ -189,6 +189,20 @@ export async function PATCH(request: NextRequest) {
           { status: 403 }
         );
       }
+
+      // Verifica se o lead pertence ao vendedor
+      const { data: leadAtual } = await supabase
+        .from("leads")
+        .select("vendedor_id")
+        .eq("id", id)
+        .single();
+      if (leadAtual?.vendedor_id !== user.id) {
+        return NextResponse.json(
+          { error: "Sem permissão para editar este lead" },
+          { status: 403 }
+        );
+      }
+
       if (status !== undefined) updateData.status = status;
       if (observacoes !== undefined) updateData.observacoes = observacoes;
     }
