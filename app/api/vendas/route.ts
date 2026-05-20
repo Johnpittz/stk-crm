@@ -20,6 +20,14 @@ export async function GET(request: NextRequest) {
   const status = searchParams.get("status") || "todos";
   const periodo = searchParams.get("periodo") || "mes";
 
+  // Verifica papel do usuário para controle de acesso
+  const { data: meuPerfil } = await supabase
+    .from("profiles")
+    .select("cargo")
+    .eq("id", user.id)
+    .single();
+  const isGestor = ["diretor", "admin", "gerente_comercial"].includes(meuPerfil?.cargo || "");
+
   // Filtro de período
   const hoje = new Date();
   let dataInicio: Date;
@@ -46,6 +54,11 @@ export async function GET(request: NextRequest) {
     .select("*, clientes(nome_razao_social)", { count: "exact" })
     .gte("data_venda", dataInicioStr);
 
+  // Vendedor comum só vê suas próprias vendas
+  if (!isGestor) {
+    query = query.eq("vendedor_id", user.id);
+  }
+
   if (busca) {
     query = query.ilike("clientes.nome_razao_social", `%${busca}%`);
   }
@@ -63,11 +76,14 @@ export async function GET(request: NextRequest) {
   }
 
   // Stats — query agregada leve (só sum/count, sem dados)
-  const { data: aggData, error: aggError } = await supabase
+  let statsQuery = supabase
     .from("vendas")
     .select("valor_final.sum(), count()")
-    .gte("data_venda", dataInicioStr)
-    .single();
+    .gte("data_venda", dataInicioStr);
+  if (!isGestor) {
+    statsQuery = statsQuery.eq("vendedor_id", user.id);
+  }
+  const { data: aggData, error: aggError } = await statsQuery.single();
 
   const stats = {
     total_vendas: count || 0,

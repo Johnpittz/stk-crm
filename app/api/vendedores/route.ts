@@ -107,6 +107,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Token inválido" }, { status: 401 });
   }
 
+  // Verifica se usuário é gestor
+  const { data: meuPerfil } = await supabase
+    .from("profiles")
+    .select("cargo")
+    .eq("id", user.id)
+    .single();
+  const isGestor = ["diretor", "admin", "gerente_comercial"].includes(meuPerfil?.cargo || "");
+  if (!isGestor) {
+    return NextResponse.json({ error: "Apenas gestores podem listar vendedores" }, { status: 403 });
+  }
+
   // Usa service_role para bypassar RLS e listar todos os vendedores
   const supabaseAdmin = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
