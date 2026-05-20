@@ -145,6 +145,14 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "ID da tarefa é obrigatório" }, { status: 400 });
   }
 
+  // Verifica se usuário é gestor
+  const { data: meuPerfil } = await supabase
+    .from("profiles")
+    .select("cargo")
+    .eq("id", user.id)
+    .single();
+  const isGestor = ["diretor", "admin", "gerente_comercial"].includes(meuPerfil?.cargo || "");
+
   const updateData: any = {};
   if (coluna_kanban !== undefined) updateData.coluna_kanban = coluna_kanban;
   if (ordem !== undefined) updateData.ordem = ordem;
@@ -160,15 +168,20 @@ export async function PATCH(request: NextRequest) {
     updateData.status = "pendente";
   }
 
-  const { data: tarefa, error } = await supabase
+  let updateQuery = supabase
     .from("tarefas")
     .update(updateData)
-    .eq("id", id)
+    .eq("id", id);
+  if (!isGestor) {
+    updateQuery = updateQuery.eq("vendedor_id", user.id);
+  }
+
+  const { data: tarefa, error } = await updateQuery
     .select("*, clientes(id, nome_razao_social)")
     .single();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error || !tarefa) {
+    return NextResponse.json({ error: "Tarefa não encontrada ou sem permissão" }, { status: 403 });
   }
 
   return NextResponse.json({ success: true, tarefa });
@@ -189,10 +202,31 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "ID da tarefa é obrigatório" }, { status: 400 });
   }
 
-  const { error } = await supabase.from("tarefas").delete().eq("id", id);
+  // Verifica se usuário é gestor
+  const { data: meuPerfil } = await supabase
+    .from("profiles")
+    .select("cargo")
+    .eq("id", user.id)
+    .single();
+  const isGestor = ["diretor", "admin", "gerente_comercial"].includes(meuPerfil?.cargo || "");
+
+  let deleteQuery = supabase.from("tarefas").delete().eq("id", id);
+  if (!isGestor) {
+    deleteQuery = deleteQuery.eq("vendedor_id", user.id);
+  }
+
+  const { error, count } = await deleteQuery;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // Se nenhuma linha foi deletada, significa que não tinha permissão ou não existia
+  if (count === 0) {
+    const { data: existe } = await supabase.from("tarefas").select("id").eq("id", id).single();
+    if (existe) {
+      return NextResponse.json({ error: "Sem permissão para excluir esta tarefa" }, { status: 403 });
+    }
   }
 
   return NextResponse.json({ success: true });
