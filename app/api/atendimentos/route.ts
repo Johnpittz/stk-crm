@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { rateLimit } from "@/lib/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -49,6 +50,12 @@ export async function GET(request: NextRequest) {
 
 // POST /api/atendimentos - cria atendimento (simulacao ou webhook)
 export async function POST(request: NextRequest) {
+  // Rate limit: 20 criações por minuto
+  const limit = rateLimit(request, { max: 20, windowMs: 60_000 });
+  if (!limit.allowed) {
+    return NextResponse.json({ error: "Muitas requisições. Aguarde." }, { status: 429, headers: { "Retry-After": String(limit.retryAfter) } });
+  }
+
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {

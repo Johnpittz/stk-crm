@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,12 @@ interface EmpresaProspeccao {
 
 export async function GET(request: NextRequest) {
   try {
+    // Rate limit: 30 consultas por minuto
+    const limit = rateLimit(request, { max: 30, windowMs: 60_000 });
+    if (!limit.allowed) {
+      return NextResponse.json({ error: "Muitas consultas. Aguarde." }, { status: 429, headers: { "Retry-After": String(limit.retryAfter) } });
+    }
+
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {

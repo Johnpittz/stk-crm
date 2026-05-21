@@ -1,8 +1,15 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { rateLimit } from "@/lib/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
+  // Rate limit: 5 tentativas por minuto
+  const limit = rateLimit(request, { max: 5, windowMs: 60_000 });
+  if (!limit.allowed) {
+    return NextResponse.json({ error: "Muitas tentativas. Aguarde." }, { status: 429, headers: { "Retry-After": String(limit.retryAfter) } });
+  }
+
   // Exige que quem crie usuário seja admin, diretor ou gerente_comercial
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
