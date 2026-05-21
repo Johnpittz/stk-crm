@@ -468,7 +468,7 @@ async function buscarCnpjAbertoTodasUfs(
     for (const { uf, result } of batchResults) {
       if (result.length > 0) {
         todasEmpresas.push(...result);
-        console.log(`[Prospeccao] UF ${uf}: ${result.length} empresas`);
+        // log silenciado em produção
       }
     }
 
@@ -478,7 +478,7 @@ async function buscarCnpjAbertoTodasUfs(
     }
   }
 
-  console.log(`[Prospeccao] Total coletado: ${todasEmpresas.length} empresas`);
+  // log silenciado em produção
 
   // Embaralha para dar variedade geográfica nos primeiros resultados
   for (let i = todasEmpresas.length - 1; i > 0; i--) {

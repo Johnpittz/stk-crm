@@ -53,10 +53,7 @@ export async function POST(request: NextRequest) {
     // Parse do body
     const payload = await request.json();
     
-    console.log('[Webhook Millennium] Evento recebido:', {
-      evento: payload.evento,
-      timestamp: new Date().toISOString(),
-    });
+    // Evento registrado na tabela webhooks_recebidos
 
     // Registra o webhook recebido
     await getSupabase().from('webhooks_recebidos').insert({
@@ -83,7 +80,7 @@ export async function POST(request: NextRequest) {
         break;
         
       default:
-        console.log(`[Webhook] Evento não tratado: ${payload.evento}`);
+        // Evento não tratado, já registrado na tabela
     }
 
     return NextResponse.json({ 
@@ -134,11 +131,11 @@ async function processarCliente(data: any) {
         .update(clienteData)
         .eq('id', existente.id);
       
-      console.log(`[Webhook] Cliente atualizado: ${data.codigo}`);
+      // Cliente atualizado
     } else {
       // Insere novo
       await getSupabase().from('clientes').insert(clienteData);
-      console.log(`[Webhook] Novo cliente criado: ${data.codigo}`);
+      // Novo cliente criado
     }
 
     // Atualiza métricas de positivação
@@ -189,7 +186,7 @@ async function processarVenda(data: any) {
       .from('vendas')
       .upsert(vendaData, { onConflict: 'id_externo' });
 
-    console.log(`[Webhook] Venda processada: ${data.numero}`);
+    // Venda processada
 
     // Atualiza ranking em tempo real
     await atualizarRankingVendedor(vendedor?.id);
@@ -224,7 +221,7 @@ async function processarCampanha(data: any) {
       .from('campanhas')
       .upsert(campanhaData, { onConflict: 'id_externo' });
 
-    console.log(`[Webhook] Campanha processada: ${data.titulo}`);
+    // Campanha processada
     
   } catch (error) {
     console.error('[Webhook] Erro ao processar campanha:', error);
