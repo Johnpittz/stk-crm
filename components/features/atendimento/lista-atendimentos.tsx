@@ -9,7 +9,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { SimularWhatsAppModal } from "./simular-whatsapp-modal";
-import { AtendimentoChat } from "./atendimento-chat";
 
 interface Atendimento {
   id: string;
@@ -21,7 +20,9 @@ interface Atendimento {
   status: string;
   transbordado: boolean;
   nao_lido: boolean;
+  vendedor_interagiu: boolean;
   ultima_mensagem_remetente: string | null;
+  data_fechamento?: string | null;
   clientes: { id: string; nome_razao_social: string } | null;
 }
 
@@ -29,11 +30,10 @@ interface ListaAtendimentosProps {
   atendimentos: Atendimento[];
   loading: boolean;
   onRefresh: () => void;
+  onAbrirChat: (a: Atendimento) => void;
 }
 
-export function ListaAtendimentos({ atendimentos, loading, onRefresh }: ListaAtendimentosProps) {
-  const [chatAberto, setChatAberto] = useState(false);
-  const [atendimentoSelecionado, setAtendimentoSelecionado] = useState<Atendimento | null>(null);
+export function ListaAtendimentos({ atendimentos, loading, onRefresh, onAbrirChat }: ListaAtendimentosProps) {
   const supabase = createClient();
 
   const handleFechar = async (id: string) => {
@@ -123,10 +123,7 @@ export function ListaAtendimentos({ atendimentos, loading, onRefresh }: ListaAte
                         ? "bg-green-50/60 border border-green-200 hover:bg-green-50"
                         : "bg-white border border-slate-200 hover:border-green-300 hover:shadow-sm"
                     )}
-                    onClick={() => {
-                      setAtendimentoSelecionado(a);
-                      setChatAberto(true);
-                    }}
+                    onClick={() => onAbrirChat(a)}
                   >
                     {/* Avatar */}
                     <div className="relative shrink-0">
@@ -210,16 +207,6 @@ export function ListaAtendimentos({ atendimentos, loading, onRefresh }: ListaAte
         )}
       </CardContent>
 
-      <AtendimentoChat
-        atendimento={atendimentoSelecionado}
-        open={chatAberto}
-        onClose={() => {
-          setChatAberto(false);
-          setAtendimentoSelecionado(null);
-        }}
-        onMarcarResolvido={handleFechar}
-        onMensagemEnviada={onRefresh}
-      />
     </Card>
   );
 }

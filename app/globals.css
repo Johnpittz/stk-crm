@@ -36,27 +36,6 @@
     --radius: 0.5rem;
   }
 
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 168 66% 14%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 168 66% 14%;
-  }
 }
 
 @layer base {
@@ -65,6 +44,82 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* ============ MODO COMPACTO ============ */
+@layer base {
+  html.compact body {
+    @apply text-sm;
+    line-height: 1.4;
+  }
+
+  html.compact h1, html.compact h2, html.compact h3 {
+    @apply text-base;
+  }
+
+  /* Reduz paddings de cards e containers comuns */
+  html.compact [class*="CardContent"] {
+    padding: 0.75rem !important;
+  }
+
+  html.compact [class*="CardHeader"] {
+    padding: 0.75rem 0.75rem 0.25rem !important;
+  }
+
+  html.compact .space-y-6 > * + * {
+    margin-top: 1rem !important;
+  }
+
+  html.compact .space-y-4 > * + * {
+    margin-top: 0.5rem !important;
+  }
+
+  html.compact .gap-4 {
+    gap: 0.5rem !important;
+  }
+
+  html.compact .gap-6 {
+    gap: 0.75rem !important;
+  }
+
+  html.compact .p-4 {
+    padding: 0.5rem !important;
+  }
+
+  html.compact .p-6 {
+    padding: 0.75rem !important;
+  }
+
+  html.compact .py-4 {
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+  }
+
+  html.compact .py-6 {
+    padding-top: 0.75rem !important;
+    padding-bottom: 0.75rem !important;
+  }
+
+  html.compact .px-4 {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+  }
+
+  html.compact .px-6 {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+}
+
+/* ============ REDUZIR ANIMAÇÕES ============ */
+@layer base {
+  html.reduce-motion * {
+    transition-duration: 0.01ms !important;
+    transition-property: none !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
   }
 }
 

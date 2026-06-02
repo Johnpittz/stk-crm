@@ -7,45 +7,52 @@ export const dynamic = "force-dynamic";
 
 // GET /api/atendimentos?status=aberto - lista atendimentos do vendedor logado
 export async function GET(request: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get("status");
+
+    // Busca perfil do usuário para verificar se é gestor/admin
+    const { data: meuPerfil } = await supabase
+      .from("profiles")
+      .select("cargo")
+      .eq("id", user.id)
+      .single();
+
+    const isGestor = ["diretor", "admin", "gerente_comercial"].includes(meuPerfil?.cargo || "");
+
+    let query = supabase
+      .from("atendimentos")
+      .select("*, clientes(id, nome_razao_social), ultima_mensagem_remetente, nao_lido")
+      .order("ultima_mensagem_data", { ascending: false })
+      .limit(200);
+
+    if (status) {
+      query = query.eq("status", status);
+    }
+
+    if (!isGestor) {
+      // Vendedor vê seus atendimentos + atendimentos não atribuídos (fila geral)
+      query = query.or(`vendedor_id.eq.${user.id},vendedor_id.is.null`);
+    }
+
+    const { data: atendimentos, error } = await query;
+
+    if (error) {
+      console.error("[API atendimentos GET] Supabase error:", error);
+      return NextResponse.json({ error: error.message, code: error.code, hint: error.hint }, { status: 500 });
+    }
+
+    return NextResponse.json({ atendimentos: atendimentos || [] });
+  } catch (err: any) {
+    console.error("[API atendimentos GET] Catch error:", err);
+    return NextResponse.json({ error: err?.message || "Erro interno", stack: err?.stack }, { status: 500 });
   }
-
-  const { searchParams } = new URL(request.url);
-  const status = searchParams.get("status") || "aberto";
-
-  // Busca perfil do usuário para verificar se é gestor/admin
-  const { data: meuPerfil } = await supabase
-    .from("profiles")
-    .select("cargo")
-    .eq("id", user.id)
-    .single();
-
-  const isGestor = ["diretor", "admin", "gerente_comercial"].includes(meuPerfil?.cargo || "");
-
-  let query = supabase
-    .from("atendimentos")
-    .select("*, clientes(id, nome_razao_social), ultima_mensagem_remetente, nao_lido")
-    .eq("status", status)
-    .order("ultima_mensagem_data", { ascending: false })
-    .limit(200);
-
-  if (isGestor) {
-    // Gestor vê todos os atendimentos
-  } else {
-    // Vendedor vê seus atendimentos + atendimentos não atribuídos (fila geral)
-    query = query.or(`vendedor_id.eq.${user.id},vendedor_id.is.null`);
-  }
-
-  const { data: atendimentos, error } = await query;
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ atendimentos: atendimentos || [] });
 }
 
 // POST /api/atendimentos - cria atendimento (simulacao ou webhook)
@@ -204,7 +211,8 @@ export async function PATCH(request: NextRequest) {
 
   const updateData: any = {};
   if (status) updateData.status = status;
-  if (status === "fechado") updateData.data_fechamento = new Date().toISOString();
+  // TODO: reativar data_fechamento quando migration 057 for aplicada no banco
+  // if (status === "fechado") updateData.data_fechamento = new Date().toISOString();
   if (vendedor_id) {
     updateData.vendedor_id = vendedor_id;
     updateData.transbordado = true;
@@ -229,7 +237,8 @@ export async function PATCH(request: NextRequest) {
     .single();
 
   if (error || !atendimento) {
-    return NextResponse.json({ error: error?.message || "Atendimento não encontrado" }, { status: 500 });
+    console.error("[API atendimentos PATCH] Supabase error:", error);
+    return NextResponse.json({ error: error?.message || "Atendimento não encontrado", details: error }, { status: 500 });
   }
 
   return NextResponse.json({ success: true, atendimento });

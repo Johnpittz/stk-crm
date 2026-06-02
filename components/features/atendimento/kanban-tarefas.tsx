@@ -7,7 +7,7 @@ import {
   Draggable,
   DropResult,
 } from "@hello-pangea/dnd";
-import { MoreHorizontal, Clock, AlertCircle, Trash2 } from "lucide-react";
+import { MoreHorizontal, Clock, AlertCircle, Trash2, MessageCircle, Check } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -59,7 +59,28 @@ interface Tarefa {
   clientes: { id: string; nome_razao_social: string } | null;
 }
 
-export function KanbanTarefas() {
+interface Atendimento {
+  id: string;
+  telefone_cliente: string;
+  nome_cliente: string;
+  assunto: string;
+  ultima_mensagem: string;
+  ultima_mensagem_data: string;
+  status: string;
+  transbordado: boolean;
+  nao_lido: boolean;
+  vendedor_interagiu: boolean;
+  ultima_mensagem_remetente: string | null;
+  data_fechamento?: string | null;
+  clientes: { id: string; nome_razao_social: string } | null;
+}
+
+interface KanbanTarefasProps {
+  atendimentos: Atendimento[];
+  onAbrirChat: (a: Atendimento) => void;
+}
+
+export function KanbanTarefas({ atendimentos, onAbrirChat }: KanbanTarefasProps) {
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [loading, setLoading] = useState(true);
   const [tarefaSelecionada, setTarefaSelecionada] = useState<Tarefa | null>(null);
@@ -174,9 +195,35 @@ export function KanbanTarefas() {
       .filter((t) => t.coluna_kanban === colunaId)
       .sort((a, b) => a.ordem - b.ordem);
 
+  const getAtendimentosPorColuna = (colunaId: string) => {
+    const emAndamento = (a: Atendimento) =>
+      a.vendedor_interagiu === true || a.ultima_mensagem_remetente === "vendedor";
+
+    if (colunaId === "a_fazer") {
+      return atendimentos.filter((a) => a.status === "aberto" && !emAndamento(a));
+    }
+    if (colunaId === "em_andamento") {
+      return atendimentos.filter((a) => a.status === "aberto" && emAndamento(a));
+    }
+    if (colunaId === "concluida") {
+      const seteDiasAtras = new Date();
+      seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
+      return atendimentos.filter(
+        (a) =>
+          a.status === "fechado" &&
+          new Date(a.data_fechamento || a.ultima_mensagem_data || 0) > seteDiasAtras
+      );
+    }
+    return [];
+  };
+
   const formatHora = (hora: string | null) => {
     if (!hora) return "";
     return hora.substring(0, 5);
+  };
+
+  const horaAtendimento = (data: string) => {
+    return new Date(data).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   };
 
   return (
@@ -197,32 +244,103 @@ export function KanbanTarefas() {
         ) : (
           <DragDropContext onDragEnd={onDragEnd}>
             <div className="grid grid-cols-3 gap-3 px-3 pb-3 h-full overflow-hidden">
-              {colunas.map((coluna) => (
+              {colunas.map((coluna) => {
+                const tarefasColuna = getTarefasPorColuna(coluna.id);
+                const atendimentosColuna = getAtendimentosPorColuna(coluna.id);
+                const totalItems = tarefasColuna.length + atendimentosColuna.length;
+
+                return (
                 <div
                   key={coluna.id}
-                  className={cn("flex flex-col rounded-lg", coluna.cor)}
+                  className={cn("flex flex-col rounded-lg h-full", coluna.cor)}
                 >
                   {/* Header da Coluna */}
                   <div className="flex items-center justify-between p-2 border-b border-slate-200/50">
                     <h3 className="font-semibold text-sm text-slate-700">{coluna.titulo}</h3>
                     <Badge variant="secondary" className="bg-white/80">
-                      {getTarefasPorColuna(coluna.id).length}
+                      {totalItems}
                     </Badge>
                   </div>
 
                   {/* Lista de Tarefas */}
                   <Droppable droppableId={coluna.id}>
                     {(provided, snapshot) => (
-                      <ScrollArea className="flex-1 p-2 h-0">
+                      <div className="flex-1 overflow-y-auto px-2 pb-6 min-h-0">
                         <div
                           ref={provided.innerRef}
                           {...provided.droppableProps}
                           className={cn(
-                            "space-y-2 min-h-[100px]",
+                            "space-y-2 min-h-[100px] p-2",
                             snapshot.isDraggingOver && "bg-slate-200/50 rounded-lg"
                           )}
                         >
-                          {getTarefasPorColuna(coluna.id).map((tarefa, index) => (
+                          {/* Atendimentos na coluna */}
+                          {atendimentosColuna.map((a) => {
+                            const isNaoLido = a.nao_lido;
+                            return (
+                              <div
+                                key={`at-${a.id}`}
+                                className={cn(
+                                  "bg-white rounded-lg p-2 shadow-sm border transition-all",
+                                  isNaoLido
+                                    ? "border-green-400 bg-green-50/50"
+                                    : "border-slate-200"
+                                )}
+                              >
+                                <div className="flex items-start justify-between mb-1">
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700"
+                                  >
+                                    <MessageCircle className="h-3 w-3 mr-1" />
+                                    ATENDIMENTO
+                                  </Badge>
+                                  <div className="flex items-center gap-1">
+                                    {isNaoLido && (
+                                      <Badge className="h-4 text-[9px] bg-red-500 text-white border-0 px-1">NOVO</Badge>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <p className="font-medium text-slate-900 text-xs mb-1 truncate">
+                                  {a.clientes?.nome_razao_social || a.nome_cliente || "Cliente não identificado"}
+                                </p>
+
+                                {a.ultima_mensagem && (
+                                  <p className="text-[11px] text-slate-500 truncate mb-1">
+                                    {a.ultima_mensagem_remetente === "vendedor" ? (
+                                      <span className="text-slate-400">Você: </span>
+                                    ) : (
+                                      <span className={isNaoLido ? "text-green-700 font-medium" : "text-slate-400"}>Cliente: </span>
+                                    )}
+                                    {a.ultima_mensagem}
+                                  </p>
+                                )}
+
+                                <div className="flex items-center justify-between text-[10px] text-slate-400">
+                                  <span>{a.telefone_cliente}</span>
+                                  {a.ultima_mensagem_data && (
+                                    <span className="flex items-center gap-1">
+                                      <Clock className="h-3 w-3" />
+                                      {horaAtendimento(a.ultima_mensagem_data)}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="w-full mt-2 h-7 text-[11px] gap-1 border-green-300 text-green-700 hover:bg-green-50 hover:text-green-800"
+                                  onClick={() => onAbrirChat(a)}
+                                >
+                                  <MessageCircle className="h-3 w-3" />
+                                  Abrir Chat
+                                </Button>
+                              </div>
+                            );
+                          })}
+
+                          {tarefasColuna.map((tarefa, index) => (
                             <Draggable
                               key={tarefa.id}
                               draggableId={tarefa.id}
@@ -298,11 +416,11 @@ export function KanbanTarefas() {
                           ))}
                           {provided.placeholder}
                         </div>
-                      </ScrollArea>
+                      </div>
                     )}
                   </Droppable>
                 </div>
-              ))}
+              )})}
             </div>
           </DragDropContext>
         )}

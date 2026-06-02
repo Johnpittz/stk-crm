@@ -62,5 +62,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // Atualiza o atendimento com a última mensagem (para refletir na lista e no kanban)
+  const updateData: any = {
+    ultima_mensagem: conteudo,
+    ultima_mensagem_data: new Date().toISOString(),
+    ultima_mensagem_remetente: remetente,
+  };
+  if (remetente === "vendedor") {
+    updateData.vendedor_interagiu = true;
+  }
+
+  await supabase
+    .from("atendimentos")
+    .update(updateData)
+    .eq("id", atendimento_id);
+
   return NextResponse.json({ success: true, mensagem });
 }

@@ -1,7 +1,7 @@
 # CRM ROMA - Progresso do Projeto
 
 > **Arquivo de contexto para agentes IA (Kimi)**
-> **Última atualização:** 05/05/2026
+> **Última atualização:** 21/05/2026
 > **Deploy atual:** https://crm-roma.vercel.app
 > **Conversa atual:** Segurança do Sistema + Correções Gerais
 

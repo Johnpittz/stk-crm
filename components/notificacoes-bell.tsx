@@ -17,6 +17,16 @@ interface Notificacao {
   created_at: string;
 }
 
+interface PreferenciasNotificacoes {
+  canal_push: boolean;
+  som_ativado: boolean;
+  notif_atendimentos: boolean;
+  notif_tarefas: boolean;
+  notif_oportunidades: boolean;
+  notif_metas_campanhas: boolean;
+  notif_prospeccao: boolean;
+}
+
 const iconesPorTipo: Record<string, any> = {
   atendimento_novo: MessageCircle,
   atendimento_mensagem: MessageCircle,
@@ -37,16 +47,38 @@ export function NotificacoesBell() {
   const [aberto, setAberto] = useState(false);
   const [notificacoes, setNotificacoes] = useState<Notificacao[]>([]);
   const [naoLidas, setNaoLidas] = useState(0);
-  const [toast, setToast] = useState<Notificacao | null>(null);
+  const [toastNotif, setToastNotif] = useState<Notificacao | null>(null);
+  const [prefs, setPrefs] = useState<PreferenciasNotificacoes | null>(null);
   const [audio] = useState(() => {
     if (typeof Audio !== "undefined") {
-      return new Audio("data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZSA0PVanu8LdnGwU2k9n1unEiBC13yO/eizEIHWq+8+OZURE");
+      return new Audio("/sounds/notification.wav");
     }
     return null;
   });
   const supabase = createClient();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const toastTimer = useRef<NodeJS.Timeout | null>(null);
+
+  // Verifica se uma notificação deve ser mostrada de acordo com as preferências
+  const deveMostrarNotif = useCallback((tipo: string): boolean => {
+    if (!prefs) return false; // não mostra nada até carregar prefs
+    if (!prefs.canal_push) return false;
+
+    const tipoLower = tipo.toLowerCase();
+    if (tipoLower.includes("atendimento") || tipoLower.includes("transbordo")) {
+      return prefs.notif_atendimentos;
+    }
+    if (tipoLower.includes("tarefa") || tipoLower.includes("prospec")) {
+      return prefs.notif_tarefas;
+    }
+    if (tipoLower.includes("oportunidade")) {
+      return prefs.notif_oportunidades;
+    }
+    if (tipoLower.includes("meta") || tipoLower.includes("campanha")) {
+      return prefs.notif_metas_campanhas;
+    }
+    return true;
+  }, [prefs]);
 
   const fetchNotificacoes = useCallback(async () => {
     try {
@@ -59,11 +91,59 @@ export function NotificacoesBell() {
       if (!res.ok) return;
 
       const data = await res.json();
-      setNotificacoes(data.notificacoes || []);
-      setNaoLidas(data.naoLidas || 0);
+      const novasNotifs: Notificacao[] = data.notificacoes || [];
+      const novasNaoLidas = data.naoLidas || 0;
+
+      // Detecta notificações novas (que chegaram desde a última busca)
+      const idsAnteriores = new Set(notificacoes.map((n) => n.id));
+      const notifsRealmenteNovas = novasNotifs.filter((n) => !idsAnteriores.has(n.id) && !n.lida);
+
+      setNotificacoes(novasNotifs);
+      setNaoLidas(novasNaoLidas);
+
+      // Mostra toast e toca som apenas para notificações permitidas
+      const notifParaToast = notifsRealmenteNovas.find((n) => deveMostrarNotif(n.tipo));
+      if (notifParaToast) {
+        setToastNotif(notifParaToast);
+        if (audio && prefs?.som_ativado !== false) {
+          audio.play().catch(() => {});
+        }
+        if (toastTimer.current) clearTimeout(toastTimer.current);
+        toastTimer.current = setTimeout(() => setToastNotif(null), 5000);
+      }
     } catch (err) {
       console.error("Erro ao buscar notificações:", err);
     }
+  }, [supabase, notificacoes, audio, prefs, deveMostrarNotif]);
+
+  // Busca preferências de notificações (direto do Supabase)
+  useEffect(() => {
+    async function fetchPrefs() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data, error } = await supabase
+          .from("preferencias_notificacoes")
+          .select("*")
+          .eq("user_id", user.id)
+          .single();
+        if (error && error.code !== "PGRST116") return;
+        if (data) {
+          setPrefs({
+            canal_push: data.canal_push ?? true,
+            som_ativado: data.som_ativado ?? true,
+            notif_atendimentos: data.notif_atendimentos ?? true,
+            notif_tarefas: data.notif_tarefas ?? true,
+            notif_oportunidades: data.notif_oportunidades ?? true,
+            notif_metas_campanhas: data.notif_metas_campanhas ?? true,
+            notif_prospeccao: data.notif_prospeccao ?? true,
+          });
+        }
+      } catch {
+        // silent fail
+      }
+    }
+    fetchPrefs();
   }, [supabase]);
 
   // Busca inicial e polling a cada 60s (pausa quando aba invisível)
@@ -275,25 +355,25 @@ export function NotificacoesBell() {
       )}
 
       {/* Toast flutuante */}
-      {toast && (
+      {toastNotif && (
         <div className="fixed top-4 right-4 z-[100] animate-in slide-in-from-top-2 fade-in duration-300">
           <div
             className="bg-white rounded-lg shadow-lg border border-slate-200 p-4 w-80 cursor-pointer hover:shadow-xl transition-shadow"
             onClick={() => {
-              setToast(null);
+              setToastNotif(null);
               setAberto(true);
             }}
           >
             <div className="flex items-start gap-3">
-              <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${coresPorTipo[toast.tipo] || "bg-slate-100 text-slate-700"}`}>
+              <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${coresPorTipo[toastNotif.tipo] || "bg-slate-100 text-slate-700"}`}>
                 {(() => {
-                  const Icone = iconesPorTipo[toast.tipo] || Bell;
+                  const Icone = iconesPorTipo[toastNotif.tipo] || Bell;
                   return <Icone className="h-4 w-4" />;
                 })()}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-slate-800">{toast.titulo}</p>
-                <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{toast.mensagem}</p>
+                <p className="text-sm font-semibold text-slate-800">{toastNotif.titulo}</p>
+                <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{toastNotif.mensagem}</p>
               </div>
             </div>
           </div>
