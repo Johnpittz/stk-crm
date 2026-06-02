@@ -280,33 +280,33 @@ export function KanbanTarefas({ atendimentos, onAbrirChat }: KanbanTarefasProps)
                               <div
                                 key={`at-${a.id}`}
                                 className={cn(
-                                  "bg-white rounded-lg p-2 shadow-sm border transition-all",
+                                  "bg-white rounded-lg p-3 shadow-sm border transition-all",
                                   isNaoLido
                                     ? "border-green-400 bg-green-50/50"
                                     : "border-slate-200"
                                 )}
                               >
-                                <div className="flex items-start justify-between mb-1">
+                                <div className="flex items-start justify-between mb-1.5">
                                   <Badge
                                     variant="secondary"
-                                    className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700"
+                                    className="text-[11px] px-2 py-0.5 bg-green-100 text-green-700"
                                   >
-                                    <MessageCircle className="h-3 w-3 mr-1" />
+                                    <MessageCircle className="h-3.5 w-3.5 mr-1" />
                                     ATENDIMENTO
                                   </Badge>
                                   <div className="flex items-center gap-1">
                                     {isNaoLido && (
-                                      <Badge className="h-4 text-[9px] bg-red-500 text-white border-0 px-1">NOVO</Badge>
+                                      <Badge className="h-5 text-[10px] bg-red-500 text-white border-0 px-1.5">NOVO</Badge>
                                     )}
                                   </div>
                                 </div>
 
-                                <p className="font-medium text-slate-900 text-xs mb-1 truncate">
+                                <p className="font-medium text-slate-900 text-sm mb-1.5 truncate">
                                   {a.clientes?.nome_razao_social || a.nome_cliente || "Cliente não identificado"}
                                 </p>
 
                                 {a.ultima_mensagem && (
-                                  <p className="text-[11px] text-slate-500 truncate mb-1">
+                                  <p className="text-xs text-slate-500 truncate mb-1.5">
                                     {a.ultima_mensagem_remetente === "vendedor" ? (
                                       <span className="text-slate-400">Você: </span>
                                     ) : (
@@ -316,11 +316,11 @@ export function KanbanTarefas({ atendimentos, onAbrirChat }: KanbanTarefasProps)
                                   </p>
                                 )}
 
-                                <div className="flex items-center justify-between text-[10px] text-slate-400">
+                                <div className="flex items-center justify-between text-xs text-slate-400">
                                   <span>{a.telefone_cliente}</span>
                                   {a.ultima_mensagem_data && (
                                     <span className="flex items-center gap-1">
-                                      <Clock className="h-3 w-3" />
+                                      <Clock className="h-3.5 w-3.5" />
                                       {horaAtendimento(a.ultima_mensagem_data)}
                                     </span>
                                   )}
@@ -329,10 +329,10 @@ export function KanbanTarefas({ atendimentos, onAbrirChat }: KanbanTarefasProps)
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="w-full mt-2 h-7 text-[11px] gap-1 border-green-300 text-green-700 hover:bg-green-50 hover:text-green-800"
+                                  className="w-full mt-3 h-8 text-xs gap-1 border-green-300 text-green-700 hover:bg-green-50 hover:text-green-800"
                                   onClick={() => onAbrirChat(a)}
                                 >
-                                  <MessageCircle className="h-3 w-3" />
+                                  <MessageCircle className="h-3.5 w-3.5" />
                                   Abrir Chat
                                 </Button>
                               </div>

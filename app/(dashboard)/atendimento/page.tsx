@@ -16,6 +16,7 @@ import { PerformanceRealTime } from "@/components/features/atendimento/performan
 import { KanbanTarefas } from "@/components/features/atendimento/kanban-tarefas";
 import { MotorOportunidades } from "@/components/features/atendimento/motor-oportunidades";
 import { ListaAtendimentos } from "@/components/features/atendimento/lista-atendimentos";
+import { ListaAtendimentosLateral } from "@/components/features/atendimento/lista-atendimentos-lateral";
 import { AtendimentoChat } from "@/components/features/atendimento/atendimento-chat";
 import { TogglePresenca } from "@/components/features/atendimento/toggle-presenca";
 import { ClipboardList, Target, MessageCircle, Search, X, Download, Loader2 } from "lucide-react";
@@ -259,13 +260,23 @@ export default function AtendimentoPage() {
 
         <div className="flex-1 min-h-0 mt-2 overflow-hidden">
           
-          {/* ABA 1: MEU TRABALHO — Kanban (largura total, sem Agenda) */}
+          {/* ABA 1: MEU TRABALHO — Kanban (2/3) + Atendimentos Lateral (1/3) */}
           <TabsContent value="trabalho" className="h-full mt-0 data-[state=inactive]:hidden">
-            <div className="h-full overflow-hidden">
-              <KanbanTarefas
-                atendimentos={atendimentosFiltrados}
-                onAbrirChat={handleAbrirChat}
-              />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 h-full">
+              <div className="lg:col-span-2 h-full overflow-hidden">
+                <KanbanTarefas
+                  atendimentos={atendimentosFiltrados}
+                  onAbrirChat={handleAbrirChat}
+                />
+              </div>
+              <div className="h-full overflow-hidden">
+                <ListaAtendimentosLateral
+                  atendimentos={atendimentosFiltrados}
+                  loading={loadingAtendimentos}
+                  onRefresh={fetchAtendimentos}
+                  onAbrirChat={handleAbrirChat}
+                />
+              </div>
             </div>
           </TabsContent>
 
