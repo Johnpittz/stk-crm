@@ -252,7 +252,7 @@ export function KanbanTarefas({ atendimentos, onAbrirChat }: KanbanTarefasProps)
                 return (
                 <div
                   key={coluna.id}
-                  className={cn("flex flex-col rounded-lg h-full", coluna.cor)}
+                  className={cn("flex flex-col rounded-lg h-full min-h-0", coluna.cor)}
                 >
                   {/* Header da Coluna */}
                   <div className="flex items-center justify-between p-2 border-b border-slate-200/50">
@@ -265,15 +265,14 @@ export function KanbanTarefas({ atendimentos, onAbrirChat }: KanbanTarefasProps)
                   {/* Lista de Tarefas */}
                   <Droppable droppableId={coluna.id}>
                     {(provided, snapshot) => (
-                      <div className="flex-1 overflow-y-auto px-2 pb-6 min-h-0">
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.droppableProps}
-                          className={cn(
-                            "space-y-2 min-h-[100px] p-2",
-                            snapshot.isDraggingOver && "bg-slate-200/50 rounded-lg"
-                          )}
-                        >
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.droppableProps}
+                        className={cn(
+                          "flex-1 overflow-y-auto px-2 pb-10 min-h-0 space-y-2",
+                          snapshot.isDraggingOver && "bg-slate-200/50 rounded-lg"
+                        )}
+                      >
                           {/* Atendimentos na coluna */}
                           {atendimentosColuna.map((a) => {
                             const isNaoLido = a.nao_lido;
@@ -416,7 +415,6 @@ export function KanbanTarefas({ atendimentos, onAbrirChat }: KanbanTarefasProps)
                           ))}
                           {provided.placeholder}
                         </div>
-                      </div>
                     )}
                   </Droppable>
                 </div>
