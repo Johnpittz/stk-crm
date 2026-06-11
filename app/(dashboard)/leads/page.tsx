@@ -1132,7 +1132,7 @@ export default function LeadsPage() {
 
                             {/* Actions */}
                             <div className="flex items-center gap-2 flex-wrap md:justify-end">
-                            {isGestor && !lead.vendedor_id && (
+                            {isGestor && (
                               <>
                                 {isAtribuindo ? (
                                   <div className="flex items-center gap-2">
@@ -1158,7 +1158,7 @@ export default function LeadsPage() {
                                       className="bg-[#14919B] hover:bg-[#0D3B33]"
                                     >
                                       <UserCheck className="h-4 w-4 mr-1" />
-                                      Atribuir
+                                      {lead.vendedor_id ? "Reatribuir" : "Atribuir"}
                                     </Button>
                                     <Button
                                       size="sm"
@@ -1172,33 +1172,35 @@ export default function LeadsPage() {
                                     </Button>
                                   </div>
                                 ) : (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => {
-                                      setAtribuindoLeadId(lead.id);
-                                      setVendedorAtribuicao("");
-                                    }}
-                                  >
-                                    <UserCheck className="h-4 w-4 mr-1" />
-                                    Atribuir
-                                  </Button>
+                                  <>
+                                    {!lead.vendedor_id ? (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                          setAtribuindoLeadId(lead.id);
+                                          setVendedorAtribuicao("");
+                                        }}
+                                      >
+                                        <UserCheck className="h-4 w-4 mr-1" />
+                                        Atribuir
+                                      </Button>
+                                    ) : (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => {
+                                          setAtribuindoLeadId(lead.id);
+                                          setVendedorAtribuicao(lead.vendedor_id || "");
+                                        }}
+                                      >
+                                        <ArrowRightLeft className="h-4 w-4 mr-1" />
+                                        Reatribuir
+                                      </Button>
+                                    )}
+                                  </>
                                 )}
                               </>
-                            )}
-
-                            {isGestor && lead.vendedor_id && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  setAtribuindoLeadId(lead.id);
-                                  setVendedorAtribuicao(lead.vendedor_id || "");
-                                }}
-                              >
-                                <ArrowRightLeft className="h-4 w-4 mr-1" />
-                                Reatribuir
-                              </Button>
                             )}
 
                             {/* Ações do vendedor */}

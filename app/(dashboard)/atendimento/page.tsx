@@ -263,17 +263,17 @@ export default function AtendimentoPage() {
           {/* ABA 1: MEU TRABALHO — Kanban (2/3) + Atendimentos Lateral (1/3) */}
           <TabsContent value="trabalho" className="h-full mt-0 data-[state=inactive]:hidden">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 h-full">
-              <div className="lg:col-span-2 h-full overflow-hidden">
-                <KanbanTarefas
-                  atendimentos={atendimentosFiltrados}
-                  onAbrirChat={handleAbrirChat}
-                />
-              </div>
               <div className="h-full overflow-hidden">
                 <ListaAtendimentosLateral
                   atendimentos={atendimentosFiltrados}
                   loading={loadingAtendimentos}
                   onRefresh={fetchAtendimentos}
+                  onAbrirChat={handleAbrirChat}
+                />
+              </div>
+              <div className="lg:col-span-2 h-full overflow-hidden">
+                <KanbanTarefas
+                  atendimentos={atendimentosFiltrados}
                   onAbrirChat={handleAbrirChat}
                 />
               </div>
