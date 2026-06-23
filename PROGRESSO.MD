@@ -1,9 +1,9 @@
 # CRM ROMA - Progresso do Projeto
 
 > **Arquivo de contexto para agentes IA**
-> **Última atualização:** 09/06/2026
+> **Última atualização:** 19/06/2026
 > **Deploy atual:** https://crm-roma.vercel.app
-> **Conversa atual:** Kanban + Atendimentos unificados + Reatribuir Lead
+> **Conversa atual:** Kanban ↔ Atendimentos integrados + CardAtendimentoKanban + Filtros de data
 
 ---
 
@@ -85,7 +85,7 @@ crm-roma/
 
 ## 4. Funcionalidades Implementadas
 
-### 4.1 Atendimento WhatsApp (COMPLETO — ATUALIZADO)
+### 4.1 Atendimento WhatsApp (COMPLETO — ATUALIZADO EM 19/06/2026)
 
 **Tela:** `/atendimento`
 
@@ -118,8 +118,9 @@ crm-roma/
 **Chat Global (Modal):**
 - Estado elevado para `AtendimentoPage` (abre de qualquer aba)
 - Histórico de mensagens (verde=cliente, branco=vendedor)
+- Mensagens virtuais para atendimentos antigos (sem registro na tabela)
 - Campo de resposta com botão enviar
-- Botão "Resolver" (fecha atendimento → PATCH status="fechado")
+- Botão "Resolver" (async/await → fecha atendimento → PATCH status="fechado" → atualiza Kanban)
 - Botão "Transferir" (transfere para outro vendedor)
 - Realtime: novas mensagens aparecem em tempo real
 - PATCH `/api/atendimentos` atualiza `ultima_mensagem`, `ultima_mensagem_remetente` ao enviar
@@ -381,6 +382,29 @@ trg_marcar_lido             -- UPDATE atendimento → reset nao_lido quando vend
 - Aba "Atendimentos": ListaAtendimentos completa
 - Filtros globais acima das abas (busca, status, data, exportar CSV)
 - Chat global (modal) abre de qualquer aba
+
+### 10.3.1 Atendimento — Componente CardAtendimentoKanban (NOVO — 19/06/2026)
+- Arquivo: `components/features/atendimento/card-atendimento-kanban.tsx`
+- Componente reutilizável para cards de atendimento no Kanban
+- Badge verde "💬 ATENDIMENTO" consistente em todas as colunas
+- Props: `atendimento`, `onAbrirChat`, `disabled`
+- Usado em todas as colunas do Kanban (A Fazer, Andamento, Concluído)
+- Substituiu código inline duplicado
+
+### 10.3.2 Atendimento — Filtros de Data (NOVO — 19/06/2026)
+- Kanban filtra tarefas por 3 datas: `created_at`, `data_inicio`, `data_fim`
+- Tarefa aparece se QUALQUER dessas datas cai no período filtrado
+- Tarefas sem data definida sempre aparecem (pendentes)
+- Lógica: `const datas = [t.created_at, t.data_inicio, t.data_fim].filter(Boolean)`
+
+### 10.3.3 Atendimento — Integração Kanban ↔ Atendimentos (NOVO — 19/06/2026)
+- KanbanTarefas recebe prop `onRefresh` para forçar reload
+- Quando atendimentos mudam (ex: resolveu um card), Kanban recarrega
+- Botão "Resolver" agora é async/await → aguarda API → chama `onMensagemEnviada` → fecha chat
+- Cards de atendimento aparecem em colunas baseado em:
+  - "A Fazer": `status="aberto"` + vendedor não interagiu
+  - "Andamento": `status="aberto"` + vendedor já interagiu
+  - "Concluído": `status="fechado"` (últimos 7 dias)
 
 ### 10.4 Leads — Reatribuição
 - Gestor pode reatribuir lead clicando em "Reatribuir" → dropdown com vendedores aparece → seleciona novo → clica "Reatribuir"

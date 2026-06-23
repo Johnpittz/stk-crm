@@ -1,7 +1,5 @@
-"use client";
-
 import { useState, useEffect, useCallback } from "react";
-import { Flame, Gift, Link2, TrendingUp, Phone, MessageCircle, X, Eye, Loader2, RefreshCw } from "lucide-react";
+import { Flame, Gift, Link2, TrendingUp, Phone, MessageCircle, X, Eye, Loader2, RefreshCw, Tag, ChevronDown, ChevronUp, Package, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -51,10 +49,28 @@ interface Oportunidade {
   created_at: string;
 }
 
+interface PromocaoOportunidade {
+  id: string;
+  titulo: string;
+  descricao: string | null;
+  tipo_promocao: string;
+  valor: number;
+  data_inicio: string;
+  data_fim: string;
+  produto: { id: string; nome: string; preco_venda: number | null; marca: string | null } | null;
+  produto_id: string;
+  total_clientes: number;
+  clientes?: { cliente_id: string; nome_razao_social: string; telefone: string | null; celular: string | null; total_compras: number; valor_total_gasto: number; ultima_compra: string }[];
+}
+
 export function MotorOportunidades() {
   const [oportunidades, setOportunidades] = useState<Oportunidade[]>([]);
+  const [promocoes, setPromocoes] = useState<PromocaoOportunidade[]>([]);
   const [loading, setLoading] = useState(true);
   const [gerando, setGerando] = useState(false);
+  const [promoExpandida, setPromoExpandida] = useState<string | null>(null);
+  const [clientesPromocao, setClientesPromocao] = useState<Record<string, any[]>>({});
+  const [loadingClientes, setLoadingClientes] = useState<string | null>(null);
   const supabase = createClient();
 
   const fetchOportunidades = useCallback(async (gerarAuto = false) => {
@@ -83,9 +99,56 @@ export function MotorOportunidades() {
     }
   }, [supabase]);
 
+  // Buscar promoções ativas
+  const fetchPromocoes = useCallback(async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const res = await fetch("/api/promocoes?status=ativa", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setPromocoes(data.promocoes || []);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, [supabase]);
+
   useEffect(() => {
     fetchOportunidades();
-  }, [fetchOportunidades]);
+    fetchPromocoes();
+  }, [fetchOportunidades, fetchPromocoes]);
+
+  // Buscar clientes de uma promoção específica
+  const handleVerClientesPromo = async (promo: PromocaoOportunidade) => {
+    if (promoExpandida === promo.id) {
+      setPromoExpandida(null);
+      return;
+    }
+    setPromoExpandida(promo.id);
+    if (clientesPromocao[promo.id]) return;
+
+    setLoadingClientes(promo.id);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const res = await fetch(`/api/promocoes/clientes?produto_id=${promo.produto_id}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setClientesPromocao((prev) => ({ ...prev, [promo.id]: data.clientes || [] }));
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingClientes(null);
+    }
+  };
 
   const handleGerarAuto = async () => {
     setGerando(true);
@@ -128,7 +191,7 @@ export function MotorOportunidades() {
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-base">
             🎯 Oportunidades
-            <Badge className="bg-blue-600 text-xs">{oportunidades.length}</Badge>
+            <Badge className="bg-blue-600 text-xs">{oportunidades.length + promocoes.length}</Badge>
           </CardTitle>
           <Button
             variant="ghost"
@@ -148,17 +211,109 @@ export function MotorOportunidades() {
             <Loader2 className="h-4 w-4 animate-spin mr-2" />
             Carregando oportunidades...
           </div>
-        ) : oportunidades.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-slate-400 text-sm gap-3">
-            <p>Nenhuma oportunidade encontrada</p>
-            <Button size="sm" variant="outline" onClick={handleGerarAuto} disabled={gerando}>
-              <RefreshCw className={cn("h-3.5 w-3.5 mr-1", gerando && "animate-spin")} />
-              Gerar automáticas
-            </Button>
-          </div>
         ) : (
           <ScrollArea className="h-full px-3">
             <div className="space-y-2">
+              {/* Cards de Promoções Ativas */}
+              {promocoes.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-[10px] font-semibold text-purple-600 uppercase tracking-wider mb-2 flex items-center gap-1">
+                    <Tag className="h-3 w-3" />
+                    Promoções Ativas ({promocoes.length})
+                  </p>
+                  {promocoes.map((promo) => {
+                    const isExpanded = promoExpandida === promo.id;
+                    const clientes = clientesPromocao[promo.id] || [];
+                    const tipoLabel: Record<string, string> = {
+                      desconto_percentual: "% OFF",
+                      desconto_fixo: "R$ OFF",
+                      brinde: "Brinde",
+                      cashback: "Cashback",
+                    };
+
+                    return (
+                      <div key={promo.id} className="rounded-lg border border-purple-200 bg-purple-50 mb-2 overflow-hidden">
+                        {/* Cabeçalho clicável */}
+                        <button
+                          className="w-full px-3 py-2.5 flex items-center gap-3 hover:bg-purple-100 transition-colors text-left"
+                          onClick={() => handleVerClientesPromo(promo)}
+                        >
+                          <Tag className="h-4 w-4 text-purple-600 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-slate-900 truncate">{promo.titulo}</p>
+                            <p className="text-[10px] text-slate-500">
+                              {promo.produto?.nome || "Produto"}
+                              {promo.valor > 0 && promo.tipo_promocao === "desconto_percentual" && (
+                                <> — <span className="text-purple-600 font-semibold">{promo.valor}% OFF</span></>
+                              )}
+                            </p>
+                          </div>
+                          <Badge className="bg-purple-100 text-purple-700 text-[10px] flex-shrink-0">
+                            {promo.total_clientes} clientes
+                          </Badge>
+                          {loadingClientes === promo.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-purple-500 flex-shrink-0" />
+                          ) : isExpanded ? (
+                            <ChevronUp className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                          ) : (
+                            <ChevronDown className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                          )}
+                        </button>
+
+                        {/* Lista de clientes expandida */}
+                        {isExpanded && (
+                          <div className="border-t border-purple-200 bg-white">
+                            {loadingClientes === promo.id ? (
+                              <div className="px-3 py-4 text-center text-xs text-slate-400">
+                                <Loader2 className="h-4 w-4 animate-spin mx-auto mb-1" />
+                                Carregando clientes...
+                              </div>
+                            ) : clientes.length === 0 ? (
+                              <div className="px-3 py-4 text-center text-xs text-slate-400">
+                                Nenhum cliente encontrado
+                              </div>
+                            ) : (
+                              <div className="max-h-48 overflow-auto">
+                                {clientes.map((cli) => (
+                                  <div
+                                    key={cli.cliente_id}
+                                    className="flex items-center gap-3 px-3 py-2 border-b border-slate-100 last:border-0 hover:bg-slate-50"
+                                  >
+                                    <div className="h-7 w-7 rounded-full bg-purple-100 flex items-center justify-center text-[10px] font-semibold text-purple-700 flex-shrink-0">
+                                      {cli.nome_razao_social?.split(" ").slice(0, 2).map((n: string) => n[0]).join("").toUpperCase()}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-[11px] font-medium text-slate-900 truncate">{cli.nome_razao_social}</p>
+                                      <p className="text-[10px] text-slate-400">
+                                        {cli.total_compras} compra{cli.total_compras !== 1 ? "s" : ""} • {formatCurrency(cli.valor_total_gasto)}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-1 flex-shrink-0">
+                                      {(cli.telefone || cli.celular) && (
+                                        <Button size="icon" variant="ghost" className="h-6 w-6 text-slate-400 hover:text-green-600" asChild>
+                                          <a
+                                            href={`https://wa.me/55${(cli.celular || cli.telefone || "").replace(/\D/g, "")}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                          >
+                                            <MessageCircle className="h-3 w-3" />
+                                          </a>
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Lista de oportunidades */}
               {oportunidades.map((opp) => (
                 <div
                   key={opp.id}

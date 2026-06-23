@@ -7,10 +7,10 @@ export const dynamic = "force-dynamic";
 // Helper: cria uma tarefa de prospecção automaticamente quando lead é atribuído
 async function criarTarefaLead(supabaseAdmin: any, leadId: string, vendedorId: string) {
   try {
-    // Busca dados do lead
+    // Busca dados do lead incluindo origem
     const { data: lead } = await supabaseAdmin
       .from("leads")
-      .select("razao_social, cnpj, cidade, estado")
+      .select("razao_social, cnpj, cidade, estado, origem")
       .eq("id", leadId)
       .single();
 
@@ -30,6 +30,7 @@ async function criarTarefaLead(supabaseAdmin: any, leadId: string, vendedorId: s
       coluna_kanban: "a_fazer",
       data_inicio: hoje.toISOString().split("T")[0],
       data_fim: amanha.toISOString().split("T")[0],
+      origem_lead: lead.origem || "prospeccao_b2b",
     });
   } catch (err) {
     // Falha silenciosa — não quebra a atribuição do lead

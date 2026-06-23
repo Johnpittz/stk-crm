@@ -59,7 +59,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
   let error: any = null;
 
   if (deveBuscar) {
-    let query = supabase.from("clientes").select("*", { count: "exact" });
+    let query = supabase.from("clientes").select("*, grupo:grupos_economicos!grupo_economico_id(id, nome)", { count: "exact" });
 
     if (busca) {
       query = query.ilike("nome_razao_social", `%${busca}%`);
@@ -277,12 +277,12 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
                             <h3 className="font-semibold text-slate-900 truncate">
                               {cliente.nome_razao_social}
                             </h3>
-                            {cliente.grupo_economico_id && (
-                              <Badge variant="secondary" className="bg-purple-100 text-purple-700">
-                                <Building2 className="h-3 w-3 mr-1" />
-                                Grupo
-                              </Badge>
-                            )}
+                             {cliente.grupo_economico_id && (
+                               <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+                                 <Building2 className="h-3 w-3 mr-1" />
+                                 {cliente.grupo?.nome || "Grupo"}
+                               </Badge>
+                             )}
                             {cliente.status === "churn" && semCompra != null && (
                               <Badge variant="destructive" className="gap-1">
                                 <AlertTriangle className="h-3 w-3" />

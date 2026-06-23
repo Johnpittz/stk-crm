@@ -311,8 +311,9 @@ export function AtendimentoChat({ atendimento, open, onClose, onMarcarResolvido,
                     size="sm"
                     variant="outline"
                     className="h-8 text-xs gap-1 border-green-600 text-green-700 hover:bg-green-50"
-                    onClick={() => {
-                      onMarcarResolvido(atendimento.id);
+                    onClick={async () => {
+                      await onMarcarResolvido(atendimento.id);
+                      onMensagemEnviada?.();
                       onClose();
                     }}
                   >

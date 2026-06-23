@@ -7,7 +7,7 @@ import {
   Draggable,
   DropResult,
 } from "@hello-pangea/dnd";
-import { MoreHorizontal, Clock, AlertCircle, Trash2, MessageCircle, Check } from "lucide-react";
+import { MoreHorizontal, Clock, AlertCircle, Trash2, MessageCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { NovaTarefaModal } from "./nova-tarefa-modal";
 import { ModalDetalhesTarefa } from "./modal-detalhes-tarefa";
+import { CardAtendimentoKanban } from "./card-atendimento-kanban";
 
 const colunas = [
   { id: "a_fazer", titulo: "A Fazer", cor: "bg-slate-100" },
@@ -41,6 +42,18 @@ const coresPrioridade: Record<string, string> = {
   urgente: "bg-red-100 text-red-700",
 };
 
+const origemConfig: Record<string, { icone: string; nome: string; cor: string }> = {
+  prospeccao_b2b: { icone: "🔍", nome: "Prospecção", cor: "bg-emerald-100 text-emerald-700" },
+  whatsapp: { icone: "💬", nome: "WhatsApp", cor: "bg-green-100 text-green-700" },
+  indicacao: { icone: "🤝", nome: "Indicação", cor: "bg-purple-100 text-purple-700" },
+  site: { icone: "🌐", nome: "Site", cor: "bg-blue-100 text-blue-700" },
+  pixel: { icone: "📊", nome: "Pixel", cor: "bg-orange-100 text-orange-700" },
+  api: { icone: "🔗", nome: "API", cor: "bg-cyan-100 text-cyan-700" },
+  importacao: { icone: "📁", nome: "Importação", cor: "bg-slate-100 text-slate-700" },
+  manual: { icone: "✋", nome: "Manual", cor: "bg-slate-100 text-slate-500" },
+  evento: { icone: "🎪", nome: "Evento", cor: "bg-amber-100 text-amber-700" },
+};
+
 interface Tarefa {
   id: string;
   titulo: string;
@@ -56,6 +69,8 @@ interface Tarefa {
   observacao_resultado: string | null;
   coluna_kanban: string;
   ordem: number;
+  origem_lead: string | null;
+  created_at: string;
   clientes: { id: string; nome_razao_social: string } | null;
 }
 
@@ -78,9 +93,13 @@ interface Atendimento {
 interface KanbanTarefasProps {
   atendimentos: Atendimento[];
   onAbrirChat: (a: Atendimento) => void;
+  onRefresh?: () => void;
+  busca?: string;
+  dataInicio?: string;
+  dataFim?: string;
 }
 
-export function KanbanTarefas({ atendimentos, onAbrirChat }: KanbanTarefasProps) {
+export function KanbanTarefas({ atendimentos, onAbrirChat, onRefresh, busca = "", dataInicio = "", dataFim = "" }: KanbanTarefasProps) {
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [loading, setLoading] = useState(true);
   const [tarefaSelecionada, setTarefaSelecionada] = useState<Tarefa | null>(null);
@@ -112,6 +131,11 @@ export function KanbanTarefas({ atendimentos, onAbrirChat }: KanbanTarefasProps)
   useEffect(() => {
     fetchTarefas();
   }, [fetchTarefas]);
+
+  // Recarrega tarefas quando atendimentos mudam externamente
+  useEffect(() => {
+    if (onRefresh) fetchTarefas();
+  }, [atendimentos, onRefresh, fetchTarefas]);
 
   const onDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
@@ -190,8 +214,38 @@ export function KanbanTarefas({ atendimentos, onAbrirChat }: KanbanTarefasProps)
     }
   };
 
+  const tarefasFiltradas = tarefas.filter((t) => {
+    const termo = busca.toLowerCase().trim();
+    const matchBusca =
+      !termo ||
+      t.titulo?.toLowerCase().includes(termo) ||
+      t.descricao?.toLowerCase().includes(termo) ||
+      t.clientes?.nome_razao_social?.toLowerCase().includes(termo);
+
+    let matchData = true;
+    const temFiltroData = !!(dataInicio || dataFim);
+    if (temFiltroData) {
+      const dtInicio = dataInicio ? new Date(dataInicio + "T00:00:00") : null;
+      const dtFim = dataFim ? new Date(dataFim + "T23:59:59") : null;
+      // Verifica se QUALQUER data da tarefa (criação, início ou fim) está no período
+      const datas = [t.created_at, t.data_inicio, t.data_fim].filter(Boolean);
+      if (datas.length > 0) {
+        const dentroDoPeriodo = datas.some((d) => {
+          const dt = new Date(d as string);
+          if (dtInicio && dt < dtInicio) return false;
+          if (dtFim && dt > dtFim) return false;
+          return true;
+        });
+        if (!dentroDoPeriodo) matchData = false;
+      }
+      // Tarefa SEM nenhuma data → sempre aparece
+    }
+
+    return matchBusca && matchData;
+  });
+
   const getTarefasPorColuna = (colunaId: string) =>
-    tarefas
+    tarefasFiltradas
       .filter((t) => t.coluna_kanban === colunaId)
       .sort((a, b) => a.ordem - b.ordem);
 
@@ -220,10 +274,6 @@ export function KanbanTarefas({ atendimentos, onAbrirChat }: KanbanTarefasProps)
   const formatHora = (hora: string | null) => {
     if (!hora) return "";
     return hora.substring(0, 5);
-  };
-
-  const horaAtendimento = (data: string) => {
-    return new Date(data).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   };
 
   return (
@@ -274,70 +324,13 @@ export function KanbanTarefas({ atendimentos, onAbrirChat }: KanbanTarefasProps)
                         )}
                       >
                           {/* Atendimentos na coluna */}
-                          {atendimentosColuna.map((a) => {
-                            const isNaoLido = a.nao_lido;
-                            return (
-                              <div
-                                key={`at-${a.id}`}
-                                className={cn(
-                                  "bg-white rounded-lg p-3 shadow-sm border transition-all",
-                                  isNaoLido
-                                    ? "border-green-400 bg-green-50/50"
-                                    : "border-slate-200"
-                                )}
-                              >
-                                <div className="flex items-start justify-between mb-1.5">
-                                  <Badge
-                                    variant="secondary"
-                                    className="text-[11px] px-2 py-0.5 bg-green-100 text-green-700"
-                                  >
-                                    <MessageCircle className="h-3.5 w-3.5 mr-1" />
-                                    ATENDIMENTO
-                                  </Badge>
-                                  <div className="flex items-center gap-1">
-                                    {isNaoLido && (
-                                      <Badge className="h-5 text-[10px] bg-red-500 text-white border-0 px-1.5">NOVO</Badge>
-                                    )}
-                                  </div>
-                                </div>
-
-                                <p className="font-medium text-slate-900 text-sm mb-1.5 truncate">
-                                  {a.clientes?.nome_razao_social || a.nome_cliente || "Cliente não identificado"}
-                                </p>
-
-                                {a.ultima_mensagem && (
-                                  <p className="text-xs text-slate-500 truncate mb-1.5">
-                                    {a.ultima_mensagem_remetente === "vendedor" ? (
-                                      <span className="text-slate-400">Você: </span>
-                                    ) : (
-                                      <span className={isNaoLido ? "text-green-700 font-medium" : "text-slate-400"}>Cliente: </span>
-                                    )}
-                                    {a.ultima_mensagem}
-                                  </p>
-                                )}
-
-                                <div className="flex items-center justify-between text-xs text-slate-400">
-                                  <span>{a.telefone_cliente}</span>
-                                  {a.ultima_mensagem_data && (
-                                    <span className="flex items-center gap-1">
-                                      <Clock className="h-3.5 w-3.5" />
-                                      {horaAtendimento(a.ultima_mensagem_data)}
-                                    </span>
-                                  )}
-                                </div>
-
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="w-full mt-3 h-8 text-xs gap-1 border-green-300 text-green-700 hover:bg-green-50 hover:text-green-800"
-                                  onClick={() => onAbrirChat(a)}
-                                >
-                                  <MessageCircle className="h-3.5 w-3.5" />
-                                  Abrir Chat
-                                </Button>
-                              </div>
-                            );
-                          })}
+                          {atendimentosColuna.map((a) => (
+                            <CardAtendimentoKanban
+                              key={`at-${a.id}`}
+                              atendimento={a}
+                              onAbrirChat={onAbrirChat}
+                            />
+                          ))}
 
                           {tarefasColuna.map((tarefa, index) => (
                             <Draggable
@@ -394,9 +387,22 @@ export function KanbanTarefas({ atendimentos, onAbrirChat }: KanbanTarefasProps)
                                     </div>
                                   </div>
 
-                                  <p className="font-medium text-slate-900 text-xs mb-1">
-                                    {iconesTarefa[tarefa.tipo] || "📋"} {tarefa.titulo}
-                                  </p>
+<div className="flex items-center gap-1.5 mb-1 flex-wrap">
+  <p className="font-medium text-slate-900 text-xs truncate">
+    {iconesTarefa[tarefa.tipo] || "📋"} {tarefa.titulo}
+  </p>
+  {tarefa.origem_lead && origemConfig[tarefa.origem_lead] && (
+    <Badge
+      variant="secondary"
+      className={cn(
+        "text-[9px] px-1.5 py-0 flex-shrink-0",
+        origemConfig[tarefa.origem_lead].cor
+      )}
+    >
+      {origemConfig[tarefa.origem_lead].icone} {origemConfig[tarefa.origem_lead].nome}
+    </Badge>
+  )}
+</div>
 
                                   <div className="flex items-center justify-between text-xs text-slate-500">
                                     <span className="truncate max-w-[100px]">

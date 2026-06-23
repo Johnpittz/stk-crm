@@ -135,7 +135,7 @@ export default function AtendimentoPage() {
       });
 
       if (res.ok) {
-        fetchAtendimentos();
+        await fetchAtendimentos();
       }
     } catch (err) {
       console.error(err);
@@ -275,6 +275,10 @@ export default function AtendimentoPage() {
                 <KanbanTarefas
                   atendimentos={atendimentosFiltrados}
                   onAbrirChat={handleAbrirChat}
+                  onRefresh={fetchAtendimentos}
+                  busca={busca}
+                  dataInicio={dataInicio}
+                  dataFim={dataFim}
                 />
               </div>
             </div>

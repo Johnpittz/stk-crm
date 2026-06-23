@@ -1,6 +1,6 @@
 "use client";
 
-import { Trophy, Target, Gift, Calendar, Users, TrendingUp, Clock } from "lucide-react";
+import { Trophy, Target, Gift, Calendar, Users, TrendingUp, Clock, Tag } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils/cn";
+import { PromocoesTab } from "@/components/features/campanhas/promocoes-tab";
 
 // Mock de campanhas
 const campanhasAtivas = [
@@ -80,6 +81,10 @@ export default function CampanhasPage() {
       <Tabs defaultValue="ativas" className="w-full">
         <TabsList className="mb-6">
           <TabsTrigger value="ativas">Campanhas Ativas</TabsTrigger>
+          <TabsTrigger value="promocoes" className="gap-1.5">
+            <Tag className="h-3.5 w-3.5" />
+            Promoções
+          </TabsTrigger>
           <TabsTrigger value="ranking">Ranking</TabsTrigger>
           <TabsTrigger value="conquistas">Minhas Conquistas</TabsTrigger>
         </TabsList>
@@ -160,6 +165,11 @@ export default function CampanhasPage() {
               </Card>
             ))}
           </div>
+        </TabsContent>
+
+        {/* Promoções */}
+        <TabsContent value="promocoes">
+          <PromocoesTab />
         </TabsContent>
 
         {/* Ranking */}

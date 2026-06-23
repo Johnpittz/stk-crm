@@ -21,6 +21,7 @@ async function criarTarefaLead(supabaseAdmin: any, lead: any, vendedorId: string
       coluna_kanban: "a_fazer",
       data_inicio: hoje.toISOString().split("T")[0],
       data_fim: amanha.toISOString().split("T")[0],
+      origem_lead: lead.origem || "prospeccao_b2b",
     });
   } catch (err) {
     console.error("[Tarefa Lead Distribuir] Erro ao criar tarefa:", err);
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
     // 1. Busca leads não atribuídos (status = novo, sem vendedor)
     const { data: leadsDisponiveis, error: leadsError } = await supabase
       .from("leads")
-      .select("id, razao_social, cnpj, cidade, estado, created_at")
+      .select("id, razao_social, cnpj, cidade, estado, origem, created_at")
       .is("vendedor_id", null)
       .eq("status", "novo")
       .order("created_at", { ascending: true })
