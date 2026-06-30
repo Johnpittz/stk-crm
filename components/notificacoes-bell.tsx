@@ -146,13 +146,14 @@ export function NotificacoesBell() {
     fetchPrefs();
   }, [supabase]);
 
-  // Busca inicial e polling a cada 60s (pausa quando aba invisível)
+  // Busca inicial e polling a cada 120s (pausa quando aba invisível)
+  // Reduzido de 60s para 120s para economizar recursos na Vercel (plano free)
   useEffect(() => {
     fetchNotificacoes();
     let interval: NodeJS.Timeout;
     
     const startPolling = () => {
-      interval = setInterval(fetchNotificacoes, 60000);
+      interval = setInterval(fetchNotificacoes, 120000);
     };
     
     const handleVisibility = () => {

@@ -212,13 +212,14 @@ export function AtendimentoChat({ atendimento, open, onClose, onMarcarResolvido,
     }
   }, [mensagens]);
 
-  // Polling: atualiza mensagens a cada 5s em background (sem loading spinner)
+  // Polling: atualiza mensagens a cada 30s em background (sem loading spinner)
+  // Reduzido de 5s para 30s para economizar recursos na Vercel (plano free)
   useEffect(() => {
     if (!atendimento || !open) return;
 
     const interval = setInterval(() => {
       fetchMensagens(true); // silent = true
-    }, 5000);
+    }, 30000);
 
     return () => clearInterval(interval);
   }, [atendimento, open, fetchMensagens]);

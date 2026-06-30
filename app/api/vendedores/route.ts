@@ -133,5 +133,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ vendedores });
+  return NextResponse.json({ vendedores }, {
+    headers: {
+      // Cache de 5 minutos no browser (dados de vendedores mudam raramente)
+      "Cache-Control": "private, max-age=300, stale-while-revalidate=600",
+    },
+  });
 }
