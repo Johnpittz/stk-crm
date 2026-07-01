@@ -1,9 +1,10 @@
 # CRM ROMA - Progresso do Projeto
 
 > **Arquivo de contexto para agentes IA**
-> **Última atualização:** 19/06/2026
-> **Deploy atual:** https://crm-roma.vercel.app
-> **Conversa atual:** Kanban ↔ Atendimentos integrados + CardAtendimentoKanban + Filtros de data
+> **Última atualização:** 01/07/2026
+> **Deploy atual:** https://crm-roma-romadistribuicao.vercel.app
+> **Conta Vercel:** roma-6489 (romadistribuicao) — plano Hobby/Free
+> **Conversa atual:** Otimização de performance (plano free Vercel) + Migração de conta Vercel
 
 ---
 
@@ -25,7 +26,7 @@ CRM desenvolvido para a empresa ROMA (distribuidora de materiais elétricos). Si
 | Backend | Next.js API Routes (Serverless na Vercel) |
 | Banco de Dados | Supabase (PostgreSQL + Auth + Realtime) |
 | Auth | Supabase Auth (JWT Bearer token) |
-| Deploy | Vercel (production) |
+| Deploy | Vercel (production) — conta roma-6489 (romadistribuicao) |
 | ERP Integration | Millennium ERP (NTLM auth, rede interna) |
 
 ---
@@ -177,7 +178,8 @@ crm-roma/
 - Badge no sininho com contador vermelho
 - Dropdown com lista de notificações
 - Toast flutuante quando chega notificação nova
-- Polling: a cada 60s (pausa quando aba invisível)
+- Polling: a cada **120s** (pausa quando aba invisível)
+- **Otimizado em 30/06/2026:** Polling reduzido de 60s para 120s para economizar recursos Vercel free
 
 ### 4.5 Dashboard (COMPLETO)
 
@@ -224,6 +226,8 @@ crm-roma/
 | `/api/oportunidades` | GET, POST | Oportunidades |
 | `/api/webhooks/millennium` | POST | Webhook do ERP (secret obrigatória) |
 | `/api/auth/cadastro` | POST | Cadastro de usuários (só admin/gestor) |
+| `/api/promocoes` | GET, POST, PATCH | CRUD promoções |
+| `/api/promocoes/clientes` | GET | Clientes que compraram produto da promoção |
 
 ---
 
@@ -303,7 +307,76 @@ trg_marcar_lido             -- UPDATE atendimento → reset nao_lido quando vend
 
 ---
 
-## 8. Próximos Passos Pendentes
+## 8. Otimização de Performance + Migração Vercel (30/06/2026)
+
+### 8.1 Problema Original
+A conta Vercel antiga (johnpittz) estourou os limites do plano free:
+- **Fluid Active CPU:** 12h / 4h (3x limite)
+- **Edge Requests:** 2.9M / 1M (2.9x limite)
+- **Function Invocations:** 2.9M / 1M (2.9x limite)
+- **Fast Origin Transfer:** 16.56GB / 10GB (1.6x limite)
+
+### 8.2 Causas Identificadas
+1. **Chat polling a cada 5 segundos** — gerava ~720 requests/hora por vendedor
+2. **Security headers em `next.config.js`** com `/:path*` — processava cada asset estático como Edge Request
+3. **Notificações polling a cada 60s** — requests desnecessários
+4. **Sem cache HTTP** em APIs de dados estáticos
+
+### 8.3 Otimizações Implementadas
+
+| Arquivo | Mudança | Impacto |
+|---------|---------|---------|
+| `atendimento-chat.tsx` | Polling chat: 5s → **30s** | -83% invocações do chat |
+| `middleware.ts` | Security headers movidos do next.config.js | -40% Edge Requests |
+| `next.config.js` | Removido bloco `async headers()` | Assets estáticos sem Edge processing |
+| `notificacoes-bell.tsx` | Polling notificações: 60s → **120s** | -50% requests notificações |
+| `vendedores/route.ts` | Adicionado `Cache-Control: private, max-age=300` | -100% re-fetches de vendedores |
+| `.env.production` | Criado com variáveis de garante build na Vercel | Build funciona corretamente |
+
+### 8.4 Migração de Conta Vercel
+
+**Conta antiga:** johnpittz (bloqueada por fair use)
+**Nova conta:** roma-6489 / romadistribuicao (Hobby/Free)
+
+**Processo de migração:**
+1. `npx vercel logout` → deslogar da conta antiga
+2. Criar nova conta em vercel.com (roma-6489)
+3. `npx vercel login` → logar na nova conta
+4. `npx vercel rm crm-roma` → deletar projeto antigo
+5. Desconectar GitHub no dashboard (Settings → Git → Disconnect)
+6. `npx vercel link` → linkar projeto
+7. Adicionar variáveis de ambiente (4 vars)
+8. `npx vercel --prod --force --yes` → deploy
+
+**Problemas encontrados e soluções:**
+- Deploy bloqueado por vinculação GitHub incorreta → Solução: desconectar GitHub no dashboard Vercel
+- Build falhava sem variáveis de ambiente → Solução: criar `.env.production` com as 4 variáveis
+- Email do Git não batia com GitHub → Solução: `git config user.email` com email correto
+
+### 8.5 Variáveis de Ambiente (Vercel)
+| Variável | Ambiente |
+|----------|----------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Production |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Production |
+| `SUPABASE_SERVICE_ROLE_KEY` | Production |
+| `CNPJ_ABERTO_API_KEY` | Production |
+
+### 8.6 Resultado Esperado (pós-otimização)
+| Recurso | Antes | Limite Free | Depois |
+|---------|-------|-------------|--------|
+| CPU | 12h | 4h | ~2.5h ✅ |
+| Edge Requests | 2.9M | 1M | ~700K ✅ |
+| Function Invocations | 2.9M | 1M | ~500K ✅ |
+| Origin Transfer | 16.56GB | 10GB | ~6GB ✅ |
+
+### 8.7 Deploy
+- **Comando:** `cd crm-roma ; npx vercel --prod --force --yes`
+- **URL:** https://crm-roma-romadistribuicao.vercel.app
+- **Importante:** Não vincular GitHub no projeto Vercel (causa bloqueio por email mismatch)
+
+---
+
+## 9. Próximos Passos Pendentes
 
 ### Fase 2: Transbordo Automático (INATIVIDADE)
 - Após 15 minutos sem resposta do vendedor, atendimento volta para fila geral
@@ -332,9 +405,9 @@ trg_marcar_lido             -- UPDATE atendimento → reset nao_lido quando vend
 
 ---
 
-## 9. Convenções de Código
+## 10. Convenções de Código
 
-### 9.1 Padrões
+### 10.1 Padrões
 - TypeScript em todos os arquivos
 - Componentes React: `PascalCase.tsx`
 - APIs: `route.ts` (Next.js App Router convention)
@@ -342,34 +415,38 @@ trg_marcar_lido             -- UPDATE atendimento → reset nao_lido quando vend
 - Variáveis: `camelCase`
 - Constantes: `SCREAMING_SNAKE_CASE`
 
-### 9.2 Supabase
+### 10.2 Supabase
 - **Client-side:** `createClient()` do `@/lib/supabase/client` (respeita RLS)
 - **Server-side API:** `createClient()` do `@/lib/supabase/server` (respeita RLS)
 - **Service Role:** `createServiceClient(url, key)` do `@supabase/supabase-js` (bypass RLS)
 - **Quando usar service_role:** APIs que precisam acessar dados de outros usuários (lista de vendedores, transferência, etc.)
 
-### 9.3 Autenticação nas APIs
+### 10.3 Autenticação nas APIs
 - Todas as APIs validam token JWT: `Authorization: Bearer <token>`
 - Token obtido via `supabase.auth.getSession()`
 
-### 9.4 Deploy
-- **Comando:** `cd crm-roma ; npx vercel --prod --force`
+### 10.4 Deploy
+- **Comando:** `cd crm-roma ; npx vercel --prod --force --yes`
 - **Importante:** Sempre usar `--force` para evitar cache antigo
-- **Workflow:** usuário faz commit "funcionando bem" no Git antes de novas alterações. Se algo quebrar, reverte para esse commit.
+- **Workflow:** fazer commit no Git antes de novas alterações. Se algo quebrar, reverte para esse commit.
+- **Conta Vercel:** roma-6489 (romadistribuicao) — NÃO vincular GitHub no projeto (causa bloqueio)
+- **CLI login:** `npx vercel login` → autentica via navegador
 
 ---
 
-## 10. Contexto Importante para Próximo Agente
+## 11. Contexto Importante para Próximo Agente
 
-### 10.1 Ambiente
+### 11.1 Ambiente
 - **Supabase project:** `otmkukicneotcpkemvcq`
 - **RLS está ATIVO** em poucas tabelas. Outras ainda precisam de RLS
-- **Service Role Key** está em `.env` (nunca commitar)
+- **Service Role Key** está em `.env` e `.env.production` (nunca commitar `.env.local`)
 - **Windows CLI:** PowerShell pode bloquear `&&`, usar `cmd /c` ou `;`
-- **Security headers ativos:** X-Frame-Options, HSTS, X-Content-Type-Options, Referrer-Policy, Permissions-Policy
+- **Security headers:** aplicados via `middleware.ts` (NÃO em `next.config.js`)
 - **Rate limiting ativo:** 5/min (cadastro), 30/min (prospecção), 20/min (atendimentos), 60/min (webhooks)
+- **Conta Vercel:** roma-6489 (romadistribuicao) — plano Hobby/Free
+- **URL do site:** https://crm-roma-romadistribuicao.vercel.app
 
-### 10.2 Atendimento — Regras de Negócio Críticas
+### 11.2 Atendimento — Regras de Negócio Críticas
 - **"A Fazer"**: atendimentos `status="aberto"` onde `ultima_mensagem_remetente !== "vendedor"` (cliente respondeu ou ninguém respondeu)
 - **"Andamento"**: atendimentos `status="aberto"` onde `ultima_mensagem_remetente === "vendedor"` (vendedor respondeu por último)
 - **"CONCLUÍDO"**: atendimentos `status="fechado"` com `ultima_mensagem_data` dentro dos últimos 7 dias
@@ -377,13 +454,13 @@ trg_marcar_lido             -- UPDATE atendimento → reset nao_lido quando vend
 - **NÃO** existe coluna `data_fechamento` no banco — usar `ultima_mensagem_data` como fallback
 - **NÃO** existe coluna `vendedor_interagiu` no banco — usar `ultima_mensagem_remetente === "vendedor"`
 
-### 10.3 Atendimento — Layout Atual
+### 11.3 Atendimento — Layout Atual
 - Aba "Meu Trabalho": Kanban (2/3 direita) + ListaAtendimentosLateral (1/3 esquerda)
 - Aba "Atendimentos": ListaAtendimentos completa
 - Filtros globais acima das abas (busca, status, data, exportar CSV)
 - Chat global (modal) abre de qualquer aba
 
-### 10.3.1 Atendimento — Componente CardAtendimentoKanban (NOVO — 19/06/2026)
+### 11.3.1 Atendimento — Componente CardAtendimentoKanban
 - Arquivo: `components/features/atendimento/card-atendimento-kanban.tsx`
 - Componente reutilizável para cards de atendimento no Kanban
 - Badge verde "💬 ATENDIMENTO" consistente em todas as colunas
@@ -391,13 +468,13 @@ trg_marcar_lido             -- UPDATE atendimento → reset nao_lido quando vend
 - Usado em todas as colunas do Kanban (A Fazer, Andamento, Concluído)
 - Substituiu código inline duplicado
 
-### 10.3.2 Atendimento — Filtros de Data (NOVO — 19/06/2026)
+### 11.3.2 Atendimento — Filtros de Data
 - Kanban filtra tarefas por 3 datas: `created_at`, `data_inicio`, `data_fim`
 - Tarefa aparece se QUALQUER dessas datas cai no período filtrado
 - Tarefas sem data definida sempre aparecem (pendentes)
 - Lógica: `const datas = [t.created_at, t.data_inicio, t.data_fim].filter(Boolean)`
 
-### 10.3.3 Atendimento — Integração Kanban ↔ Atendimentos (NOVO — 19/06/2026)
+### 11.3.3 Atendimento — Integração Kanban ↔ Atendimentos
 - KanbanTarefas recebe prop `onRefresh` para forçar reload
 - Quando atendimentos mudam (ex: resolveu um card), Kanban recarrega
 - Botão "Resolver" agora é async/await → aguarda API → chama `onMensagemEnviada` → fecha chat
@@ -406,17 +483,17 @@ trg_marcar_lido             -- UPDATE atendimento → reset nao_lido quando vend
   - "Andamento": `status="aberto"` + vendedor já interagiu
   - "Concluído": `status="fechado"` (últimos 7 dias)
 
-### 10.4 Leads — Reatribuição
+### 11.4 Leads — Reatribuição
 - Gestor pode reatribuir lead clicando em "Reatribuir" → dropdown com vendedores aparece → seleciona novo → clica "Reatribuir"
 - API PATCH `/api/leads` ace `{ id, vendedor_id, status }`
 - Quando atribui vendedor, cria tarefa de prospecção automaticamente
 
-### 10.5 Millennium ERP
+### 11.5 Millennium ERP
 - URL: `roma.millenniumhosting.com.br:6017/api/millenium_eco/`
 - Auth: NTLM (rede interna apenas)
 - Integração via webhook quando disponível
 
-### 10.6 Dados de Teste
+### 11.6 Dados de Teste
 - **Vendedores:** Raquel, Brenda, Christyan, Gabriel, Jackson, João Pedro, Keila, Murilo
 - **Cargos:** vendedor, gerente_comercial, diretor, admin
 - **Clientes:** ~61 clientes
@@ -424,13 +501,13 @@ trg_marcar_lido             -- UPDATE atendimento → reset nao_lido quando vend
 
 ---
 
-## 11. Como Continuar
+## 12. Como Continuar
 
 1. **Verificar migration necessária:** Adicionar colunas/tabelas em `supabase/migrations/`
 2. **Criar/atualizar API:** Adicionar endpoint em `app/api/`
 3. **Criar/atualizar componente:** Adicionar em `components/features/`
 4. **Atualizar página:** Modificar `page.tsx` correspondente
 5. **Testar local:** `npm run dev`
-6. **Deploy:** `cd crm-roma ; npx vercel --prod --force`
+6. **Deploy:** `cd crm-roma ; npx vercel --prod --force --yes`
 
 **Sempre verifique o console do navegador (F12) para erros de API.**
