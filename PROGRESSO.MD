@@ -4,7 +4,7 @@
 > **Última atualização:** 01/07/2026
 > **Deploy atual:** https://crm-roma-romadistribuicao.vercel.app
 > **Conta Vercel:** roma-6489 (romadistribuicao) — plano Hobby/Free
-> **Conversa atual:** Otimização de performance (plano free Vercel) + Migração de conta Vercel
+> **Conversa atual:** Simplificação MVP + Decisão de plataforma WhatsApp (BotConversa)
 
 ---
 
@@ -90,10 +90,15 @@ crm-roma/
 
 **Tela:** `/atendimento`
 
-**3 Abas:**
+**2 Abas (MVP SIMPLIFICADO — Julho/2026):**
 1. **📋 Meu Trabalho** — Kanban de Tarefas (2/3) + Lista de Atendimentos Lateral (1/3)
-2. **🎯 Oportunidades** — Motor de Oportunidades
-3. **💬 Atendimentos** — Lista completa de Atendimentos WhatsApp
+2. **💬 Atendimentos** — Lista completa de Atendimentos WhatsApp
+- **⚠️ Aba "Oportunidades" COMENTADA** (código preservado em `motor-oportunidades.tsx` — ativar quando necessário)
+- **⚠️ Campanhas COMENTADA** na sidebar (código preservado — ativar quando necessário)
+- **⚠️ Vendas COMENTADA** na sidebar (código preservado — depende da integração Millennium que não está ativa)
+- **Para reativar Oportunidades:** descomentar TabsTrigger + TabsContent + import MotorOportunidades em `page.tsx`
+- **Para reativar Campanhas:** descomentar entrada no navItems + import Trophy em `sidebar.tsx`
+- **Para reativar Vendas:** descomentar entrada no navItems + import ShoppingCart em `sidebar.tsx`
 
 **Kanban de Tarefas (3 colunas):**
 - **"A Fazer"** — Atendimentos abertos onde o **cliente** enviou a última mensagem
@@ -376,7 +381,55 @@ A conta Vercel antiga (johnpittz) estourou os limites do plano free:
 
 ---
 
-## 9. Próximos Passos Pendentes
+## 9. Decisões de Simplificação MVP + WhatsApp (Julho/2026)
+
+### 🔴 Funcionalidades COMENTADAS para MVP
+Para sair do MVP com o CRM o mais simples possível, as seguintes funcionalidades foram **comentadas** (código preservado, mas não visível para vendedores):
+
+| Funcionalidade | Arquivo comentado | Para reativar |
+|---|---|---|
+| **Campanhas** | `components/layout/sidebar.tsx` — entrada navItems + import Trophy | Descomentar entrada + import |
+| **Oportunidades** | `app/(dashboard)/atendimento/page.tsx` — aba + import MotorOportunidades | Descomentar TabsTrigger + TabsContent + import |
+| **Vendas** | `components/layout/sidebar.tsx` — entrada navItems + import ShoppingCart | Descomentar entrada + import. **Motivo:** depende da integração Millennium que não está ativa |
+
+**Sidebar MVP — Itens visíveis:**
+```
+🎯 Atendimento → 📌 Leads → 👥 Clientes → 📦 Produtos → 📊 Dashboard → ⚙️ Configurações
+(só gestores) 🏢 Equipes
+```
+
+### 🟢 WhatsApp — Plataforma: BotConversa (BSP Oficial Meta)
+
+**DECISÃO IMPORTANTE:** A empresa **NÃO** usará soluções não-oficiais (Evolution API, Z-API, etc.). A escolha é **BotConversa**, BSP oficial certificado pela Meta.
+
+**Motivo:** Empresa já vai usar BotConversa para disparo de mensagens (campanhas/marketing). BSP oficial = sem risco de banimento, API REST simples, webhooks nativos.
+
+**Status:** Ainda **NÃO** contratado. Implementação será feita quando o serviço for contratado.
+
+**O que falta para integrar (quando contratado):**
+| Tarefa | Tempo estimado | Dependência |
+|---|---|---|
+| Criar webhook `POST /api/webhooks/whatsapp` | 3-4h | BotConversa API Key |
+| Criar envio `POST /api/atendimentos/mensagens/enviar` | 3-4h | BotConversa API Key |
+| Criar helper `lib/botconversa.ts` | 1h | BotConversa API Key |
+| Migration: `whatsapp_message_id`, `whatsapp_message_status` | 15min | Nenhuma |
+| Adaptar chat (envio real + status badges) | 2-3h | Endpoints criados |
+| Configurar webhook no painel BotConversa | 30min | Deploy do webhook |
+| **Total** | **~2-3 dias de dev** | |
+
+**Variáveis de ambiente necessárias:**
+```
+BOTCONVERSA_API_KEY=xxx
+BOTCONVERSA_WEBHOOK_SECRET=xxx
+BOTCONVERSA_API_URL=https://api.botconversa.com.br/v1
+```
+
+**Arquitetura proposta:**
+```
+Cliente (WhatsApp) ↔ BotConversa BSP ↔ CRM-ROMA API ↔ Supabase ↔ Interface vendedor
+```
+
+**NOTA:** Soluções não-oficiais (Evolution API, Z-API) foram **REJEITADAS** por política da empresa. Só soluções oficiais Meta ou BSPs certificados.
 
 ### Fase 2: Transbordo Automático (INATIVIDADE)
 - Após 15 minutos sem resposta do vendedor, atendimento volta para fila geral
@@ -386,10 +439,6 @@ A conta Vercel antiga (johnpittz) estourou os limites do plano free:
 ### Fase 3: Rodízio Automático
 - Clientes não identificados vão para rodízio entre vendedores online
 - Tabela/configuração de rodízio
-
-### Fase 4: Integração WhatsApp Real
-- Substituir simulação por webhook real (WABA, Evolution API, etc.)
-- Estudo de custos: API oficial Meta cobra por conversa
 
 ### Segurança — Fase 3 (Hardening) Pendente
 - Habilitar RLS em **todas** as tabelas

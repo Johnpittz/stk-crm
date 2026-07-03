@@ -7,9 +7,9 @@ import {
   LayoutDashboard,
   Headset,
   Users,
-  ShoppingCart,
+  // ShoppingCart, // ⚠️ MVP SIMPLIFICADO: descomentar quando Vendas for reativada (depende Millennium)
   Package,
-  Trophy,
+  // Trophy, // ⚠️ MVP SIMPLIFICADO: descomentar quando Campanhas for reativada
   Briefcase,
   Settings,
   ChevronLeft,
@@ -41,12 +41,6 @@ export function Sidebar({ user }: SidebarProps) {
 
   const navItems = [
     {
-      href: "/dashboard",
-      label: "Dashboard",
-      icon: LayoutDashboard,
-      description: "Visão gerencial",
-    },
-    {
       href: "/atendimento",
       label: "Atendimento",
       icon: Headset,
@@ -66,22 +60,16 @@ export function Sidebar({ user }: SidebarProps) {
       description: "Gestão de clientes",
     },
     {
-      href: "/vendas",
-      label: "Vendas",
-      icon: ShoppingCart,
-      description: "Histórico de vendas",
-    },
-    {
       href: "/produtos",
       label: "Produtos",
       icon: Package,
       description: "Catálogo de produtos",
     },
     {
-      href: "/campanhas",
-      label: "Campanhas",
-      icon: Trophy,
-      description: "Incentivos e metas",
+      href: "/dashboard",
+      label: "Dashboard",
+      icon: LayoutDashboard,
+      description: "Visão gerencial",
     },
     ...(isGestor ? [{
       href: "/equipes",

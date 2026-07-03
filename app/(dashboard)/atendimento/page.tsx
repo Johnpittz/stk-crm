@@ -14,7 +14,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { PerformanceRealTime } from "@/components/features/atendimento/performance-realtime";
 import { KanbanTarefas } from "@/components/features/atendimento/kanban-tarefas";
-import { MotorOportunidades } from "@/components/features/atendimento/motor-oportunidades";
+// ⚠️ MVP SIMPLIFICADO (Julho/2026): Oportunidades comentada — ativar quando necessário
+// import { MotorOportunidades } from "@/components/features/atendimento/motor-oportunidades";
 import { ListaAtendimentos } from "@/components/features/atendimento/lista-atendimentos";
 import { ListaAtendimentosLateral } from "@/components/features/atendimento/lista-atendimentos-lateral";
 import { AtendimentoChat } from "@/components/features/atendimento/atendimento-chat";
@@ -153,15 +154,17 @@ export default function AtendimentoPage() {
 
       {/* ABAS */}
       <Tabs value={abaAtiva} onValueChange={setAbaAtiva} className="flex-1 flex flex-col min-h-0 mt-2">
-        <TabsList className="grid w-full grid-cols-3 h-9 shrink-0">
+        {/* ⚠️ MVP SIMPLIFICADO: 2 abas (Meu Trabalho + Atendimentos) — Oportunidades comentada */}
+        <TabsList className="grid w-full grid-cols-2 h-9 shrink-0">
           <TabsTrigger value="trabalho" className="gap-1 text-xs">
             <ClipboardList className="h-3.5 w-3.5" />
             Meu Trabalho
           </TabsTrigger>
+          {/* ⚠️ MVP SIMPLIFICADO: Aba Oportunidades comentada — ativar quando necessário
           <TabsTrigger value="oportunidades" className="gap-1 text-xs">
             <Target className="h-3.5 w-3.5" />
             Oportunidades
-          </TabsTrigger>
+          </TabsTrigger> */}
           <TabsTrigger value="atendimentos" className="gap-1 text-xs relative">
             <MessageCircle className="h-3.5 w-3.5" />
             Atendimentos
@@ -284,12 +287,12 @@ export default function AtendimentoPage() {
             </div>
           </TabsContent>
 
-          {/* ABA 2: OPORTUNIDADES */}
+          {/* ⚠️ MVP SIMPLIFICADO: ABA OPORTUNIDADES comentada — ativar quando necessário
           <TabsContent value="oportunidades" className="h-full mt-0 data-[state=inactive]:hidden">
             <div className="h-full overflow-hidden">
               <MotorOportunidades />
             </div>
-          </TabsContent>
+          </TabsContent> */}
 
           {/* ABA 3: ATENDIMENTOS WHATSAPP */}
           <TabsContent value="atendimentos" className="h-full mt-0 data-[state=inactive]:hidden">
