@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   DragDropContext,
   Droppable,
@@ -105,6 +112,7 @@ export function KanbanTarefas({ atendimentos, onAbrirChat, onRefresh, busca = ""
   const [tarefaSelecionada, setTarefaSelecionada] = useState<Tarefa | null>(null);
   const [modalAberto, setModalAberto] = useState(false);
   const [modalConcluindo, setModalConcluindo] = useState(false);
+  const [filtroColuna, setFiltroColuna] = useState("__TODAS__");
   const supabase = createClient();
 
   const fetchTarefas = useCallback(async () => {
@@ -283,7 +291,20 @@ export function KanbanTarefas({ atendimentos, onAbrirChat, onRefresh, busca = ""
           <CardTitle className="flex items-center gap-2 text-base">
             📋 Kanban de Tarefas
           </CardTitle>
-          <NovaTarefaModal onSuccess={fetchTarefas} />
+          <div className="flex items-center gap-2">
+            <Select value={filtroColuna} onValueChange={setFiltroColuna}>
+              <SelectTrigger className="w-[130px] h-7 text-[11px]">
+                <SelectValue placeholder="Todas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__TODAS__">Todas</SelectItem>
+                <SelectItem value="a_fazer">A Fazer</SelectItem>
+                <SelectItem value="em_andamento">Andamento</SelectItem>
+                <SelectItem value="concluida">Concluído</SelectItem>
+              </SelectContent>
+            </Select>
+            <NovaTarefaModal onSuccess={fetchTarefas} />
+          </div>
         </div>
       </CardHeader>
       <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
@@ -293,8 +314,13 @@ export function KanbanTarefas({ atendimentos, onAbrirChat, onRefresh, busca = ""
           </div>
         ) : (
           <DragDropContext onDragEnd={onDragEnd}>
-            <div className="grid grid-cols-3 gap-3 px-3 pb-3 h-full overflow-hidden">
-              {colunas.map((coluna) => {
+            <div className={cn(
+              "gap-3 px-3 pb-3 h-full overflow-hidden",
+              filtroColuna === "__TODAS__" ? "grid grid-cols-3" : "grid grid-cols-1"
+            )}>
+              {colunas
+                .filter((coluna) => filtroColuna === "__TODAS__" || coluna.id === filtroColuna)
+                .map((coluna) => {
                 const tarefasColuna = getTarefasPorColuna(coluna.id);
                 const atendimentosColuna = getAtendimentosPorColuna(coluna.id);
                 const totalItems = tarefasColuna.length + atendimentosColuna.length;

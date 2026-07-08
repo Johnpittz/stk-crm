@@ -46,9 +46,8 @@ export default function AtendimentoPage() {
   const [loadingAtendimentos, setLoadingAtendimentos] = useState(true);
   const supabase = createClient();
 
-  // Filtros
+  // Filtros gerais (busca + data — status agora é por componente)
   const [busca, setBusca] = useState("");
-  const [filtroStatus, setFiltroStatus] = useState("__TODOS__");
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
 
@@ -60,9 +59,6 @@ export default function AtendimentoPage() {
       a.telefone_cliente?.toLowerCase().includes(termo) ||
       a.assunto?.toLowerCase().includes(termo) ||
       a.ultima_mensagem?.toLowerCase().includes(termo);
-
-    const matchStatus =
-      filtroStatus === "__TODOS__" || a.status === filtroStatus;
 
     let matchData = true;
     if (dataInicio || dataFim) {
@@ -77,7 +73,7 @@ export default function AtendimentoPage() {
       }
     }
 
-    return matchBusca && matchStatus && matchData;
+    return matchBusca && matchData;
   });
 
   // Estado do chat
@@ -187,16 +183,6 @@ export default function AtendimentoPage() {
               className="w-[220px] h-8 text-xs pl-7"
             />
           </div>
-          <Select value={filtroStatus} onValueChange={setFiltroStatus}>
-            <SelectTrigger className="w-[150px] h-8 text-xs">
-              <SelectValue placeholder="Todos os status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__TODOS__">Todos os status</SelectItem>
-              <SelectItem value="aberto">Aberto</SelectItem>
-              <SelectItem value="fechado">Fechado</SelectItem>
-            </SelectContent>
-          </Select>
           <div className="flex items-center gap-1">
             <Input
               type="date"
@@ -212,14 +198,13 @@ export default function AtendimentoPage() {
               className="w-[130px] h-8 text-xs"
             />
           </div>
-          {(busca || filtroStatus !== "__TODOS__" || dataInicio || dataFim) && (
+          {(busca || dataInicio || dataFim) && (
             <Button
               variant="ghost"
               size="sm"
               className="h-8 text-xs gap-1"
               onClick={() => {
                 setBusca("");
-                setFiltroStatus("__TODOS__");
                 setDataInicio("");
                 setDataFim("");
               }}

@@ -503,11 +503,17 @@ Cliente (WhatsApp) ↔ BotConversa BSP ↔ CRM-ROMA API ↔ Supabase ↔ Interfa
 - **NÃO** existe coluna `data_fechamento` no banco — usar `ultima_mensagem_data` como fallback
 - **NÃO** existe coluna `vendedor_interagiu` no banco — usar `ultima_mensagem_remetente === "vendedor"`
 
-### 11.3 Atendimento — Layout Atual
+### 11.3 Atendimento — Layout Atual (MVP SIMPLIFICADO)
+- **⚠️ Apenas 2 abas:** "Meu Trabalho" + "Atendimentos" (Oportunidades COMENTADA)
 - Aba "Meu Trabalho": Kanban (2/3 direita) + ListaAtendimentosLateral (1/3 esquerda)
 - Aba "Atendimentos": ListaAtendimentos completa
-- Filtros globais acima das abas (busca, status, data, exportar CSV)
+- Filtros globais: busca + data + limpar + exportar CSV (SEM filtro de status)
+- **Filtros de status SEPARADOS por componente (Julho/2026):**
+  - `lista-atendimentos.tsx`: mini-dropdown "Todos / Aberto / Fechado" no header
+  - `kanban-tarefas.tsx`: mini-dropdown "Todas / A Fazer / Andamento / Concluído" no header
+  - Quando seleciona coluna no Kanban, layout muda de 3 para 1 coluna (foco)
 - Chat global (modal) abre de qualquer aba
+- **Para reativar Oportunidades:** descomentar TabsTrigger + TabsContent + import MotorOportunidades em `page.tsx`
 
 ### 11.3.1 Atendimento — Componente CardAtendimentoKanban
 - Arquivo: `components/features/atendimento/card-atendimento-kanban.tsx`

@@ -1,7 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { MessageCircle, Check, Loader2 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +42,13 @@ interface ListaAtendimentosProps {
 
 export function ListaAtendimentos({ atendimentos, loading, onRefresh, onAbrirChat }: ListaAtendimentosProps) {
   const supabase = createClient();
+  const [filtroStatus, setFiltroStatus] = useState("__TODOS__");
+
+  const atendimentosFiltrados = useMemo(() => {
+    return atendimentos.filter((a) => {
+      return filtroStatus === "__TODOS__" || a.status === filtroStatus;
+    });
+  }, [atendimentos, filtroStatus]);
 
   const handleFechar = async (id: string) => {
     try {
@@ -87,9 +101,21 @@ export function ListaAtendimentos({ atendimentos, loading, onRefresh, onAbrirCha
           <CardTitle className="flex items-center gap-2 text-base">
             <MessageCircle className="h-4 w-4 text-green-600" />
             Atendimentos WhatsApp
-            <Badge variant="secondary">{atendimentos.length}</Badge>
+            <Badge variant="secondary">{atendimentosFiltrados.length}</Badge>
           </CardTitle>
-          <SimularWhatsAppModal onSuccess={onRefresh} />
+          <div className="flex items-center gap-2">
+            <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+              <SelectTrigger className="w-[120px] h-7 text-[11px]">
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__TODOS__">Todos</SelectItem>
+                <SelectItem value="aberto">Aberto</SelectItem>
+                <SelectItem value="fechado">Fechado</SelectItem>
+              </SelectContent>
+            </Select>
+            <SimularWhatsAppModal onSuccess={onRefresh} />
+          </div>
         </div>
       </CardHeader>
       <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
@@ -98,15 +124,15 @@ export function ListaAtendimentos({ atendimentos, loading, onRefresh, onAbrirCha
             <Loader2 className="h-4 w-4 animate-spin mr-2" />
             Carregando...
           </div>
-        ) : atendimentos.length === 0 ? (
+        ) : atendimentosFiltrados.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-slate-400 text-sm gap-3">
-            <p>Nenhum atendimento pendente</p>
+            <p>Nenhum atendimento {filtroStatus === "aberto" ? "aberto" : filtroStatus === "fechado" ? "fechado" : "encontrado"}</p>
             <SimularWhatsAppModal onSuccess={onRefresh} />
           </div>
         ) : (
           <ScrollArea className="h-full px-3">
             <div className="space-y-2">
-              {atendimentos.map((a) => {
+              {atendimentosFiltrados.map((a) => {
                 const isNaoLido = a.nao_lido;
                 const isCliente = a.ultima_mensagem_remetente === "cliente";
                 const hora = a.ultima_mensagem_data
