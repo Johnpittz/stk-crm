@@ -1,13 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { enviarMensagemWhatsApp, formatarTelefone } from "@/lib/botconversa";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/atendimentos/mensagens?atendimento_id=xxx
+// Usa service_role para bypassar RLS (padrão do projeto para leitura de mensagens)
 export async function GET(request: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  const supabaseUser = await createClient();
+  const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
   if (authError || !user) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
@@ -19,7 +21,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "atendimento_id é obrigatório" }, { status: 400 });
   }
 
-  const { data: mensagens, error } = await supabase
+  // Usa service_role para bypassar RLS (garante que vendedor veja mensagens de qualquer atendimento)
+  const supabaseAdmin = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const { data: mensagens, error } = await supabaseAdmin
     .from("atendimento_mensagens")
     .select("*")
     .eq("atendimento_id", atendimentoId)
@@ -76,6 +84,38 @@ export async function POST(request: NextRequest) {
     .from("atendimentos")
     .update(updateData)
     .eq("id", atendimento_id);
+
+  // Se é vendedor enviando, envia via BotConversa para o WhatsApp do cliente
+  if (remetente === "vendedor" && process.env.BOTCONVERSA_API_KEY) {
+    try {
+      // Busca telefone do cliente no atendimento
+      const { data: atendimento } = await supabase
+        .from("atendimentos")
+        .select("telefone_cliente")
+        .eq("id", atendimento_id)
+        .single();
+
+      if (atendimento?.telefone_cliente) {
+        const resultado = await enviarMensagemWhatsApp({
+          telefone: atendimento.telefone_cliente,
+          mensagem: conteudo,
+        });
+
+        if (resultado.success) {
+          // Atualiza mensagem com whatsapp_message_id para rastreamento
+          await supabase
+            .from("atendimento_mensagens")
+            .update({ whatsapp_message_id: resultado.message_id || null })
+            .eq("id", mensagem.id);
+        } else {
+          console.error("[Mensagens] Erro ao enviar via WhatsApp:", resultado.error);
+        }
+      }
+    } catch (err) {
+      // Não falha a mensagem se o envio WhatsApp der erro
+      console.error("[Mensagens] Erro ao enviar via BotConversa:", err);
+    }
+  }
 
   return NextResponse.json({ success: true, mensagem });
 }

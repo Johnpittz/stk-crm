@@ -211,6 +211,41 @@ crm-roma/
 - Modal de nova venda
 - Integração Millennium
 
+### 4.9 Central de Ajuda (COMPLETO — 08/07/2026)
+
+**Tela:** `/ajuda`
+
+**Acesso:**
+- Botão ❓ no **header** (ao lado do sino de notificações)
+- Item **"Ajuda" na sidebar** (último item, visível para todos)
+
+**Página com 8 abas:**
+1. **💬 Atendimento** — O que é o painel WhatsApp, como usar o chat, transferir, filtros
+2. **📌 Kanban** — 3 colunas (A Fazer/Andamento/Concluído), criar tarefa, regra de concluir com info
+3. **👥 Leads** — Fila de leads, Buscar Empresas (gestores), distribuição automática
+4. **👥 Clientes** — Cadastro, busca, integração Millennium
+5. **📦 Produtos** — Catálogo 2195 itens, filtros, paginação
+6. **📊 Dashboard** — Métricas, gráficos, indicadores de performance
+7. **⚙️ Configurações** — Perfil, notificações, segurança, aparência
+8. **🏢 Equipes** — Apenas gestores, cadastrar vendedores, cargos
+
+**Arquivos criados:**
+| Arquivo | Descrição |
+|---------|-----------|
+| `app/(dashboard)/ajuda/page.tsx` | Página principal com abas |
+| `components/features/ajuda/conteudo-atendimento.tsx` | Conteúdo aba Atendimento |
+| `components/features/ajuda/conteudo-kanban.tsx` | Conteúdo aba Kanban |
+| `components/features/ajuda/conteudo-leads.tsx` | Conteúdo aba Leads |
+| `components/features/ajuda/conteudo-clientes.tsx` | Conteúdo aba Clientes |
+| `components/features/ajuda/conteudo-produtos.tsx` | Conteúdo aba Produtos |
+| `components/features/ajuda/conteudo-dashboard.tsx` | Conteúdo aba Dashboard |
+| `components/features/ajuda/conteudo-config.tsx` | Conteúdo aba Configurações |
+| `components/features/ajuda/conteudo-equipes.tsx` | Conteúdo aba Equipes |
+
+**Arquivos modificados:**
+- `components/layout/header.tsx` — Adicionado botão ❓ com ícone HelpCircle + rota /ajuda
+- `components/layout/sidebar.tsx` — Adicionado item "Ajuda" no navItems + import HelpCircle
+
 ---
 
 ## 5. APIs Criadas

@@ -16,6 +16,7 @@ import {
   ChevronRight,
   LogOut,
   Target,
+  HelpCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -77,11 +78,18 @@ export function Sidebar({ user }: SidebarProps) {
       icon: Briefcase,
       description: "Gestão da equipe",
     }] : []),
+  ];
+
+  const bottomItems = [
     {
       href: "/configuracoes",
       label: "Configurações",
       icon: Settings,
-      description: "Preferências do sistema",
+    },
+    {
+      href: "/ajuda",
+      label: "Ajuda",
+      icon: HelpCircle,
     },
   ];
 
@@ -162,12 +170,43 @@ export function Sidebar({ user }: SidebarProps) {
         })}
       </nav>
 
-      {/* User */}
-      <div className="border-t border-[#14919B]/20 p-4">
-        <div className={cn("flex items-center gap-3", !isOpen && "flex-col")}>
-          <Avatar className="h-10 w-10 border-2 border-[#14919B]/30">
+      {/* Bottom: Config, Ajuda, User, Logout */}
+      <div className="border-t border-[#14919B]/20 px-3 py-3 space-y-1">
+        {/* Bottom nav items (Configurações, Ajuda) */}
+        {bottomItems.map((item) => {
+          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const Icon = item.icon;
+
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              title={!isOpen ? item.label : undefined}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 transition-all duration-200 group relative",
+                isActive
+                  ? "bg-[#14919B] text-white"
+                  : "text-white/60 hover:bg-[#14919B]/20 hover:text-white"
+              )}
+            >
+              <Icon size={18} className="min-w-[18px]" />
+              {isOpen && (
+                <span className="text-sm font-medium truncate">{item.label}</span>
+              )}
+              {!isOpen && (
+                <div className="absolute left-full ml-2 px-2 py-1 bg-[#0D3B33] text-white text-xs rounded opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50 border border-[#14919B]/20">
+                  {item.label}
+                </div>
+              )}
+            </Link>
+          );
+        })}
+
+        {/* User + Logout */}
+        <div className={cn("flex items-center gap-3 px-3 py-2", !isOpen && "flex-col")}>
+          <Avatar className="h-9 w-9 border-2 border-[#14919B]/30 shrink-0">
             <AvatarImage src={user.avatar_url ?? undefined} alt={user.nome} />
-            <AvatarFallback className="bg-[#14919B] text-white font-semibold">
+            <AvatarFallback className="bg-[#14919B] text-white text-xs font-semibold">
               {user.nome.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
@@ -175,7 +214,7 @@ export function Sidebar({ user }: SidebarProps) {
           {isOpen && (
             <div className="flex-1 min-w-0">
               <p className="truncate text-sm font-medium text-white">{user.nome}</p>
-              <p className="truncate text-xs text-white/60">{user.canal}</p>
+              <p className="truncate text-xs text-white/50">{user.canal}</p>
             </div>
           )}
 
@@ -183,11 +222,11 @@ export function Sidebar({ user }: SidebarProps) {
             <Button
               variant="ghost"
               size="icon"
-              className="text-white/60 hover:text-white hover:bg-[#14919B]/20"
+              className="text-white/50 hover:text-white hover:bg-[#14919B]/20 h-8 w-8"
               title="Sair"
               type="submit"
             >
-              <LogOut size={18} />
+              <LogOut size={16} />
             </Button>
           </form>
         </div>

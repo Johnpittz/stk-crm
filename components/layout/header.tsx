@@ -1,7 +1,8 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Search, Calendar } from "lucide-react";
+import Link from "next/link";
+import { Search, Calendar, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificacoesBell } from "@/components/notificacoes-bell";
 
@@ -13,6 +14,7 @@ const routeTitles: Record<string, { title: string; subtitle?: string }> = {
   "/vendas": { title: "Vendas", subtitle: "Histórico de vendas" },
   "/campanhas": { title: "Campanhas", subtitle: "Incentivos e metas" },
   "/configuracoes": { title: "Configurações", subtitle: "Preferências do sistema" },
+  "/ajuda": { title: "Central de Ajuda", subtitle: "Aprenda a usar o CRM-ROMA" },
 };
 
 export function Header() {
@@ -53,6 +55,13 @@ export function Header() {
           <Button variant="ghost" size="icon" className="relative">
             <Search className="h-5 w-5 text-slate-600" />
           </Button>
+
+          {/* Ajuda */}
+          <Link href="/ajuda">
+            <Button variant="ghost" size="icon" title="Central de Ajuda">
+              <HelpCircle className="h-5 w-5 text-slate-600" />
+            </Button>
+          </Link>
 
           {/* Notifications */}
           <NotificacoesBell />
