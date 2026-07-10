@@ -183,9 +183,11 @@ export async function PATCH(request: NextRequest) {
   }
 
   const body = await request.json();
+  console.log("[API PATCH atendimentos] Body recebido:", JSON.stringify(body));
   const { id, status, vendedor_id, assumir } = body;
 
   if (!id) {
+    console.error("[API PATCH atendimentos] ID não fornecido");
     return NextResponse.json({ error: "ID é obrigatório" }, { status: 400 });
   }
 
@@ -229,6 +231,8 @@ export async function PATCH(request: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
+  console.log("[API PATCH atendimentos] Update data:", JSON.stringify(updateData));
+
   const { data: atendimento, error } = await supabaseAdmin
     .from("atendimentos")
     .update(updateData)
@@ -237,9 +241,11 @@ export async function PATCH(request: NextRequest) {
     .single();
 
   if (error || !atendimento) {
-    console.error("[API atendimentos PATCH] Supabase error:", error);
+    console.error("[API PATCH atendimentos] Supabase error:", error);
     return NextResponse.json({ error: error?.message || "Atendimento não encontrado", details: error }, { status: 500 });
   }
+
+  console.log("[API PATCH atendimentos] Sucesso:", atendimento?.id);
 
   return NextResponse.json({ success: true, atendimento });
 }

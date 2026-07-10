@@ -1,18 +1,18 @@
 /**
- * Helper para integração com BotConversa (BSP Oficial Meta)
+ * Helper para integração com BotConversa
  * 
- * Webhook recebido do BotConversa:
- * - Quando cliente envia mensagem → webhook dispara para nosso endpoint
+ * Base URL: https://backend.botconversa.com.br/api/v1/webhook
+ * Auth: Authorization: Bearer {API_KEY}
  * 
- * Envio de mensagens:
- * - Quando vendedor responde no CRM → chamamos a API do BotConversa para enviar
+ * Passo 1: GET /subscriber/get_by_phone/{phone}/ → pegar subscriber_id
+ * Passo 2: POST /subscriber/{subscriber_id}/send_message/ → enviar mensagem
  */
 
-const BOTCONVERSA_API_URL = process.env.BOTCONVERSA_API_URL || "https://new-backend.botconversa.com.br/api/v1";
 const BOTCONVERSA_API_KEY = process.env.BOTCONVERSA_API_KEY;
+const BOTCONVERSA_BASE = "https://backend.botconversa.com.br/api/v1/webhook";
 
 interface EnviarMensagemParams {
-  telefone: string;       // formato: +5511999999999
+  telefone: string;
   mensagem: string;
 }
 
@@ -23,77 +23,105 @@ interface EnviarMensagemResponse {
 }
 
 /**
- * Envia mensagem de texto via BotConversa API
- * @returns message_id do BotConversa para rastreamento
+ * Busca subscriber_id pelo telefone
+ * GET /subscriber/get_by_phone/{phone}/
+ */
+async function buscarSubscriberId(telefoneFormatado: string): Promise<string | null> {
+  try {
+      const response = await fetch(
+        `${BOTCONVERSA_BASE}/subscriber/get_by_phone/${encodeURIComponent(telefoneFormatado)}/`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "api-key": BOTCONVERSA_API_KEY || "",
+          },
+        }
+      );
+
+    if (!response.ok) {
+      console.error("[BotConversa] Buscar subscriber falhou:", response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    return data?.id?.toString() || null;
+  } catch (err: any) {
+    console.error("[BotConversa] Erro ao buscar subscriber:", err.message);
+    return null;
+  }
+}
+
+/**
+ * Envia mensagem via BotConversa API
+ * POST /subscriber/{subscriber_id}/send_message/
  */
 export async function enviarMensagemWhatsApp(params: EnviarMensagemParams): Promise<EnviarMensagemResponse> {
   const { telefone, mensagem } = params;
 
+  console.log("[BotConversa] INICIO ENVIO");
+  console.log("[BotConversa] Telefone:", telefone);
+  console.log("[BotConversa] Mensagem:", mensagem);
+  console.log("[BotConversa] API_KEY:", BOTCONVERSA_API_KEY ? BOTCONVERSA_API_KEY.substring(0, 8) + "..." : "VAZIA");
+
   if (!BOTCONVERSA_API_KEY) {
-    console.error("[BotConversa] API Key não configurada");
-    return { success: false, error: "API Key não configurada" };
+    return { success: false, error: "API Key nao configurada" };
   }
 
-  // Limpa telefone e garante formato +55XXXXXXXXXXX
   const telefoneFormatado = formatarTelefone(telefone);
+  console.log("[BotConversa] Telefone formatado:", telefoneFormatado);
 
   try {
-    const response = await fetch(`${BOTCONVERSA_API_URL}/send-text`, {
+    // Passo 1: Buscar subscriber_id pelo telefone
+    console.log("[BotConversa] Buscando subscriber_id...");
+    const subscriberId = await buscarSubscriberId(telefoneFormatado);
+    console.log("[BotConversa] Subscriber ID:", subscriberId);
+
+    if (!subscriberId) {
+      console.error("[BotConversa] Subscriber nao encontrado para:", telefoneFormatado);
+      return { success: false, error: "Subscriber nao encontrado" };
+    }
+
+    // Passo 2: Enviar mensagem
+    const url = `${BOTCONVERSA_BASE}/subscriber/${subscriberId}/send_message/`;
+    console.log("[BotConversa] URL envio:", url);
+
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${BOTCONVERSA_API_KEY}`,
+        "api-key": BOTCONVERSA_API_KEY || "",
       },
       body: JSON.stringify({
-        phone_number: telefoneFormatado,
-        message: mensagem,
+        type: "text",
+        value: mensagem,
       }),
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
+    console.log("[BotConversa] Response status:", response.status);
+    console.log("[BotConversa] Response body:", JSON.stringify(data));
 
     if (!response.ok) {
-      console.error("[BotConversa] Erro ao enviar:", response.status, data);
-      return { success: false, error: data.message || `HTTP ${response.status}` };
+      console.error("[BotConversa] Erro:", response.status, JSON.stringify(data));
+      return { success: false, error: data?.message || data?.error || `HTTP ${response.status}` };
     }
 
-    // O BotConversa retorna o ID da mensagem em data.message_id ou data.id
-    const messageId = data.message_id || data.id || null;
-
-    return { success: true, message_id: messageId };
+    console.log("[BotConversa] SUCESSO");
+    return { success: true, message_id: data?.message_id || data?.id || null };
   } catch (err: any) {
-    console.error("[BotConversa] Erro ao enviar mensagem:", err.message);
+    console.error("[BotConversa] Erro:", err.message);
     return { success: false, error: err.message };
   }
 }
 
-/**
- * Formata telefone para o padrão BotConversa: +55XXXXXXXXXXX
- * Aceita formatos: (11) 99999-9999, 11999999999, 5511999999999, +5511999999999
- */
 export function formatarTelefone(telefone: string): string {
-  // Remove tudo que não é dígito
   let nums = telefone.replace(/\D/g, "");
-
-  // Se começa com 55 (DDI), mantém
-  if (!nums.startsWith("55")) {
-    nums = "55" + nums;
-  }
-
-  // Garante que tem pelo menos 12 dígitos (55 + DDD + 9 dígitos)
-  if (nums.length < 12) {
-    // Tenta adicionar 9 na frente do número local
-    const ddi = nums.substring(0, 2);
-    const resto = nums.substring(2);
-    nums = ddi + "9" + resto;
-  }
-
-  return "+" + nums;
+  if (!nums.startsWith("55")) nums = "55" + nums;
+  // NÃO adiciona 9 automaticamente — números antigos (3416-5014) não têm 9
+  return nums;
 }
 
-/**
- * Formata telefone do BotConversa para o formato limpo (só dígitos)
- */
 export function telefoneParaDigitos(telefone: string): string {
   return telefone.replace(/\D/g, "");
 }
