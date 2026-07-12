@@ -125,3 +125,71 @@ export function formatarTelefone(telefone: string): string {
 export function telefoneParaDigitos(telefone: string): string {
   return telefone.replace(/\D/g, "");
 }
+
+/**
+ * Busca mensagens de um subscriber (para sincronizar mensagens enviadas pelo celular)
+ * GET /subscriber/{subscriber_id}/messages/ ou similar
+ */
+export interface MensagemBotConversa {
+  id: string;
+  text: string;
+  direction: "incoming" | "outgoing";
+  created_at: string;
+}
+
+export async function buscarMensagensSubscriber(telefone: string): Promise<MensagemBotConversa[]> {
+  if (!BOTCONVERSA_API_KEY) {
+    console.error("[BotConversa Sync] API Key não configurada");
+    return [];
+  }
+
+  const telefoneFormatado = formatarTelefone(telefone);
+  console.log("[BotConversa Sync] Buscando mensagens para:", telefoneFormatado);
+
+  try {
+    // Passo 1: Buscar subscriber_id
+    const subscriberId = await buscarSubscriberId(telefoneFormatado);
+    console.log("[BotConversa Sync] Subscriber ID:", subscriberId);
+    if (!subscriberId) return [];
+
+    // Tenta buscar histórico de mensagens via diferentes endpoints
+    const endpoints = [
+      `${BOTCONVERSA_BASE}/subscriber/${subscriberId}/messages/`,
+      `${BOTCONVERSA_BASE}/subscriber/${subscriberId}/message/list/`,
+      `${BOTCONVERSA_BASE}/subscriber/${subscriberId}/history/`,
+      `${BOTCONVERSA_BASE}/subscriber/${subscriberId}/interactions/`,
+      `${BOTCONVERSA_BASE}/subscriber/${subscriberId}/chat/`,
+      `${BOTCONVERSA_BASE}/subscriber/${subscriberId}/conversations/`,
+    ];
+
+    for (const url of endpoints) {
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "api-key": BOTCONVERSA_API_KEY || "",
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const mensagens = Array.isArray(data) ? data : (data?.results || data?.messages || data?.data || []);
+        
+        if (mensagens.length > 0) {
+          return mensagens.map((m: any) => ({
+            id: m.id?.toString() || m.message_id?.toString() || "",
+            text: m.text || m.message || m.body || m.content || "",
+            direction: m.direction || m.type || m.side || "incoming",
+            created_at: m.created_at || m.timestamp || m.date || m.created || new Date().toISOString(),
+          }));
+        }
+      }
+    }
+
+    console.log("[BotConversa Sync] Nenhum endpoint de mensagens disponível (API BotConversa não expõe histórico)");
+    return [];
+  } catch (err: any) {
+    console.error("[BotConversa Sync] Erro:", err.message);
+    return [];
+  }
+}

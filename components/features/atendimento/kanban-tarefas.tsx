@@ -322,8 +322,7 @@ export function KanbanTarefas({ atendimentos, onAbrirChat, onRefresh, busca = ""
                 .filter((coluna) => filtroColuna === "__TODAS__" || coluna.id === filtroColuna)
                 .map((coluna) => {
                 const tarefasColuna = getTarefasPorColuna(coluna.id);
-                const atendimentosColuna = getAtendimentosPorColuna(coluna.id);
-                const totalItems = tarefasColuna.length + atendimentosColuna.length;
+                const totalItems = tarefasColuna.length;
 
                 return (
                 <div
@@ -349,15 +348,6 @@ export function KanbanTarefas({ atendimentos, onAbrirChat, onRefresh, busca = ""
                           snapshot.isDraggingOver && "bg-slate-200/50 rounded-lg"
                         )}
                       >
-                          {/* Atendimentos na coluna */}
-                          {atendimentosColuna.map((a) => (
-                            <CardAtendimentoKanban
-                              key={`at-${a.id}`}
-                              atendimento={a}
-                              onAbrirChat={onAbrirChat}
-                            />
-                          ))}
-
                           {tarefasColuna.map((tarefa, index) => (
                             <Draggable
                               key={tarefa.id}

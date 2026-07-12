@@ -1,10 +1,10 @@
 # CRM ROMA - Progresso do Projeto
 
 > **Arquivo de contexto para agentes IA**
-> **Última atualização:** 01/07/2026
+> **Última atualização:** 10/07/2026
 > **Deploy atual:** https://crm-roma-romadistribuicao.vercel.app
 > **Conta Vercel:** roma-6489 (romadistribuicao) — plano Hobby/Free
-> **Conversa atual:** Simplificação MVP + Decisão de plataforma WhatsApp (BotConversa)
+> **Conversa atual:** Integração WhatsApp BotConversa ATIVA
 
 ---
 
@@ -28,6 +28,7 @@ CRM desenvolvido para a empresa ROMA (distribuidora de materiais elétricos). Si
 | Auth | Supabase Auth (JWT Bearer token) |
 | Deploy | Vercel (production) — conta roma-6489 (romadistribuicao) |
 | ERP Integration | Millennium ERP (NTLM auth, rede interna) |
+| WhatsApp API | BotConversa (backend.botconversa.com.br) |
 
 ---
 
@@ -86,7 +87,7 @@ crm-roma/
 
 ## 4. Funcionalidades Implementadas
 
-### 4.1 Atendimento WhatsApp (COMPLETO — ATUALIZADO EM 19/06/2026)
+### 4.1 Atendimento WhatsApp (COMPLETO — INTEGRAÇÃO BOTCONVERSA ATIVA EM 10/07/2026)
 
 **Tela:** `/atendimento`
 
@@ -130,6 +131,35 @@ crm-roma/
 - Botão "Transferir" (transfere para outro vendedor)
 - Realtime: novas mensagens aparecem em tempo real
 - PATCH `/api/atendimentos` atualiza `ultima_mensagem`, `ultima_mensagem_remetente` ao enviar
+
+#### Integração BotConversa (ATIVA — Julho/2026)
+
+**Helper:** `lib/botconversa.ts`
+
+**API BotConversa — Documentação Oficial:**
+- **Base URL:** `https://backend.botconversa.com.br/api/v1/webhook`
+- **Autenticação:** Header `api-key: {API_KEY}` (NÃO Authorization: Bearer)
+- **Enviar mensagem:** `POST /subscriber/{subscriber_id}/send_message/`
+- **Body:** `{ "type": "text", "value": "mensagem" }`
+- **Buscar subscriber pelo telefone:** `GET /subscriber/get_by_phone/{phone}/`
+- **Variáveis de ambiente:** `BOTCONVERSA_API_KEY`, `BOTCONVERSA_WEBHOOK_ID`
+
+**⚠️ CUIDADOS IMPORTANTES com a API BotConversa:**
+1. O domínio é `backend.botconversa.com.br` (NÃO `api.botconversa.com.br` — esse domínio não existe)
+2. O header correto é `api-key` (NÃO `Authorization: Bearer`)
+3. O body para enviar é `{ type: "text", value: "..." }` (NÃO `{ message: "..." }`)
+4. O `subscriber_id` é numérico (ex: `927006341`), obtido pelo endpoint `get_by_phone`
+5. **NÃO adicionar "9" no telefone automaticamente** — números antigos da empresa (ex: 3416-5014) não têm 9
+
+**Fluxo de envio:**
+1. Vendedor digita mensagem no chat do CRM
+2. CRM chama `GET /subscriber/get_by_phone/{telefone}/` → obtém `subscriber_id`
+3. CRM chama `POST /subscriber/{subscriber_id}/send_message/` com `{ type: "text", value: "msg" }`
+4. Mensagem chega no WhatsApp do cliente ✅
+
+**Variável BOTCONVERSA_WEBHOOK_ID:** Obtida na tela de Webhooks do painel BotConversa. Atual: `195277`
+
+---
 
 **Filtros Globais (visíveis em todas as abas):**
 - Busca por nome, telefone, mensagem
@@ -400,6 +430,8 @@ A conta Vercel antiga (johnpittz) estourou os limites do plano free:
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Production |
 | `SUPABASE_SERVICE_ROLE_KEY` | Production |
 | `CNPJ_ABERTO_API_KEY` | Production |
+| `BOTCONVERSA_API_KEY` | Production |
+| `BOTCONVERSA_WEBHOOK_ID` | Production |
 
 ### 8.6 Resultado Esperado (pós-otimização)
 | Recurso | Antes | Limite Free | Depois |
@@ -439,24 +471,13 @@ Para sair do MVP com o CRM o mais simples possível, as seguintes funcionalidade
 
 **Motivo:** Empresa já vai usar BotConversa para disparo de mensagens (campanhas/marketing). BSP oficial = sem risco de banimento, API REST simples, webhooks nativos.
 
-**Status:** Ainda **NÃO** contratado. Implementação será feita quando o serviço for contratado.
+**Status:** ✅ **ATIVADO em 10/07/2026.** Envio de mensagens funciona. Recebimento via webhook configurado.
 
-**O que falta para integrar (quando contratado):**
-| Tarefa | Tempo estimado | Dependência |
-|---|---|---|
-| Criar webhook `POST /api/webhooks/whatsapp` | 3-4h | BotConversa API Key |
-| Criar envio `POST /api/atendimentos/mensagens/enviar` | 3-4h | BotConversa API Key |
-| Criar helper `lib/botconversa.ts` | 1h | BotConversa API Key |
-| Migration: `whatsapp_message_id`, `whatsapp_message_status` | 15min | Nenhuma |
-| Adaptar chat (envio real + status badges) | 2-3h | Endpoints criados |
-| Configurar webhook no painel BotConversa | 30min | Deploy do webhook |
-| **Total** | **~2-3 dias de dev** | |
-
-**Variáveis de ambiente necessárias:**
+**Variáveis de ambiente configuradas (.env.production):**
 ```
-BOTCONVERSA_API_KEY=xxx
-BOTCONVERSA_WEBHOOK_SECRET=xxx
-BOTCONVERSA_API_URL=https://api.botconversa.com.br/v1
+BOTCONVERSA_API_KEY=1329cfd1-cf08-405e-9323-2e7c509ef830
+BOTCONVERSA_WEBHOOK_ID=195277
+BOTCONVERSA_API_URL=https://backend.botconversa.com.br/api/v1/webhook
 ```
 
 **Arquitetura proposta:**

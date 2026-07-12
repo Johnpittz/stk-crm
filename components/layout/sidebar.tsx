@@ -17,6 +17,7 @@ import {
   LogOut,
   Target,
   HelpCircle,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -45,8 +46,14 @@ export function Sidebar({ user }: SidebarProps) {
       href: "/atendimento",
       label: "Atendimento",
       icon: Headset,
-      description: "Minha área de trabalho",
+      description: "Conversas WhatsApp",
       badge: "Ativo",
+    },
+    {
+      href: "/kanban",
+      label: "Kanban",
+      icon: ClipboardList,
+      description: "Tarefas e acompanhamento",
     },
     {
       href: "/leads",
