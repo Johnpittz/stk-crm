@@ -112,13 +112,30 @@ export async function POST(request: NextRequest) {
   const nomeCliente = nome_cliente || cliente?.nome_razao_social || "Cliente";
 
   // Verifica se já existe atendimento aberto para esse telefone
-  const { data: existente } = await supabaseAdmin
+  // Busca exata primeiro
+  let { data: existente } = await supabaseAdmin
     .from("atendimentos")
     .select("id")
     .eq("telefone_cliente", telefoneLimpo)
     .eq("status", "aberto")
     .limit(1)
     .single();
+
+  // Se não encontrou, busca tolerante (últimos 8 dígitos)
+  if (!existente && telefoneLimpo.length >= 8) {
+    const ultimos8 = telefoneLimpo.slice(-8);
+    const { data: candidatos } = await supabaseAdmin
+      .from("atendimentos")
+      .select("id, telefone_cliente")
+      .eq("status", "aberto")
+      .order("ultima_mensagem_data", { ascending: false })
+      .limit(50);
+
+    existente = candidatos?.find((a: any) => {
+      const telBanco = (a.telefone_cliente || "").replace(/\D/g, "");
+      return telBanco.slice(-8) === ultimos8 && telBanco.length >= 8;
+    }) || null;
+  }
 
   if (existente) {
     await supabaseAdmin

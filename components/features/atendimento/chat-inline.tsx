@@ -255,8 +255,8 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header do Chat */}
-      <div className="shrink-0 px-4 py-3 border-b border-slate-200 bg-white">
+      {/* Header do Chat — simplificado (nome + telefone + ações) */}
+      <div className="shrink-0 px-4 py-2.5 border-b border-slate-200 bg-white">
         {modoTransferencia ? (
           <div className="flex items-center gap-2">
             <Button
@@ -272,20 +272,12 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
         ) : (
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold text-sm">
+              <div className="h-9 w-9 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold text-xs shrink-0">
                 {nomeCliente.substring(0, 2).toUpperCase()}
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-slate-900">{nomeCliente}</h3>
-                <div className="flex items-center gap-2 text-xs text-slate-500">
-                  <Phone className="h-3 w-3" />
-                  <span>{telefone}</span>
-                  {atendimento?.status === "aberto" && (
-                    <Badge variant="secondary" className="h-4 text-[9px] bg-green-100 text-green-700 px-1.5">
-                      Aberto
-                    </Badge>
-                  )}
-                </div>
+                <span className="text-[11px] text-slate-500">{telefone}</span>
               </div>
             </div>
             <div className="flex items-center gap-1">
@@ -298,20 +290,6 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
               >
                 <ArrowRightLeft className="h-3.5 w-3.5" />
               </Button>
-              {onMarcarResolvido && atendimento && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-8 text-xs gap-1 text-slate-600 hover:text-green-700 hover:bg-green-50"
-                  onClick={async () => {
-                    await onMarcarResolvido(atendimento.id);
-                    onMensagemEnviada?.();
-                  }}
-                  title="Resolver"
-                >
-                  <Check className="h-3.5 w-3.5" />
-                </Button>
-              )}
               {onFechar && (
                 <Button
                   size="sm"

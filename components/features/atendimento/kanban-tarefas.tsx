@@ -74,6 +74,7 @@ interface Tarefa {
   hora_fim: string | null;
   resultado: string | null;
   observacao_resultado: string | null;
+  valor_venda: number | null;
   coluna_kanban: string;
   ordem: number;
   origem_lead: string | null;

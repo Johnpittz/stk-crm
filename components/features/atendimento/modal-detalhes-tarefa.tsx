@@ -47,6 +47,7 @@ interface TarefaCompleta {
   hora_fim: string | null;
   resultado: string | null;
   observacao_resultado: string | null;
+  valor_venda: number | null;
   clientes: { id: string; nome_razao_social: string } | null;
 }
 
@@ -107,7 +108,7 @@ export function ModalDetalhesTarefa({
   const [salvando, setSalvando] = useState(false);
   const supabase = createClient();
 
-  // Quando o modal abre/fecha, reseta estados internos
+  // Quando o modal fecha, reseta estados e recarrega dados
   useEffect(() => {
     if (aberto && iniciarConcluindo && tarefa && tarefa.coluna_kanban !== "concluida") {
       setConcluindo(true);
@@ -115,7 +116,7 @@ export function ModalDetalhesTarefa({
     } else if (!aberto) {
       setConcluindo(false);
       setEditando(false);
-      setResultadoForm({ resultado: "", observacao: "" });
+      setResultadoForm({ resultado: "", observacao: "", valorVenda: "" });
     }
   }, [aberto, iniciarConcluindo, tarefa]);
 
@@ -123,24 +124,35 @@ export function ModalDetalhesTarefa({
     titulo: "",
     descricao: "",
     prioridade: "media",
-    data_fim: "",
-    hora_inicio: "",
+    valorVenda: "" as string,
   });
 
   const [resultadoForm, setResultadoForm] = useState({
     resultado: "" as string,
     observacao: "",
+    valorVenda: "" as string,
   });
+
+  // Opções de observação por resultado
+  const opcoesObservacao: Record<string, string[]> = {
+    sucesso: ["Venda fechada", "Orçamento enviado", "Reunião agendada", "Parceria firmada"],
+    insucesso: ["Sem interesse", "Preço elevado", "Escolheu concorrente", "Não é público-alvo"],
+    remarcado: ["Cliente pediu retorno", "Agenda lotada", "Aguardando decisão"],
+    sem_contato: ["Não atendeu", "Número inválido", "Sem WhatsApp", "Caixa postal"],
+    follow_up_necessario: ["Enviar orçamento", "Confirmar reunião", "Verificar disponibilidade", "Aguardando retorno"],
+  };
 
   // Inicializa form quando tarefa muda
   const iniciarEdicao = () => {
     if (!tarefa) return;
+    const valorFormatado = tarefa.valor_venda
+      ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(tarefa.valor_venda)
+      : "";
     setForm({
       titulo: tarefa.titulo,
       descricao: tarefa.descricao || "",
       prioridade: tarefa.prioridade,
-      data_fim: tarefa.data_fim || "",
-      hora_inicio: tarefa.hora_inicio || "",
+      valorVenda: valorFormatado,
     });
     setEditando(true);
   };
@@ -152,25 +164,31 @@ export function ModalDetalhesTarefa({
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
+      const body: any = {
+        id: tarefa.id,
+        titulo: form.titulo,
+        descricao: form.descricao,
+        prioridade: form.prioridade,
+      };
+
+      // Se resultado é sucesso, enviar valor_venda
+      if (tarefa.resultado === "sucesso" && form.valorVenda) {
+        body.valor_venda = parseFloat(form.valorVenda.replace(/\./g, "").replace(",", "."));
+      }
+
       const res = await fetch("/api/tarefas", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({
-          id: tarefa.id,
-          titulo: form.titulo,
-          descricao: form.descricao,
-          prioridade: form.prioridade,
-          data_fim: form.data_fim || null,
-          hora_inicio: form.hora_inicio || null,
-        }),
+        body: JSON.stringify(body),
       });
 
       if (res.ok) {
         setEditando(false);
         onAtualizar();
+        onClose();
       }
     } catch (err) {
       console.error(err);
@@ -214,6 +232,9 @@ export function ModalDetalhesTarefa({
   const handleConfirmarConclusao = async () => {
     if (!tarefa) return;
     if (!resultadoForm.resultado) return;
+    if (!resultadoForm.observacao) return;
+    // Se sucesso, valor é obrigatório
+    if (resultadoForm.resultado === "sucesso" && !resultadoForm.valorVenda) return;
 
     setSalvando(true);
     try {
@@ -232,6 +253,9 @@ export function ModalDetalhesTarefa({
           status: "concluida",
           resultado: resultadoForm.resultado,
           observacao_resultado: resultadoForm.observacao,
+          valor_venda: resultadoForm.resultado === "sucesso" && resultadoForm.valorVenda
+            ? parseFloat(resultadoForm.valorVenda.replace(/\./g, "").replace(",", "."))
+            : null,
         }),
       });
       setConcluindo(false);
@@ -409,10 +433,19 @@ export function ModalDetalhesTarefa({
                   {tarefa.observacao_resultado}
                 </p>
               )}
+              {/* Valor da venda (se sucesso) */}
+              {tarefa.resultado === "sucesso" && tarefa.valor_venda && (
+                <div className="mt-2 pt-2 border-t border-slate-200">
+                  <span className="text-xs text-slate-500">Valor da Venda:</span>
+                  <span className="ml-2 text-sm font-bold text-emerald-700">
+                    {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(tarefa.valor_venda)}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Campos editáveis (só no modo edição) */}
+          {/* Campos editáveis (só no modo edição) — sem prazo/hora */}
           {editando && (
             <div className="space-y-3 border-t pt-3">
               <div>
@@ -432,27 +465,26 @@ export function ModalDetalhesTarefa({
                   </SelectContent>
                 </Select>
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
+              {/* Valor da venda editável (só se resultado é sucesso) */}
+              {tarefa.resultado === "sucesso" && (
                 <div>
-                  <Label className="text-xs">Prazo (data)</Label>
+                  <Label className="text-xs">Valor da Venda (R$)</Label>
                   <Input
-                    type="date"
-                    value={form.data_fim}
-                    onChange={(e) => setForm((f) => ({ ...f, data_fim: e.target.value }))}
+                    type="text"
+                    placeholder="0,00"
+                    value={form.valorVenda}
+                    onChange={(e) => {
+                      let v = e.target.value.replace(/\D/g, "");
+                      if (v.length > 2) {
+                        v = v.replace(/(\d{2})$/, ",$1");
+                        v = v.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                      }
+                      setForm((f) => ({ ...f, valorVenda: v }));
+                    }}
                     className="mt-1"
                   />
                 </div>
-                <div>
-                  <Label className="text-xs">Hora</Label>
-                  <Input
-                    type="time"
-                    value={form.hora_inicio}
-                    onChange={(e) => setForm((f) => ({ ...f, hora_inicio: e.target.value }))}
-                    className="mt-1"
-                  />
-                </div>
-              </div>
+              )}
             </div>
           )}
 
@@ -483,22 +515,57 @@ export function ModalDetalhesTarefa({
                 </Select>
               </div>
 
+              {/* Observação do resultado (dropdown fixo) */}
               <div>
                 <Label className="text-xs">Observação do resultado *</Label>
-                <textarea
+                <Select
                   value={resultadoForm.observacao}
-                  onChange={(e) => setResultadoForm((f) => ({ ...f, observacao: e.target.value }))}
-                  rows={3}
-                  placeholder="Descreva o que aconteceu..."
-                  className="mt-1 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                />
+                  onValueChange={(v) => setResultadoForm((f) => ({ ...f, observacao: v }))}
+                  disabled={!resultadoForm.resultado}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder={resultadoForm.resultado ? "Selecione..." : "Selecione o resultado primeiro"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(opcoesObservacao[resultadoForm.resultado] || []).map((opcao) => (
+                      <SelectItem key={opcao} value={opcao}>{opcao}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+
+              {/* Campo de valor da venda (só aparece se Sucesso) */}
+              {resultadoForm.resultado === "sucesso" && (
+                <div>
+                  <Label className="text-xs">Valor da Venda (R$) *</Label>
+                  <Input
+                    type="text"
+                    placeholder="0,00"
+                    value={resultadoForm.valorVenda}
+                    onChange={(e) => {
+                      // Formatação monetária simples
+                      let v = e.target.value.replace(/\D/g, "");
+                      if (v.length > 2) {
+                        v = v.replace(/(\d{2})$/, ",$1");
+                        v = v.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                      }
+                      setResultadoForm((f) => ({ ...f, valorVenda: v }));
+                    }}
+                    className="mt-1"
+                  />
+                </div>
+              )}
 
               <div className="flex items-center gap-2">
                 <Button
                   size="sm"
                   onClick={handleConfirmarConclusao}
-                  disabled={salvando || !resultadoForm.resultado || !resultadoForm.observacao.trim()}
+                  disabled={
+                    salvando ||
+                    !resultadoForm.resultado ||
+                    !resultadoForm.observacao ||
+                    (resultadoForm.resultado === "sucesso" && !resultadoForm.valorVenda)
+                  }
                   className="gap-1"
                 >
                   <Check className="h-4 w-4" />
@@ -509,7 +576,7 @@ export function ModalDetalhesTarefa({
                   variant="outline"
                   onClick={() => {
                     setConcluindo(false);
-                    setResultadoForm({ resultado: "", observacao: "" });
+                    setResultadoForm({ resultado: "", observacao: "", valorVenda: "" });
                   }}
                 >
                   <X className="h-4 w-4 mr-1" />

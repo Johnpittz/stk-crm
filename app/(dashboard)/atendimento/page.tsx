@@ -6,7 +6,9 @@ import { PerformanceRealTime } from "@/components/features/atendimento/performan
 import { ListaAtendimentosLateral } from "@/components/features/atendimento/lista-atendimentos-lateral";
 import { ChatInline } from "@/components/features/atendimento/chat-inline";
 import { TogglePresenca } from "@/components/features/atendimento/toggle-presenca";
-import { Search } from "lucide-react";
+import { PainelContato } from "@/components/features/atendimento/painel-contato";
+import { FiltroEtiquetas } from "@/components/features/atendimento/filtro-etiquetas";
+import { Search, Calendar, HelpCircle, Bell } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 interface Atendimento {
@@ -35,6 +37,12 @@ export default function AtendimentoPage() {
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
 
+  // Estado do chat inline e painel de contato
+  const [atendimentoChat, setAtendimentoChat] = useState<Atendimento | null>(null);
+  const [painelContatoAberto, setPainelContatoAberto] = useState(true);
+  const [etiquetaFiltro, setEtiquetaFiltro] = useState<string | null>(null);
+  const [atendimentosComEtiquetas, setAtendimentosComEtiquetas] = useState<Record<string, string[]>>({});
+
   const atendimentosFiltrados = atendimentos.filter((a) => {
     const termo = busca.toLowerCase().trim();
     const matchBusca =
@@ -57,11 +65,15 @@ export default function AtendimentoPage() {
       }
     }
 
-    return matchBusca && matchData;
-  });
+    // Filtro por etiqueta
+    let matchEtiqueta = true;
+    if (etiquetaFiltro) {
+      const etiquetasDoAtendimento = atendimentosComEtiquetas[a.id] || [];
+      matchEtiqueta = etiquetasDoAtendimento.includes(etiquetaFiltro);
+    }
 
-  // Estado do chat inline
-  const [atendimentoChat, setAtendimentoChat] = useState<Atendimento | null>(null);
+    return matchBusca && matchData && matchEtiqueta;
+  });
 
   const fetchAtendimentos = useCallback(async (silent = false) => {
     if (!silent) setLoadingAtendimentos(true);
@@ -84,9 +96,29 @@ export default function AtendimentoPage() {
     }
   }, [supabase]);
 
+  // Buscar todas as etiquetas vinculadas a atendimentos (para o filtro)
+  const fetchEtiquetasAtendimentos = useCallback(async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const res = await fetch("/api/atendimentos/etiquetas?todos=true", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setAtendimentosComEtiquetas(data.mapa || {});
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, [supabase]);
+
   useEffect(() => {
     fetchAtendimentos();
-  }, [fetchAtendimentos]);
+    fetchEtiquetasAtendimentos();
+  }, [fetchAtendimentos, fetchEtiquetasAtendimentos]);
 
   // Polling: atualiza lista a cada 15s em background (sem loading visual)
   useEffect(() => {
@@ -95,8 +127,6 @@ export default function AtendimentoPage() {
     }, 15000);
     return () => clearInterval(interval);
   }, [fetchAtendimentos]);
-
-  const naoLidosCount = atendimentos.filter((a) => a.nao_lido).length;
 
   const handleAbrirChat = (a: Atendimento) => {
     setAtendimentoChat(a);
@@ -125,25 +155,62 @@ export default function AtendimentoPage() {
     }
   };
 
+  // Data de hoje formatada
+  const hoje = new Date().toLocaleDateString("pt-BR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+
   return (
     <div className="h-[calc(100vh-9rem)] flex flex-col overflow-hidden">
       
-      {/* HEADER - Toggle + Performance */}
-      <div className="shrink-0 space-y-2">
+      {/* HEADER COMPACTO — Toggle + Performance + Data + Busca + Ícones */}
+      <div className="shrink-0 flex items-center gap-3 mb-2">
         <TogglePresenca />
         <PerformanceRealTime />
+
+        <div className="flex items-center gap-3 ml-auto shrink-0">
+          {/* Data */}
+          <div className="hidden lg:flex items-center gap-1.5 text-xs text-slate-500">
+            <Calendar className="h-3.5 w-3.5" />
+            <span className="capitalize">{hoje}</span>
+          </div>
+
+          {/* Busca geral */}
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+            <Input
+              placeholder="Buscar..."
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              className="w-48 h-8 text-xs pl-7"
+            />
+          </div>
+
+          {/* Botão info painel lateral */}
+          <button
+            onClick={() => setPainelContatoAberto(!painelContatoAberto)}
+            className={`h-8 w-8 rounded-lg border flex items-center justify-center transition-colors ${
+              painelContatoAberto
+                ? "bg-blue-50 border-blue-200 text-blue-600"
+                : "bg-white border-slate-200 text-slate-400 hover:text-slate-600"
+            }`}
+            title={painelContatoAberto ? "Fechar painel de contato" : "Abrir painel de contato"}
+          >
+            <Bell className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
-      {/* WhatsApp Web: Lista + Chat inline */}
-      <div className="flex-1 min-h-0 mt-2 flex gap-0 border border-slate-200 rounded-lg overflow-hidden bg-white">
-        {/* Painel esquerdo: Lista de conversas */}
-        <div className="w-[380px] min-w-[320px] flex flex-col border-r border-slate-200 bg-white">
-          {/* Header da lista */}
-          <div className="shrink-0 px-3 py-2.5 border-b border-slate-100">
-            <h3 className="text-sm font-semibold text-slate-800">Conversas</h3>
-          </div>
-          {/* Busca */}
-          <div className="shrink-0 px-3 py-2 border-b border-slate-100">
+      {/* WhatsApp Web 3 COLUNAS: Lista + Chat + Painel Contato */}
+      <div className="flex-1 min-h-0 flex border border-slate-200 rounded-lg overflow-hidden bg-white">
+        
+        {/* PAINEL ESQUERDO: Lista de conversas */}
+        <div className="w-[320px] min-w-[280px] flex flex-col border-r border-slate-200 bg-white">
+          {/* Busca dentro da lista */}
+          <div className="shrink-0 px-3 py-2 border-b border-slate-100 space-y-2">
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
               <Input
@@ -153,19 +220,24 @@ export default function AtendimentoPage() {
                 className="w-full h-8 text-xs pl-7"
               />
             </div>
+            <FiltroEtiquetas
+              etiquetaSelecionada={etiquetaFiltro}
+              onSelecionar={setEtiquetaFiltro}
+            />
           </div>
-          {/* Lista de conversas */}
+          {/* Lista */}
           <div className="flex-1 min-h-0 overflow-hidden">
             <ListaAtendimentosLateral
               atendimentos={atendimentosFiltrados}
               loading={loadingAtendimentos}
               onRefresh={fetchAtendimentos}
               onAbrirChat={handleAbrirChat}
+              etiquetas={atendimentosComEtiquetas}
             />
           </div>
         </div>
 
-        {/* Painel direito: Chat inline */}
+        {/* PAINEL CENTRAL: Chat */}
         <div className="flex-1 min-w-0">
           <ChatInline
             atendimento={atendimentoChat}
@@ -174,6 +246,18 @@ export default function AtendimentoPage() {
             onFechar={() => setAtendimentoChat(null)}
           />
         </div>
+
+        {/* PAINEL DIREITO: Info do contato — só aparece quando conversa selecionada */}
+        {painelContatoAberto && atendimentoChat && (
+          <div className="w-[320px] min-w-[280px]">
+            <PainelContato
+              atendimento={atendimentoChat}
+              onFechar={() => setAtendimentoChat(null)}
+              onMarcarConcluido={handleFecharAtendimento}
+              onEtiquetaChange={fetchEtiquetasAtendimentos}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

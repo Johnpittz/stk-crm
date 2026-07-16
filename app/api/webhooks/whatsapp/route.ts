@@ -234,9 +234,11 @@ async function buscarClientePorTelefone(telefoneLimpo: string) {
 
 /**
  * Busca atendimento aberto existente para o telefone
+ * Faz busca tolerante a formatos diferentes (com/sem 9, com/sem código país, etc.)
  */
 async function buscarAtendimentoAberto(telefoneLimpo: string) {
-  const { data } = await getSupabase()
+  // Primeiro: busca exata (rápida)
+  const { data: exato } = await getSupabase()
     .from("atendimentos")
     .select("id, nome_cliente, cliente_id, vendedor_id")
     .eq("telefone_cliente", telefoneLimpo)
@@ -244,5 +246,26 @@ async function buscarAtendimentoAberto(telefoneLimpo: string) {
     .limit(1)
     .single();
 
-  return data || null;
+  if (exato) return exato;
+
+  // Segundo: busca ampla — compara apenas os últimos 8 dígitos (tolerante a formatos)
+  const ultimos8 = telefoneLimpo.slice(-8);
+  if (ultimos8.length < 8) return null;
+
+  const { data: candidatos } = await getSupabase()
+    .from("atendimentos")
+    .select("id, nome_cliente, cliente_id, vendedor_id, telefone_cliente")
+    .eq("status", "aberto")
+    .order("ultima_mensagem_data", { ascending: false })
+    .limit(50);
+
+  if (!candidatos || candidatos.length === 0) return null;
+
+  const encontrado = candidatos.find((a: any) => {
+    const telBanco = (a.telefone_cliente || "").replace(/\D/g, "");
+    const ultimos8Banco = telBanco.slice(-8);
+    return ultimos8Banco === ultimos8 && ultimos8Banco.length >= 8;
+  });
+
+  return encontrado || null;
 }

@@ -58,6 +58,7 @@ export function NotificacoesBell() {
   const supabase = createClient();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const toastTimer = useRef<NodeJS.Timeout | null>(null);
+  const notificacoesIdsRef = useRef<Set<string>>(new Set());
 
   // Verifica se uma notificação deve ser mostrada de acordo com as preferências
   const deveMostrarNotif = useCallback((tipo: string): boolean => {
@@ -94,9 +95,12 @@ export function NotificacoesBell() {
       const novasNotifs: Notificacao[] = data.notificacoes || [];
       const novasNaoLidas = data.naoLidas || 0;
 
-      // Detecta notificações novas (que chegaram desde a última busca)
-      const idsAnteriores = new Set(notificacoes.map((n) => n.id));
+      // Detecta notificações novas usando ref (sem dependência do state)
+      const idsAnteriores = notificacoesIdsRef.current;
       const notifsRealmenteNovas = novasNotifs.filter((n) => !idsAnteriores.has(n.id) && !n.lida);
+
+      // Atualiza o ref com os IDs atuais
+      notificacoesIdsRef.current = new Set(novasNotifs.map((n) => n.id));
 
       setNotificacoes(novasNotifs);
       setNaoLidas(novasNaoLidas);
@@ -114,7 +118,7 @@ export function NotificacoesBell() {
     } catch (err) {
       console.error("Erro ao buscar notificações:", err);
     }
-  }, [supabase, notificacoes, audio, prefs, deveMostrarNotif]);
+  }, [supabase, audio, prefs, deveMostrarNotif]);
 
   // Busca preferências de notificações (direto do Supabase)
   useEffect(() => {

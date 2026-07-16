@@ -139,7 +139,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { id, coluna_kanban, ordem, status, resultado, observacao_resultado } = body;
+  const { id, titulo, descricao, prioridade, coluna_kanban, ordem, status, resultado, observacao_resultado, valor_venda } = body;
 
   if (!id) {
     return NextResponse.json({ error: "ID da tarefa é obrigatório" }, { status: 400 });
@@ -154,11 +154,15 @@ export async function PATCH(request: NextRequest) {
   const isGestor = ["diretor", "admin", "gerente_comercial"].includes(meuPerfil?.cargo || "");
 
   const updateData: any = {};
+  if (titulo !== undefined) updateData.titulo = titulo;
+  if (descricao !== undefined) updateData.descricao = descricao;
+  if (prioridade !== undefined) updateData.prioridade = prioridade;
   if (coluna_kanban !== undefined) updateData.coluna_kanban = coluna_kanban;
   if (ordem !== undefined) updateData.ordem = ordem;
   if (status !== undefined) updateData.status = status;
   if (resultado !== undefined) updateData.resultado = resultado;
   if (observacao_resultado !== undefined) updateData.observacao_resultado = observacao_resultado;
+  if (valor_venda !== undefined) updateData.valor_venda = valor_venda;
 
   if (coluna_kanban === "concluida") {
     updateData.status = "concluida";
@@ -168,20 +172,16 @@ export async function PATCH(request: NextRequest) {
     updateData.status = "pendente";
   }
 
-  let updateQuery = supabase
+  const { data: tarefa, error } = await supabase
     .from("tarefas")
     .update(updateData)
-    .eq("id", id);
-  if (!isGestor) {
-    updateQuery = updateQuery.eq("vendedor_id", user.id);
-  }
-
-  const { data: tarefa, error } = await updateQuery
+    .eq("id", id)
     .select("*, clientes(id, nome_razao_social)")
     .single();
 
   if (error || !tarefa) {
-    return NextResponse.json({ error: "Tarefa não encontrada ou sem permissão" }, { status: 403 });
+    console.error("[API PATCH tarefas] Error:", error);
+    return NextResponse.json({ error: "Tarefa não encontrada ou sem permissão", details: error?.message }, { status: 404 });
   }
 
   return NextResponse.json({ success: true, tarefa });

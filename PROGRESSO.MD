@@ -1,7 +1,7 @@
 # CRM ROMA - Progresso do Projeto
 
 > **Arquivo de contexto para agentes IA**
-> **Última atualização:** 10/07/2026
+> **Última atualização:** 12/07/2026
 > **Deploy atual:** https://crm-roma-romadistribuicao.vercel.app
 > **Conta Vercel:** roma-6489 (romadistribuicao) — plano Hobby/Free
 > **Conversa atual:** Integração WhatsApp BotConversa ATIVA
@@ -91,15 +91,26 @@ crm-roma/
 
 **Tela:** `/atendimento`
 
-**2 Abas (MVP SIMPLIFICADO — Julho/2026):**
-1. **📋 Meu Trabalho** — Kanban de Tarefas (2/3) + Lista de Atendimentos Lateral (1/3)
-2. **💬 Atendimentos** — Lista completa de Atendimentos WhatsApp
-- **⚠️ Aba "Oportunidades" COMENTADA** (código preservado em `motor-oportunidades.tsx` — ativar quando necessário)
-- **⚠️ Campanhas COMENTADA** na sidebar (código preservado — ativar quando necessário)
-- **⚠️ Vendas COMENTADA** na sidebar (código preservado — depende da integração Millennium que não está ativa)
-- **Para reativar Oportunidades:** descomentar TabsTrigger + TabsContent + import MotorOportunidades em `page.tsx`
-- **Para reativar Campanhas:** descomentar entrada no navItems + import Trophy em `sidebar.tsx`
-- **Para reativar Vendas:** descomentar entrada no navItems + import ShoppingCart em `sidebar.tsx`
+**Layout WhatsApp Web (Julho/2026 — SIMPLIFICADO):**
+- **Painel esquerdo (380px):** Lista de conversas com avatar, nome, preview, telefone, hora
+- **Painel direito (flex):** Chat inline (sem modal) — mensagens, input, botão enviar
+- **Filtros:** Busca por nome/telefone, período de data
+- **Polling:** Atualiza lista a cada 15s (sem loading visual)
+- **Kanban separado em `/kanban`** (rota independente)
+
+**⚠️ Limitação Importante — Sincronização WhatsApp:**
+- **O CRM ENVIA mensagens** via API BotConversa ✅
+- **O CRM RECEBE mensagens** via webhook BotConversa ✅
+- **O CRM NÃO sincroniza mensagens enviadas pelo dono do número POR FORA do CRM** ❌
+- Quando o vendedor envia mensagem pelo celular, o CRM não registra (fica "buraco" no chat)
+- **API BotConversa não expõe endpoint de histórico de mensagens** (testado: `/messages/`, `/history/`, `/chat/`, `/interactions/` — todos retornam 404)
+- **Solução futura:** Configurar webhook no painel BotConversa para enviar eventos de "mensagem enviada" (outgoing)
+
+**⚠️ Funcionalidades COMENTADAS para MVP:**
+- **⚠️ Aba "Oportunidades" COMENTADA** (código preservado em `motor-oportunidades.tsx`)
+- **⚠️ Campanhas COMENTADA** na sidebar (código preservado)
+- **⚠️ Vendas COMENTADA** na sidebar (depende da integração Millennium que não está ativa)
+- **Para reativar:** descomentar imports e navItems nos respectivos arquivos
 
 **Kanban de Tarefas (3 colunas):**
 - **"A Fazer"** — Atendimentos abertos onde o **cliente** enviou a última mensagem
@@ -298,6 +309,7 @@ crm-roma/
 | `/api/auth/cadastro` | POST | Cadastro de usuários (só admin/gestor) |
 | `/api/promocoes` | GET, POST, PATCH | CRUD promoções |
 | `/api/promocoes/clientes` | GET | Clientes que compraram produto da promoção |
+| `/api/atendimentos/sync` | GET | Sync mensagens BotConversa (**criado mas API não expõe histórico — 404**) |
 
 ---
 
@@ -507,6 +519,35 @@ Cliente (WhatsApp) ↔ BotConversa BSP ↔ CRM-ROMA API ↔ Supabase ↔ Interfa
 - Cache de filtros de produtos no localStorage
 - Otimizar queries do dashboard (views materializadas)
 - Permitir gestor reatribuir lead para SI MESMO (atualmente pode trocar entre vendedores)
+- **Sincronizar mensagens enviadas pelo celular** — API BotConversa não expõe endpoint de histórico (testado: `/messages/`, `/history/`, `/chat/`, `/interactions/` — todos 404). Solução: configurar webhook no painel BotConversa para enviar eventos de "mensagem enviada"
+
+---
+
+## 13. Mudanças Recentes (12/07/2026)
+
+### 13.1 Separação Atendimento × Kanban
+- **Antes:** Atendimento e Kanban misturados na mesma aba "Meu Trabalho"
+- **Agora:** Dois itens separados na sidebar
+  - 🎯 **Atendimento** (`/atendimento`) — Layout WhatsApp Web (lista + chat inline)
+  - 📋 **Kanban** (`/kanban`) — Tela cheia com Kanban de tarefas
+
+### 13.2 Layout WhatsApp Web
+- **Painel esquerdo (380px):** Lista de conversas com avatar, nome, preview, telefone, hora
+- **Painel direito (flex):** Chat inline (sem modal) — mensagens, input, botão enviar
+- Componentes: `chat-inline.tsx` (novo), `lista-atendimentos-lateral.tsx` (reescrito)
+- Scroll nativo (`overflow-y-auto`) em vez de Radix ScrollArea (evita overflow horizontal)
+- **Cards de conversa:** nome + hora na mesma linha, preview abaixo, telefone no final
+
+### 13.3 Kanban Separado
+- Nova rota `/kanban` com Kanban de tarefas em tela cheia
+- Cards de atendimento **NÃO** aparecem mais no Kanban (separação clara)
+- Filtros de busca e data integrados
+
+### 13.4 Tentativa de Sincronização WhatsApp (inconclusa)
+- Criado endpoint `/api/atendimentos/sync` e função `buscarMensagensSubscriber()` em `lib/botconversa.ts`
+- **Resultado:** API BotConversa não expõe endpoint de histórico de mensagens (todos retornam 404)
+- **Código mantido** mas desativado no chat-inline (sem polling de sync)
+- **Para resolver:** configurar webhook no painel BotConversa para enviar eventos de mensagens enviadas (outgoing)
 
 ---
 

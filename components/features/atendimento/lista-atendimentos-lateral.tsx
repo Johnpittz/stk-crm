@@ -27,6 +27,7 @@ interface ListaAtendimentosLateralProps {
   loading: boolean;
   onRefresh: () => void;
   onAbrirChat: (a: Atendimento) => void;
+  etiquetas?: Record<string, string[]>;
 }
 
 export function ListaAtendimentosLateral({
@@ -34,6 +35,7 @@ export function ListaAtendimentosLateral({
   loading,
   onRefresh,
   onAbrirChat,
+  etiquetas = {},
 }: ListaAtendimentosLateralProps) {
   const supabase = createClient();
 
@@ -134,13 +136,30 @@ export function ListaAtendimentosLateral({
                             {hora}
                           </span>
                         </div>
-                        <p className={cn("text-xs truncate", isNaoLido ? "text-slate-700" : "text-slate-500")}>
-                          {a.ultima_mensagem_remetente === "vendedor" ? "Você: " : ""}
-                          {a.ultima_mensagem}
-                        </p>
-                        <span className="text-[10px] text-slate-400 block">
-                          {a.telefone_cliente}
-                        </span>
+                         <p className={cn("text-xs truncate", isNaoLido ? "text-slate-700" : "text-slate-500")}>
+                           {a.ultima_mensagem_remetente === "vendedor" ? "Você: " : ""}
+                           {a.ultima_mensagem}
+                         </p>
+                         {/* Badges de etiquetas */}
+                         {etiquetas[a.id] && etiquetas[a.id].length > 0 && (
+                           <div className="flex flex-wrap gap-1 mt-1">
+                             {etiquetas[a.id].slice(0, 3).map((et) => (
+                               <Badge
+                                 key={et}
+                                 variant="secondary"
+                                 className="text-[8px] px-1.5 py-0 h-3.5 bg-blue-100 text-blue-700 font-medium"
+                               >
+                                 {et}
+                               </Badge>
+                             ))}
+                             {etiquetas[a.id].length > 3 && (
+                               <span className="text-[8px] text-slate-400">+{etiquetas[a.id].length - 3}</span>
+                             )}
+                           </div>
+                         )}
+                         <span className="text-[10px] text-slate-400 block">
+                           {a.telefone_cliente}
+                         </span>
                       </div>
                     </div>
                   </div>
