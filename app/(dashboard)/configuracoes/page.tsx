@@ -434,13 +434,14 @@ export default function ConfiguracoesPage() {
               {/* Canal */}
               <div className="space-y-2">
                 <Label htmlFor="canal">Canal Principal</Label>
-                <Input
-                  id="canal"
-                  value={profile?.cargo ? (() => {
+              <Input
+                id="canal"
+                value={profile?.cargo ? (() => {
                     switch (profile.cargo) {
                       case "diretor": return "Diretoria";
                       case "gerente_comercial": return "Gerência Comercial";
                       case "admin": return "Administração";
+                      case "demonstracao": return "Demonstração";
                       default: return "Loja / Comercial";
                     }
                   })() : "Loja / Comercial"}

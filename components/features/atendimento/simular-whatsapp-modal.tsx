@@ -60,17 +60,19 @@ export function SimularWhatsAppModal({ onSuccess }: SimularWhatsAppModalProps) {
 
       if (res.ok) {
         if (data.updated) {
-          setResultado("Atendimento existente atualizado com nova mensagem!");
+          setResultado("Atendimento atualizado! Atualizando lista...");
         } else {
-          setResultado(`Atendimento criado! ID: ${data.atendimento_id}`);
+          setResultado("Atendimento criado! Atualizando lista...");
         }
+        // Fecha o modal imediatamente e atualiza a lista
         setTimeout(() => {
           setOpen(false);
           setResultado(null);
           setTelefone("");
           setNome("");
+          setMensagem("Oi, gostaria de um orcamento");
           onSuccess?.();
-        }, 1500);
+        }, 800);
       } else {
         setResultado(`ERRO: ${data.error || "Falha ao criar"}`);
       }

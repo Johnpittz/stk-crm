@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { ETIQUETAS_DISPONIVEIS } from "@/lib/etiquetas";
 
 interface Atendimento {
   id: string;
@@ -32,25 +33,7 @@ interface PainelContatoProps {
   onEtiquetaChange?: () => void;
 }
 
-// Etiquetas disponíveis para selecionar (mock inicial, pode ser expandido)
-const ETIQUETAS_DISPONIVEIS = [
-  "10DescontoBlack",
-  "20DescontoBlack",
-  "30DescontoBlack",
-  "40DescontoBlack",
-  "50DescontoBlack",
-  "Administrativo",
-  "Agend.DiaOK",
-  "Agend.ServiçoOK",
-  "Agend.TurnoOK",
-  "AtendForaDoHorario",
-  "Atendente1",
-  "Atendente2",
-  "Cliente VIP",
-  "Fornecedor",
-  "Novo Lead",
-  "Prioritario",
-];
+// Etiquetas importadas de lib/etiquetas.ts (fonte única da verdade)
 
 interface SecaoProps {
   titulo: string;

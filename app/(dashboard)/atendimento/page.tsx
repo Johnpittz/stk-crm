@@ -9,6 +9,7 @@ import { TogglePresenca } from "@/components/features/atendimento/toggle-presenc
 import { PainelContato } from "@/components/features/atendimento/painel-contato";
 import { FiltroEtiquetas } from "@/components/features/atendimento/filtro-etiquetas";
 import { Search, Calendar, HelpCircle, Bell } from "lucide-react";
+import { SimularWhatsAppModal } from "@/components/features/atendimento/simular-whatsapp-modal";
 import { createClient } from "@/lib/supabase/client";
 
 interface Atendimento {
@@ -42,6 +43,7 @@ export default function AtendimentoPage() {
   const [painelContatoAberto, setPainelContatoAberto] = useState(true);
   const [etiquetaFiltro, setEtiquetaFiltro] = useState<string | null>(null);
   const [atendimentosComEtiquetas, setAtendimentosComEtiquetas] = useState<Record<string, string[]>>({});
+  const [userCargo, setUserCargo] = useState<string>("");
 
   const atendimentosFiltrados = atendimentos.filter((a) => {
     const termo = busca.toLowerCase().trim();
@@ -118,7 +120,19 @@ export default function AtendimentoPage() {
   useEffect(() => {
     fetchAtendimentos();
     fetchEtiquetasAtendimentos();
-  }, [fetchAtendimentos, fetchEtiquetasAtendimentos]);
+    // Busca cargo do usuário para mostrar simular WhatsApp
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("cargo")
+          .eq("id", user.id)
+          .single();
+        if (profile?.cargo) setUserCargo(profile.cargo);
+      }
+    })();
+  }, [fetchAtendimentos, fetchEtiquetasAtendimentos, supabase]);
 
   // Polling: atualiza lista a cada 15s em background (sem loading visual)
   useEffect(() => {
@@ -177,6 +191,11 @@ export default function AtendimentoPage() {
             <Calendar className="h-3.5 w-3.5" />
             <span className="capitalize">{hoje}</span>
           </div>
+
+          {/* Botão Simular WhatsApp — apenas para demonstração */}
+          {userCargo === "demonstracao" && (
+            <SimularWhatsAppModal onSuccess={fetchAtendimentos} />
+          )}
 
           {/* Busca geral */}
           <div className="relative">

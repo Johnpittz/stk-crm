@@ -40,6 +40,7 @@ export function Sidebar({ user }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(true);
 
   const isGestor = ['gerente_comercial', 'diretor', 'admin'].includes(user.cargo);
+  const isDemo = user.cargo === 'demonstracao';
 
   const navItems = [
     {
@@ -59,14 +60,15 @@ export function Sidebar({ user }: SidebarProps) {
       href: "/leads",
       label: "Leads",
       icon: Target,
-      description: isGestor ? "Prospecção e fila de leads" : "Meus leads atribuídos",
+      description: isDemo ? "Prospecção de empresas" : isGestor ? "Prospecção e fila de leads" : "Meus leads atribuídos",
     },
-    {
+    // Clientes: oculto para demonstração (não deve ver clientes reais)
+    ...(!isDemo ? [{
       href: "/clientes",
       label: "Clientes",
       icon: Users,
       description: "Gestão de clientes",
-    },
+    }] : []),
     {
       href: "/produtos",
       label: "Produtos",
@@ -79,7 +81,8 @@ export function Sidebar({ user }: SidebarProps) {
       icon: LayoutDashboard,
       description: "Visão gerencial",
     },
-    ...(isGestor ? [{
+    // Equipes: só para gestores, nunca para demo
+    ...(isGestor && !isDemo ? [{
       href: "/equipes",
       label: "Equipes",
       icon: Briefcase,
@@ -108,20 +111,13 @@ export function Sidebar({ user }: SidebarProps) {
       )}
     >
       {/* Logo */}
-      <div className="flex h-16 items-center justify-between px-4 border-b border-[#14919B]/20">
-        <Link href="/atendimento" className="flex items-center gap-3 overflow-hidden">
-          <div className="flex h-10 w-10 min-w-[40px] items-center justify-center rounded-lg bg-[#14919B]">
-            <span className="text-lg font-bold text-white">R</span>
-          </div>
-          {isOpen && (
-            <span className="text-lg font-bold text-white whitespace-nowrap">
-              CRM ROMA
-            </span>
-          )}
+      <div className="flex items-center border-b border-[#14919B]/20 h-20">
+        <Link href="/atendimento" className="flex-1 flex items-center h-full overflow-hidden px-4 py-2">
+          <img src="/logo-icon.png" alt="CRM ROMA" className="w-full h-full object-contain object-left" />
         </Link>
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="rounded-lg p-1.5 text-white/60 hover:bg-[#14919B]/20 hover:text-white transition-colors"
+          className="rounded-lg p-1.5 text-white/60 hover:bg-[#14919B]/20 hover:text-white transition-colors shrink-0"
         >
           {isOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
         </button>

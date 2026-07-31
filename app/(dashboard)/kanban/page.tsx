@@ -5,8 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, X, Download, Loader2 } from "lucide-react";
 import { KanbanTarefas } from "@/components/features/atendimento/kanban-tarefas";
-import { PerformanceRealTime } from "@/components/features/atendimento/performance-realtime";
-import { TogglePresenca } from "@/components/features/atendimento/toggle-presenca";
+import { PerformanceKanban } from "@/components/features/atendimento/performance-kanban";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +28,7 @@ interface Atendimento {
 export default function KanbanPage() {
   const [atendimentos, setAtendimentos] = useState<Atendimento[]>([]);
   const [loadingAtendimentos, setLoadingAtendimentos] = useState(true);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const supabase = createClient();
 
   // Filtros
@@ -93,10 +93,9 @@ export default function KanbanPage() {
   return (
     <div className="h-[calc(100vh-9rem)] flex flex-col overflow-hidden">
       
-      {/* HEADER - Toggle + Performance */}
-      <div className="shrink-0 space-y-2">
-        <TogglePresenca />
-        <PerformanceRealTime />
+      {/* HEADER - Performance Kanban */}
+      <div className="shrink-0">
+        <PerformanceKanban refreshTrigger={refreshTrigger} />
       </div>
 
       {/* FILTROS */}
@@ -148,6 +147,7 @@ export default function KanbanPage() {
           atendimentos={atendimentosFiltrados}
           onAbrirChat={handleAbrirChat}
           onRefresh={fetchAtendimentos}
+          onTarefaAtualizada={() => setRefreshTrigger((t) => t + 1)}
           busca={busca}
           dataInicio={dataInicio}
           dataFim={dataFim}

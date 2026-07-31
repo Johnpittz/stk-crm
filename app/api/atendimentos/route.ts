@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { rateLimit } from "@/lib/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
+import { buscarVendedorPadrao } from "@/lib/roteamento";
 
 export const dynamic = "force-dynamic";
 
@@ -36,9 +37,24 @@ export async function GET(request: NextRequest) {
       query = query.eq("status", status);
     }
 
-    if (!isGestor) {
-      // Vendedor vê seus atendimentos + atendimentos não atribuídos (fila geral)
-      query = query.or(`vendedor_id.eq.${user.id},vendedor_id.is.null`);
+    if (isGestor) {
+      // Gestores veem todos
+    } else {
+      // Verifica se é demonstração
+      const { data: meuPerfilFull } = await supabase
+        .from("profiles")
+        .select("cargo")
+        .eq("id", user.id)
+        .single();
+      const isDemo = (meuPerfilFull?.cargo || "") === "demonstracao";
+      
+      if (isDemo) {
+        // Demo só vê seus próprios atendimentos
+        query = query.eq("vendedor_id", user.id);
+      } else {
+        // Vendedor comum vê seus atendimentos + fila geral
+        query = query.or(`vendedor_id.eq.${user.id},vendedor_id.is.null`);
+      }
     }
 
     const { data: atendimentos, error } = await query;
@@ -108,8 +124,20 @@ export async function POST(request: NextRequest) {
   });
 
   const clienteId = cliente?.id || null;
-  const vendedorId = cliente?.vendedor_responsavel_id || null;
+  // Se cliente não tem vendedor no cadastro, usa vendedor padrão (roteamento)
+  const vendedorPadrao = await buscarVendedorPadrao();
+  let vendedorId = cliente?.vendedor_responsavel_id || vendedorPadrao || null;
   const nomeCliente = nome_cliente || cliente?.nome_razao_social || "Cliente";
+
+  // Se o usuário é demonstração, sempre atribui o atendimento a ele
+  const { data: meuPerfilCheck } = await supabaseAdmin
+    .from("profiles")
+    .select("cargo")
+    .eq("id", user.id)
+    .single();
+  if ((meuPerfilCheck?.cargo || "") === "demonstracao") {
+    vendedorId = user.id;
+  }
 
   // Verifica se já existe atendimento aberto para esse telefone
   // Busca exata primeiro
@@ -230,8 +258,7 @@ export async function PATCH(request: NextRequest) {
 
   const updateData: any = {};
   if (status) updateData.status = status;
-  // TODO: reativar data_fechamento quando migration 057 for aplicada no banco
-  // if (status === "fechado") updateData.data_fechamento = new Date().toISOString();
+  if (typeof body.nao_lido === "boolean") updateData.nao_lido = body.nao_lido;
   if (vendedor_id) {
     updateData.vendedor_id = vendedor_id;
     updateData.transbordado = true;

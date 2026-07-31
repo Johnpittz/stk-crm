@@ -144,22 +144,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Verifica cargo do usuário
+    const { data: meuPerfil } = await supabase
+      .from("profiles")
+      .select("cargo")
+      .eq("id", user.id)
+      .single();
+
+    const cargoUsuario = (meuPerfil?.cargo || "");
+    const isDemo = cargoUsuario === "demonstracao";
+    const isDiretoria = ["diretor", "admin"].includes(cargoUsuario);
+
     // Verifica permissão se atribuindo a outro vendedor
     const targetVendedorId = vendedor_id || user.id;
-    if (targetVendedorId !== user.id) {
-      const { data: meuPerfil } = await supabase
-        .from("profiles")
-        .select("cargo")
-        .eq("id", user.id)
-        .single();
-
-      const isDiretoria = ["diretor", "admin"].includes(meuPerfil?.cargo || "");
-      if (!isDiretoria) {
-        return NextResponse.json(
-          { error: "Sem permissão para atribuir leads a outro vendedor" },
-          { status: 403 }
-        );
-      }
+    if (targetVendedorId !== user.id && !isDiretoria) {
+      return NextResponse.json(
+        { error: "Sem permissão para atribuir leads a outro vendedor" },
+        { status: 403 }
+      );
     }
 
     // Busca canal de prospecção
@@ -199,7 +201,12 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // 2. Cria lead na fila (vendedor_id = null, status = novo)
+        // 2. Cria lead na fila
+        // Para demonstração: leads vão direto para o vendedor demo
+        // Para outros: leads ficam na fila (vendedor_id = null, status = novo)
+        const leadVendedorId = isDemo ? user.id : null;
+        const leadStatus = isDemo ? "em_atendimento" : "novo";
+        
         const { data: lead, error: leadError } = await supabaseAdmin
           .from("leads")
           .insert({
@@ -223,9 +230,10 @@ export async function POST(request: NextRequest) {
             origem: "prospeccao_b2b",
             canal_origem_id: canalId,
             dados_brutos: empresa,
-            status: "novo",
-            vendedor_id: null,
+            status: leadStatus,
+            vendedor_id: leadVendedorId,
             importado_por: user.id,
+            data_atribuicao: isDemo ? new Date().toISOString() : null,
           })
           .select("id")
           .single();

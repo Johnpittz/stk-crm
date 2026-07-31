@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const {
     cliente_id,
+    cliente_nome,
     titulo,
     descricao,
     tipo,
@@ -108,6 +109,7 @@ export async function POST(request: NextRequest) {
     .insert({
       vendedor_id: targetVendedorId,
       cliente_id: cliente_id || null,
+      cliente_nome: cliente_nome || null,
       titulo,
       descricao: descricao || null,
       tipo,
@@ -139,7 +141,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { id, titulo, descricao, prioridade, coluna_kanban, ordem, status, resultado, observacao_resultado, valor_venda } = body;
+  const { id, titulo, descricao, prioridade, coluna_kanban, ordem, status, resultado, observacao_resultado, valor_venda, cliente_nome } = body;
 
   if (!id) {
     return NextResponse.json({ error: "ID da tarefa é obrigatório" }, { status: 400 });
@@ -154,6 +156,7 @@ export async function PATCH(request: NextRequest) {
   const isGestor = ["diretor", "admin", "gerente_comercial"].includes(meuPerfil?.cargo || "");
 
   const updateData: any = {};
+  if (cliente_nome !== undefined) updateData.cliente_nome = cliente_nome;
   if (titulo !== undefined) updateData.titulo = titulo;
   if (descricao !== undefined) updateData.descricao = descricao;
   if (prioridade !== undefined) updateData.prioridade = prioridade;

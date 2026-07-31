@@ -50,13 +50,20 @@ export async function POST(request: NextRequest) {
       .eq("id", user.id)
       .single();
 
-    const isGestor = ["diretor", "admin", "gerente_comercial"].includes(
-      meuPerfil?.cargo || ""
-    );
+    const cargoUsuario = (meuPerfil?.cargo || "");
+    const isGestor = ["diretor", "admin", "gerente_comercial"].includes(cargoUsuario);
 
     if (!isGestor) {
       return NextResponse.json(
         { error: "Apenas gestores podem distribuir leads" },
+        { status: 403 }
+      );
+    }
+
+    // Demo não pode distribuir leads para outros
+    if (cargoUsuario === "demonstracao") {
+      return NextResponse.json(
+        { error: "Usuários de demonstração não podem distribuir leads" },
         { status: 403 }
       );
     }

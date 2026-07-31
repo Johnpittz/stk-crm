@@ -15,6 +15,7 @@ interface Mensagem {
   conteudo: string;
   created_at: string;
   enviada_por?: string | null;
+  url_audio?: string | null;
 }
 
 interface Atendimento {
@@ -190,13 +191,13 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
     }
   }, [mensagens]);
 
-  // Polling: atualiza mensagens a cada 60s em background
+  // Polling: atualiza mensagens a cada 15s em background
   useEffect(() => {
     if (!atendimento) return;
 
     const interval = setInterval(() => {
       fetchMensagens(true);
-    }, 60000);
+    }, 15000);
 
     return () => clearInterval(interval);
   }, [atendimento, fetchMensagens]);
@@ -366,7 +367,16 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
                           : "bg-white border border-slate-200 text-slate-800 rounded-bl-sm shadow-sm"
                       )}
                     >
-                      <p>{msg.conteudo}</p>
+                      {msg.url_audio ? (
+                        <div className="flex items-center gap-2 min-w-[180px]">
+                          <span className="text-lg">🎵</span>
+                          <audio controls preload="metadata" className="h-8 flex-1">
+                            <source src={msg.url_audio} />
+                          </audio>
+                        </div>
+                      ) : (
+                        <p>{msg.conteudo}</p>
+                      )}
                       <span
                         className={cn(
                           "text-[10px] mt-1 block text-right",

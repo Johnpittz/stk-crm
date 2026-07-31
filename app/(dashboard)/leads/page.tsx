@@ -567,6 +567,7 @@ export default function LeadsPage() {
   }
 
   const isGestor = user && ["diretor", "admin", "gerente_comercial"].includes(user.cargo);
+  const isDemo = user?.cargo === "demonstracao";
 
   // Leads filtrados para a aba "Por Vendedor"
   const leadsFiltradosPorVendedor = leads.filter((l) => {
@@ -635,8 +636,8 @@ export default function LeadsPage() {
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className={cn("grid w-full max-w-lg", isGestor ? "grid-cols-3" : "grid-cols-1")}>
-          {isGestor && (
+          <TabsList className={cn("grid w-full max-w-lg", (isGestor || isDemo) ? "grid-cols-3" : "grid-cols-1")}>
+          {(isGestor || isDemo) && (
             <TabsTrigger value="buscar">
               <Search className="h-4 w-4 mr-2" />
               Buscar Empresas
@@ -644,14 +645,14 @@ export default function LeadsPage() {
           )}
           <TabsTrigger value="fila">
             <Inbox className="h-4 w-4 mr-2" />
-            {isGestor ? "Fila de Leads" : "Meus Leads"}
+            {isDemo ? "Meus Leads" : isGestor ? "Fila de Leads" : "Meus Leads"}
             {totalLeads > 0 && (
               <Badge variant="secondary" className="ml-2 text-xs px-1.5 py-0">
                 {totalLeads}
               </Badge>
             )}
           </TabsTrigger>
-          {isGestor && (
+          {isGestor && !isDemo && (
             <TabsTrigger value="por_vendedor">
               <Users className="h-4 w-4 mr-2" />
               Por Vendedor

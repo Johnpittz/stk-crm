@@ -75,6 +75,7 @@ interface Tarefa {
   resultado: string | null;
   observacao_resultado: string | null;
   valor_venda: number | null;
+  cliente_nome: string | null;
   coluna_kanban: string;
   ordem: number;
   origem_lead: string | null;
@@ -102,12 +103,13 @@ interface KanbanTarefasProps {
   atendimentos: Atendimento[];
   onAbrirChat: (a: Atendimento) => void;
   onRefresh?: () => void;
+  onTarefaAtualizada?: () => void;
   busca?: string;
   dataInicio?: string;
   dataFim?: string;
 }
 
-export function KanbanTarefas({ atendimentos, onAbrirChat, onRefresh, busca = "", dataInicio = "", dataFim = "" }: KanbanTarefasProps) {
+export function KanbanTarefas({ atendimentos, onAbrirChat, onRefresh, onTarefaAtualizada, busca = "", dataInicio = "", dataFim = "" }: KanbanTarefasProps) {
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [loading, setLoading] = useState(true);
   const [tarefaSelecionada, setTarefaSelecionada] = useState<Tarefa | null>(null);
@@ -423,7 +425,7 @@ export function KanbanTarefas({ atendimentos, onAbrirChat, onRefresh, busca = ""
 
                                   <div className="flex items-center justify-between text-xs text-slate-500">
                                     <span className="truncate max-w-[100px]">
-                                      {tarefa.clientes?.nome_razao_social || "—"}
+                                      {tarefa.clientes?.nome_razao_social || tarefa.cliente_nome || "—"}
                                     </span>
                                     {tarefa.hora_inicio && (
                                       <span className="flex items-center gap-1">
@@ -455,7 +457,10 @@ export function KanbanTarefas({ atendimentos, onAbrirChat, onRefresh, busca = ""
           setModalConcluindo(false);
           setTarefaSelecionada(null);
         }}
-        onAtualizar={fetchTarefas}
+        onAtualizar={() => {
+          fetchTarefas();
+          onTarefaAtualizada?.();
+        }}
         iniciarConcluindo={modalConcluindo}
       />
     </Card>

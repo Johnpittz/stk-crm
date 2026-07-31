@@ -61,6 +61,7 @@ export async function GET(request: NextRequest) {
 
     const isDiretoria = ["diretor", "admin"].includes(meuPerfil?.cargo || "");
     const isGestor = meuPerfil?.cargo === "gerente_comercial";
+    const isDemo = (meuPerfil?.cargo || "") === "demonstracao";
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
@@ -116,9 +117,13 @@ export async function GET(request: NextRequest) {
       query = query.lte("created_at", `${dataFim}T23:59:59.999Z`);
     }
 
+    // Filtro por demonstração: só vê seus próprios leads
+    if (isDemo) {
+      query = query.eq("vendedor_id", user.id);
+    }
     // Filtro por equipe para gestores (não-diretoria)
     // Gestor vê leads dos vendedores da sua equipe + leads não atribuídos
-    if (isGestor && vendedoresEquipe.length > 0) {
+    else if (isGestor && vendedoresEquipe.length > 0) {
       const ids = vendedoresEquipe.join(",");
       query = query.or(`vendedor_id.in.(${ids}),vendedor_id.is.null`);
     }

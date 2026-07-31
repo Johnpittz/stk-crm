@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { rateLimit } from "@/lib/rate-limit";
 import { telefoneParaDigitos } from "@/lib/botconversa";
+import { buscarVendedorPadrao } from "@/lib/roteamento";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +48,15 @@ export async function POST(request: NextRequest) {
 
     // Log para debug (verificar formato real do payload)
     console.log("[Webhook WhatsApp] Payload recebido:", JSON.stringify(payload, null, 2));
+    console.log("[Webhook WhatsApp] Chaves do payload:", Object.keys(payload).join(", "));
+    
+    // Log de mídia se presente
+    if (payload.media_type || payload.media_url) {
+      console.log("[Webhook WhatsApp] 🎵 Mídia detectada:", JSON.stringify({
+        media_type: payload.media_type,
+        media_url: payload.media_url,
+      }));
+    }
 
     // O BotConversa pode enviar payloads em formatos diferentes
     // Vamos extrair os dados de forma flexível
@@ -63,9 +73,11 @@ export async function POST(request: NextRequest) {
     const telefoneLimpo = telefoneParaDigitos(dados.telefone);
     const mensagem = dados.mensagem || "";
     const nomeCliente = dados.nome || null;
+    const urlAudio = dados.url_audio || null;
 
-    if (!mensagem) {
-      console.error("[Webhook WhatsApp] Mensagem vazia");
+    // Aceita mensagens vazias se tiver áudio
+    if (!mensagem && !urlAudio) {
+      console.error("[Webhook WhatsApp] Mensagem vazia e sem áudio");
       return NextResponse.json(
         { error: "Mensagem vazia" },
         { status: 400 }
@@ -79,7 +91,13 @@ export async function POST(request: NextRequest) {
     const atendimentoExistente = await buscarAtendimentoAberto(telefoneLimpo);
 
     if (atendimentoExistente) {
-      // Atualiza atendimento existente
+      // Se atendimento não tem vendedor, tenta atribuir (cliente ou padrão)
+      let vendedorUpdate = atendimentoExistente.vendedor_id;
+      if (!vendedorUpdate) {
+        vendedorUpdate = cliente?.vendedor_responsavel_id || await buscarVendedorPadrao() || null;
+        console.log(`[Webhook WhatsApp] Atendimento ${atendimentoExistente.id} sem vendedor → atribuindo: ${vendedorUpdate}`);
+      }
+
       await getSupabase()
         .from("atendimentos")
         .update({
@@ -89,7 +107,7 @@ export async function POST(request: NextRequest) {
           nao_lido: true,
           nome_cliente: nomeCliente || atendimentoExistente.nome_cliente,
           cliente_id: cliente?.id || atendimentoExistente.cliente_id,
-          vendedor_id: atendimentoExistente.vendedor_id || cliente?.vendedor_responsavel_id || null,
+          vendedor_id: vendedorUpdate,
         })
         .eq("id", atendimentoExistente.id);
 
@@ -97,20 +115,27 @@ export async function POST(request: NextRequest) {
       await getSupabase().from("atendimento_mensagens").insert({
         atendimento_id: atendimentoExistente.id,
         remetente: "cliente",
-        conteudo: mensagem,
+        conteudo: urlAudio ? "[Áudio]" : mensagem,
         enviada_por: null,
+        url_audio: urlAudio || null,
       });
 
-      console.log(`[Webhook WhatsApp] Mensagem adicionada ao atendimento ${atendimentoExistente.id}`);
+      console.log(`[Webhook WhatsApp] Mensagem adicionada ao atendimento ${atendimentoExistente.id} (audio: ${urlAudio || "nenhum"})`);
       return NextResponse.json({ success: true, atendimento_id: atendimentoExistente.id, action: "updated" });
     }
 
     // 3. Cria novo atendimento
+    // Se cliente não tem vendedor no cadastro, usa vendedor padrão (roteamento)
+    const vendedorPadrao = await buscarVendedorPadrao();
+    const vendedorFinal = cliente?.vendedor_responsavel_id || vendedorPadrao || null;
+    
+    console.log(`[Webhook WhatsApp] Roteamento: cliente_vendedor=${cliente?.vendedor_responsavel_id}, padrao=${vendedorPadrao}, final=${vendedorFinal}`);
+
     const { data: novoAtendimento, error: erroInsert } = await getSupabase()
       .from("atendimentos")
       .insert({
         cliente_id: cliente?.id || null,
-        vendedor_id: cliente?.vendedor_responsavel_id || null,
+        vendedor_id: vendedorFinal,
         canal: "whatsapp",
         telefone_cliente: telefoneLimpo,
         nome_cliente: nomeCliente || cliente?.nome_razao_social || "Cliente",
@@ -134,8 +159,9 @@ export async function POST(request: NextRequest) {
     await getSupabase().from("atendimento_mensagens").insert({
       atendimento_id: novoAtendimento.id,
       remetente: "cliente",
-      conteudo: mensagem,
+      conteudo: urlAudio ? "[Áudio]" : mensagem,
       enviada_por: null,
+      url_audio: urlAudio || null,
     });
 
     console.log(`[Webhook WhatsApp] Novo atendimento criado: ${novoAtendimento.id}`);
@@ -156,44 +182,66 @@ export async function POST(request: NextRequest) {
  * Extrai dados do payload do BotConversa de forma flexível
  * O formato pode variar dependendo de como o webhook foi configurado
  */
-function extrairDados(payload: any): { telefone: string | null; mensagem: string | null; nome: string | null } {
+function extrairDados(payload: any): { telefone: string | null; mensagem: string | null; nome: string | null; url_audio: string | null } {
+  // Helper: detecta URL de áudio (formato BotConversa: media_type + media_url)
+  const detectarAudio = (obj: any): string | null => {
+    if (!obj) return null;
+    
+    // Formato BotConversa: media_type="audio" e media_url="link"
+    if (obj.media_type === "audio" && obj.media_url) {
+      return obj.media_url;
+    }
+    
+    // Outros formatos possíveis
+    if (obj.url_audio || obj.audio_url || obj.audio || obj.url) {
+      const val = obj.url_audio || obj.audio_url || obj.audio || obj.url;
+      if (typeof val === "string" && (val.includes(".ogg") || val.includes(".mp3") || val.includes(".opus") || val.includes("audio") || val.includes("media"))) {
+        return val;
+      }
+    }
+    if (obj.type === "audio" || obj.message_type === "audio" || obj.mimetype?.startsWith("audio")) {
+      return obj.url || obj.media_url || obj.audio || obj.url_audio || obj.value || null;
+    }
+    return null;
+  };
+
   // Formato 1: Payload direto do BotConversa (automação)
-  // { phone: "+5511999999999", message: "Olá", first_name: "João" }
   if (payload.phone || payload.telefone) {
     return {
       telefone: payload.phone || payload.telefone || null,
       mensagem: payload.message || payload.mensagem || payload.text || null,
       nome: payload.first_name || payload.name || payload.nome || null,
+      url_audio: detectarAudio(payload),
     };
   }
 
   // Formato 2: Payload aninhado (webhook padrão)
-  // { data: { phone: "...", message: "..." } }
   if (payload.data) {
     return {
       telefone: payload.data.phone || payload.data.telefone || null,
       mensagem: payload.data.message || payload.data.mensagem || payload.data.text || null,
       nome: payload.data.first_name || payload.data.name || payload.data.nome || null,
+      url_audio: detectarAudio(payload.data),
     };
   }
 
   // Formato 3: Evento do BotConversa (varia conforme configuração)
-  // { event: "message", payload: { phone: "...", ... } }
   if (payload.event && payload.payload) {
     return {
       telefone: payload.payload.phone || payload.payload.telefone || null,
       mensagem: payload.payload.message || payload.payload.mensagem || payload.payload.text || null,
       nome: payload.payload.first_name || payload.payload.name || payload.payload.nome || null,
+      url_audio: detectarAudio(payload.payload),
     };
   }
 
   // Formato 4: Mensagem do WhatsApp via BotConversa API
-  // { from: "+5511999999999", body: "Olá" }
   if (payload.from) {
     return {
       telefone: payload.from,
       mensagem: payload.body || payload.text || payload.message || null,
       nome: payload.pushName || payload.notify_name || null,
+      url_audio: detectarAudio(payload),
     };
   }
 
@@ -202,6 +250,7 @@ function extrairDados(payload: any): { telefone: string | null; mensagem: string
     telefone: payload.phone_number || payload.number || payload.telefone || null,
     mensagem: payload.message || payload.mensagem || payload.text || payload.body || null,
     nome: payload.name || payload.nome || payload.first_name || null,
+    url_audio: detectarAudio(payload),
   };
 }
 

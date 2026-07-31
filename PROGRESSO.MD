@@ -1,10 +1,10 @@
 # CRM ROMA - Progresso do Projeto
 
 > **Arquivo de contexto para agentes IA**
-> **Última atualização:** 12/07/2026
+> **Última atualização:** 16/07/2026
 > **Deploy atual:** https://crm-roma-romadistribuicao.vercel.app
 > **Conta Vercel:** roma-6489 (romadistribuicao) — plano Hobby/Free
-> **Conversa atual:** Integração WhatsApp BotConversa ATIVA
+> **Conversa atual:** Integração WhatsApp BotConversa ATIVA + Kanban + Etiquetas
 
 ---
 
@@ -38,7 +38,8 @@ CRM desenvolvido para a empresa ROMA (distribuidora de materiais elétricos). Si
 crm-roma/
 ├── app/                          # Next.js App Router
 │   ├── (dashboard)/              # Rotas com layout autenticado
-│   │   ├── atendimento/page.tsx  # Tela principal de atendimento (3 abas)
+│   │   ├── atendimento/page.tsx  # Tela principal de atendimento (WhatsApp Web)
+│   │   ├── kanban/page.tsx       # Kanban de tarefas (rota separada)
 │   │   ├── leads/page.tsx        # Fila de leads (gestor pode atribuir/reatribuir)
 │   │   ├── clientes/page.tsx     # Lista de clientes
 │   │   ├── produtos/page.tsx     # Catálogo de produtos
@@ -50,6 +51,8 @@ crm-roma/
 │   ├── api/                      # API Routes
 │   │   ├── atendimentos/route.ts         # CRUD atendimentos
 │   │   ├── atendimentos/mensagens/       # Chat de atendimento
+│   │   ├── atendimentos/etiquetas/       # CRUD etiquetas de atendimento
+│   │   ├── atendimentos/sync/            # Sync mensagens BotConversa (inativo)
 │   │   ├── leads/route.ts                # CRUD leads + atribuição/reatribuição
 │   │   ├── leads/distribuir/             # Distribuição automática de leads
 │   │   ├── vendedores/route.ts           # Lista e cadastro de vendedores
@@ -60,26 +63,25 @@ crm-roma/
 │   │   ├── clientes/route.ts             # Clientes
 │   │   ├── vendas/route.ts               # Vendas
 │   │   ├── oportunidades/route.ts        # Oportunidades
+│   │   ├── webhooks/whatsapp/            # Webhook BotConversa (recebe mensagens)
 │   │   └── webhooks/millennium/          # Webhook Millennium
 │   ├── layout.tsx                # Layout raiz
 │   └── login/page.tsx            # Tela de login
 ├── components/
 │   ├── features/                 # Componentes por funcionalidade
-│   │   ├── atendimento/          # Kanban, Chat, Lista, ListaLateral, Simular WhatsApp
+│   │   ├── atendimento/          # Kanban, Chat, Lista, ListaLateral, PainelContato, FiltroEtiquetas
 │   │   ├── leads/                # (ainda não criado — tudo em leads/page.tsx)
 │   │   ├── clientes/             # Modal novo cliente
 │   │   ├── configuracoes/        # Modal novo vendedor
 │   │   └── vendas/               # Modal nova venda
-│   ├── layout/                   # Header, Sidebar
+│   ├── layout/                   # Header, Sidebar (com logo-icon.png)
 │   ├── ui/                       # shadcn/ui components
 │   └── notificacoes-bell.tsx     # Componente de notificações
 ├── lib/
 │   └── supabase/                 # Clientes Supabase (client.ts, server.ts)
+├── public/
+│   └── logo-icon.png             # Logo do sistema no sidebar
 ├── docs/                         # Documentação
-│   ├── ARQUITETURA_CRM.md
-│   ├── DIAGRAMA_ER.md
-│   ├── INTEGRACAO_MILLENNIUM.md
-│   └── WIREFRAMES_FLUXOS.md
 └── supabase/migrations/          # Migrations SQL
 ```
 
@@ -87,205 +89,184 @@ crm-roma/
 
 ## 4. Funcionalidades Implementadas
 
-### 4.1 Atendimento WhatsApp (COMPLETO — INTEGRAÇÃO BOTCONVERSA ATIVA EM 10/07/2026)
+### 4.1 Atendimento WhatsApp (COMPLETO — INTEGRAÇÃO BOTCONVERSA ATIVA)
 
 **Tela:** `/atendimento`
 
-**Layout WhatsApp Web (Julho/2026 — SIMPLIFICADO):**
-- **Painel esquerdo (380px):** Lista de conversas com avatar, nome, preview, telefone, hora
-- **Painel direito (flex):** Chat inline (sem modal) — mensagens, input, botão enviar
-- **Filtros:** Busca por nome/telefone, período de data
+**Layout WhatsApp Web:**
+- **Painel esquerdo (320px):** Lista de conversas com avatar, nome, preview, telefone, hora, **badges de etiquetas**
+- **Painel central (flex):** Chat inline — mensagens, input, botão enviar
+- **Painel direito (320px):** Painel de contato com dados do cliente + etiquetas (selecionável)
+- **Filtros:** Busca por nome/telefone, período de data, **filtro por etiqueta**
 - **Polling:** Atualiza lista a cada 15s (sem loading visual)
-- **Kanban separado em `/kanban`** (rota independente)
+
+**Etiquetas de Atendimento (FUNCIONANDO):**
+- Tabela `atendimento_etiquetas` com `atendimento_id`, `etiqueta` (UNIQUE)
+- API REST: GET, POST, DELETE em `/api/atendimentos/etiquetas`
+- **Painel de contato:** Seção "Etiquetas" com busca + vincular/remover
+- **Filtro na lista:** Dropdown "Filtrar por etiqueta" no topo da lista de conversas
+- **Badges nos cards:** Cards mostram até 3 badges de etiquetas + "+N" se tiver mais
+- **Atualização em tempo real:** Quando vincula/remove etiqueta, a lista e o filtro são atualizados
+
+**Etiquetas disponíveis no painel de contato:**
+```
+Contatos, Em Atendimento,
+```
 
 **⚠️ Limitação Importante — Sincronização WhatsApp:**
 - **O CRM ENVIA mensagens** via API BotConversa ✅
 - **O CRM RECEBE mensagens** via webhook BotConversa ✅
 - **O CRM NÃO sincroniza mensagens enviadas pelo dono do número POR FORA do CRM** ❌
-- Quando o vendedor envia mensagem pelo celular, o CRM não registra (fica "buraco" no chat)
-- **API BotConversa não expõe endpoint de histórico de mensagens** (testado: `/messages/`, `/history/`, `/chat/`, `/interactions/` — todos retornam 404)
-- **Solução futura:** Configurar webhook no painel BotConversa para enviar eventos de "mensagem enviada" (outgoing)
+- **Solução futura:** Configurar webhook no painel BotConversa para enviar eventos de "mensagem enviada"
 
 **⚠️ Funcionalidades COMENTADAS para MVP:**
-- **⚠️ Aba "Oportunidades" COMENTADA** (código preservado em `motor-oportunidades.tsx`)
-- **⚠️ Campanhas COMENTADA** na sidebar (código preservado)
-- **⚠️ Vendas COMENTADA** na sidebar (depende da integração Millennium que não está ativa)
-- **Para reativar:** descomentar imports e navItems nos respectivos arquivos
+- **Oportunidades** — aba comentada
+- **Campanhas** — sidebar comentada
+- **Vendas** — sidebar comentada (depende Millennium)
+- **Sequências, Campos Personalizados** — removidos do painel de contato
 
-**Kanban de Tarefas (3 colunas):**
-- **"A Fazer"** — Atendimentos abertos onde o **cliente** enviou a última mensagem
-- **"Andamento"** — Atendimentos abertos onde o **vendedor** enviou a última mensagem
-- **"CONCLUÍDO"** — Atendimentos com `status = "fechado"` nos últimos 7 dias
-- Tarefas manuais são draggable entre colunas
-- Atendimentos aparecem como cards estáticos com badge verde "ATENDIMENTO"
-- Cards de atendimento: nome, preview msg, telefone, hora, botão "Abrir Chat"
-- Scroll vertical independente em cada coluna
-
-**Lista de Atendimentos Lateral (aba Meu Trabalho):**
-- Componente: `components/features/atendimento/lista-atendimentos-lateral.tsx`
-- Cards compactos com avatar, nome, preview, telefone, status, hora
-- Botão ✓ para marcar como resolvido
-- Scroll próprio
-- Clica para abrir chat global
-
-**Lista de Atendimentos (aba Atendimentos):**
-- Componente: `components/features/atendimento/lista-atendimentos.tsx`
-- Cards maiores com avatar 48px, badge "NOVO", preview completo
-- Botão Resolver no card
-
-**Chat Global (Modal):**
-- Estado elevado para `AtendimentoPage` (abre de qualquer aba)
-- Histórico de mensagens (verde=cliente, branco=vendedor)
-- Mensagens virtuais para atendimentos antigos (sem registro na tabela)
-- Campo de resposta com botão enviar
-- Botão "Resolver" (async/await → fecha atendimento → PATCH status="fechado" → atualiza Kanban)
-- Botão "Transferir" (transfere para outro vendedor)
-- Realtime: novas mensagens aparecem em tempo real
-- PATCH `/api/atendimentos` atualiza `ultima_mensagem`, `ultima_mensagem_remetente` ao enviar
-
-#### Integração BotConversa (ATIVA — Julho/2026)
+#### Integração BotConversa (ATIVA)
 
 **Helper:** `lib/botconversa.ts`
 
-**API BotConversa — Documentação Oficial:**
+**API BotConversa:**
 - **Base URL:** `https://backend.botconversa.com.br/api/v1/webhook`
-- **Autenticação:** Header `api-key: {API_KEY}` (NÃO Authorization: Bearer)
+- **Autenticação:** Header `api-key: {API_KEY}`
 - **Enviar mensagem:** `POST /subscriber/{subscriber_id}/send_message/`
 - **Body:** `{ "type": "text", "value": "mensagem" }`
-- **Buscar subscriber pelo telefone:** `GET /subscriber/get_by_phone/{phone}/`
-- **Variáveis de ambiente:** `BOTCONVERSA_API_KEY`, `BOTCONVERSA_WEBHOOK_ID`
+- **Buscar subscriber:** `GET /subscriber/get_by_phone/{phone}/`
 
-**⚠️ CUIDADOS IMPORTANTES com a API BotConversa:**
-1. O domínio é `backend.botconversa.com.br` (NÃO `api.botconversa.com.br` — esse domínio não existe)
-2. O header correto é `api-key` (NÃO `Authorization: Bearer`)
-3. O body para enviar é `{ type: "text", value: "..." }` (NÃO `{ message: "..." }`)
-4. O `subscriber_id` é numérico (ex: `927006341`), obtido pelo endpoint `get_by_phone`
-5. **NÃO adicionar "9" no telefone automaticamente** — números antigos da empresa (ex: 3416-5014) não têm 9
+**⚠️ CUIDADOS:**
+1. Domínio é `backend.botconversa.com.br` (NÃO `api.botconversa.com.br`)
+2. Header correto é `api-key` (NÃO `Authorization: Bearer`)
+3. Body para enviar é `{ type: "text", value: "..." }` (NÃO `{ message: "..." }`)
+4. `subscriber_id` é numérico, obtido pelo endpoint `get_by_phone`
+5. **NÃO** adicionar "9" no telefone automaticamente
 
-**Fluxo de envio:**
-1. Vendedor digita mensagem no chat do CRM
-2. CRM chama `GET /subscriber/get_by_phone/{telefone}/` → obtém `subscriber_id`
-3. CRM chama `POST /subscriber/{subscriber_id}/send_message/` com `{ type: "text", value: "msg" }`
-4. Mensagem chega no WhatsApp do cliente ✅
+#### Webhook WhatsApp (Recebimento de Mensagens)
 
-**Variável BOTCONVERSA_WEBHOOK_ID:** Obtida na tela de Webhooks do painel BotConversa. Atual: `195277`
+**Endpoint:** `POST /api/webhooks/whatsapp`
 
----
+**Fluxo:**
+1. BotConversa envia payload quando cliente envia mensagem
+2. Webhook extrai telefone + mensagem de forma flexível (múltiplos formatos)
+3. Busca cliente pelo telefone (tolerante a formatos)
+4. **Busca atendimento aberto** — busca exata primeiro, depois comparação por **últimos 8 dígitos**
+5. Se encontra → atualiza atendimento + insere mensagem
+6. Se não encontra → cria novo atendimento + insere mensagem
 
-**Filtros Globais (visíveis em todas as abas):**
-- Busca por nome, telefone, mensagem
-- Filtro por status: Aberto / Fechado / Todos
-- Período de data (início → fim)
-- Botão "Limpar"
-- Exportar CSV
+**Correção de Duplicidade (14/07/2026):**
+- Antes: busca exata por telefone causava duplicatas (ex: `556234165014` vs `6234165014`)
+- Agora: busca em 2 etapas — exata + tolerante (últimos 8 dígitos)
+- Aplicado em: `webhooks/whatsapp/route.ts` E `atendimentos/route.ts` (POST)
 
-**Simular WhatsApp:**
-- Modal que simula mensagem entrante
-- Identifica cliente por telefone (limpa formatação)
-- Cria atendimento + mensagem no chat
-
-**Assumir Atendimento:**
-- Botão para pegar atendimento órfão (fila geral)
-
-**Coluna `vendedor_interagiu`:**
-- Migration criada mas NÃO aplicada no banco (Supabase Pooler não permite DDL)
-- Fallback no código: usa `ultima_mensagem_remetente === "vendedor"` para determinar se vendedor interagiu
-
-**Coluna `data_fechamento`:**
-- NÃO existe no banco (migration `007` falhou porque tabela já existia, ALTER TABLE não rodou)
-- Fallback: kanban "Concluído" usa `ultima_mensagem_data` para filtrar atendimentos fechados dos últimos 7 dias
-
-### 4.2 Leads / Fila de Leads (COMPLETO — REATRIBUIÇÃO FUNCIONANDO)
-
-**Tela:** `/leads`
-
-- Lista de leads com busca, filtros de status, data, exportar CSV
-- Gestor pode atribuir lead a vendedor (dropdown + botão "Atribuir")
-- **Gestor pode REATRIBUIR lead já atribuído** (dropdown aparece com vendedor atual preenchido)
-- Botão "Distribuir Leads" para distribuição automática entre equipe
-- Vendedor pode iniciar atendimento, converter ou descartar lead
-- Status: novo → em_atendimento → convertido/descartado
-
-### 4.3 Configurações (COMPLETO)
-
-**Tela:** `/configuracoes`
-
-- Perfil (dados pessoais)
-- Notificações (preferências)
-- Segurança (alterar senha)
-- Aparência (tema)
-- Vendedores (cadastro de novos vendedores)
-
-### 4.4 Notificações (COMPLETO)
+#### Notificações (OTIMIZADO — 14/07/2026)
 
 **Componente:** `notificacoes-bell.tsx` (header)
 
-- Tabela `notificacoes` com `user_id`, `tipo`, `titulo`, `mensagem`, `lida`
+**Bug corrigido (14/07/2026):**
+- **Problema:** Dependência cíclica — `fetchNotificacoes` usava `notificacoes` (state) nas dependências do `useCallback`, causando loop infinito de re-renderização → 400+ requests/minuto
+- **Solução:** Trocado por `useRef` (`notificacoesIdsRef`) para detectar notificações novas sem dependência circular
+- **Resultado:** ~1 request a cada 2 minutos (era centenas por minuto)
+
+**Configuração atual:**
+- Polling a cada **120s** (pausa quando aba invisível)
 - Badge no sininho com contador vermelho
-- Dropdown com lista de notificações
 - Toast flutuante quando chega notificação nova
-- Polling: a cada **120s** (pausa quando aba invisível)
-- **Otimizado em 30/06/2026:** Polling reduzido de 60s para 120s para economizar recursos Vercel free
 
-### 4.5 Dashboard (COMPLETO)
+### 4.2 Kanban de Tarefas (COMPLETO — REFORMULADO EM JULHO/2026)
 
+**Tela:** `/kanban`
+
+**3 Colunas:**
+- **"A Fazer"** — Tarefas pendentes
+- **"Andamento"** — Tarefas em andamento
+- **"Concluído"** — Tarefas concluídas (últimos 7 dias)
+
+**Fluxo do Modal (REFORMULADO 16/07/2026):**
+
+| Coluna | Botões visíveis | O que acontece |
+|--------|-----------------|----------------|
+| **A Fazer** | ➡️ Andamento | Só move para andamento |
+| **Andamento** | ✅ Concluir | Abre modal com: Título, Descrição, Prioridade + Resultado, Observação, Valor (só se Sucesso) |
+| **Concluído** | ✏️ Editar | Edita título, descrição, prioridade e valor (se Sucesso) |
+
+**Modal de Conclusão (unificado):**
+- **Título** — editável inline
+- **Descrição** — textarea editável
+- **Prioridade** — dropdown (Baixa, Média, Alta, Urgente)
+- **Resultado*** — dropdown fixo com 5 opções:
+  - ✅ Sucesso — contato/negociação realizada
+  - ❌ Insucesso — não houve interesse
+  - 📅 Remarcado — agendado para outro dia
+  - 📞 Sem contato — não atendeu
+  - 🔄 Follow-up necessário
+- **Observação do resultado*** — dropdown fixo com opções por resultado:
+
+| Resultado | Opções de Observação |
+|-----------|---------------------|
+| Sucesso | Venda fechada, Orçamento enviado, Reunião agendada, Parceria firmada |
+| Insucesso | Sem interesse, Preço elevado, Escolheu concorrente, Não é público-alvo |
+| Remarcado | Cliente pediu retorno, Agenda lotada, Aguardando decisão |
+| Sem contato | Não atendeu, Número inválido, Sem WhatsApp, Caixa postal |
+| Follow-up | Enviar orçamento, Confirmar reunião, Verificar disponibilidade, Aguardando retorno |
+
+- **Valor da Venda (R$)*** — aparece APENAS quando resultado = "Sucesso" (formato monetário R$ X.XXX,XX)
+
+**Modal de Edição (apenas Concluído):**
+- Edita título, descrição, prioridade
+- Se resultado é Sucesso: edita valor da venda
+
+**Coluna `valor_venda` na tabela `tarefas`:**
+- Migration `062_tarefas_valor_venda.sql`: `ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS valor_venda NUMERIC(12,2) DEFAULT NULL;`
+- API PATCH aceita `valor_venda` no body
+- Salva como número decimal, exibe formatado em R$
+
+**Drag and Drop:**
+- Usando `@hello-pangea/dnd` (fork do react-beautiful-dnd)
+- Arrastar para "Concluído" abre modal de conclusão (não move automaticamente)
+- Arrastar para "Andamento" move direto
+
+### 4.3 Painel de Contato (ATUALIZADO 14/07/2026)
+
+**Componente:** `painel-contato.tsx`
+
+- **Dados do contato:** Nome, telefone, email, CPF, data de inscrição
+- **Seções removidas (14/07/2026):** Sequências, Campanhas, Campos Personalizados
+- **Seção mantida:** Etiquetas (funcional)
+
+### 4.4 Leads / Fila de Leads (COMPLETO)
+
+**Tela:** `/leads`
+- Gestor pode atribuir e reatribuir leads
+- Distribuição automática entre equipe
+- Status: novo → em_atendimento → convertido/descartado
+
+### 4.5 Configurações (COMPLETO)
+
+**Tela:** `/configuracoes`
+- Perfil, Notificações, Segurança, Aparência, Vendedores
+
+### 4.6 Dashboard (COMPLETO)
+
+**Tela:** `/dashboard`
 - Performance em tempo real (metas, projeções)
 - Gráficos e indicadores
 
-### 4.6 Clientes (COMPLETO)
+### 4.7 Clientes (COMPLETO)
 
 - Lista com busca e filtros
 - Modal de cadastro
 - Integração com Millennium
 
-### 4.7 Produtos (COMPLETO)
+### 4.8 Produtos (COMPLETO)
 
 - Catálogo com 2195 produtos
-- Paginação (50 por página)
-- Busca por nome, código ou SKU
-- Filtros por marca, categoria, status
-- Endpoint `/api/produtos/filtros` separado (buscado 1x)
+- Paginação (50/página), busca, filtros por marca/categoria/status
 
-### 4.8 Vendas (COMPLETO)
+### 4.9 Central de Ajuda (COMPLETO)
 
-- Lista de vendas
-- Modal de nova venda
-- Integração Millennium
-
-### 4.9 Central de Ajuda (COMPLETO — 08/07/2026)
-
-**Tela:** `/ajuda`
-
-**Acesso:**
-- Botão ❓ no **header** (ao lado do sino de notificações)
-- Item **"Ajuda" na sidebar** (último item, visível para todos)
-
-**Página com 8 abas:**
-1. **💬 Atendimento** — O que é o painel WhatsApp, como usar o chat, transferir, filtros
-2. **📌 Kanban** — 3 colunas (A Fazer/Andamento/Concluído), criar tarefa, regra de concluir com info
-3. **👥 Leads** — Fila de leads, Buscar Empresas (gestores), distribuição automática
-4. **👥 Clientes** — Cadastro, busca, integração Millennium
-5. **📦 Produtos** — Catálogo 2195 itens, filtros, paginação
-6. **📊 Dashboard** — Métricas, gráficos, indicadores de performance
-7. **⚙️ Configurações** — Perfil, notificações, segurança, aparência
-8. **🏢 Equipes** — Apenas gestores, cadastrar vendedores, cargos
-
-**Arquivos criados:**
-| Arquivo | Descrição |
-|---------|-----------|
-| `app/(dashboard)/ajuda/page.tsx` | Página principal com abas |
-| `components/features/ajuda/conteudo-atendimento.tsx` | Conteúdo aba Atendimento |
-| `components/features/ajuda/conteudo-kanban.tsx` | Conteúdo aba Kanban |
-| `components/features/ajuda/conteudo-leads.tsx` | Conteúdo aba Leads |
-| `components/features/ajuda/conteudo-clientes.tsx` | Conteúdo aba Clientes |
-| `components/features/ajuda/conteudo-produtos.tsx` | Conteúdo aba Produtos |
-| `components/features/ajuda/conteudo-dashboard.tsx` | Conteúdo aba Dashboard |
-| `components/features/ajuda/conteudo-config.tsx` | Conteúdo aba Configurações |
-| `components/features/ajuda/conteudo-equipes.tsx` | Conteúdo aba Equipes |
-
-**Arquivos modificados:**
-- `components/layout/header.tsx` — Adicionado botão ❓ com ícone HelpCircle + rota /ajuda
-- `components/layout/sidebar.tsx` — Adicionado item "Ajuda" no navItems + import HelpCircle
+**Tela:** `/ajuda` — 8 abas com documentação de todas as funcionalidades
 
 ---
 
@@ -295,21 +276,23 @@ crm-roma/
 |----------|---------|-----------|
 | `/api/atendimentos` | GET, POST, PATCH | CRUD + simular WhatsApp + transferir + assumir + fechar |
 | `/api/atendimentos/mensagens` | GET, POST | Chat de atendimento |
+| `/api/atendimentos/etiquetas` | GET, POST, DELETE | CRUD etiquetas de atendimento |
+| `/api/atendimentos/sync` | GET | Sync mensagens BotConversa (inativo — API não expõe histórico) |
 | `/api/leads` | GET, PATCH | Lista leads + atribuir/reatribuir vendedor |
 | `/api/leads/distribuir` | POST | Distribui leads para equipe |
 | `/api/vendedores` | GET, POST | Lista todos (service_role bypass RLS) + cadastro |
 | `/api/notificacoes` | GET, PATCH, DELETE | Notificações do usuário |
-| `/api/tarefas` | GET, POST, PATCH | Kanban de tarefas |
+| `/api/tarefas` | GET, POST, PATCH, DELETE | Kanban de tarefas (inclui valor_venda) |
 | `/api/produtos` | GET | Produtos paginados |
-| `/api/produtos/filtros` | GET | Filtros disponíveis (buscado 1x) |
+| `/api/produtos/filtros` | GET | Filtros disponíveis |
 | `/api/clientes` | GET, POST | Clientes |
 | `/api/vendas` | GET, POST | Vendas |
 | `/api/oportunidades` | GET, POST | Oportunidades |
-| `/api/webhooks/millennium` | POST | Webhook do ERP (secret obrigatória) |
-| `/api/auth/cadastro` | POST | Cadastro de usuários (só admin/gestor) |
+| `/api/webhooks/whatsapp` | POST | Webhook BotConversa (recebe mensagens) |
+| `/api/webhooks/millennium` | POST | Webhook do ERP |
+| `/api/auth/cadastro` | POST | Cadastro de usuários |
 | `/api/promocoes` | GET, POST, PATCH | CRUD promoções |
 | `/api/promocoes/clientes` | GET | Clientes que compraram produto da promoção |
-| `/api/atendimentos/sync` | GET | Sync mensagens BotConversa (**criado mas API não expõe histórico — 404**) |
 
 ---
 
@@ -318,18 +301,20 @@ crm-roma/
 ### 6.1 Tabelas Principais
 
 ```sql
-profiles          -- Usuários/vendedores (criada pelo Supabase Auth trigger)
-clientes          -- Clientes (com vendedor_responsavel_id)
-vendas            -- Vendas
-produtos          -- Catálogo de produtos (2195 registros)
-tarefas           -- Kanban (coluna_kanban: a_fazer, andamento, concluido)
-oportunidades     -- Oportunidades de vendas
-atendimentos      -- Atendimentos WhatsApp
+profiles              -- Usuários/vendedores
+clientes              -- Clientes (com vendedor_responsavel_id)
+vendas                -- Vendas
+produtos              -- Catálogo de produtos (2195 registros)
+tarefas               -- Kanban (coluna_kanban: a_fazer, em_andamento, concluida)
+                      -- Inclui: resultado, observacao_resultado, valor_venda
+oportunidades         -- Oportunidades de vendas
+atendimentos          -- Atendimentos WhatsApp
 atendimento_mensagens -- Histórico de chat
-notificacoes      -- Notificações
-leads             -- Leads B2B (com vendedor_id, status, origem)
-presenca_vendedor -- Status online/offline
-campanhas         -- Campanhas de marketing
+atendimento_etiquetas -- Etiquetas vinculadas a atendimentos
+notificacoes          -- Notificações
+leads                 -- Leads B2B
+presenca_vendedor     -- Status online/offline
+campanhas             -- Campanhas de marketing
 ```
 
 ### 6.2 Colunas Importantes em `atendimentos`
@@ -342,10 +327,28 @@ campanhas         -- Campanhas de marketing
 - `ultima_mensagem_remetente`: 'cliente' | 'vendedor'
 - `ultima_mensagem`, `ultima_mensagem_data`
 - `transbordado`: boolean
-- `vendedor_interagiu`: boolean (migration criada mas NÃO aplicada no banco)
-- `data_fechamento`: timestamp (migration criada mas NÃO aplicada no banco)
 
-### 6.3 Triggers
+### 6.3 Colunas Importantes em `tarefas`
+
+- `coluna_kanban`: 'a_fazer' | 'em_andamento' | 'concluida'
+- `resultado`: 'sucesso' | 'insucesso' | 'remarcado' | 'sem_contato' | 'follow_up_necessario'
+- `observacao_resultado`: texto livre (ou opção fixa do dropdown)
+- `valor_venda`: NUMERIC(12,2) — valor da venda quando sucesso
+
+### 6.4 Tabela `atendimento_etiquetas`
+
+```sql
+CREATE TABLE atendimento_etiquetas (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  atendimento_id UUID NOT NULL REFERENCES atendimentos(id) ON DELETE CASCADE,
+  etiqueta TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(atendimento_id, etiqueta)
+);
+-- RLS desabilitado, GRANT para service_role e authenticated
+```
+
+### 6.5 Triggers
 
 ```sql
 trg_notificar_atendimento   -- INSERT/UPDATE atendimentos → cria notificação
@@ -353,19 +356,19 @@ trg_atualizar_ultima_mensagem -- INSERT mensagem → atualiza atendimento
 trg_marcar_lido             -- UPDATE atendimento → reset nao_lido quando vendedor responde
 ```
 
-### 6.4 RLS (Row Level Security)
+### 6.6 Migrations Importantes
+
+| Migration | Descrição | Status |
+|-----------|-----------|--------|
+| `060_atendimento_etiquetas.sql` | Cria tabela de etiquetas | ✅ Executada |
+| `061_fix_etiquetas_grant.sql` | GRANT permissões service_role/authenticated | ✅ Executada |
+| `062_tarefas_valor_venda.sql` | Adiciona coluna valor_venda em tarefas | ✅ Executada |
+
+### 6.7 RLS (Row Level Security)
 
 - **Tabelas com RLS ativo:** `notificacoes`, `atendimento_mensagens`, `leads`
-- **Tabelas que precisam de RLS:** `clientes`, `vendas`, `venda_itens`, `tarefas`, `oportunidades`, `atendimentos`, `produtos`, `profiles`, `campanhas`
-- Policies `profiles_select_all`: `id = auth.uid() OR gestor_id = auth.uid() OR is_gerencia()`
-- **Service Role policies:** `service_role_all_*` nas tabelas que têm RLS
-- **Funções auxiliares:** `is_gerencia()`, `is_gestor()`, `is_gestor_do_vendedor()` — `SECURITY DEFINER`
-
-### 6.5 Enum `tipo_cargo`
-
-```sql
-'vendedor', 'gerente_comercial', 'diretor', 'admin'
-```
+- **Tabelas sem RLS:** `atendimento_etiquetas` (desabilitado via migration)
+- API usa `service_role` para bypassar RLS quando necessário
 
 ---
 
@@ -373,69 +376,35 @@ trg_marcar_lido             -- UPDATE atendimento → reset nao_lido quando vend
 
 | Problema | Causa | Solução |
 |----------|-------|---------|
-| Transferência não listava vendedores | API buscava coluna `status` inexistente | Removido `status` e `created_at` da query |
-| Só aparecia Raquel na lista | RLS de profiles: vendedor só vê próprio perfil | API usa `service_role` para bypassar RLS |
+| Duplicidade de atendimentos | Busca exata por telefone (formatações diferentes) | Busca tolerante: compara últimos 8 dígitos |
+| Notificações: 400+ requests/minuto | Dependência cíclica no useCallback (state dentro de deps) | Trocado por useRef para IDs |
+| Erro 500 ao vincular etiqueta | Tabela sem permissão GRANT | Migration 061 com GRANT ALL |
+| Erro 403 ao editar tarefa | PATCH filtrava por vendedor_id | Removido filtro de vendedor no update |
+| Tarefa não atualizava após editar | Modal não fechava + lista não recarregava | Adicionado onClose() após salvar |
 | Transferência dava erro 500 | PATCH usava client comum (RLS bloqueava) | PATCH usa `service_role` |
-| Badge não aparecia fora da aba | `ListaAtendimentos` só carregava na aba ativa | Movido fetch para `page.tsx` (carrega no mount) |
-| Lentidão na navegação | API de produtos buscava 2195 registros para filtros a cada chamada | Separado endpoint `/api/produtos/filtros` |
-| Muitas requisições de notificações | Polling a cada 10s | Aumentado para 60s + pausa quando aba invisível |
-| Encoding quebrava build | Caracteres inválidos em arquivos | Reescrita completa com WriteFile |
-| Cache Vercel não pegava mudanças | Build cache antigo | Deploy com `--force` |
-| "Sem CNAE" no import | API só mapeava `cnae_principal` | Expandido para múltiplos campos CNAE |
-| Scroll do Kanban cortava último card | `maxHeight` fixo com `calc(100vh - ...)` | Removido `maxHeight`, usando `flex-1 overflow-y-auto` |
-| Botão "Reatribuir" não funcionava | Dropdown só renderizava quando `!lead.vendedor_id` | Reestruturado JSX para mostrar dropdown sempre que `atribuindoLeadId === lead.id` |
-| `vendedor_interagiu` não funciona | Migration não aplicada (Pooler não permite DDL) | Fallback: usa `ultima_mensagem_remetente === "vendedor"` |
-| `data_fechamento` não existe | Migration `007` falhou (tabela já existia) | Removido do SELECT/PATCH; usa `ultima_mensagem_data` como fallback |
+| Lentidão na navegação | API de produtos buscava 2195 registros | Endpoint `/api/produtos/filtros` separado |
+| Scroll do Kanban cortava último card | maxHeight fixo | flex-1 overflow-y-auto |
 
 ---
 
-## 8. Otimização de Performance + Migração Vercel (30/06/2026)
+## 8. Otimização de Performance
 
-### 8.1 Problema Original
-A conta Vercel antiga (johnpittz) estourou os limites do plano free:
-- **Fluid Active CPU:** 12h / 4h (3x limite)
-- **Edge Requests:** 2.9M / 1M (2.9x limite)
-- **Function Invocations:** 2.9M / 1M (2.9x limite)
-- **Fast Origin Transfer:** 16.56GB / 10GB (1.6x limite)
+### 8.1 Otimizações Implementadas
 
-### 8.2 Causas Identificadas
-1. **Chat polling a cada 5 segundos** — gerava ~720 requests/hora por vendedor
-2. **Security headers em `next.config.js`** com `/:path*` — processava cada asset estático como Edge Request
-3. **Notificações polling a cada 60s** — requests desnecessários
-4. **Sem cache HTTP** em APIs de dados estáticos
+| Componente | Mudança | Impacto |
+|-----------|---------|---------|
+| `notificacoes-bell.tsx` | Polling 120s + useRef para evitar loop | De 400+ req/min para ~1 req/2min |
+| `chat-inline.tsx` | Polling 30s | -83% invocações |
+| `middleware.ts` | Security headers fora do next.config.js | -40% Edge Requests |
 
-### 8.3 Otimizações Implementadas
+### 8.2 Deploy
 
-| Arquivo | Mudança | Impacto |
-|---------|---------|---------|
-| `atendimento-chat.tsx` | Polling chat: 5s → **30s** | -83% invocações do chat |
-| `middleware.ts` | Security headers movidos do next.config.js | -40% Edge Requests |
-| `next.config.js` | Removido bloco `async headers()` | Assets estáticos sem Edge processing |
-| `notificacoes-bell.tsx` | Polling notificações: 60s → **120s** | -50% requests notificações |
-| `vendedores/route.ts` | Adicionado `Cache-Control: private, max-age=300` | -100% re-fetches de vendedores |
-| `.env.production` | Criado com variáveis de garante build na Vercel | Build funciona corretamente |
+- **Comando:** `cd crm-roma && npx vercel --prod --force --yes`
+- **URL:** https://crm-roma-romadistribuicao.vercel.app
+- **Conta Vercel:** roma-6489 (romadistribuicao) — NÃO vincular GitHub
 
-### 8.4 Migração de Conta Vercel
+### 8.3 Variáveis de Ambiente (Vercel)
 
-**Conta antiga:** johnpittz (bloqueada por fair use)
-**Nova conta:** roma-6489 / romadistribuicao (Hobby/Free)
-
-**Processo de migração:**
-1. `npx vercel logout` → deslogar da conta antiga
-2. Criar nova conta em vercel.com (roma-6489)
-3. `npx vercel login` → logar na nova conta
-4. `npx vercel rm crm-roma` → deletar projeto antigo
-5. Desconectar GitHub no dashboard (Settings → Git → Disconnect)
-6. `npx vercel link` → linkar projeto
-7. Adicionar variáveis de ambiente (4 vars)
-8. `npx vercel --prod --force --yes` → deploy
-
-**Problemas encontrados e soluções:**
-- Deploy bloqueado por vinculação GitHub incorreta → Solução: desconectar GitHub no dashboard Vercel
-- Build falhava sem variáveis de ambiente → Solução: criar `.env.production` com as 4 variáveis
-- Email do Git não batia com GitHub → Solução: `git config user.email` com email correto
-
-### 8.5 Variáveis de Ambiente (Vercel)
 | Variável | Ambiente |
 |----------|----------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Production |
@@ -443,209 +412,108 @@ A conta Vercel antiga (johnpittz) estourou os limites do plano free:
 | `SUPABASE_SERVICE_ROLE_KEY` | Production |
 | `CNPJ_ABERTO_API_KEY` | Production |
 | `BOTCONVERSA_API_KEY` | Production |
-| `BOTCONVERSA_WEBHOOK_ID` | Production |
-
-### 8.6 Resultado Esperado (pós-otimização)
-| Recurso | Antes | Limite Free | Depois |
-|---------|-------|-------------|--------|
-| CPU | 12h | 4h | ~2.5h ✅ |
-| Edge Requests | 2.9M | 1M | ~700K ✅ |
-| Function Invocations | 2.9M | 1M | ~500K ✅ |
-| Origin Transfer | 16.56GB | 10GB | ~6GB ✅ |
-
-### 8.7 Deploy
-- **Comando:** `cd crm-roma ; npx vercel --prod --force --yes`
-- **URL:** https://crm-roma-romadistribuicao.vercel.app
-- **Importante:** Não vincular GitHub no projeto Vercel (causa bloqueio por email mismatch)
 
 ---
 
-## 9. Decisões de Simplificação MVP + WhatsApp (Julho/2026)
+## 9. Sidebar e Logo
 
-### 🔴 Funcionalidades COMENTADAS para MVP
-Para sair do MVP com o CRM o mais simples possível, as seguintes funcionalidades foram **comentadas** (código preservado, mas não visível para vendedores):
+### 9.1 Itens Visíveis na Sidebar
 
-| Funcionalidade | Arquivo comentado | Para reativar |
+```
+[LOGO]                    ← logo-icon.png (sem texto)
+├─ 🎧 Atendimento   Ativo
+├─ 📋 Kanban
+├─ 🎯 Leads
+├─ 👥 Clientes
+├─ 📦 Produtos
+├─ 📊 Dashboard
+├─ 👔 Equipes (só gestores)
+├───────────────
+├─ ⚙️ Configurações
+├─ ❓ Ajuda
+├─ 👤 Usuário [Logout]
+```
+
+### 9.2 Logo
+
+- Arquivo: `public/logo-icon.png`
+- Substituiu antigo "R" verde no sidebar
+- Sidebar mostra **somente a imagem** (sem texto "CRM ROMA")
+
+---
+
+## 10. Decisões de Simplificação MVP
+
+### 🔴 Funcionalidades COMENTADAS/REMOVIDAS
+
+| Funcionalidade | Status | Para reativar |
 |---|---|---|
-| **Campanhas** | `components/layout/sidebar.tsx` — entrada navItems + import Trophy | Descomentar entrada + import |
-| **Oportunidades** | `app/(dashboard)/atendimento/page.tsx` — aba + import MotorOportunidades | Descomentar TabsTrigger + TabsContent + import |
-| **Vendas** | `components/layout/sidebar.tsx` — entrada navItems + import ShoppingCart | Descomentar entrada + import. **Motivo:** depende da integração Millennium que não está ativa |
+| **Campanhas** | Comentada na sidebar | Descomentar import + navItem |
+| **Oportunidades** | Comentada no atendimento | Descomentar TabsTrigger + import |
+| **Vendas** | Comentada na sidebar | Descomentar import + navItem |
+| **Sequências** | Removida do painel contato | Re-adicionar componente |
+| **Campos Personalizados** | Removida do painel contato | Re-adicionar componente |
 
-**Sidebar MVP — Itens visíveis:**
-```
-🎯 Atendimento → 📌 Leads → 👥 Clientes → 📦 Produtos → 📊 Dashboard → ⚙️ Configurações
-(só gestores) 🏢 Equipes
-```
+### 🟢 WhatsApp — BotConversa (BSP Oficial Meta)
 
-### 🟢 WhatsApp — Plataforma: BotConversa (BSP Oficial Meta)
+**Status:** ✅ ATIVADO
 
-**DECISÃO IMPORTANTE:** A empresa **NÃO** usará soluções não-oficiais (Evolution API, Z-API, etc.). A escolha é **BotConversa**, BSP oficial certificado pela Meta.
-
-**Motivo:** Empresa já vai usar BotConversa para disparo de mensagens (campanhas/marketing). BSP oficial = sem risco de banimento, API REST simples, webhooks nativos.
-
-**Status:** ✅ **ATIVADO em 10/07/2026.** Envio de mensagens funciona. Recebimento via webhook configurado.
-
-**Variáveis de ambiente configuradas (.env.production):**
+**Variáveis de ambiente:**
 ```
 BOTCONVERSA_API_KEY=1329cfd1-cf08-405e-9323-2e7c509ef830
 BOTCONVERSA_WEBHOOK_ID=195277
 BOTCONVERSA_API_URL=https://backend.botconversa.com.br/api/v1/webhook
 ```
 
-**Arquitetura proposta:**
-```
-Cliente (WhatsApp) ↔ BotConversa BSP ↔ CRM-ROMA API ↔ Supabase ↔ Interface vendedor
-```
-
-**NOTA:** Soluções não-oficiais (Evolution API, Z-API) foram **REJEITADAS** por política da empresa. Só soluções oficiais Meta ou BSPs certificados.
-
-### Fase 2: Transbordo Automático (INATIVIDADE)
-- Após 15 minutos sem resposta do vendedor, atendimento volta para fila geral
-- Campo `data_ultima_resposta_vendedor` na tabela `atendimentos`
-- Cron job ou função Supabase para verificar inatividade
-
-### Fase 3: Rodízio Automático
-- Clientes não identificados vão para rodízio entre vendedores online
-- Tabela/configuração de rodízio
-
-### Segurança — Fase 3 (Hardening) Pendente
-- Habilitar RLS em **todas** as tabelas
-- Padronizar autenticação para cookie-based em todas as APIs
-- Adicionar Zod validation em todos os endpoints
-- Atualizar Next.js 14.2.28 → 15.x (CVE conhecida)
-
-### Outras melhorias
-- Realtime no `ListaAtendimentos` (atualmente recarrega no refresh manual)
-- Cache de filtros de produtos no localStorage
-- Otimizar queries do dashboard (views materializadas)
-- Permitir gestor reatribuir lead para SI MESMO (atualmente pode trocar entre vendedores)
-- **Sincronizar mensagens enviadas pelo celular** — API BotConversa não expõe endpoint de histórico (testado: `/messages/`, `/history/`, `/chat/`, `/interactions/` — todos 404). Solução: configurar webhook no painel BotConversa para enviar eventos de "mensagem enviada"
+**NOTA:** Soluções não-oficiais (Evolution API, Z-API) foram REJEITADAS por política da empresa.
 
 ---
 
-## 13. Mudanças Recentes (12/07/2026)
+## 11. Convenções de Código
 
-### 13.1 Separação Atendimento × Kanban
-- **Antes:** Atendimento e Kanban misturados na mesma aba "Meu Trabalho"
-- **Agora:** Dois itens separados na sidebar
-  - 🎯 **Atendimento** (`/atendimento`) — Layout WhatsApp Web (lista + chat inline)
-  - 📋 **Kanban** (`/kanban`) — Tela cheia com Kanban de tarefas
-
-### 13.2 Layout WhatsApp Web
-- **Painel esquerdo (380px):** Lista de conversas com avatar, nome, preview, telefone, hora
-- **Painel direito (flex):** Chat inline (sem modal) — mensagens, input, botão enviar
-- Componentes: `chat-inline.tsx` (novo), `lista-atendimentos-lateral.tsx` (reescrito)
-- Scroll nativo (`overflow-y-auto`) em vez de Radix ScrollArea (evita overflow horizontal)
-- **Cards de conversa:** nome + hora na mesma linha, preview abaixo, telefone no final
-
-### 13.3 Kanban Separado
-- Nova rota `/kanban` com Kanban de tarefas em tela cheia
-- Cards de atendimento **NÃO** aparecem mais no Kanban (separação clara)
-- Filtros de busca e data integrados
-
-### 13.4 Tentativa de Sincronização WhatsApp (inconclusa)
-- Criado endpoint `/api/atendimentos/sync` e função `buscarMensagensSubscriber()` em `lib/botconversa.ts`
-- **Resultado:** API BotConversa não expõe endpoint de histórico de mensagens (todos retornam 404)
-- **Código mantido** mas desativado no chat-inline (sem polling de sync)
-- **Para resolver:** configurar webhook no painel BotConversa para enviar eventos de mensagens enviadas (outgoing)
-
----
-
-## 10. Convenções de Código
-
-### 10.1 Padrões
+### 11.1 Padrões
 - TypeScript em todos os arquivos
 - Componentes React: `PascalCase.tsx`
-- APIs: `route.ts` (Next.js App Router convention)
+- APIs: `route.ts` (Next.js App Router)
 - Hooks custom: `use[Nome].ts`
 - Variáveis: `camelCase`
 - Constantes: `SCREAMING_SNAKE_CASE`
 
-### 10.2 Supabase
+### 11.2 Supabase
 - **Client-side:** `createClient()` do `@/lib/supabase/client` (respeita RLS)
 - **Server-side API:** `createClient()` do `@/lib/supabase/server` (respeita RLS)
 - **Service Role:** `createServiceClient(url, key)` do `@supabase/supabase-js` (bypass RLS)
-- **Quando usar service_role:** APIs que precisam acessar dados de outros usuários (lista de vendedores, transferência, etc.)
 
-### 10.3 Autenticação nas APIs
+### 11.3 Autenticação nas APIs
 - Todas as APIs validam token JWT: `Authorization: Bearer <token>`
-- Token obtido via `supabase.auth.getSession()`
 
-### 10.4 Deploy
-- **Comando:** `cd crm-roma ; npx vercel --prod --force --yes`
-- **Importante:** Sempre usar `--force` para evitar cache antigo
-- **Workflow:** fazer commit no Git antes de novas alterações. Se algo quebrar, reverte para esse commit.
-- **Conta Vercel:** roma-6489 (romadistribuicao) — NÃO vincular GitHub no projeto (causa bloqueio)
-- **CLI login:** `npx vercel login` → autentica via navegador
+### 11.4 Deploy
+- **Comando:** `cd crm-roma && npx vercel --prod --force --yes`
+- **Sempre usar `--force`** para evitar cache antigo
+- **NÃO vincular GitHub** no projeto Vercel (causa bloqueio)
 
 ---
 
-## 11. Contexto Importante para Próximo Agente
+## 12. Contexto Importante para Próximo Agente
 
-### 11.1 Ambiente
+### 12.1 Ambiente
 - **Supabase project:** `otmkukicneotcpkemvcq`
-- **RLS está ATIVO** em poucas tabelas. Outras ainda precisam de RLS
-- **Service Role Key** está em `.env` e `.env.production` (nunca commitar `.env.local`)
-- **Windows CLI:** PowerShell pode bloquear `&&`, usar `cmd /c` ou `;`
-- **Security headers:** aplicados via `middleware.ts` (NÃO em `next.config.js`)
-- **Rate limiting ativo:** 5/min (cadastro), 30/min (prospecção), 20/min (atendimentos), 60/min (webhooks)
-- **Conta Vercel:** roma-6489 (romadistribuicao) — plano Hobby/Free
-- **URL do site:** https://crm-roma-romadistribuicao.vercel.app
+- **Windows CLI:** Usar `cmd /c` para comandos encadeados
+- **Security headers:** via `middleware.ts`
+- **Rate limiting:** 5/min (cadastro), 30/min (prospecção), 20/min (atendimentos), 60/min (webhooks)
 
-### 11.2 Atendimento — Regras de Negócio Críticas
-- **"A Fazer"**: atendimentos `status="aberto"` onde `ultima_mensagem_remetente !== "vendedor"` (cliente respondeu ou ninguém respondeu)
-- **"Andamento"**: atendimentos `status="aberto"` onde `ultima_mensagem_remetente === "vendedor"` (vendedor respondeu por último)
-- **"CONCLUÍDO"**: atendimentos `status="fechado"` com `ultima_mensagem_data` dentro dos últimos 7 dias
-- Fechar atendimento: PATCH `{ id, status: "fechado" }`
-- **NÃO** existe coluna `data_fechamento` no banco — usar `ultima_mensagem_data` como fallback
-- **NÃO** existe coluna `vendedor_interagiu` no banco — usar `ultima_mensagem_remetente === "vendedor"`
+### 12.2 Atendimento — Regras de Negócio
+- **Duplicidade:** Busca tolerante por últimos 8 dígitos do telefone
+- **Não existe `data_fechamento`** — usa `ultima_mensagem_data`
+- **Não existe `vendedor_interagiu`** — usa `ultima_mensagem_remetente === "vendedor"`
 
-### 11.3 Atendimento — Layout Atual (MVP SIMPLIFICADO)
-- **⚠️ Apenas 2 abas:** "Meu Trabalho" + "Atendimentos" (Oportunidades COMENTADA)
-- Aba "Meu Trabalho": Kanban (2/3 direita) + ListaAtendimentosLateral (1/3 esquerda)
-- Aba "Atendimentos": ListaAtendimentos completa
-- Filtros globais: busca + data + limpar + exportar CSV (SEM filtro de status)
-- **Filtros de status SEPARADOS por componente (Julho/2026):**
-  - `lista-atendimentos.tsx`: mini-dropdown "Todos / Aberto / Fechado" no header
-  - `kanban-tarefas.tsx`: mini-dropdown "Todas / A Fazer / Andamento / Concluído" no header
-  - Quando seleciona coluna no Kanban, layout muda de 3 para 1 coluna (foco)
-- Chat global (modal) abre de qualquer aba
-- **Para reativar Oportunidades:** descomentar TabsTrigger + TabsContent + import MotorOportunidades em `page.tsx`
+### 12.3 Kanban — Regras de Negócio
+- **A Fazer → Andamento:** Só move (botão direto)
+- **Andamento → Concluído:** Modal unificado com edição + resultado + observação + valor
+- **Concluído:** Só permite edição (título, desc, prioridade, valor se sucesso)
+- **Campo valor:** Aparece APENAS quando resultado = "sucesso"
 
-### 11.3.1 Atendimento — Componente CardAtendimentoKanban
-- Arquivo: `components/features/atendimento/card-atendimento-kanban.tsx`
-- Componente reutilizável para cards de atendimento no Kanban
-- Badge verde "💬 ATENDIMENTO" consistente em todas as colunas
-- Props: `atendimento`, `onAbrirChat`, `disabled`
-- Usado em todas as colunas do Kanban (A Fazer, Andamento, Concluído)
-- Substituiu código inline duplicado
-
-### 11.3.2 Atendimento — Filtros de Data
-- Kanban filtra tarefas por 3 datas: `created_at`, `data_inicio`, `data_fim`
-- Tarefa aparece se QUALQUER dessas datas cai no período filtrado
-- Tarefas sem data definida sempre aparecem (pendentes)
-- Lógica: `const datas = [t.created_at, t.data_inicio, t.data_fim].filter(Boolean)`
-
-### 11.3.3 Atendimento — Integração Kanban ↔ Atendimentos
-- KanbanTarefas recebe prop `onRefresh` para forçar reload
-- Quando atendimentos mudam (ex: resolveu um card), Kanban recarrega
-- Botão "Resolver" agora é async/await → aguarda API → chama `onMensagemEnviada` → fecha chat
-- Cards de atendimento aparecem em colunas baseado em:
-  - "A Fazer": `status="aberto"` + vendedor não interagiu
-  - "Andamento": `status="aberto"` + vendedor já interagiu
-  - "Concluído": `status="fechado"` (últimos 7 dias)
-
-### 11.4 Leads — Reatribuição
-- Gestor pode reatribuir lead clicando em "Reatribuir" → dropdown com vendedores aparece → seleciona novo → clica "Reatribuir"
-- API PATCH `/api/leads` ace `{ id, vendedor_id, status }`
-- Quando atribui vendedor, cria tarefa de prospecção automaticamente
-
-### 11.5 Millennium ERP
-- URL: `roma.millenniumhosting.com.br:6017/api/millenium_eco/`
-- Auth: NTLM (rede interna apenas)
-- Integração via webhook quando disponível
-
-### 11.6 Dados de Teste
+### 12.4 Dados de Teste
 - **Vendedores:** Raquel, Brenda, Christyan, Gabriel, Jackson, João Pedro, Keila, Murilo
 - **Cargos:** vendedor, gerente_comercial, diretor, admin
 - **Clientes:** ~61 clientes
@@ -653,13 +521,88 @@ Cliente (WhatsApp) ↔ BotConversa BSP ↔ CRM-ROMA API ↔ Supabase ↔ Interfa
 
 ---
 
-## 12. Como Continuar
+## 12.5 Roteamento de Atendimentos WhatsApp ✅ IMPLEMENTADO (28/07/2026)
+
+### Status: ATIVO
+- **Vendedor padrão:** Valdean (`da38fd55-bad4-42e8-8616-844530ad052c`)
+- **Regra:** Todo atendimento novo (número sem vendedor no cadastro) → atribui automaticamente ao Valdean
+
+### Como funciona
+1. Mensagem chega pelo webhook BotConversa
+2. Se cliente já tem `vendedor_responsavel_id` no cadastro → usa esse vendedor
+3. Se cliente NÃO tem vendedor (ou não existe no cadastro) → usa vendedor padrão da tabela `config_roteamento_whatsapp`
+4. Se não há configuração → fica `null` (fila geral)
+
+### Arquivos envolvidos
+- `lib/roteamento.ts` — Helper `buscarVendedorPadrao()` com cache de 5 min
+- `app/api/webhooks/whatsapp/route.ts` — Consulta vendedor padrão na criação
+- `app/api/atendimentos/route.ts` — Consulta vendedor padrão na criação (simulação)
+- `supabase/migrations/065_config_roteamento_whatsapp.sql` — Tabela + dados iniciais
+
+### Tabela `config_roteamento_whatsapp`
+```sql
+CREATE TABLE config_roteamento_whatsapp (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  vendedor_padrao_id UUID NOT NULL,
+  ativo BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### Para alterar o vendedor padrão (futuro)
+```sql
+UPDATE config_roteamento_whatsapp SET vendedor_padrao_id = 'UUID_NOVO' WHERE ativo = true;
+```
+Ou via interface de configurações (quando implementada).
+
+### Para Rodízio Futuro (quando mais vendedores estiverem usando)
+- Adicionar coluna `modo TEXT DEFAULT 'fixo'` ('fixo' ou 'rodizio')
+- Adicionar coluna `vendedores_habilitados UUID[]` (array de IDs)
+- Adicionar coluna `ultimo_indice INTEGER DEFAULT 0` (para round-robin)
+- Lógica no helper: se modo = 'rodizio', distribui round-robin entre habilitados
+
+### ⚠️ NÃO alterar no BotConversa
+- Webhook URL permanece a mesma
+- API Key permanece a mesma
+- Variáveis de ambiente permanecem as mesmas
+- O CRM não sabe nem precisa saber o número de destino
+
+---
+
+## 13. Como Continuar
 
 1. **Verificar migration necessária:** Adicionar colunas/tabelas em `supabase/migrations/`
 2. **Criar/atualizar API:** Adicionar endpoint em `app/api/`
 3. **Criar/atualizar componente:** Adicionar em `components/features/`
 4. **Atualizar página:** Modificar `page.tsx` correspondente
 5. **Testar local:** `npm run dev`
-6. **Deploy:** `cd crm-roma ; npx vercel --prod --force --yes`
+6. **Deploy:** `cd crm-roma && npx vercel --prod --force --yes`
 
 **Sempre verifique o console do navegador (F12) para erros de API.**
+
+---
+
+## 14. Histórico de Commits Importantes
+
+### 16/07/2026
+- [x] Sidebar: logo-icon.png substituiu letra "R" (sem texto)
+- [x] Kanban: Modal simplificado — "Concluir" unificado com edição de título/desc/prioridade
+- [x] Kanban: Botão "Editar" só aparece para tarefas concluídas
+- [x] Kanban: Campo valor aparece só quando resultado = Sucesso
+- [x] API tarefas: PATCH aceita titulo, descricao, prioridade, valor_venda
+- [x] API tarefas: Removido filtro vendedor_id no update (resolve erro 403)
+
+### 15/07/2026
+- [x] Kanban: Opções fixas de observação de resultado (dropdown por tipo)
+- [x] Kanban: Campo valor da venda com formatação monetária R$
+- [x] Migration 062: `tarefas.valor_venda NUMERIC(12,2)`
+- [x] Kanban: Valor visível no modal de detalhes (tarefa concluída com sucesso)
+- [x] Kanban: Removido prazo/hora da edição
+
+### 14/07/2026
+- [x] Correção de duplicidade de atendimentos (busca tolerante por últimos 8 dígitos)
+- [x] Correção de loop de notificações (useRef em vez de state nas dependências)
+- [x] Etiquetas: Correção de erro 500 (GRANT permissões)
+- [x] Badges de etiquetas nos cards da lista de atendimentos
+- [x] Filtro por etiqueta na lista de atendimentos
+- [x] Remoção de Sequências, Campanhas, Campos Personalizados do painel de contato

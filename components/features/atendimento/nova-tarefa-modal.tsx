@@ -21,11 +21,6 @@ import {
 } from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
 
-interface ClienteOption {
-  id: string;
-  nome_razao_social: string;
-}
-
 interface NovaTarefaModalProps {
   onSuccess?: () => void;
 }
@@ -33,11 +28,9 @@ interface NovaTarefaModalProps {
 export function NovaTarefaModal({ onSuccess }: NovaTarefaModalProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [clientes, setClientes] = useState<ClienteOption[]>([]);
-  const [loadingClientes, setLoadingClientes] = useState(false);
 
   const [titulo, setTitulo] = useState("");
-  const [clienteId, setClienteId] = useState("none");
+  const [clienteNome, setClienteNome] = useState("");
   const [tipo, setTipo] = useState("ligacao");
   const [prioridade, setPrioridade] = useState("media");
   const [dataInicio, setDataInicio] = useState("");
@@ -48,22 +41,11 @@ export function NovaTarefaModal({ onSuccess }: NovaTarefaModalProps) {
 
   useEffect(() => {
     if (open) {
-      fetchClientes();
       // Preenche data de hoje por padrão
       const hoje = new Date().toISOString().split("T")[0];
       setDataInicio(hoje);
     }
   }, [open]);
-
-  const fetchClientes = async () => {
-    setLoadingClientes(true);
-    const { data } = await supabase
-      .from("clientes")
-      .select("id, nome_razao_social")
-      .order("nome_razao_social");
-    setClientes(data || []);
-    setLoadingClientes(false);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,7 +64,7 @@ export function NovaTarefaModal({ onSuccess }: NovaTarefaModalProps) {
         },
         body: JSON.stringify({
           titulo,
-          cliente_id: clienteId === "none" ? null : clienteId,
+          cliente_nome: clienteNome || null,
           tipo,
           prioridade,
           data_inicio: dataInicio || null,
@@ -105,7 +87,7 @@ export function NovaTarefaModal({ onSuccess }: NovaTarefaModalProps) {
 
   const resetForm = () => {
     setTitulo("");
-    setClienteId("none");
+    setClienteNome("");
     setTipo("ligacao");
     setPrioridade("media");
     setDataInicio("");
@@ -139,18 +121,12 @@ export function NovaTarefaModal({ onSuccess }: NovaTarefaModalProps) {
 
           <div className="space-y-2">
             <Label htmlFor="cliente">Cliente</Label>
-            <Select value={clienteId} onValueChange={setClienteId}>
-              <SelectTrigger>
-                <SelectValue placeholder={loadingClientes ? "Carregando..." : "Selecione um cliente"} />
-              </SelectTrigger>
-              <SelectContent>
-                {clientes.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.nome_razao_social}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Input
+              id="cliente"
+              placeholder="Ex: Empresa ABC Ltda"
+              value={clienteNome}
+              onChange={(e) => setClienteNome(e.target.value)}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">

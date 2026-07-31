@@ -35,6 +35,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Token inválido" }, { status: 401 });
     }
 
+    // Verifica se é demonstração (demo não pode criar clientes reais)
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("cargo")
+      .eq("id", userData.user.id)
+      .single();
+    
+    if ((profile?.cargo || "") === "demonstracao") {
+      return NextResponse.json({ 
+        error: "Usuários de demonstração não podem cadastrar clientes" 
+      }, { status: 403 });
+    }
+
     const { error } = await supabase.from("clientes").insert({
       nome_razao_social: body.nome_razao_social,
       cpf_cnpj: body.cpf_cnpj || null,

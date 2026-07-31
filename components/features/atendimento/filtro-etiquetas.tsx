@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ChevronDown, X, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ETIQUETAS_DISPONIVEIS } from "@/lib/etiquetas";
 
 interface FiltroEtiquetasProps {
   etiquetaSelecionada: string | null;
@@ -16,22 +17,9 @@ export function FiltroEtiquetas({ etiquetaSelecionada, onSelecionar }: FiltroEti
   const supabase = createClient();
 
   const fetchEtiquetas = useCallback(async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const res = await fetch("/api/atendimentos/etiquetas?todas=true", {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setEtiquetas(data.etiquetas || []);
-      }
-    } catch (err) {
-      console.error("Erro ao buscar etiquetas:", err);
-    }
-  }, [supabase]);
+    // Usa apenas as etiquetas definidas no helper compartilhado
+    setEtiquetas([...ETIQUETAS_DISPONIVEIS]);
+  }, []);
 
   useEffect(() => {
     fetchEtiquetas();

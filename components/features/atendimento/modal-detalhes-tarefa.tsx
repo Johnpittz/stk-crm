@@ -48,6 +48,7 @@ interface TarefaCompleta {
   resultado: string | null;
   observacao_resultado: string | null;
   valor_venda: number | null;
+  cliente_nome: string | null;
   clientes: { id: string; nome_razao_social: string } | null;
 }
 
@@ -88,6 +89,14 @@ const coresPrioridade: Record<string, string> = {
   urgente: "bg-red-100 text-red-700",
 };
 
+const opcoesObservacao: Record<string, string[]> = {
+  sucesso: ["Venda fechada", "Orçamento enviado", "Reunião agendada", "Parceria firmada"],
+  insucesso: ["Sem interesse", "Preço elevado", "Escolheu concorrente", "Não é público-alvo"],
+  remarcado: ["Cliente pediu retorno", "Agenda lotada", "Aguardando decisão"],
+  sem_contato: ["Não atendeu", "Número inválido", "Sem WhatsApp", "Caixa postal"],
+  follow_up_necessario: ["Enviar orçamento", "Confirmar reunião", "Verificar disponibilidade", "Aguardando retorno"],
+};
+
 interface ModalDetalhesTarefaProps {
   tarefa: TarefaCompleta | null;
   aberto: boolean;
@@ -108,18 +117,6 @@ export function ModalDetalhesTarefa({
   const [salvando, setSalvando] = useState(false);
   const supabase = createClient();
 
-  // Quando o modal fecha, reseta estados e recarrega dados
-  useEffect(() => {
-    if (aberto && iniciarConcluindo && tarefa && tarefa.coluna_kanban !== "concluida") {
-      setConcluindo(true);
-      setEditando(false);
-    } else if (!aberto) {
-      setConcluindo(false);
-      setEditando(false);
-      setResultadoForm({ resultado: "", observacao: "", valorVenda: "" });
-    }
-  }, [aberto, iniciarConcluindo, tarefa]);
-
   const [form, setForm] = useState({
     titulo: "",
     descricao: "",
@@ -129,35 +126,41 @@ export function ModalDetalhesTarefa({
 
   const [resultadoForm, setResultadoForm] = useState({
     resultado: "" as string,
-    observacao: "",
+    observacao: "" as string,
     valorVenda: "" as string,
   });
 
-  // Opções de observação por resultado
-  const opcoesObservacao: Record<string, string[]> = {
-    sucesso: ["Venda fechada", "Orçamento enviado", "Reunião agendada", "Parceria firmada"],
-    insucesso: ["Sem interesse", "Preço elevado", "Escolheu concorrente", "Não é público-alvo"],
-    remarcado: ["Cliente pediu retorno", "Agenda lotada", "Aguardando decisão"],
-    sem_contato: ["Não atendeu", "Número inválido", "Sem WhatsApp", "Caixa postal"],
-    follow_up_necessario: ["Enviar orçamento", "Confirmar reunião", "Verificar disponibilidade", "Aguardando retorno"],
-  };
+  // Quando abre no modo conclusão, inicializa form
+  useEffect(() => {
+    if (aberto && iniciarConcluindo && tarefa && tarefa.coluna_kanban !== "concluida") {
+      setConcluindo(true);
+      setEditando(false);
+      setForm({
+        titulo: tarefa.titulo,
+        descricao: tarefa.descricao || "",
+        prioridade: tarefa.prioridade,
+        valorVenda: "",
+      });
+      setResultadoForm({ resultado: "", observacao: "", valorVenda: "" });
+    } else if (aberto && tarefa && !iniciarConcluindo) {
+      // Inicializa form com dados da tarefa
+      const valorFormatado = tarefa.valor_venda
+        ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(tarefa.valor_venda)
+        : "";
+      setForm({
+        titulo: tarefa.titulo,
+        descricao: tarefa.descricao || "",
+        prioridade: tarefa.prioridade,
+        valorVenda: valorFormatado,
+      });
+    } else if (!aberto) {
+      setConcluindo(false);
+      setEditando(false);
+      setResultadoForm({ resultado: "", observacao: "", valorVenda: "" });
+    }
+  }, [aberto, iniciarConcluindo, tarefa]);
 
-  // Inicializa form quando tarefa muda
-  const iniciarEdicao = () => {
-    if (!tarefa) return;
-    const valorFormatado = tarefa.valor_venda
-      ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(tarefa.valor_venda)
-      : "";
-    setForm({
-      titulo: tarefa.titulo,
-      descricao: tarefa.descricao || "",
-      prioridade: tarefa.prioridade,
-      valorVenda: valorFormatado,
-    });
-    setEditando(true);
-  };
-
-  const handleSalvar = async () => {
+  const handleSalvarEdicao = async () => {
     if (!tarefa) return;
     setSalvando(true);
     try {
@@ -171,7 +174,6 @@ export function ModalDetalhesTarefa({
         prioridade: form.prioridade,
       };
 
-      // Se resultado é sucesso, enviar valor_venda
       if (tarefa.resultado === "sucesso" && form.valorVenda) {
         body.valor_venda = parseFloat(form.valorVenda.replace(/\./g, "").replace(",", "."));
       }
@@ -200,9 +202,15 @@ export function ModalDetalhesTarefa({
   const handleMover = async (coluna: string) => {
     if (!tarefa) return;
 
-    // Se for concluir, exige preenchimento do resultado
     if (coluna === "concluida") {
       setConcluindo(true);
+      setForm({
+        titulo: tarefa.titulo,
+        descricao: tarefa.descricao || "",
+        prioridade: tarefa.prioridade,
+        valorVenda: "",
+      });
+      setResultadoForm({ resultado: "", observacao: "", valorVenda: "" });
       return;
     }
 
@@ -233,7 +241,6 @@ export function ModalDetalhesTarefa({
     if (!tarefa) return;
     if (!resultadoForm.resultado) return;
     if (!resultadoForm.observacao) return;
-    // Se sucesso, valor é obrigatório
     if (resultadoForm.resultado === "sucesso" && !resultadoForm.valorVenda) return;
 
     setSalvando(true);
@@ -241,22 +248,28 @@ export function ModalDetalhesTarefa({
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
+      const body: any = {
+        id: tarefa.id,
+        coluna_kanban: "concluida",
+        status: "concluida",
+        titulo: form.titulo,
+        descricao: form.descricao,
+        prioridade: form.prioridade,
+        resultado: resultadoForm.resultado,
+        observacao_resultado: resultadoForm.observacao,
+      };
+
+      if (resultadoForm.resultado === "sucesso" && resultadoForm.valorVenda) {
+        body.valor_venda = parseFloat(resultadoForm.valorVenda.replace(/\./g, "").replace(",", "."));
+      }
+
       await fetch("/api/tarefas", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({
-          id: tarefa.id,
-          coluna_kanban: "concluida",
-          status: "concluida",
-          resultado: resultadoForm.resultado,
-          observacao_resultado: resultadoForm.observacao,
-          valor_venda: resultadoForm.resultado === "sucesso" && resultadoForm.valorVenda
-            ? parseFloat(resultadoForm.valorVenda.replace(/\./g, "").replace(",", "."))
-            : null,
-        }),
+        body: JSON.stringify(body),
       });
       setConcluindo(false);
       onAtualizar();
@@ -295,12 +308,12 @@ export function ModalDetalhesTarefa({
     return new Date(data).toLocaleDateString("pt-BR");
   };
 
-  const isAtrasada = (dataFim: string | null) => {
-    if (!dataFim) return false;
-    return new Date(dataFim) < new Date();
-  };
-
   if (!tarefa) return null;
+
+  const isConcluida = tarefa.coluna_kanban === "concluida";
+  const isAndamento = tarefa.coluna_kanban === "em_andamento";
+  const podeEditar = isConcluida;
+  const podeConcluir = isAndamento;
 
   return (
     <Dialog open={aberto} onOpenChange={(open) => !open && onClose()}>
@@ -308,7 +321,7 @@ export function ModalDetalhesTarefa({
         <DialogHeader>
           <div className="flex items-center gap-2">
             <span className="text-xl">{iconesTarefa[tarefa.tipo] || "📋"}</span>
-            {editando ? (
+            {(editando || concluindo) ? (
               <Input
                 value={form.titulo}
                 onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))}
@@ -323,117 +336,65 @@ export function ModalDetalhesTarefa({
         <div className="space-y-4">
           {/* Metadados */}
           <div className="flex flex-wrap items-center gap-2">
-            <Badge
-              variant="secondary"
-              className={cn(
-                coresPrioridade[tarefa.prioridade] || coresPrioridade.media
-              )}
-            >
-              {tarefa.prioridade === "urgente" && (
-                <AlertCircle className="h-3 w-3 mr-1" />
-              )}
-              {tarefa.prioridade}
+            <Badge variant="secondary" className={cn(coresPrioridade[tarefa.prioridade] || coresPrioridade.media)}>
+              {tarefa.prioridade === "urgente" && <AlertCircle className="h-3 w-3 mr-1" />}
+              {(editando || concluindo) ? form.prioridade : tarefa.prioridade}
             </Badge>
-            <Badge variant="outline" className="text-xs">
-              {labelsTipo[tarefa.tipo] || tarefa.tipo}
-            </Badge>
-            <Badge
-              variant="secondary"
-              className={cn(
-                tarefa.coluna_kanban === "concluida"
-                  ? "bg-emerald-100 text-emerald-700"
-                  : tarefa.coluna_kanban === "em_andamento"
-                  ? "bg-blue-100 text-blue-700"
-                  : "bg-slate-100 text-slate-700"
-              )}
-            >
-              {tarefa.coluna_kanban === "concluida"
-                ? "Concluído"
-                : tarefa.coluna_kanban === "em_andamento"
-                ? "Andamento"
-                : "A Fazer"}
+            <Badge variant="outline" className="text-xs">{labelsTipo[tarefa.tipo] || tarefa.tipo}</Badge>
+            <Badge variant="secondary" className={cn(
+              isConcluida ? "bg-emerald-100 text-emerald-700" : isAndamento ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-700"
+            )}>
+              {isConcluida ? "Concluído" : isAndamento ? "Andamento" : "A Fazer"}
             </Badge>
           </div>
 
           {/* Cliente */}
-          {tarefa.clientes?.nome_razao_social && (
+          {(tarefa.clientes?.nome_razao_social || tarefa.cliente_nome) && (
             <div className="text-sm">
               <span className="text-slate-500">Cliente:</span>{" "}
-              <span className="font-medium">{tarefa.clientes.nome_razao_social}</span>
+              <span className="font-medium">{tarefa.clientes?.nome_razao_social || tarefa.cliente_nome}</span>
             </div>
           )}
 
           {/* Datas */}
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
-              <span className="text-slate-500 flex items-center gap-1">
-                <Calendar className="h-3.5 w-3.5" /> Início
-              </span>
+              <span className="text-slate-500 flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> Início</span>
               <span className="font-medium">{formatData(tarefa.data_inicio)}</span>
             </div>
             <div>
-              <span className="text-slate-500 flex items-center gap-1">
-                <Calendar className="h-3.5 w-3.5" /> Prazo
-              </span>
-              <span
-                className={cn(
-                  "font-medium",
-                  isAtrasada(tarefa.data_fim) && "text-red-600"
-                )}
-              >
-                {formatData(tarefa.data_fim)}
-                {isAtrasada(tarefa.data_fim) && (
-                  <span className="text-xs ml-1">(atrasada)</span>
-                )}
-              </span>
+              <span className="text-slate-500 flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> Prazo</span>
+              <span className="font-medium">{formatData(tarefa.data_fim)}</span>
             </div>
-            {tarefa.hora_inicio && (
-              <div>
-                <span className="text-slate-500 flex items-center gap-1">
-                  <Clock className="h-3.5 w-3.5" /> Hora
-                </span>
-                <span className="font-medium">{tarefa.hora_inicio.substring(0, 5)}</span>
-              </div>
-            )}
           </div>
 
           {/* Descrição */}
           <div>
             <Label className="text-xs text-slate-500">Descrição</Label>
-            {editando ? (
+            {(editando || concluindo) ? (
               <textarea
                 value={form.descricao}
                 onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))}
                 rows={3}
-                className="mt-1 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-1 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             ) : (
-              <p className="text-sm text-slate-700 mt-1 whitespace-pre-wrap">
-                {tarefa.descricao || "Sem descrição"}
-              </p>
+              <p className="text-sm text-slate-700 mt-1 whitespace-pre-wrap">{tarefa.descricao || "Sem descrição"}</p>
             )}
           </div>
 
-          {/* Resultado (só mostra se tiver sido concluída) */}
-          {tarefa.resultado && (
+          {/* Resultado (só mostra se tiver sido concluída com resultado) */}
+          {tarefa.resultado && !concluindo && (
             <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
               <Label className="text-xs text-slate-500">Resultado da execução</Label>
               <div className="flex items-center gap-2 mt-1 mb-2">
-                <Badge
-                  variant="secondary"
-                  className={cn(
-                    labelsResultado[tarefa.resultado]?.cor || "bg-slate-100 text-slate-700"
-                  )}
-                >
+                <Badge variant="secondary" className={cn(labelsResultado[tarefa.resultado]?.cor || "bg-slate-100 text-slate-700")}>
                   {labelsResultado[tarefa.resultado]?.label || tarefa.resultado}
                 </Badge>
               </div>
               {tarefa.observacao_resultado && (
-                <p className="text-sm text-slate-700 whitespace-pre-wrap">
-                  {tarefa.observacao_resultado}
-                </p>
+                <p className="text-sm text-slate-700 whitespace-pre-wrap">{tarefa.observacao_resultado}</p>
               )}
-              {/* Valor da venda (se sucesso) */}
               {tarefa.resultado === "sucesso" && tarefa.valor_venda && (
                 <div className="mt-2 pt-2 border-t border-slate-200">
                   <span className="text-xs text-slate-500">Valor da Venda:</span>
@@ -445,18 +406,40 @@ export function ModalDetalhesTarefa({
             </div>
           )}
 
-          {/* Campos editáveis (só no modo edição) — sem prazo/hora */}
-          {editando && (
-            <div className="space-y-3 border-t pt-3">
+          {/* Campo valor editável no modo edição (concluída com sucesso) */}
+          {editando && tarefa.resultado === "sucesso" && (
+            <div>
+              <Label className="text-xs">Valor da Venda (R$)</Label>
+              <Input
+                type="text"
+                placeholder="0,00"
+                value={form.valorVenda}
+                onChange={(e) => {
+                  let v = e.target.value.replace(/\D/g, "");
+                  if (v.length > 2) {
+                    v = v.replace(/(\d{2})$/, ",$1");
+                    v = v.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                  }
+                  setForm((f) => ({ ...f, valorVenda: v }));
+                }}
+                className="mt-1"
+              />
+            </div>
+          )}
+
+          {/* Formulário de conclusão (título/desc/prioridade já editáveis acima) */}
+          {concluindo && (
+            <div className="space-y-3 border-t pt-3 bg-slate-50 -mx-6 px-6 pb-3">
+              <h4 className="font-semibold text-sm text-slate-800 flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                Registrar resultado da tarefa
+              </h4>
+
+              {/* Prioridade */}
               <div>
                 <Label className="text-xs">Prioridade</Label>
-                <Select
-                  value={form.prioridade}
-                  onValueChange={(v) => setForm((f) => ({ ...f, prioridade: v }))}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
+                <Select value={form.prioridade} onValueChange={(v) => setForm((f) => ({ ...f, prioridade: v }))}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="baixa">Baixa</SelectItem>
                     <SelectItem value="media">Média</SelectItem>
@@ -465,46 +448,12 @@ export function ModalDetalhesTarefa({
                   </SelectContent>
                 </Select>
               </div>
-              {/* Valor da venda editável (só se resultado é sucesso) */}
-              {tarefa.resultado === "sucesso" && (
-                <div>
-                  <Label className="text-xs">Valor da Venda (R$)</Label>
-                  <Input
-                    type="text"
-                    placeholder="0,00"
-                    value={form.valorVenda}
-                    onChange={(e) => {
-                      let v = e.target.value.replace(/\D/g, "");
-                      if (v.length > 2) {
-                        v = v.replace(/(\d{2})$/, ",$1");
-                        v = v.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-                      }
-                      setForm((f) => ({ ...f, valorVenda: v }));
-                    }}
-                    className="mt-1"
-                  />
-                </div>
-              )}
-            </div>
-          )}
 
-          {/* Formulário de conclusão obrigatório */}
-          {concluindo && (
-            <div className="space-y-3 border-t pt-3 bg-slate-50 -mx-6 px-6 pb-3">
-              <h4 className="font-semibold text-sm text-slate-800 flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                Registrar resultado da tarefa
-              </h4>
-
+              {/* Resultado */}
               <div>
                 <Label className="text-xs">Resultado *</Label>
-                <Select
-                  value={resultadoForm.resultado}
-                  onValueChange={(v) => setResultadoForm((f) => ({ ...f, resultado: v }))}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
+                <Select value={resultadoForm.resultado} onValueChange={(v) => setResultadoForm((f) => ({ ...f, resultado: v, observacao: "" }))}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="sucesso">✅ Sucesso — contato/negociação realizada</SelectItem>
                     <SelectItem value="insucesso">❌ Insucesso — não houve interesse</SelectItem>
@@ -515,7 +464,7 @@ export function ModalDetalhesTarefa({
                 </Select>
               </div>
 
-              {/* Observação do resultado (dropdown fixo) */}
+              {/* Observação do resultado */}
               <div>
                 <Label className="text-xs">Observação do resultado *</Label>
                 <Select
@@ -534,7 +483,7 @@ export function ModalDetalhesTarefa({
                 </Select>
               </div>
 
-              {/* Campo de valor da venda (só aparece se Sucesso) */}
+              {/* Valor da venda (só se Sucesso) */}
               {resultadoForm.resultado === "sucesso" && (
                 <div>
                   <Label className="text-xs">Valor da Venda (R$) *</Label>
@@ -543,7 +492,6 @@ export function ModalDetalhesTarefa({
                     placeholder="0,00"
                     value={resultadoForm.valorVenda}
                     onChange={(e) => {
-                      // Formatação monetária simples
                       let v = e.target.value.replace(/\D/g, "");
                       if (v.length > 2) {
                         v = v.replace(/(\d{2})$/, ",$1");
@@ -561,9 +509,7 @@ export function ModalDetalhesTarefa({
                   size="sm"
                   onClick={handleConfirmarConclusao}
                   disabled={
-                    salvando ||
-                    !resultadoForm.resultado ||
-                    !resultadoForm.observacao ||
+                    salvando || !resultadoForm.resultado || !resultadoForm.observacao ||
                     (resultadoForm.resultado === "sucesso" && !resultadoForm.valorVenda)
                   }
                   className="gap-1"
@@ -591,42 +537,40 @@ export function ModalDetalhesTarefa({
             <div className="flex flex-wrap items-center gap-2 pt-2 border-t">
               {editando ? (
                 <>
-                  <Button
-                    size="sm"
-                    onClick={handleSalvar}
-                    disabled={salvando}
-                    className="gap-1"
-                  >
+                  <Button size="sm" onClick={handleSalvarEdicao} disabled={salvando} className="gap-1">
                     <Save className="h-4 w-4" />
                     {salvando ? "Salvando..." : "Salvar"}
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setEditando(false)}
-                  >
+                  <Button size="sm" variant="outline" onClick={() => {
+                    setEditando(false);
+                    // Restaura form original
+                    const valorFormatado = tarefa.valor_venda
+                      ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(tarefa.valor_venda) : "";
+                    setForm({ titulo: tarefa.titulo, descricao: tarefa.descricao || "", prioridade: tarefa.prioridade, valorVenda: valorFormatado });
+                  }}>
                     <X className="h-4 w-4 mr-1" />
                     Cancelar
                   </Button>
                 </>
               ) : (
                 <>
-                  <Button size="sm" variant="outline" onClick={iniciarEdicao}>
-                    ✏️ Editar
-                  </Button>
+                  {/* Botão Editar: só aparece quando concluída */}
+                  {podeEditar && (
+                    <Button size="sm" variant="outline" onClick={() => setEditando(true)}>
+                      ✏️ Editar
+                    </Button>
+                  )}
 
-                  {tarefa.coluna_kanban !== "em_andamento" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleMover("em_andamento")}
-                    >
+                  {/* Botão Andamento: aparece quando não está em andamento e não está concluída */}
+                  {!isAndamento && !isConcluida && (
+                    <Button size="sm" variant="outline" onClick={() => handleMover("em_andamento")}>
                       <ArrowRight className="h-4 w-4 mr-1" />
                       Andamento
                     </Button>
                   )}
 
-                  {tarefa.coluna_kanban !== "concluida" && (
+                  {/* Botão Concluir: só aparece quando em andamento */}
+                  {podeConcluir && (
                     <Button
                       size="sm"
                       variant="outline"
