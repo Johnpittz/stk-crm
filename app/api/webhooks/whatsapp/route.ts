@@ -1,19 +1,19 @@
 /**
- * Webhook para receber mensagens do BotConversa (WhatsApp)
+ * Webhook para receber mensagens do WhatsApp via Evolution API
  * 
  * Endpoint: POST /api/webhooks/whatsapp
  * 
- * Quando um cliente envia mensagem no WhatsApp, o BotConversa envia
+ * Quando um cliente envia mensagem no WhatsApp, a Evolution API envia
  * um payload para este endpoint. O sistema:
  * 1. Identifica/cria o atendimento pelo telefone
- * 2. Insere a mensagem no chat
+ * 2. Insere a mensagem no chat (com suporte a mídia)
  * 3. Atualiza o status do atendimento
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { rateLimit } from "@/lib/rate-limit";
-import { telefoneParaDigitos } from "@/lib/botconversa";
+import { telefoneParaDigitos } from "@/lib/evolution-api";
 import { buscarVendedorPadrao } from "@/lib/roteamento";
 
 export const dynamic = "force-dynamic";
@@ -43,24 +43,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse do payload do BotConversa
+    // Parse do payload da Evolution API
     const payload = await request.json();
 
-    // Log para debug (verificar formato real do payload)
-    console.log("[Webhook WhatsApp] Payload recebido:", JSON.stringify(payload, null, 2));
-    console.log("[Webhook WhatsApp] Chaves do payload:", Object.keys(payload).join(", "));
-    
-    // Log de mídia se presente
-    if (payload.media_type || payload.media_url) {
-      console.log("[Webhook WhatsApp] 🎵 Mídia detectada:", JSON.stringify({
-        media_type: payload.media_type,
-        media_url: payload.media_url,
-      }));
-    }
+    // Log para debug
+    console.log("[Webhook WhatsApp] Evento:", payload.event);
+    console.log("[Webhook WhatsApp] Instance:", payload.instance);
 
-    // O BotConversa pode enviar payloads em formatos diferentes
-    // Vamos extrair os dados de forma flexível
-    const dados = extrairDados(payload);
+    // Extrair dados do payload da Evolution API
+    const dados = extrairDadosEvolutionAPI(payload);
 
     if (!dados.telefone) {
       console.error("[Webhook WhatsApp] Telefone não encontrado no payload");
@@ -73,11 +64,14 @@ export async function POST(request: NextRequest) {
     const telefoneLimpo = telefoneParaDigitos(dados.telefone);
     const mensagem = dados.mensagem || "";
     const nomeCliente = dados.nome || null;
-    const urlAudio = dados.url_audio || null;
 
-    // Aceita mensagens vazias se tiver áudio
-    if (!mensagem && !urlAudio) {
-      console.error("[Webhook WhatsApp] Mensagem vazia e sem áudio");
+    // Verificar se tem mídia
+    const temMidia = dados.mediaType !== null;
+    const conteudoMensagem = temMidia ? `[${dados.mediaType}]` : mensagem;
+
+    // Aceita mensagens vazias se tiver mídia
+    if (!conteudoMensagem && !temMidia) {
+      console.error("[Webhook WhatsApp] Mensagem vazia e sem mídia");
       return NextResponse.json(
         { error: "Mensagem vazia" },
         { status: 400 }
@@ -101,7 +95,7 @@ export async function POST(request: NextRequest) {
       await getSupabase()
         .from("atendimentos")
         .update({
-          ultima_mensagem: mensagem,
+          ultima_mensagem: conteudoMensagem,
           ultima_mensagem_data: new Date().toISOString(),
           ultima_mensagem_remetente: "cliente",
           nao_lido: true,
@@ -111,21 +105,22 @@ export async function POST(request: NextRequest) {
         })
         .eq("id", atendimentoExistente.id);
 
-      // Insere mensagem no chat
+      // Insere mensagem no chat com mídia
       await getSupabase().from("atendimento_mensagens").insert({
         atendimento_id: atendimentoExistente.id,
         remetente: "cliente",
-        conteudo: urlAudio ? "[Áudio]" : mensagem,
+        conteudo: conteudoMensagem,
         enviada_por: null,
-        url_audio: urlAudio || null,
+        media_url: dados.mediaUrl || null,
+        media_type: dados.mediaType || null,
+        file_name: dados.fileName || null,
       });
 
-      console.log(`[Webhook WhatsApp] Mensagem adicionada ao atendimento ${atendimentoExistente.id} (audio: ${urlAudio || "nenhum"})`);
+      console.log(`[Webhook WhatsApp] Mensagem adicionada ao atendimento ${atendimentoExistente.id}`);
       return NextResponse.json({ success: true, atendimento_id: atendimentoExistente.id, action: "updated" });
     }
 
     // 3. Cria novo atendimento
-    // Se cliente não tem vendedor no cadastro, usa vendedor padrão (roteamento)
     const vendedorPadrao = await buscarVendedorPadrao();
     const vendedorFinal = cliente?.vendedor_responsavel_id || vendedorPadrao || null;
     
@@ -141,8 +136,8 @@ export async function POST(request: NextRequest) {
         nome_cliente: nomeCliente || cliente?.nome_razao_social || "Cliente",
         status: "aberto",
         prioridade: cliente ? "normal" : "alta",
-        assunto: mensagem.substring(0, 100),
-        ultima_mensagem: mensagem,
+        assunto: conteudoMensagem.substring(0, 100),
+        ultima_mensagem: conteudoMensagem,
         ultima_mensagem_data: new Date().toISOString(),
         ultima_mensagem_remetente: "cliente",
         nao_lido: true,
@@ -155,13 +150,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: erroInsert.message }, { status: 500 });
     }
 
-    // 4. Insere mensagem inicial no chat
+    // 4. Insere mensagem inicial no chat com mídia
     await getSupabase().from("atendimento_mensagens").insert({
       atendimento_id: novoAtendimento.id,
       remetente: "cliente",
-      conteudo: urlAudio ? "[Áudio]" : mensagem,
+      conteudo: conteudoMensagem,
       enviada_por: null,
-      url_audio: urlAudio || null,
+      media_url: dados.mediaUrl || null,
+      media_type: dados.mediaType || null,
+      file_name: dados.fileName || null,
     });
 
     console.log(`[Webhook WhatsApp] Novo atendimento criado: ${novoAtendimento.id}`);
@@ -179,78 +176,79 @@ export async function POST(request: NextRequest) {
 // ==================== FUNÇÕES AUXILIARES ====================
 
 /**
- * Extrai dados do payload do BotConversa de forma flexível
- * O formato pode variar dependendo de como o webhook foi configurado
+ * Extrai dados do payload da Evolution API
+ * Formato padrão: { event, instance, data: { key, message, pushName, ... } }
  */
-function extrairDados(payload: any): { telefone: string | null; mensagem: string | null; nome: string | null; url_audio: string | null } {
-  // Helper: detecta URL de áudio (formato BotConversa: media_type + media_url)
-  const detectarAudio = (obj: any): string | null => {
-    if (!obj) return null;
-    
-    // Formato BotConversa: media_type="audio" e media_url="link"
-    if (obj.media_type === "audio" && obj.media_url) {
-      return obj.media_url;
+function extrairDadosEvolutionAPI(payload: any): {
+  telefone: string | null;
+  mensagem: string | null;
+  nome: string | null;
+  mediaType: string | null;
+  mediaUrl: string | null;
+  fileName: string | null;
+} {
+  // Formato Evolution API: { event: 'messages.upsert', data: { key, message, pushName } }
+  if (payload.event && payload.data) {
+    const data = payload.data;
+    const message = data.message || {};
+    const key = data.key || {};
+
+    // Extrair texto da mensagem
+    let mensagem = null;
+    if (message.conversation) {
+      mensagem = message.conversation;
+    } else if (message.extendedTextMessage?.text) {
+      mensagem = message.extendedTextMessage.text;
+    } else if (message.buttonsResponseMessage?.selectedButtonId) {
+      mensagem = message.buttonsResponseMessage.selectedButtonId;
+    } else if (message.listResponseMessage?.singleSelectReply?.selectedRowId) {
+      mensagem = message.listResponseMessage.singleSelectReply.selectedRowId;
     }
-    
-    // Outros formatos possíveis
-    if (obj.url_audio || obj.audio_url || obj.audio || obj.url) {
-      const val = obj.url_audio || obj.audio_url || obj.audio || obj.url;
-      if (typeof val === "string" && (val.includes(".ogg") || val.includes(".mp3") || val.includes(".opus") || val.includes("audio") || val.includes("media"))) {
-        return val;
-      }
+
+    // Extrair mídia
+    let mediaType = null;
+    let mediaUrl = null;
+    let fileName = null;
+
+    if (message.imageMessage) {
+      mediaType = "image";
+      mediaUrl = message.imageMessage.url || message.imageMessage.mimetype || null;
+    } else if (message.audioMessage) {
+      mediaType = "audio";
+      mediaUrl = message.audioMessage.url || message.audioMessage.mimetype || null;
+    } else if (message.videoMessage) {
+      mediaType = "video";
+      mediaUrl = message.videoMessage.url || message.videoMessage.mimetype || null;
+    } else if (message.documentMessage) {
+      mediaType = "document";
+      mediaUrl = message.documentMessage.url || message.documentMessage.mimetype || null;
+      fileName = message.documentMessage.fileName || null;
+    } else if (message.stickerMessage) {
+      mediaType = "sticker";
+      mediaUrl = message.stickerMessage.url || message.stickerMessage.mimetype || null;
     }
-    if (obj.type === "audio" || obj.message_type === "audio" || obj.mimetype?.startsWith("audio")) {
-      return obj.url || obj.media_url || obj.audio || obj.url_audio || obj.value || null;
-    }
-    return null;
-  };
 
-  // Formato 1: Payload direto do BotConversa (automação)
-  if (payload.phone || payload.telefone) {
+    // Extrair telefone (remove @s.whatsapp.net)
+    const telefone = key.remoteJid?.replace("@s.whatsapp.net", "") || null;
+
     return {
-      telefone: payload.phone || payload.telefone || null,
-      mensagem: payload.message || payload.mensagem || payload.text || null,
-      nome: payload.first_name || payload.name || payload.nome || null,
-      url_audio: detectarAudio(payload),
+      telefone,
+      mensagem,
+      nome: data.pushName || null,
+      mediaType,
+      mediaUrl,
+      fileName,
     };
   }
 
-  // Formato 2: Payload aninhado (webhook padrão)
-  if (payload.data) {
-    return {
-      telefone: payload.data.phone || payload.data.telefone || null,
-      mensagem: payload.data.message || payload.data.mensagem || payload.data.text || null,
-      nome: payload.data.first_name || payload.data.name || payload.data.nome || null,
-      url_audio: detectarAudio(payload.data),
-    };
-  }
-
-  // Formato 3: Evento do BotConversa (varia conforme configuração)
-  if (payload.event && payload.payload) {
-    return {
-      telefone: payload.payload.phone || payload.payload.telefone || null,
-      mensagem: payload.payload.message || payload.payload.mensagem || payload.payload.text || null,
-      nome: payload.payload.first_name || payload.payload.name || payload.payload.nome || null,
-      url_audio: detectarAudio(payload.payload),
-    };
-  }
-
-  // Formato 4: Mensagem do WhatsApp via BotConversa API
-  if (payload.from) {
-    return {
-      telefone: payload.from,
-      mensagem: payload.body || payload.text || payload.message || null,
-      nome: payload.pushName || payload.notify_name || null,
-      url_audio: detectarAudio(payload),
-    };
-  }
-
-  // Fallback: tenta extrair qualquer campo que pareça telefone
+  // Fallback: tenta extrair de outros formatos
   return {
-    telefone: payload.phone_number || payload.number || payload.telefone || null,
-    mensagem: payload.message || payload.mensagem || payload.text || payload.body || null,
-    nome: payload.name || payload.nome || payload.first_name || null,
-    url_audio: detectarAudio(payload),
+    telefone: payload.phone || payload.telefone || payload.number || null,
+    mensagem: payload.message || payload.mensagem || payload.text || null,
+    nome: payload.name || payload.nome || payload.pushName || null,
+    mediaType: payload.media_type || null,
+    mediaUrl: payload.media_url || null,
+    fileName: payload.file_name || null,
   };
 }
 

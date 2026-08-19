@@ -18,6 +18,7 @@ import {
   Target,
   HelpCircle,
   ClipboardList,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,12 @@ export function Sidebar({ user }: SidebarProps) {
       icon: Headset,
       description: "Conversas WhatsApp",
       badge: "Ativo",
+    },
+    {
+      href: "/disparo",
+      label: "Disparo",
+      icon: Zap,
+      description: "Envio em massa",
     },
     {
       href: "/kanban",

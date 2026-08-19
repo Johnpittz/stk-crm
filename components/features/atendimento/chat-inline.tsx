@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Phone, Send, Check, User, MessageCircle, X, ArrowRightLeft } from "lucide-react";
+import { Phone, Send, Check, User, MessageCircle, X, ArrowRightLeft, Paperclip, Mic, Square } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +16,9 @@ interface Mensagem {
   created_at: string;
   enviada_por?: string | null;
   url_audio?: string | null;
+  media_url?: string | null;
+  media_type?: string | null;
+  file_name?: string | null;
 }
 
 interface Atendimento {
@@ -55,6 +58,14 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
   const [transferindo, setTransferindo] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // States para gravação de áudio
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   const fetchMensagens = useCallback(async (silent = false) => {
     if (!atendimento) return;
@@ -191,16 +202,19 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
     }
   }, [mensagens]);
 
-  // Polling: atualiza mensagens a cada 15s em background
+  // Polling: atualiza mensagens a cada 8s em background
+  const messagesCountRef = useRef(0);
   useEffect(() => {
     if (!atendimento) return;
 
+    messagesCountRef.current = mensagens.length;
+
     const interval = setInterval(() => {
       fetchMensagens(true);
-    }, 15000);
+    }, 8000);
 
     return () => clearInterval(interval);
-  }, [atendimento, fetchMensagens]);
+  }, [atendimento, fetchMensagens, mensagens.length]);
 
   const enviarMensagem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -236,9 +250,205 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
     }
   };
 
+  // Enviar arquivo
+  const enviarArquivo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !atendimento) return;
+
+    setEnviando(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = (reader.result as string).split(",")[1];
+        const isImage = file.type.startsWith("image/");
+        const isAudio = file.type.startsWith("audio/");
+        const isVideo = file.type.startsWith("video/");
+
+        let mediatype = "document";
+        if (isImage) mediatype = "image";
+        else if (isAudio) mediatype = "audio";
+        else if (isVideo) mediatype = "video";
+
+        const res = await fetch("/api/send/media", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            number: atendimento.telefone_cliente,
+            mediatype,
+            mimetype: file.type,
+            media: base64,
+            fileName: file.name,
+          }),
+        });
+
+        if (res.ok) {
+          // Salvar no banco
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            await fetch("/api/atendimentos/mensagens", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({
+                atendimento_id: atendimento.id,
+                conteudo: `[${mediatype}]`,
+                remetente: "vendedor",
+                media_url: base64,
+                media_type: mediatype,
+                file_name: file.name,
+              }),
+            });
+          }
+          fetchMensagens();
+          onMensagemEnviada?.();
+        }
+        setEnviando(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error("Erro ao enviar arquivo:", err);
+      setEnviando(false);
+    }
+    // Limpar input
+    e.target.value = "";
+  };
+
+  // Gravar áudio
+  const iniciarGravacao = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm;codecs=opus" });
+        const reader = new FileReader();
+        reader.onload = async () => {
+          const base64 = (reader.result as string).split(",")[1];
+
+          if (atendimento) {
+            try {
+              const res = await fetch("/api/send/media", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  number: atendimento.telefone_cliente,
+                  mediatype: "audio",
+                  mimetype: "audio/ogg; codecs=opus",
+                  media: base64,
+                }),
+              });
+
+              if (res.ok) {
+                // Salvar no banco
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session) {
+                  await fetch("/api/atendimentos/mensagens", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${session.access_token}`,
+                    },
+                    body: JSON.stringify({
+                      atendimento_id: atendimento.id,
+                      conteudo: "[Áudio]",
+                      remetente: "vendedor",
+                      media_type: "audio",
+                    }),
+                  });
+                }
+                fetchMensagens();
+                onMensagemEnviada?.();
+              }
+            } catch (err) {
+              console.error("Erro ao enviar áudio:", err);
+            }
+          }
+        };
+        reader.readAsDataURL(audioBlob);
+
+        stream.getTracks().forEach((track) => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingTime((prev) => prev + 1);
+      }, 1000);
+    } catch (err) {
+      console.error("Erro ao iniciar gravação:", err);
+    }
+  };
+
+  const pararGravacao = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      mediaRecorderRef.current.stop();
+    }
+    if (recordingIntervalRef.current) {
+      clearInterval(recordingIntervalRef.current);
+    }
+    setIsRecording(false);
+    setRecordingTime(0);
+  };
+
+  const formatarTempo = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
+
   const formatarHora = (data: string) => {
     const d = new Date(data);
     return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  };
+
+  // Função para renderizar mídia
+  const renderMidia = (msg: Mensagem) => {
+    if (!msg.media_url && !msg.media_type) return null;
+
+    const mediaUrl = msg.media_url 
+      ? `/api/media?url=${encodeURIComponent(msg.media_url)}&type=${msg.media_type || "image"}`
+      : null;
+
+    switch (msg.media_type) {
+      case "image":
+        return mediaUrl ? (
+          <img src={mediaUrl} alt="Imagem" className="max-w-[250px] rounded-lg cursor-pointer hover:opacity-90" onClick={() => window.open(mediaUrl, "_blank")} />
+        ) : null;
+      case "audio":
+        return (
+          <div className="flex items-center gap-2 min-w-[180px]">
+            <span className="text-lg">🎵</span>
+            <audio controls preload="metadata" className="h-8 flex-1" style={{ filter: "invert(1) hue-rotate(180deg)" }}>
+              <source src={mediaUrl || undefined} />
+            </audio>
+          </div>
+        );
+      case "video":
+        return mediaUrl ? <video src={mediaUrl} controls className="max-w-[250px] rounded-lg" /> : null;
+      case "document":
+        return mediaUrl ? (
+          <a href={mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-blue-400 hover:text-blue-300">
+            <span className="text-2xl">📄</span>
+            <span className="text-sm truncate">{msg.file_name || "Documento"}</span>
+          </a>
+        ) : null;
+      case "sticker":
+        return mediaUrl ? <img src={mediaUrl} alt="Sticker" className="max-h-32" /> : null;
+      default:
+        return null;
+    }
   };
 
   // Se nenhum atendimento selecionado, mostra placeholder
@@ -367,16 +577,12 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
                           : "bg-white border border-slate-200 text-slate-800 rounded-bl-sm shadow-sm"
                       )}
                     >
-                      {msg.url_audio ? (
-                        <div className="flex items-center gap-2 min-w-[180px]">
-                          <span className="text-lg">🎵</span>
-                          <audio controls preload="metadata" className="h-8 flex-1">
-                            <source src={msg.url_audio} />
-                          </audio>
-                        </div>
-                      ) : (
-                        <p>{msg.conteudo}</p>
+                      {/* Renderizar mídia ou texto */}
+                      {renderMidia(msg) || (
+                        <p className="whitespace-pre-wrap break-words">{msg.conteudo}</p>
                       )}
+                      
+                      {/* Timestamp */}
                       <span
                         className={cn(
                           "text-[10px] mt-1 block text-right",
@@ -393,28 +599,78 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
           </div>
 
           {/* Input */}
-          <form
-            onSubmit={enviarMensagem}
-            className="px-4 py-3 border-t border-slate-200 shrink-0 bg-white"
-          >
-            <div className="flex items-center gap-2">
-              <Input
-                placeholder="Digite sua resposta..."
-                value={novaMensagem}
-                onChange={(e) => setNovaMensagem(e.target.value)}
-                className="flex-1"
-                disabled={enviando}
-              />
-              <Button
-                type="submit"
-                size="icon"
-                className="h-9 w-9 bg-green-600 hover:bg-green-700 shrink-0"
-                disabled={enviando || !novaMensagem.trim()}
-              >
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
-          </form>
+          <div className="px-4 py-3 border-t border-slate-200 shrink-0 bg-white">
+            {isRecording ? (
+              // Modo gravação
+              <div className="flex items-center gap-3">
+                <span className="text-red-500 animate-pulse text-lg">🔴</span>
+                <span className="text-sm font-medium text-slate-700">{formatarTempo(recordingTime)}</span>
+                <Button
+                  type="button"
+                  onClick={pararGravacao}
+                  size="icon"
+                  className="h-9 w-9 bg-red-600 hover:bg-red-700 shrink-0"
+                >
+                  <Square className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              // Modo input normal
+              <form onSubmit={enviarMensagem} className="flex items-center gap-2">
+                {/* Botão de arquivo */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                  onChange={enviarArquivo}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 shrink-0 text-slate-500 hover:text-slate-700"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={enviando}
+                  title="Enviar arquivo"
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+
+                {/* Botão de gravação */}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 shrink-0 text-slate-500 hover:text-slate-700"
+                  onClick={iniciarGravacao}
+                  disabled={enviando}
+                  title="Gravar áudio"
+                >
+                  <Mic className="h-4 w-4" />
+                </Button>
+
+                {/* Input de texto */}
+                <Input
+                  placeholder="Digite sua resposta..."
+                  value={novaMensagem}
+                  onChange={(e) => setNovaMensagem(e.target.value)}
+                  className="flex-1"
+                  disabled={enviando}
+                />
+
+                {/* Botão enviar */}
+                <Button
+                  type="submit"
+                  size="icon"
+                  className="h-9 w-9 bg-green-600 hover:bg-green-700 shrink-0"
+                  disabled={enviando || !novaMensagem.trim()}
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              </form>
+            )}
+          </div>
         </>
       )}
     </div>

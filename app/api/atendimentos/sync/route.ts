@@ -9,7 +9,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { buscarMensagensSubscriber } from "@/lib/botconversa";
+import { buscarMensagensSubscriber } from "@/lib/evolution-api";
 
 export const dynamic = "force-dynamic";
 
