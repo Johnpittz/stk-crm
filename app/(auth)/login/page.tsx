@@ -49,7 +49,7 @@ export default function LoginPage() {
           <div className="h-20 w-20 rounded-2xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/30">
             <span className="text-4xl font-bold text-white">R</span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">CRM ROMA</h1>
+          <h1 className="text-2xl font-bold text-slate-900">STK CRM</h1>
           <p className="text-slate-500">Sistema de Gestão Comercial</p>
         </div>
 
@@ -156,7 +156,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <p className="text-center text-xs text-slate-400">
-          © 2026 CRM ROMA. Todos os direitos reservados.
+          © 2026 STK CRM. Todos os direitos reservados.
         </p>
       </div>
     </div>

@@ -6,8 +6,8 @@
  */
 
 export const metadata = {
-  title: "Login - CRM ROMA",
-  description: "Acesse o CRM ROMA",
+  title: "Login - STK CRM",
+  description: "Acesse o STK CRM",
 };
 
 export default function AuthLayout({

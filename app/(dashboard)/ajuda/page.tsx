@@ -36,7 +36,7 @@ export default function AjudaPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Central de Ajuda</h1>
           <p className="text-slate-500 text-sm">
-            Aprenda a usar o CRM-ROMA — navegue pelas abas para entender cada funcionalidade.
+            Aprenda a usar o STK-CRM — navegue pelas abas para entender cada funcionalidade.
           </p>
         </div>
       </div>

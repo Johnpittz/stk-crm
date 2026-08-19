@@ -16,7 +16,7 @@ const routeTitles: Record<string, { title: string; subtitle?: string }> = {
   "/vendas": { title: "Vendas", subtitle: "Histórico de vendas" },
   "/campanhas": { title: "Campanhas", subtitle: "Incentivos e metas" },
   "/configuracoes": { title: "Configurações", subtitle: "Preferências do sistema" },
-  "/ajuda": { title: "Central de Ajuda", subtitle: "Aprenda a usar o CRM-ROMA" },
+  "/ajuda": { title: "Central de Ajuda", subtitle: "Aprenda a usar o STK-CRM" },
 };
 
 function WhatsAppStatus() {
@@ -59,7 +59,7 @@ function WhatsAppStatus() {
 
 export function Header() {
   const pathname = usePathname();
-  const routeInfo = routeTitles[pathname] || { title: "CRM ROMA" };
+  const routeInfo = routeTitles[pathname] || { title: "STK CRM" };
 
   const formatDate = () => {
     return new Date().toLocaleDateString("pt-BR", {
