@@ -1,7 +1,7 @@
 # CRM ROMA - Progresso do Projeto
 
 > **Arquivo de contexto para agentes IA**
-> **Última atualização:** 16/07/2026
+> **Última atualização:** 28/07/2026
 > **Deploy atual:** https://crm-roma-romadistribuicao.vercel.app
 > **Conta Vercel:** roma-6489 (romadistribuicao) — plano Hobby/Free
 > **Conversa atual:** Integração WhatsApp BotConversa ATIVA + Kanban + Etiquetas
@@ -569,6 +569,59 @@ Ou via interface de configurações (quando implementada).
 
 ---
 
+## 12.6 Áudio WhatsApp — Recebimento (PENDENTE — Testar)
+
+### Status: Implementado, aguardando validação
+
+**O que foi feito:**
+- Migration `066_audio_url_mensagens.sql`: coluna `url_audio TEXT` na tabela `atendimento_mensagens`
+- Webhook (`app/api/webhooks/whatsapp/route.ts`): parser detecta `media_type` + `media_url` do payload BotConversa
+- Chat inline (`components/features/atendimento/chat-inline.tsx`): renderiza player de áudio nativo quando `url_audio` existe
+- Polling reduzido de 60s → 15s para atualização mais rápida
+
+**Formato do payload BotConversa (áudio):**
+```json
+{
+  "name": "Nome do Cliente",
+  "email": "email",
+  "phone": "5562999999999",
+  "message": "",
+  "timestamp": "2026-07-28 15:00:00",
+  "media_type": "audio",
+  "media_url": "https://link-do-audio.ogg"
+}
+```
+
+**Parser no webhook:**
+```typescript
+// Formato BotConversa: media_type="audio" e media_url="link"
+if (obj.media_type === "audio" && obj.media_url) {
+  return obj.media_url;
+}
+```
+
+**Configuração no BotConversa (Automações → Webhooks → Editar):**
+- Adicionar variáveis `media_type` e `media_url` no body do JSON
+- O BotConversa envia essas variáveis quando o cliente manda áudio
+
+**Envio de áudio (NÃO implementado — apenas recebimento):**
+- Endpoint: `POST /subscriber/{subscriber_id}/send_message/`
+- Body: `{ "type": "audio", "value": "url_do_audio" }`
+- Arquivo precisa ser `.ogg` ou `.mp3` acessível via URL pública
+
+**Arquivos relevantes:**
+- `supabase/migrations/066_audio_url_mensagens.sql` — migration da coluna
+- `MIGRATE_AUDIO.sql` — SQL para executar no Supabase (já executado ✅)
+- `MIGRATE_AUDIO.md` — documentação da migration
+
+### ⚠️ Para testar:
+1. Verificar se o webhook BotConversa está enviando `media_type` e `media_url`
+2. Enviar áudio pelo WhatsApp
+3. Verificar logs na Vercel: `[Webhook WhatsApp] 🎵 Mídia detectada: ...`
+4. Se não aparecer log, o BotConversa pode não estar enviando mídia via webhook
+
+---
+
 ## 13. Como Continuar
 
 1. **Verificar migration necessária:** Adicionar colunas/tabelas em `supabase/migrations/`
@@ -598,6 +651,16 @@ Ou via interface de configurações (quando implementada).
 - [x] Migration 062: `tarefas.valor_venda NUMERIC(12,2)`
 - [x] Kanban: Valor visível no modal de detalhes (tarefa concluída com sucesso)
 - [x] Kanban: Removido prazo/hora da edição
+
+### 28/07/2026
+- [x] Roteamento de atendimentos: tabela `config_roteamento_whatsapp` + helper `lib/roteamento.ts`
+- [x] Roteamento: webhook e API de criação atribuem vendedor padrão (Valdean)
+- [x] Áudio WhatsApp: migration `url_audio` + parser webhook + player chat-inline
+- [x] Áudio: configuração BotConversa com `media_type` e `media_url`
+- [x] Polling chat-inline reduzido de 60s → 15s
+- [x] Etiquetas sincronizadas: helper `lib/etiquetas.ts` compartilhado entre filtro e painel
+- [x] Etiquetas: removidas etiquetas antigas do filtro (10DescontoBlack, etc.)
+- [x] Fix PATCH 500: campo `nao_lido` agora é processado corretamente
 
 ### 14/07/2026
 - [x] Correção de duplicidade de atendimentos (busca tolerante por últimos 8 dígitos)
