@@ -217,23 +217,36 @@ function extrairDadosEvolutionAPI(payload: any): {
     let mediaUrl = null;
     let fileName = null;
 
+    // Extrair base64 (campo "message.base64" adicionado pela Evolution API com webhookBase64)
+    const base64Data = message.base64 || null;
+
     if (message.imageMessage) {
       mediaType = "image";
-      // Com webhookBase64, o campo "file" contém o base64; senão usa a URL do CDN
-      mediaUrl = message.imageMessage.file || message.imageMessage.url || null;
+      // Prioriza base64 decodificado, senão usa URL do CDN
+      mediaUrl = base64Data
+        ? `data:${message.imageMessage.mimetype || "image/jpeg"};base64,${base64Data}`
+        : message.imageMessage.url || null;
     } else if (message.audioMessage) {
       mediaType = "audio";
-      mediaUrl = message.audioMessage.file || message.audioMessage.url || null;
+      mediaUrl = base64Data
+        ? `data:${message.audioMessage.mimetype || "audio/ogg; codecs=opus"};base64,${base64Data}`
+        : message.audioMessage.url || null;
     } else if (message.videoMessage) {
       mediaType = "video";
-      mediaUrl = message.videoMessage.file || message.videoMessage.url || null;
+      mediaUrl = base64Data
+        ? `data:${message.videoMessage.mimetype || "video/mp4"};base64,${base64Data}`
+        : message.videoMessage.url || null;
     } else if (message.documentMessage) {
       mediaType = "document";
-      mediaUrl = message.documentMessage.file || message.documentMessage.url || null;
+      mediaUrl = base64Data
+        ? `data:${message.documentMessage.mimetype || "application/octet-stream"};base64,${base64Data}`
+        : message.documentMessage.url || null;
       fileName = message.documentMessage.fileName || null;
     } else if (message.stickerMessage) {
       mediaType = "sticker";
-      mediaUrl = message.stickerMessage.file || message.stickerMessage.url || null;
+      mediaUrl = base64Data
+        ? `data:${message.stickerMessage.mimetype || "image/webp"};base64,${base64Data}`
+        : message.stickerMessage.url || null;
     }
 
     // Extrair telefone (remove @s.whatsapp.net)
