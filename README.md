@@ -84,3 +84,4 @@ Acesse: http://localhost:3000
 - Projeção matemática calcula tendência baseada em dias úteis
 - Kanban permite arrastar tarefas entre colunas
 - Toggle de presença simula transbordo de WhatsApp
+
