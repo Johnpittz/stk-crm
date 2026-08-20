@@ -110,13 +110,16 @@ export async function POST(request: NextRequest) {
         console.log(`[Webhook WhatsApp] Atendimento ${atendimentoExistente.id} sem vendedor → atribuindo: ${vendedorUpdate}`);
       }
 
+      const remetente = dados.fromMe ? "operador" : "cliente";
+      const naoLido = dados.fromMe ? false : true;
+
       await getSupabase()
         .from("atendimentos")
         .update({
           ultima_mensagem: conteudoMensagem,
           ultima_mensagem_data: new Date().toISOString(),
-          ultima_mensagem_remetente: "cliente",
-          nao_lido: true,
+          ultima_mensagem_remetente: remetente,
+          nao_lido: naoLido,
           nome_cliente: nomeCliente || atendimentoExistente.nome_cliente,
           cliente_id: cliente?.id || atendimentoExistente.cliente_id,
           vendedor_id: vendedorUpdate,
@@ -126,9 +129,9 @@ export async function POST(request: NextRequest) {
       // Insere mensagem no chat com mídia
       await getSupabase().from("atendimento_mensagens").insert({
         atendimento_id: atendimentoExistente.id,
-        remetente: "cliente",
+        remetente: remetente,
         conteudo: conteudoMensagem,
-        enviada_por: null,
+        enviada_por: dados.fromMe ? (vendedorUpdate || null) : null,
         media_url: dados.mediaUrl || null,
         media_type: dados.mediaType || null,
         file_name: dados.fileName || null,
@@ -141,6 +144,7 @@ export async function POST(request: NextRequest) {
     // 3. Cria novo atendimento
     const vendedorPadrao = await buscarVendedorPadrao();
     const vendedorFinal = cliente?.vendedor_responsavel_id || vendedorPadrao || null;
+    const remetente = dados.fromMe ? "operador" : "cliente";
     
     console.log(`[Webhook WhatsApp] Roteamento: cliente_vendedor=${cliente?.vendedor_responsavel_id}, padrao=${vendedorPadrao}, final=${vendedorFinal}`);
 
@@ -157,8 +161,8 @@ export async function POST(request: NextRequest) {
         assunto: conteudoMensagem.substring(0, 100),
         ultima_mensagem: conteudoMensagem,
         ultima_mensagem_data: new Date().toISOString(),
-        ultima_mensagem_remetente: "cliente",
-        nao_lido: true,
+        ultima_mensagem_remetente: remetente,
+        nao_lido: !dados.fromMe,
       })
       .select()
       .single();
@@ -171,9 +175,9 @@ export async function POST(request: NextRequest) {
     // 4. Insere mensagem inicial no chat com mídia
     await getSupabase().from("atendimento_mensagens").insert({
       atendimento_id: novoAtendimento.id,
-      remetente: "cliente",
+      remetente: remetente,
       conteudo: conteudoMensagem,
-      enviada_por: null,
+      enviada_por: dados.fromMe ? (vendedorFinal || null) : null,
       media_url: dados.mediaUrl || null,
       media_type: dados.mediaType || null,
       file_name: dados.fileName || null,
@@ -205,6 +209,7 @@ function extrairDadosEvolutionAPI(payload: any): {
   mediaUrl: string | null;
   fileName: string | null;
   remoteJid: string | null;
+  fromMe: boolean;
 } {
   // Formato Evolution API: { event: 'messages.upsert', data: { key, message, pushName } }
   if (payload.event && payload.data) {
@@ -272,6 +277,7 @@ function extrairDadosEvolutionAPI(payload: any): {
       mediaUrl,
       fileName,
       remoteJid: key.remoteJid || null,
+      fromMe: !!key.fromMe,
     };
   }
 
@@ -284,6 +290,7 @@ function extrairDadosEvolutionAPI(payload: any): {
     mediaUrl: payload.media_url || null,
     fileName: payload.file_name || null,
     remoteJid: null,
+    fromMe: false,
   };
 }
 

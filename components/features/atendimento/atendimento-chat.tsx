@@ -371,18 +371,19 @@ export function AtendimentoChat({ atendimento, open, onClose, onMarcarResolvido,
               ) : (
                 mensagens.map((msg) => {
                   const isCliente = msg.remetente === "cliente";
+                  const isOperador = msg.remetente === "operador" || msg.remetente === "vendedor";
                   return (
                     <div
                       key={msg.id}
                       className={cn(
                         "flex",
-                        isCliente ? "justify-end" : "justify-start"
+                        isOperador ? "justify-end" : "justify-start"
                       )}
                     >
                       <div
                         className={cn(
                           "max-w-[80%] rounded-2xl px-3 py-2 text-sm",
-                          isCliente
+                          isOperador
                             ? "bg-green-600 text-white rounded-br-sm"
                             : "bg-white border border-slate-200 text-slate-800 rounded-bl-sm shadow-sm"
                         )}
@@ -391,7 +392,7 @@ export function AtendimentoChat({ atendimento, open, onClose, onMarcarResolvido,
                         <span
                           className={cn(
                             "text-[10px] mt-1 block text-right",
-                            isCliente ? "text-green-200" : "text-slate-400"
+                            isOperador ? "text-green-200" : "text-slate-400"
                           )}
                         >
                           {formatarHora(msg.created_at)}
