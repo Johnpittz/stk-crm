@@ -15,6 +15,14 @@ export async function GET(request: NextRequest) {
   const url = request.nextUrl.searchParams.get("url");
   const type = request.nextUrl.searchParams.get("type") || "image";
 
+  const typeMap: Record<string, string> = {
+    image: "image/jpeg",
+    audio: "audio/ogg",
+    video: "video/mp4",
+    document: "application/octet-stream",
+    sticker: "image/webp",
+  };
+
   if (!url) {
     return NextResponse.json({ error: "URL parameter required" }, { status: 400 });
   }
