@@ -49,6 +49,18 @@ export async function POST(request: NextRequest) {
     // Log para debug
     console.log("[Webhook WhatsApp] Evento:", payload.event);
     console.log("[Webhook WhatsApp] Instance:", payload.instance);
+    
+    // Log detalhado do payload para debug de mídia
+    if (payload.data?.message) {
+      const msg = payload.data.message;
+      const hasBase64 = !!msg.base64;
+      const mediaTypes = ['imageMessage', 'audioMessage', 'videoMessage', 'stickerMessage', 'documentMessage'];
+      const foundMedia = mediaTypes.find(t => msg[t]);
+      console.log("[Webhook WhatsApp] hasBase64:", hasBase64, "| mediaType:", foundMedia || "none");
+      if (hasBase64) {
+        console.log("[Webhook WhatsApp] base64 length:", msg.base64.length);
+      }
+    }
 
     // Extrair dados do payload da Evolution API
     const dados = extrairDadosEvolutionAPI(payload);

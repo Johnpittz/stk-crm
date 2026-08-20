@@ -417,9 +417,13 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
   const renderMidia = (msg: Mensagem) => {
     if (!msg.media_url && !msg.media_type) return null;
 
-    const mediaUrl = msg.media_url 
-      ? `/api/media?url=${encodeURIComponent(msg.media_url)}&type=${msg.media_type || "image"}`
-      : null;
+    // Se é data URL (base64), usa direto — proxy não precisa
+    const isDataUrl = msg.media_url?.startsWith("data:");
+    const mediaUrl = isDataUrl
+      ? msg.media_url!
+      : msg.media_url
+        ? `/api/media?url=${encodeURIComponent(msg.media_url)}&type=${msg.media_type || "image"}`
+        : null;
 
     switch (msg.media_type) {
       case "image":
