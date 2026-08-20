@@ -20,6 +20,22 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Se a URL é um data URL (base64), decodificar direto
+    if (url.startsWith("data:")) {
+      const [header, base64Data] = url.split(",");
+      const mimeMatch = header.match(/data:(.*?);/);
+      const contentType = mimeMatch ? mimeMatch[1] : (typeMap[type] || "application/octet-stream");
+      const buffer = Buffer.from(base64Data, "base64");
+      return new NextResponse(buffer, {
+        status: 200,
+        headers: {
+          "Content-Type": contentType,
+          "Cache-Control": "public, max-age=3600, s-maxage=86400",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    }
+
     // Buscar o conteúdo da mídia
     const response = await fetch(url, {
       headers: {

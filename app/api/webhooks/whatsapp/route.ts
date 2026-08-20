@@ -53,6 +53,12 @@ export async function POST(request: NextRequest) {
     // Extrair dados do payload da Evolution API
     const dados = extrairDadosEvolutionAPI(payload);
 
+    // Ignorar mensagens de GRUPO (remoteJid termina em @g.us)
+    if (dados.remoteJid && dados.remoteJid.endsWith("@g.us")) {
+      console.log("[Webhook WhatsApp] Mensagem de grupo ignorada:", dados.remoteJid);
+      return NextResponse.json({ success: true, action: "ignored_group" });
+    }
+
     if (!dados.telefone) {
       console.error("[Webhook WhatsApp] Telefone não encontrado no payload");
       return NextResponse.json(
@@ -186,6 +192,7 @@ function extrairDadosEvolutionAPI(payload: any): {
   mediaType: string | null;
   mediaUrl: string | null;
   fileName: string | null;
+  remoteJid: string | null;
 } {
   // Formato Evolution API: { event: 'messages.upsert', data: { key, message, pushName } }
   if (payload.event && payload.data) {
@@ -212,20 +219,21 @@ function extrairDadosEvolutionAPI(payload: any): {
 
     if (message.imageMessage) {
       mediaType = "image";
-      mediaUrl = message.imageMessage.url || message.imageMessage.mimetype || null;
+      // Com webhookBase64, o campo "file" contém o base64; senão usa a URL do CDN
+      mediaUrl = message.imageMessage.file || message.imageMessage.url || null;
     } else if (message.audioMessage) {
       mediaType = "audio";
-      mediaUrl = message.audioMessage.url || message.audioMessage.mimetype || null;
+      mediaUrl = message.audioMessage.file || message.audioMessage.url || null;
     } else if (message.videoMessage) {
       mediaType = "video";
-      mediaUrl = message.videoMessage.url || message.videoMessage.mimetype || null;
+      mediaUrl = message.videoMessage.file || message.videoMessage.url || null;
     } else if (message.documentMessage) {
       mediaType = "document";
-      mediaUrl = message.documentMessage.url || message.documentMessage.mimetype || null;
+      mediaUrl = message.documentMessage.file || message.documentMessage.url || null;
       fileName = message.documentMessage.fileName || null;
     } else if (message.stickerMessage) {
       mediaType = "sticker";
-      mediaUrl = message.stickerMessage.url || message.stickerMessage.mimetype || null;
+      mediaUrl = message.stickerMessage.file || message.stickerMessage.url || null;
     }
 
     // Extrair telefone (remove @s.whatsapp.net)
@@ -238,6 +246,7 @@ function extrairDadosEvolutionAPI(payload: any): {
       mediaType,
       mediaUrl,
       fileName,
+      remoteJid: key.remoteJid || null,
     };
   }
 
@@ -249,6 +258,7 @@ function extrairDadosEvolutionAPI(payload: any): {
     mediaType: payload.media_type || null,
     mediaUrl: payload.media_url || null,
     fileName: payload.file_name || null,
+    remoteJid: null,
   };
 }
 
