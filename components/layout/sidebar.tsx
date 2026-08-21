@@ -63,38 +63,37 @@ export function Sidebar({ user }: SidebarProps) {
       icon: ClipboardList,
       description: "Tarefas e acompanhamento",
     },
-    {
-      href: "/leads",
-      label: "Leads",
-      icon: Target,
-      description: isDemo ? "Prospecção de empresas" : isGestor ? "Prospecção e fila de leads" : "Meus leads atribuídos",
-    },
-    // Clientes: oculto para demonstração (não deve ver clientes reais)
-    ...(!isDemo ? [{
-      href: "/clientes",
-      label: "Clientes",
-      icon: Users,
-      description: "Gestão de clientes",
-    }] : []),
-    {
-      href: "/produtos",
-      label: "Produtos",
-      icon: Package,
-      description: "Catálogo de produtos",
-    },
+    // --- ITENS OCULTOS (manter código, só não mostra) ---
+    // {
+    //   href: "/leads",
+    //   label: "Leads",
+    //   icon: Target,
+    //   description: "Prospecção de leads",
+    // },
+    // {
+    //   href: "/clientes",
+    //   label: "Clientes",
+    //   icon: Users,
+    //   description: "Gestão de clientes",
+    // },
+    // {
+    //   href: "/produtos",
+    //   label: "Produtos",
+    //   icon: Package,
+    //   description: "Catálogo de produtos",
+    // },
     {
       href: "/dashboard",
       label: "Dashboard",
       icon: LayoutDashboard,
       description: "Visão gerencial",
     },
-    // Equipes: só para gestores, nunca para demo
-    ...(isGestor && !isDemo ? [{
-      href: "/equipes",
-      label: "Equipes",
-      icon: Briefcase,
-      description: "Gestão da equipe",
-    }] : []),
+    // {
+    //   href: "/equipes",
+    //   label: "Equipes",
+    //   icon: Briefcase,
+    //   description: "Gestão da equipe",
+    // },
   ];
 
   const bottomItems = [

@@ -40,17 +40,17 @@ function WhatsAppStatus() {
   return (
     <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${
       status === "connected" 
-        ? "bg-green-100 text-green-700" 
+        ? "bg-emerald-500/20 text-emerald-300" 
         : status === "loading"
-        ? "bg-slate-100 text-slate-500"
-        : "bg-red-100 text-red-700"
+        ? "bg-white/10 text-white/50"
+        : "bg-red-500/20 text-red-300"
     }`}>
       <div className={`w-2 h-2 rounded-full ${
         status === "connected" 
-          ? "bg-green-500" 
+          ? "bg-emerald-400" 
           : status === "loading"
-          ? "bg-slate-400 animate-pulse"
-          : "bg-red-500"
+          ? "bg-white/40 animate-pulse"
+          : "bg-red-400"
       }`} />
       <span className="hidden md:inline">WhatsApp</span>
     </div>
@@ -71,15 +71,15 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-30 border-b bg-white/80 backdrop-blur-md px-6 py-4">
+    <header className="sticky top-0 z-30 border-b border-[#14919B]/20 bg-[#0D3B33]/95 backdrop-blur-md px-6 py-4">
       <div className="flex items-center justify-between">
         {/* Title */}
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">
+          <h1 className="text-2xl font-bold text-white">
             {routeInfo.title}
           </h1>
           {routeInfo.subtitle && (
-            <p className="text-sm text-slate-500">{routeInfo.subtitle}</p>
+            <p className="text-sm text-white/60">{routeInfo.subtitle}</p>
           )}
         </div>
 
@@ -89,20 +89,20 @@ export function Header() {
           <WhatsAppStatus />
 
           {/* Date */}
-          <div className="hidden md:flex items-center gap-2 text-sm text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">
+          <div className="hidden md:flex items-center gap-2 text-sm text-white/60 bg-white/10 px-3 py-1.5 rounded-full">
             <Calendar className="h-4 w-4" />
             <span className="capitalize">{formatDate()}</span>
           </div>
 
           {/* Search */}
-          <Button variant="ghost" size="icon" className="relative">
-            <Search className="h-5 w-5 text-slate-600" />
+          <Button variant="ghost" size="icon" className="relative text-white/60 hover:text-white hover:bg-white/10">
+            <Search className="h-5 w-5" />
           </Button>
 
           {/* Ajuda */}
           <Link href="/ajuda">
-            <Button variant="ghost" size="icon" title="Central de Ajuda">
-              <HelpCircle className="h-5 w-5 text-slate-600" />
+            <Button variant="ghost" size="icon" title="Central de Ajuda" className="text-white/60 hover:text-white hover:bg-white/10">
+              <HelpCircle className="h-5 w-5" />
             </Button>
           </Link>
 
