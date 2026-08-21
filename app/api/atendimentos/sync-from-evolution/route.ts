@@ -301,4 +301,3 @@ async function processarMensagem(supabase: any, msg: any): Promise<"inserida" | 
   console.log(`[Sync] Mensagem inserida: ${remetente} | ${conteudoFinal.substring(0, 40)} | atendimento ${atendimento.id.substring(0, 8)}`);
   return "inserida";
 }
-// Thu Aug 20 21:59:20 -03 2026
