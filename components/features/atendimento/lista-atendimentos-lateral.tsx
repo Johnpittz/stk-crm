@@ -137,7 +137,7 @@ export function ListaAtendimentosLateral({
                           </span>
                         </div>
                          <p className={cn("text-xs truncate", isNaoLido ? "text-slate-700" : "text-slate-500")}>
-                           {a.ultima_mensagem_remetente === "vendedor" ? "Você: " : ""}
+                           {a.ultima_mensagem_remetente === "vendedor" || a.ultima_mensagem_remetente === "operador" ? "Você: " : ""}
                            {a.ultima_mensagem}
                          </p>
                          {/* Badges de etiquetas */}

@@ -188,22 +188,44 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
     setModoTransferencia(false);
   }, [atendimento?.id]);
 
+  // Sincronizar mensagens do celular ao abrir conversa e a cada 30s
+  const syncFromEvolution = useCallback(async () => {
+    if (!atendimento?.telefone_cliente) return;
+    try {
+      await fetch("/api/atendimentos/sync-from-evolution", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ telefone: atendimento.telefone_cliente }),
+      });
+      // Recarregar mensagens após sync
+      fetchMensagens(true);
+    } catch (err) {
+      // Silencioso - sync é best-effort
+    }
+  }, [atendimento, fetchMensagens]);
+
   useEffect(() => {
     if (atendimento) {
       fetchMensagens();
       marcarComoLido();
+      syncFromEvolution(); // Sync do celular ao abrir
     }
-  }, [atendimento, fetchMensagens, marcarComoLido]);
+  }, [atendimento, fetchMensagens, marcarComoLido, syncFromEvolution]);
 
-  // Scroll to bottom quando mensagens mudam
+  // Scroll to bottom quando mensagens mudam (só se estiver no fundo)
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      const el = scrollRef.current;
+      const noFundo = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+      if (noFundo || mensagens.length > messagesCountRef.current) {
+        el.scrollTop = el.scrollHeight;
+      }
     }
   }, [mensagens]);
 
-  // Polling: atualiza mensagens a cada 8s em background
+  // Polling: refresh a cada 8s + sync a cada 30s em background
   const messagesCountRef = useRef(0);
+  const lastSyncRef = useRef(0);
   useEffect(() => {
     if (!atendimento) return;
 
@@ -211,10 +233,16 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
 
     const interval = setInterval(() => {
       fetchMensagens(true);
+      // Sync do celular a cada 30s
+      const agora = Date.now();
+      if (agora - lastSyncRef.current > 30000) {
+        lastSyncRef.current = agora;
+        syncFromEvolution();
+      }
     }, 8000);
 
     return () => clearInterval(interval);
-  }, [atendimento, fetchMensagens, mensagens.length]);
+  }, [atendimento, fetchMensagens, mensagens.length, syncFromEvolution]);
 
   const enviarMensagem = async (e: React.FormEvent) => {
     e.preventDefault();
