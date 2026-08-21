@@ -242,6 +242,7 @@ async function processarMensagem(supabase: any, msg: any): Promise<"inserida" | 
   const fromMe = !!msg.key?.fromMe;
   const pushName = msg.pushName || null;
   const messageTimestamp = msg.messageTimestamp;
+  const waMsgId = msg.key?.id || null;
 
   // Extrair conteúdo
   const { conteudo, mediaType, mediaUrl } = extrairConteudo(msg);
@@ -256,17 +257,28 @@ async function processarMensagem(supabase: any, msg: any): Promise<"inserida" | 
     return "ignorada";
   }
 
-  // Dedup: verificar se já existe mensagem com mesmo conteúdo + mesmo remetente
-  const remetente = fromMe ? "vendedor" : "cliente";
-  const { data: existente } = await supabase
-    .from("atendimento_mensagens")
-    .select("id")
-    .eq("atendimento_id", atendimento.id)
-    .eq("conteudo", conteudoFinal)
-    .eq("remetente", remetente)
-    .limit(1);
+  // Dedup por whatsapp_message_id (mais confiável que conteúdo)
+  if (waMsgId) {
+    const { data: jaExiste } = await supabase
+      .from("atendimento_mensagens")
+      .select("id")
+      .eq("whatsapp_message_id", waMsgId)
+      .limit(1);
+    if (jaExiste && jaExiste.length > 0) return "ignorada";
+  }
 
-  if (existente && existente.length > 0) return "ignorada";
+  // Fallback: dedup por conteúdo + remetente
+  const remetente = fromMe ? "vendedor" : "cliente";
+  if (!waMsgId) {
+    const { data: existente } = await supabase
+      .from("atendimento_mensagens")
+      .select("id")
+      .eq("atendimento_id", atendimento.id)
+      .eq("conteudo", conteudoFinal)
+      .eq("remetente", remetente)
+      .limit(1);
+    if (existente && existente.length > 0) return "ignorada";
+  }
 
   // Inserir mensagem
   const { error: insertError } = await supabase.from("atendimento_mensagens").insert({
@@ -276,6 +288,7 @@ async function processarMensagem(supabase: any, msg: any): Promise<"inserida" | 
     media_url: mediaUrl || null,
     media_type: mediaType || null,
     enviada_por: fromMe ? (atendimento.vendedor_id || null) : null,
+    whatsapp_message_id: waMsgId,
   });
 
   if (insertError) {

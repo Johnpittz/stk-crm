@@ -126,7 +126,19 @@ export async function POST(request: NextRequest) {
         })
         .eq("id", atendimentoExistente.id);
 
-      // Insere mensagem no chat com mídia
+      // Insere mensagem no chat com mídia (usa whatsapp_message_id para dedup)
+      const waMsgId = dados.messageId || null;
+      if (waMsgId) {
+        const { data: jaExiste } = await getSupabase()
+          .from("atendimento_mensagens")
+          .select("id")
+          .eq("whatsapp_message_id", waMsgId)
+          .limit(1);
+        if (jaExiste && jaExiste.length > 0) {
+          console.log(`[Webhook WhatsApp] Mensagem duplicada (wa_id=${waMsgId}), ignorando`);
+          return NextResponse.json({ success: true, action: "duplicate" });
+        }
+      }
       await getSupabase().from("atendimento_mensagens").insert({
         atendimento_id: atendimentoExistente.id,
         remetente: remetente,
@@ -135,6 +147,7 @@ export async function POST(request: NextRequest) {
         media_url: dados.mediaUrl || null,
         media_type: dados.mediaType || null,
         file_name: dados.fileName || null,
+        whatsapp_message_id: waMsgId,
       });
 
       console.log(`[Webhook WhatsApp] Mensagem adicionada ao atendimento ${atendimentoExistente.id}`);
@@ -172,7 +185,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: erroInsert.message }, { status: 500 });
     }
 
-    // 4. Insere mensagem inicial no chat com mídia
+    // 4. Insere mensagem inicial no chat com mídia (com dedup)
+    const waMsgId2 = dados.messageId || null;
+    if (waMsgId2) {
+      const { data: jaExiste2 } = await getSupabase()
+        .from("atendimento_mensagens")
+        .select("id")
+        .eq("whatsapp_message_id", waMsgId2)
+        .limit(1);
+      if (jaExiste2 && jaExiste2.length > 0) {
+        console.log(`[Webhook WhatsApp] Mensagem duplicada (wa_id=${waMsgId2}), ignorando`);
+        return NextResponse.json({ success: true, action: "duplicate" });
+      }
+    }
     await getSupabase().from("atendimento_mensagens").insert({
       atendimento_id: novoAtendimento.id,
       remetente: remetente,
@@ -181,6 +206,7 @@ export async function POST(request: NextRequest) {
       media_url: dados.mediaUrl || null,
       media_type: dados.mediaType || null,
       file_name: dados.fileName || null,
+      whatsapp_message_id: waMsgId2,
     });
 
     console.log(`[Webhook WhatsApp] Novo atendimento criado: ${novoAtendimento.id}`);
@@ -278,6 +304,7 @@ function extrairDadosEvolutionAPI(payload: any): {
       fileName,
       remoteJid: key.remoteJid || null,
       fromMe: !!key.fromMe,
+      messageId: key.id || null,
     };
   }
 
