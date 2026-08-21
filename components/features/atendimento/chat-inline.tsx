@@ -502,7 +502,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
   // Se nenhum atendimento selecionado, mostra placeholder
   if (!atendimento) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-3 bg-slate-50/50">
+      <div className="h-full flex flex-col items-center justify-center text-white/30 gap-3 bg-[#0a1628]">
         <MessageCircle className="h-16 w-16 opacity-20" />
         <p className="text-sm">Selecione uma conversa para iniciar</p>
       </div>
@@ -513,37 +513,37 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
   const telefone = atendimento?.clientes?.telefone || atendimento?.clientes?.celular || atendimento?.telefone_cliente || "";
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col bg-[#0a1628]">
       {/* Header do Chat — simplificado (nome + telefone + ações) */}
-      <div className="shrink-0 px-4 py-2.5 border-b border-slate-200 bg-white">
+      <div className="shrink-0 px-4 py-2.5 border-b border-white/10 bg-[#0f1d32]">
         {modoTransferencia ? (
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 w-7 p-0"
+              className="h-7 w-7 p-0 text-white/60 hover:text-white"
               onClick={() => setModoTransferencia(false)}
             >
               <X className="h-4 w-4" />
             </Button>
-            <span className="text-sm font-semibold text-slate-700">Transferir para:</span>
+            <span className="text-sm font-semibold text-white">Transferir para:</span>
           </div>
         ) : (
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold text-xs shrink-0">
+              <div className="h-9 w-9 rounded-full bg-[#14919B]/20 flex items-center justify-center text-[#14919B] font-bold text-xs shrink-0">
                 {nomeCliente.substring(0, 2).toUpperCase()}
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-slate-900">{nomeCliente}</h3>
-                <span className="text-[11px] text-slate-500">{telefone}</span>
+                <h3 className="text-sm font-semibold text-white">{nomeCliente}</h3>
+                <span className="text-[11px] text-white/40">{telefone}</span>
               </div>
             </div>
             <div className="flex items-center gap-1">
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-8 text-xs gap-1 text-slate-600 hover:text-blue-700 hover:bg-blue-50"
+                className="h-8 text-xs gap-1 text-white/50 hover:text-[#14919B] hover:bg-[#14919B]/10"
                 onClick={() => setModoTransferencia(true)}
                 title="Transferir atendimento"
               >
@@ -596,13 +596,13 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
       ) : (
         <>
           {/* Área de mensagens */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50 min-h-0">
+          <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#0a1628] min-h-0">
             {loading ? (
-              <div className="flex items-center justify-center h-full text-slate-400 text-sm">
+              <div className="flex items-center justify-center h-full text-white/30 text-sm">
                 Carregando mensagens...
               </div>
             ) : mensagens.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-slate-400 text-sm gap-2">
+              <div className="flex flex-col items-center justify-center h-full text-white/30 text-sm gap-2">
                 <MessageCircle className="h-8 w-8 opacity-40" />
                 <p>Nenhuma mensagem ainda</p>
               </div>
@@ -622,8 +622,8 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
                       className={cn(
                         "max-w-[80%] rounded-2xl px-3 py-2 text-sm",
                         isOperador
-                          ? "bg-green-600 text-white rounded-br-sm"
-                          : "bg-white border border-slate-200 text-slate-800 rounded-bl-sm shadow-sm"
+                          ? "bg-[#14919B] text-white rounded-br-sm"
+                          : "bg-white/10 border border-white/10 text-white/90 rounded-bl-sm"
                       )}
                     >
                       {/* Renderizar mídia ou texto */}
@@ -635,7 +635,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
                       <span
                         className={cn(
                           "text-[10px] mt-1 block text-right",
-                          isOperador ? "text-green-200" : "text-slate-400"
+                          isOperador ? "text-white/50" : "text-white/30"
                         )}
                       >
                         {formatarHora(msg.created_at)}
@@ -648,12 +648,12 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
           </div>
 
           {/* Input */}
-          <div className="px-4 py-3 border-t border-slate-200 shrink-0 bg-white">
+          <div className="px-4 py-3 border-t border-white/10 shrink-0 bg-[#0f1d32]">
             {isRecording ? (
               // Modo gravação
               <div className="flex items-center gap-3">
                 <span className="text-red-500 animate-pulse text-lg">🔴</span>
-                <span className="text-sm font-medium text-slate-700">{formatarTempo(recordingTime)}</span>
+                <span className="text-sm font-medium text-white">{formatarTempo(recordingTime)}</span>
                 <Button
                   type="button"
                   onClick={pararGravacao}
@@ -678,7 +678,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 shrink-0 text-slate-500 hover:text-slate-700"
+                  className="h-9 w-9 shrink-0 text-white/40 hover:text-white hover:bg-white/10"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={enviando}
                   title="Enviar arquivo"
@@ -691,7 +691,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 shrink-0 text-slate-500 hover:text-slate-700"
+                  className="h-9 w-9 shrink-0 text-white/40 hover:text-white hover:bg-white/10"
                   onClick={iniciarGravacao}
                   disabled={enviando}
                   title="Gravar áudio"
@@ -704,7 +704,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
                   placeholder="Digite sua resposta..."
                   value={novaMensagem}
                   onChange={(e) => setNovaMensagem(e.target.value)}
-                  className="flex-1"
+                  className="flex-1 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#14919B]"
                   disabled={enviando}
                 />
 
@@ -712,7 +712,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
                 <Button
                   type="submit"
                   size="icon"
-                  className="h-9 w-9 bg-green-600 hover:bg-green-700 shrink-0"
+                  className="h-9 w-9 bg-[#14919B] hover:bg-[#14919B]/80 shrink-0"
                   disabled={enviando || !novaMensagem.trim()}
                 >
                   <Send className="h-4 w-4" />

@@ -52,30 +52,31 @@ export function PerformanceRealTime() {
   const percentual = data?.percentual || 0;
 
   return (
-    <div className="flex items-center gap-6 px-4 py-2 bg-white border border-slate-200 rounded-lg">
+    <div className="flex items-center gap-6 px-4 py-2 bg-white/5 border border-white/10 rounded-lg">
       {/* Título */}
       <div className="flex items-center gap-2 shrink-0">
-        <Target className="h-4 w-4 text-blue-600" />
-        <span className="text-sm font-semibold text-slate-700">Performance Hoje</span>
+        <Target className="h-4 w-4 text-[#14919B]" />
+        <span className="text-sm font-semibold text-white/80">Performance Hoje</span>
       </div>
 
       {/* Barra de progresso compacta */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-500 whitespace-nowrap">
+          <span className="text-xs text-white/40 whitespace-nowrap">
             Meta: {formatCurrency(meta)}
           </span>
           <div className="flex-1">
-            <Progress value={Math.min(percentual, 100)} className="h-2" />
+            <Progress value={Math.min(percentual, 100)} className="h-2 bg-white/10" />
           </div>
-          <span className="text-xs font-bold text-slate-700 whitespace-nowrap">
+          <span className="text-xs font-bold text-white whitespace-nowrap">
             {formatCurrency(valorAtual)}
           </span>
           <Badge
             variant={percentual >= 100 ? "default" : "secondary"}
             className={cn(
               "text-[10px] px-1.5 py-0",
-              percentual >= 100 && "bg-emerald-600 hover:bg-emerald-600"
+              percentual >= 100 && "bg-emerald-600 hover:bg-emerald-600",
+              percentual < 100 && "bg-white/10 text-white/60"
             )}
           >
             {percentual}%

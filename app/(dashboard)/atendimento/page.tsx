@@ -187,7 +187,7 @@ export default function AtendimentoPage() {
 
         <div className="flex items-center gap-3 ml-auto shrink-0">
           {/* Data */}
-          <div className="hidden lg:flex items-center gap-1.5 text-xs text-slate-500">
+          <div className="hidden lg:flex items-center gap-1.5 text-xs text-white/40">
             <Calendar className="h-3.5 w-3.5" />
             <span className="capitalize">{hoje}</span>
           </div>
@@ -199,12 +199,12 @@ export default function AtendimentoPage() {
 
           {/* Busca geral */}
           <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/30" />
             <Input
               placeholder="Buscar..."
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              className="w-48 h-8 text-xs pl-7"
+              className="w-48 h-8 text-xs pl-7 bg-white/10 border-white/10 text-white placeholder:text-white/30 focus:border-[#14919B]"
             />
           </div>
 
@@ -213,8 +213,8 @@ export default function AtendimentoPage() {
             onClick={() => setPainelContatoAberto(!painelContatoAberto)}
             className={`h-8 w-8 rounded-lg border flex items-center justify-center transition-colors ${
               painelContatoAberto
-                ? "bg-blue-50 border-blue-200 text-blue-600"
-                : "bg-white border-slate-200 text-slate-400 hover:text-slate-600"
+                ? "bg-[#14919B]/20 border-[#14919B]/30 text-[#14919B]"
+                : "bg-white/5 border-white/10 text-white/40 hover:text-white/60"
             }`}
             title={painelContatoAberto ? "Fechar painel de contato" : "Abrir painel de contato"}
           >
@@ -224,19 +224,19 @@ export default function AtendimentoPage() {
       </div>
 
       {/* WhatsApp Web 3 COLUNAS: Lista + Chat + Painel Contato */}
-      <div className="flex-1 min-h-0 flex border border-slate-200 rounded-lg overflow-hidden bg-white">
+      <div className="flex-1 min-h-0 flex border border-white/10 rounded-lg overflow-hidden bg-[#0a1628]">
         
         {/* PAINEL ESQUERDO: Lista de conversas */}
-        <div className="w-[320px] min-w-[280px] flex flex-col border-r border-slate-200 bg-white">
+        <div className="w-[320px] min-w-[280px] flex flex-col border-r border-white/10 bg-[#0f1d32]">
           {/* Busca dentro da lista */}
-          <div className="shrink-0 px-3 py-2 border-b border-slate-100 space-y-2">
+          <div className="shrink-0 px-3 py-2 border-b border-white/10 space-y-2">
             <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/30" />
               <Input
                 placeholder="Buscar conversa..."
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
-                className="w-full h-8 text-xs pl-7"
+                className="w-full h-8 text-xs pl-7 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#14919B]"
               />
             </div>
             <FiltroEtiquetas

@@ -72,12 +72,12 @@ export function ListaAtendimentosLateral({
     <div className="h-full flex flex-col">
       <div className="flex-1 min-h-0 overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center h-full text-slate-400 text-sm">
+          <div className="flex items-center justify-center h-full text-white/40 text-sm">
             <Loader2 className="h-4 w-4 animate-spin mr-2" />
             Carregando...
           </div>
         ) : atendimentos.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-slate-400 text-sm">
+          <div className="flex items-center justify-center h-full text-white/40 text-sm">
             Nenhum atendimento
           </div>
         ) : (
@@ -101,10 +101,10 @@ export function ListaAtendimentosLateral({
                   <div
                     key={a.id}
                     className={cn(
-                      "overflow-hidden rounded-lg cursor-pointer transition-all border border-transparent",
+                      "overflow-hidden rounded-lg cursor-pointer transition-all border",
                       isNaoLido
-                        ? "bg-green-50 hover:bg-green-100/80 border-green-100"
-                        : "bg-white hover:bg-slate-50 border-slate-100"
+                        ? "bg-[#14919B]/15 hover:bg-[#14919B]/25 border-[#14919B]/30"
+                        : "bg-white/5 hover:bg-white/10 border-white/5"
                     )}
                     onClick={() => onAbrirChat(a)}
                   >
@@ -115,28 +115,28 @@ export function ListaAtendimentosLateral({
                           className={cn(
                             "h-10 w-10 rounded-full flex items-center justify-center text-xs font-bold",
                             isNaoLido
-                              ? "bg-green-600 text-white"
-                              : "bg-slate-200 text-slate-600"
+                              ? "bg-[#14919B] text-white"
+                              : "bg-white/10 text-white/70"
                           )}
                         >
                           {iniciais}
                         </div>
                         {isNaoLido && (
-                          <span className="absolute -top-0.5 -right-0.5 h-3 w-3 bg-red-500 rounded-full border-2 border-white" />
+                          <span className="absolute -top-0.5 -right-0.5 h-3 w-3 bg-red-500 rounded-full border-2 border-[#0D3B33]" />
                         )}
                       </div>
 
                       {/* Conteúdo */}
                       <div className="flex-1 min-w-0 max-w-full overflow-hidden">
                         <div className="flex items-center gap-1.5">
-                          <span className={cn("text-sm font-semibold truncate", isNaoLido ? "text-slate-900" : "text-slate-700")}>
+                          <span className={cn("text-sm font-semibold truncate", isNaoLido ? "text-white" : "text-white/80")}>
                             {nome}
                           </span>
-                          <span className="text-[11px] text-slate-400 whitespace-nowrap shrink-0">
+                          <span className="text-[11px] text-white/30 whitespace-nowrap shrink-0">
                             {hora}
                           </span>
                         </div>
-                         <p className={cn("text-xs truncate", isNaoLido ? "text-slate-700" : "text-slate-500")}>
+                         <p className={cn("text-xs truncate", isNaoLido ? "text-white/60" : "text-white/40")}>
                            {a.ultima_mensagem_remetente === "vendedor" || a.ultima_mensagem_remetente === "operador" ? "Você: " : ""}
                            {a.ultima_mensagem}
                          </p>
@@ -147,17 +147,17 @@ export function ListaAtendimentosLateral({
                                <Badge
                                  key={et}
                                  variant="secondary"
-                                 className="text-[8px] px-1.5 py-0 h-3.5 bg-blue-100 text-blue-700 font-medium"
+                                 className="text-[8px] px-1.5 py-0 h-3.5 bg-[#14919B]/20 text-[#14919B] font-medium"
                                >
                                  {et}
                                </Badge>
                              ))}
                              {etiquetas[a.id].length > 3 && (
-                               <span className="text-[8px] text-slate-400">+{etiquetas[a.id].length - 3}</span>
+                               <span className="text-[8px] text-white/30">+{etiquetas[a.id].length - 3}</span>
                              )}
                            </div>
                          )}
-                         <span className="text-[10px] text-slate-400 block">
+                         <span className="text-[10px] text-white/25 block">
                            {a.telefone_cliente}
                          </span>
                       </div>

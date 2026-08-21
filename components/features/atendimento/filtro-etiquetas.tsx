@@ -36,8 +36,8 @@ export function FiltroEtiquetas({ etiquetaSelecionada, onSelecionar }: FiltroEti
         className={cn(
           "w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-md border transition-colors",
           etiquetaSelecionada
-            ? "bg-blue-50 border-blue-200 text-blue-700"
-            : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
+            ? "bg-[#14919B]/20 border-[#14919B]/30 text-[#14919B]"
+            : "bg-white/5 border-white/10 text-white/40 hover:border-white/20"
         )}
       >
         <div className="flex items-center gap-1.5">
@@ -46,7 +46,7 @@ export function FiltroEtiquetas({ etiquetaSelecionada, onSelecionar }: FiltroEti
         </div>
         {etiquetaSelecionada ? (
           <X
-            className="h-3 w-3 cursor-pointer hover:text-blue-900"
+            className="h-3 w-3 cursor-pointer hover:text-white"
             onClick={(e) => {
               e.stopPropagation();
               onSelecionar(null);
@@ -66,13 +66,13 @@ export function FiltroEtiquetas({ etiquetaSelecionada, onSelecionar }: FiltroEti
             onClick={() => setAberto(false)}
           />
           {/* Dropdown */}
-          <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+          <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[#0f1d32] border border-white/10 rounded-md shadow-lg max-h-48 overflow-y-auto">
             {etiquetas.map((etiqueta) => (
               <button
                 key={etiqueta}
                 className={cn(
-                  "w-full text-left px-3 py-2 text-xs hover:bg-slate-50 transition-colors",
-                  etiquetaSelecionada === etiqueta && "bg-blue-50 text-blue-700 font-medium"
+                  "w-full text-left px-3 py-2 text-xs hover:bg-white/5 transition-colors",
+                  etiquetaSelecionada === etiqueta && "bg-[#14919B]/20 text-[#14919B] font-medium"
                 )}
                 onClick={() => {
                   onSelecionar(etiqueta === etiquetaSelecionada ? null : etiqueta);
@@ -83,7 +83,7 @@ export function FiltroEtiquetas({ etiquetaSelecionada, onSelecionar }: FiltroEti
               </button>
             ))}
             {etiquetas.length === 0 && (
-              <p className="px-3 py-2 text-xs text-slate-400">Nenhuma etiqueta encontrada</p>
+              <p className="px-3 py-2 text-xs text-white/30">Nenhuma etiqueta encontrada</p>
             )}
           </div>
         </>

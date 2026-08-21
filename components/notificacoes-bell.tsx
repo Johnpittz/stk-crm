@@ -36,11 +36,11 @@ const iconesPorTipo: Record<string, any> = {
 };
 
 const coresPorTipo: Record<string, string> = {
-  atendimento_novo: "bg-green-100 text-green-700",
-  atendimento_mensagem: "bg-blue-100 text-blue-700",
-  tarefa_nova: "bg-purple-100 text-purple-700",
-  transbordo: "bg-amber-100 text-amber-700",
-  meta_alcancada: "bg-emerald-100 text-emerald-700",
+  atendimento_novo: "bg-emerald-500/20 text-emerald-400",
+  atendimento_mensagem: "bg-blue-500/20 text-blue-400",
+  tarefa_nova: "bg-purple-500/20 text-purple-400",
+  transbordo: "bg-amber-500/20 text-amber-400",
+  meta_alcancada: "bg-emerald-500/20 text-emerald-400",
 };
 
 export function NotificacoesBell() {
@@ -278,12 +278,12 @@ export function NotificacoesBell() {
       <Button
         variant="ghost"
         size="icon"
-        className="relative"
+        className="relative text-white/60 hover:text-white hover:bg-white/10"
         onClick={() => setAberto(!aberto)}
       >
-        <Bell className="h-5 w-5 text-slate-600" />
+        <Bell className="h-5 w-5" />
         {naoLidas > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 h-5 w-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">
+          <span className="absolute -top-0.5 -right-0.5 h-5 w-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-[#0D3B33]">
             {naoLidas > 9 ? "9+" : naoLidas}
           </span>
         )}
@@ -291,13 +291,13 @@ export function NotificacoesBell() {
 
       {/* Dropdown */}
       {aberto && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-xl border border-slate-200 z-50">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-            <h3 className="font-semibold text-sm text-slate-800">Notificações</h3>
+        <div className="absolute right-0 top-full mt-2 w-80 bg-[#0f1d32] rounded-xl shadow-xl border border-white/10 z-50">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+            <h3 className="font-semibold text-sm text-white">Notificações</h3>
             {naoLidas > 0 && (
               <button
                 onClick={marcarTodasComoLidas}
-                className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                className="text-xs text-[#14919B] hover:text-[#14919B]/80 font-medium"
               >
                 Marcar todas como lidas
               </button>
@@ -306,20 +306,20 @@ export function NotificacoesBell() {
 
           <ScrollArea className="h-[400px]">
             {notificacoes.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-slate-400">
+              <div className="px-4 py-8 text-center text-sm text-white/30">
                 <Bell className="h-8 w-8 mx-auto mb-2 opacity-40" />
                 Nenhuma notificação
               </div>
             ) : (
-              <div className="divide-y divide-slate-50">
+              <div className="divide-y divide-white/5">
                 {notificacoes.map((n) => {
                   const Icone = iconesPorTipo[n.tipo] || Bell;
-                  const cor = coresPorTipo[n.tipo] || "bg-slate-100 text-slate-700";
+                  const cor = coresPorTipo[n.tipo] || "bg-white/10 text-white/60";
                   return (
                     <div
                       key={n.id}
-                      className={`px-4 py-3 hover:bg-slate-50 cursor-pointer transition-colors ${
-                        !n.lida ? "bg-blue-50/50" : ""
+                      className={`px-4 py-3 hover:bg-white/5 cursor-pointer transition-colors ${
+                        !n.lida ? "bg-[#14919B]/10" : ""
                       }`}
                       onClick={() => !n.lida && marcarComoLida(n.id)}
                     >
@@ -328,16 +328,16 @@ export function NotificacoesBell() {
                           <Icone className="h-4 w-4" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-800 break-words">
+                          <p className="text-sm font-medium text-white break-words">
                             {n.titulo}
                           </p>
-                          <p className="text-xs text-slate-500 mt-0.5 break-words">
+                          <p className="text-xs text-white/50 mt-0.5 break-words">
                             {n.mensagem}
                           </p>
                           <div className="flex items-center justify-between mt-1.5">
-                            <span className="text-[10px] text-slate-400">{formatarTempo(n.created_at)}</span>
+                            <span className="text-[10px] text-white/30">{formatarTempo(n.created_at)}</span>
                             {!n.lida && (
-                              <Badge variant="secondary" className="h-4 text-[9px] bg-blue-100 text-blue-700 px-1.5">
+                              <Badge variant="secondary" className="h-4 text-[9px] bg-[#14919B]/20 text-[#14919B] px-1.5">
                                 Nova
                               </Badge>
                             )}
@@ -345,7 +345,7 @@ export function NotificacoesBell() {
                         </div>
                         <button
                           onClick={(e) => excluirNotificacao(n.id, e)}
-                          className="text-slate-300 hover:text-red-500 transition-colors shrink-0 mt-0.5"
+                          className="text-white/20 hover:text-red-400 transition-colors shrink-0 mt-0.5"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -363,22 +363,22 @@ export function NotificacoesBell() {
       {toastNotif && (
         <div className="fixed top-4 right-4 z-[100] animate-in slide-in-from-top-2 fade-in duration-300">
           <div
-            className="bg-white rounded-lg shadow-lg border border-slate-200 p-4 w-80 cursor-pointer hover:shadow-xl transition-shadow"
+            className="bg-[#0f1d32] rounded-lg shadow-lg border border-white/10 p-4 w-80 cursor-pointer hover:shadow-xl transition-shadow"
             onClick={() => {
               setToastNotif(null);
               setAberto(true);
             }}
           >
             <div className="flex items-start gap-3">
-              <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${coresPorTipo[toastNotif.tipo] || "bg-slate-100 text-slate-700"}`}>
+              <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${coresPorTipo[toastNotif.tipo] || "bg-white/10 text-white/60"}`}>
                 {(() => {
                   const Icone = iconesPorTipo[toastNotif.tipo] || Bell;
                   return <Icone className="h-4 w-4" />;
                 })()}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-slate-800">{toastNotif.titulo}</p>
-                <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{toastNotif.mensagem}</p>
+                <p className="text-sm font-semibold text-white">{toastNotif.titulo}</p>
+                <p className="text-xs text-white/50 mt-0.5 line-clamp-2">{toastNotif.mensagem}</p>
               </div>
             </div>
           </div>

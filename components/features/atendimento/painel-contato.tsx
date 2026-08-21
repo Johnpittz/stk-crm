@@ -45,9 +45,9 @@ function Secao({ titulo, children, badge }: SecaoProps) {
   const [aberta, setAberta] = useState(false);
 
   return (
-    <div className="border-b border-slate-100 last:border-b-0">
+    <div className="border-b border-white/10 last:border-b-0">
       <button
-        className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-white/80 hover:bg-white/5 transition-colors"
         onClick={() => setAberta(!aberta)}
       >
         <span>{titulo}</span>
@@ -172,7 +172,7 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
 
   if (!atendimento) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-3 bg-white border-l border-slate-200">
+      <div className="h-full flex flex-col items-center justify-center text-white/30 gap-3 bg-[#0f1d32] border-l border-white/10">
         <FileText className="h-12 w-12 opacity-20" />
         <p className="text-xs text-center px-4">Selecione uma conversa para ver as informações</p>
       </div>
@@ -193,30 +193,30 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
   );
 
   return (
-    <div className="h-full flex flex-col bg-white border-l border-slate-200 overflow-y-auto">
+    <div className="h-full flex flex-col bg-[#0f1d32] border-l border-white/10 overflow-y-auto">
       {/* Header: Nome + editar */}
       <div className="shrink-0 px-4 pt-4 pb-2">
         <div className="flex items-center justify-between mb-1">
-          <h3 className="text-base font-bold text-slate-900 truncate">{nome}</h3>
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0">
-            <Pencil className="h-3.5 w-3.5 text-slate-500" />
+          <h3 className="text-base font-bold text-white truncate">{nome}</h3>
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0 text-white/40 hover:text-white">
+            <Pencil className="h-3.5 w-3.5" />
           </Button>
         </div>
-        <p className="text-xs text-slate-500">{telefone}</p>
+        <p className="text-xs text-white/40">{telefone}</p>
       </div>
 
       {/* Avatar grande */}
       <div className="flex justify-center py-3">
-        <div className="h-[72px] w-[72px] rounded-full bg-slate-200 flex items-center justify-center text-2xl font-bold text-slate-500">
+        <div className="h-[72px] w-[72px] rounded-full bg-[#14919B]/20 flex items-center justify-center text-2xl font-bold text-[#14919B]">
           {iniciais}
         </div>
       </div>
 
       {/* Status + Marcar como Concluído */}
       <div className="px-4 pb-3 flex items-center gap-3">
-        <span className="text-sm text-slate-600">
+        <span className="text-sm text-white/60">
           Atendimento está{" "}
-          <span className={cn("font-semibold", statusAberto ? "text-green-600" : "text-slate-500")}>
+          <span className={cn("font-semibold", statusAberto ? "text-emerald-400" : "text-white/40")}>
             {statusAberto ? "Aberto" : "Concluído"}
           </span>
         </span>
