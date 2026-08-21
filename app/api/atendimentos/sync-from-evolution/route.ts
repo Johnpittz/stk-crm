@@ -257,7 +257,7 @@ async function processarMensagem(supabase: any, msg: any): Promise<"inserida" | 
   }
 
   // Dedup: verificar se já existe mensagem com mesmo conteúdo + mesmo remetente
-  const remetente = fromMe ? "operador" : "cliente";
+  const remetente = fromMe ? "vendedor" : "cliente";
   const { data: existente } = await supabase
     .from("atendimento_mensagens")
     .select("id")

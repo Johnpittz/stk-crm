@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
         console.log(`[Webhook WhatsApp] Atendimento ${atendimentoExistente.id} sem vendedor → atribuindo: ${vendedorUpdate}`);
       }
 
-      const remetente = dados.fromMe ? "operador" : "cliente";
+      const remetente = dados.fromMe ? "vendedor" : "cliente";
       const naoLido = dados.fromMe ? false : true;
 
       await getSupabase()
@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
     // 3. Cria novo atendimento
     const vendedorPadrao = await buscarVendedorPadrao();
     const vendedorFinal = cliente?.vendedor_responsavel_id || vendedorPadrao || null;
-    const remetente = dados.fromMe ? "operador" : "cliente";
+    const remetente = dados.fromMe ? "vendedor" : "cliente";
     
     console.log(`[Webhook WhatsApp] Roteamento: cliente_vendedor=${cliente?.vendedor_responsavel_id}, padrao=${vendedorPadrao}, final=${vendedorFinal}`);
 
