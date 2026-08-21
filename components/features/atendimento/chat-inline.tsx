@@ -189,16 +189,18 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
   }, [atendimento?.id]);
 
   // Sincronizar mensagens do celular ao abrir conversa e a cada 30s
+  const needsScrollAfterSyncRef = useRef(false);
   const syncFromEvolution = useCallback(async () => {
     if (!atendimento?.telefone_cliente) return;
     try {
+      needsScrollAfterSyncRef.current = true;
       await fetch("/api/atendimentos/sync-from-evolution", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ telefone: atendimento.telefone_cliente }),
       });
       // Recarregar mensagens após sync
-      fetchMensagens(true);
+      await fetchMensagens(true);
     } catch (err) {
       // Silencioso - sync é best-effort
     }
@@ -213,15 +215,29 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
   }, [atendimento, fetchMensagens, marcarComoLido, syncFromEvolution]);
 
   // Scroll to bottom quando mensagens mudam (só se estiver no fundo)
+  const isInitialLoadRef = useRef(true);
   useEffect(() => {
     if (scrollRef.current) {
       const el = scrollRef.current;
-      const noFundo = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
-      if (noFundo || mensagens.length > messagesCountRef.current) {
+      // Primeira vez que abre conversa, sync adicionou mensagens, ou sync pediu scroll
+      if (isInitialLoadRef.current || needsScrollAfterSyncRef.current) {
         el.scrollTop = el.scrollHeight;
+        isInitialLoadRef.current = false;
+        needsScrollAfterSyncRef.current = false;
+      } else {
+        // Só rola pro fundo se já estiver no fundo (não perturbar quem tá lendo acima)
+        const noFundo = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+        if (noFundo) {
+          el.scrollTop = el.scrollHeight;
+        }
       }
     }
   }, [mensagens]);
+
+  // Reset do initial load ao trocar de conversa
+  useEffect(() => {
+    isInitialLoadRef.current = true;
+  }, [atendimento?.id]);
 
   // Polling: refresh a cada 8s + sync a cada 30s em background
   const messagesCountRef = useRef(0);
