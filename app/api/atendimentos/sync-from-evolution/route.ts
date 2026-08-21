@@ -1,11 +1,12 @@
 /**
  * Sync de mensagens do WhatsApp via Evolution API REST
  * 
- * Busca mensagens recentes da Evolution API e salva no Supabase.
- * Resolve o problema de mensagens enviadas do celular não aparecerem no chat.
+ * Busca mensagens recentes da Evolution API via POST /chat/findMessages
+ * e salva no Supabase. Resolve o problema de mensagens enviadas do
+ * celular não aparecerem no chat do CRM.
  * 
  * POST /api/atendimentos/sync-from-evolution
- * Body: { "telefone": "556291889764" } (opcional - sem telefone sincroniza todos)
+ * Body: { "telefone": "556291889764" } (opcional)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -24,8 +25,11 @@ function getSupabase() {
   return createClient(url, key);
 }
 
-/** Busca mensagens recentes da Evolution API para um número específico */
-async function fetchMessagesFromEvolution(phoneNumber: string): Promise<any[]> {
+/**
+ * Busca mensagens via POST /chat/findMessages/{instance}
+ * Endpoint correto da Evolution API v2
+ */
+async function fetchMessagesFromEvolution(phoneNumber: string, limit = 50): Promise<any[]> {
   if (!EVOLUTION_API_KEY) {
     console.error("[Sync] Evolution API key não configurada");
     return [];
@@ -35,7 +39,7 @@ async function fetchMessagesFromEvolution(phoneNumber: string): Promise<any[]> {
 
   try {
     const response = await fetch(
-      `${EVOLUTION_API_URL}/message/findMany/${EVOLUTION_INSTANCE}`,
+      `${EVOLUTION_API_URL}/chat/findMessages/${EVOLUTION_INSTANCE}`,
       {
         method: "POST",
         headers: {
@@ -48,65 +52,25 @@ async function fetchMessagesFromEvolution(phoneNumber: string): Promise<any[]> {
               remoteJid: jid,
             },
           },
-          limit: 50,
-          orderBy: {
-            messageTimestamp: "desc",
-          },
+          limit,
+          page: 1,
         }),
       }
     );
 
     if (!response.ok) {
-      console.error("[Sync] Evolution API error:", response.status, await response.text());
+      const text = await response.text();
+      console.error("[Sync] Evolution API error:", response.status, text.substring(0, 200));
       return [];
     }
 
     const data = await response.json();
-    return Array.isArray(data) ? data : data.records || data.messages || [];
+    // Evolution API v2 retorna { messages: { total, records: [...] } }
+    const records = data?.messages?.records || data?.records || [];
+    console.log(`[Sync] Evolution API retornou ${records.length} mensagens para ${phoneNumber} (total: ${data?.messages?.total || records.length})`);
+    return records;
   } catch (err: any) {
     console.error("[Sync] Erro ao buscar mensagens:", err.message);
-    return [];
-  }
-}
-
-/** Busca todas as conversas ativas da Evolution API */
-async function fetchChatsFromEvolution(): Promise<any[]> {
-  if (!EVOLUTION_API_KEY) return [];
-
-  try {
-    const response = await fetch(
-      `${EVOLUTION_API_URL}/chat/findMany/${EVOLUTION_INSTANCE}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: EVOLUTION_API_KEY,
-        },
-        body: JSON.stringify({
-          where: {
-            key: {
-              remoteJid: {
-                like: "%@s.whatsapp.net",
-              },
-            },
-          },
-          limit: 100,
-          orderBy: {
-            messageTimestamp: "desc",
-          },
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      console.error("[Sync] Chats API error:", response.status);
-      return [];
-    }
-
-    const data = await response.json();
-    return Array.isArray(data) ? data : data.records || data.chats || [];
-  } catch (err: any) {
-    console.error("[Sync] Erro ao buscar chats:", err.message);
     return [];
   }
 }
@@ -119,9 +83,8 @@ function extrairTelefone(remoteJid: string): string {
 /** Extrai conteúdo da mensagem da Evolution API */
 function extrairConteudo(msg: any): { conteudo: string; mediaType: string | null; mediaUrl: string | null } {
   const message = msg.message || {};
-  const base64 = message.base64 || null;
 
-  // Texto
+  // Texto simples
   if (message.conversation) {
     return { conteudo: message.conversation, mediaType: null, mediaUrl: null };
   }
@@ -129,44 +92,21 @@ function extrairConteudo(msg: any): { conteudo: string; mediaType: string | null
     return { conteudo: message.extendedTextMessage.text, mediaType: null, mediaUrl: null };
   }
 
-  // Imagem
+  // Mídia (sem base64 via REST, só placeholders)
   if (message.imageMessage) {
-    const url = base64
-      ? `data:${message.imageMessage.mimetype || "image/jpeg"};base64,${base64}`
-      : message.imageMessage.url || null;
-    return { conteudo: "[Imagem]", mediaType: "image", mediaUrl: url };
+    return { conteudo: "[Imagem]", mediaType: "image", mediaUrl: message.imageMessage.url || null };
   }
-
-  // Áudio
   if (message.audioMessage) {
-    const url = base64
-      ? `data:${message.audioMessage.mimetype || "audio/ogg; codecs=opus"};base64,${base64}`
-      : message.audioMessage.url || null;
-    return { conteudo: "[Áudio]", mediaType: "audio", mediaUrl: url };
+    return { conteudo: "[Áudio]", mediaType: "audio", mediaUrl: message.audioMessage.url || null };
   }
-
-  // Vídeo
   if (message.videoMessage) {
-    const url = base64
-      ? `data:${message.videoMessage.mimetype || "video/mp4"};base64,${base64}`
-      : message.videoMessage.url || null;
-    return { conteudo: "[Vídeo]", mediaType: "video", mediaUrl: url };
+    return { conteudo: "[Vídeo]", mediaType: "video", mediaUrl: message.videoMessage.url || null };
   }
-
-  // Documento
   if (message.documentMessage) {
-    const url = base64
-      ? `data:${message.documentMessage.mimetype || "application/octet-stream"};base64,${base64}`
-      : message.documentMessage.url || null;
-    return { conteudo: `[Documento] ${message.documentMessage.fileName || ""}`, mediaType: "document", mediaUrl: url };
+    return { conteudo: `[Documento] ${message.documentMessage.fileName || ""}`, mediaType: "document", mediaUrl: message.documentMessage.url || null };
   }
-
-  // Sticker
   if (message.stickerMessage) {
-    const url = base64
-      ? `data:${message.stickerMessage.mimetype || "image/webp"};base64,${base64}`
-      : message.stickerMessage.url || null;
-    return { conteudo: "[Sticker]", mediaType: "sticker", mediaUrl: url };
+    return { conteudo: "[Sticker]", mediaType: "sticker", mediaUrl: message.stickerMessage.url || null };
   }
 
   // Buttons / Lists
@@ -176,6 +116,14 @@ function extrairConteudo(msg: any): { conteudo: string; mediaType: string | null
   if (message.listResponseMessage?.singleSelectReply?.selectedRowId) {
     return { conteudo: message.listResponseMessage.singleSelectReply.selectedRowId, mediaType: null, mediaUrl: null };
   }
+
+  // Fallback para messageType
+  const msgType = msg.messageType || "";
+  if (msgType.includes("image")) return { conteudo: "[Imagem]", mediaType: "image", mediaUrl: null };
+  if (msgType.includes("audio")) return { conteudo: "[Áudio]", mediaType: "audio", mediaUrl: null };
+  if (msgType.includes("video")) return { conteudo: "[Vídeo]", mediaType: "video", mediaUrl: null };
+  if (msgType.includes("sticker")) return { conteudo: "[Sticker]", mediaType: "sticker", mediaUrl: null };
+  if (msgType.includes("document")) return { conteudo: "[Documento]", mediaType: "document", mediaUrl: null };
 
   return { conteudo: "", mediaType: null, mediaUrl: null };
 }
@@ -218,53 +166,61 @@ export async function POST(request: NextRequest) {
     const telefoneEspecifico = body.telefone || null;
 
     const supabase = getSupabase();
-    let totalSincronizadas = 0;
-    let totalAtualizadas = 0;
+    let totalInseridas = 0;
+    let totalIgnoradas = 0;
     const erros: string[] = [];
 
     if (telefoneEspecifico) {
       // Sincronizar um número específico
       const telefoneLimpo = telefoneEspecifico.replace(/\D/g, "");
+      console.log(`[Sync] Buscando mensagens para ${telefoneLimpo}`);
+      
       const msgs = await fetchMessagesFromEvolution(telefoneLimpo);
-      console.log(`[Sync] ${msgs.length} mensagens encontradas para ${telefoneLimpo}`);
 
       for (const msg of msgs) {
         try {
           const resultado = await processarMensagem(supabase, msg);
-          if (resultado === "inserida") totalSincronizadas++;
-          else if (resultado === "atualizada") totalAtualizadas++;
+          if (resultado === "inserida") totalInseridas++;
+          else totalIgnoradas++;
         } catch (err: any) {
           erros.push(err.message);
+          console.error("[Sync] Erro processando mensagem:", err.message);
         }
       }
     } else {
-      // Sincronizar todas as conversas ativas
-      const chats = await fetchChatsFromEvolution();
-      console.log(`[Sync] ${chats.length} chats encontrados`);
+      // Sincronizar todas as conversas ativas do Supabase
+      const { data: atendimentos } = await supabase
+        .from("atendimentos")
+        .select("id, telefone_cliente")
+        .eq("status", "aberto")
+        .not("telefone_cliente", "is", null)
+        .limit(50);
 
-      for (const chat of chats) {
-        const telefone = extrairTelefone(chat.key?.remoteJid || chat.remoteJid || "");
-        if (!telefone || telefone.length < 8) continue;
+      if (atendimentos) {
+        for (const at of atendimentos) {
+          const telefoneLimpo = (at.telefone_cliente || "").replace(/\D/g, "");
+          if (telefoneLimpo.length < 8) continue;
 
-        const msgs = await fetchMessagesFromEvolution(telefone);
-        for (const msg of msgs.slice(0, 20)) { // Limita a 20 por conversa
-          try {
-            const resultado = await processarMensagem(supabase, msg);
-            if (resultado === "inserida") totalSincronizadas++;
-            else if (resultado === "atualizada") totalAtualizadas++;
-          } catch (err: any) {
-            erros.push(err.message);
+          const msgs = await fetchMessagesFromEvolution(telefoneLimpo, 20);
+          for (const msg of msgs) {
+            try {
+              const resultado = await processarMensagem(supabase, msg);
+              if (resultado === "inserida") totalInseridas++;
+              else totalIgnoradas++;
+            } catch (err: any) {
+              erros.push(err.message);
+            }
           }
         }
       }
     }
 
-    console.log(`[Sync] Concluído: ${totalSincronizadas} inseridas, ${totalAtualizadas} atualizadas, ${erros.length} erros`);
+    console.log(`[Sync] Concluído: ${totalInseridas} inseridas, ${totalIgnoradas} ignoradas, ${erros.length} erros`);
 
     return NextResponse.json({
       success: true,
-      inseridas: totalSincronizadas,
-      atualizadas: totalAtualizadas,
+      inseridas: totalInseridas,
+      ignoradas: totalIgnoradas,
       erros: erros.length > 0 ? erros.slice(0, 10) : undefined,
     });
   } catch (error: any) {
@@ -273,13 +229,11 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function processarMensagem(supabase: any, msg: any): Promise<"inserida" | "atualizada" | "ignorada"> {
+async function processarMensagem(supabase: any, msg: any): Promise<"inserida" | "ignorada"> {
   const remoteJid = msg.key?.remoteJid || "";
-  
-  // Ignorar grupos
-  if (remoteJid.endsWith("@g.us")) return "ignorada";
 
-  // Ignorar mensagens de canal
+  // Ignorar grupos e canais
+  if (remoteJid.endsWith("@g.us")) return "ignorada";
   if (remoteJid.endsWith("@newsletter")) return "ignorada";
 
   const telefoneLimpo = extrairTelefone(remoteJid);
@@ -287,8 +241,7 @@ async function processarMensagem(supabase: any, msg: any): Promise<"inserida" | 
 
   const fromMe = !!msg.key?.fromMe;
   const pushName = msg.pushName || null;
-  const timestamp = msg.messageTimestamp;
-  const messageId = msg.key?.id || "";
+  const messageTimestamp = msg.messageTimestamp;
 
   // Extrair conteúdo
   const { conteudo, mediaType, mediaUrl } = extrairConteudo(msg);
@@ -303,21 +256,17 @@ async function processarMensagem(supabase: any, msg: any): Promise<"inserida" | 
     return "ignorada";
   }
 
-  // Verificar se mensagem já existe (dedup por conteúdo + timestamp)
+  // Dedup: verificar se já existe mensagem com mesmo conteúdo + mesmo remetente
+  const remetente = fromMe ? "operador" : "cliente";
   const { data: existente } = await supabase
     .from("atendimento_mensagens")
     .select("id")
     .eq("atendimento_id", atendimento.id)
     .eq("conteudo", conteudoFinal)
+    .eq("remetente", remetente)
     .limit(1);
 
   if (existente && existente.length > 0) return "ignorada";
-
-  // Determinar remetente
-  const remetente = fromMe ? "operador" : "cliente";
-  const dataMsg = timestamp
-    ? new Date(timestamp * 1000).toISOString()
-    : new Date().toISOString();
 
   // Inserir mensagem
   const { error: insertError } = await supabase.from("atendimento_mensagens").insert({
@@ -330,22 +279,25 @@ async function processarMensagem(supabase: any, msg: any): Promise<"inserida" | 
   });
 
   if (insertError) {
-    console.error("[Sync] Erro insert mensagem:", insertError.message);
-    throw new Error(insertError.message);
+    throw new Error(`Insert failed: ${insertError.message}`);
   }
 
   // Atualizar preview no atendimento
-  const remetenteUltima = fromMe ? "operador" : "cliente";
+  const dataMsg = messageTimestamp
+    ? new Date(messageTimestamp * 1000).toISOString()
+    : new Date().toISOString();
+
   await supabase
     .from("atendimentos")
     .update({
       ultima_mensagem: conteudoFinal,
       ultima_mensagem_data: dataMsg,
-      ultima_mensagem_remetente: remetenteUltima,
+      ultima_mensagem_remetente: remetente,
       nao_lido: !fromMe,
       nome_cliente: pushName || atendimento.nome_cliente,
     })
     .eq("id", atendimento.id);
 
+  console.log(`[Sync] Mensagem inserida: ${remetente} | ${conteudoFinal.substring(0, 40)} | atendimento ${atendimento.id.substring(0, 8)}`);
   return "inserida";
 }
