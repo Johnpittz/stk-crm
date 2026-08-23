@@ -8,7 +8,7 @@ import { ChatInline } from "@/components/features/atendimento/chat-inline";
 import { TogglePresenca } from "@/components/features/atendimento/toggle-presenca";
 import { PainelContato } from "@/components/features/atendimento/painel-contato";
 import { FiltroEtiquetas } from "@/components/features/atendimento/filtro-etiquetas";
-import { Search, Calendar, HelpCircle, Bell } from "lucide-react";
+import { Search, Calendar, HelpCircle, Bell, Smartphone } from "lucide-react";
 import { SimularWhatsAppModal } from "@/components/features/atendimento/simular-whatsapp-modal";
 import { createClient } from "@/lib/supabase/client";
 
@@ -25,7 +25,15 @@ interface Atendimento {
   vendedor_interagiu: boolean;
   ultima_mensagem_remetente: string | null;
   data_fechamento?: string | null;
+  instancia?: string | null;
   clientes: { id: string; nome_razao_social: string } | null;
+}
+
+interface InstanciaWhatsApp {
+  id: string;
+  name: string;
+  number: string;
+  status: string;
 }
 
 export default function AtendimentoPage() {
@@ -44,6 +52,26 @@ export default function AtendimentoPage() {
   const [etiquetaFiltro, setEtiquetaFiltro] = useState<string | null>(null);
   const [atendimentosComEtiquetas, setAtendimentosComEtiquetas] = useState<Record<string, string[]>>({});
   const [userCargo, setUserCargo] = useState<string>("");
+
+  // Estado do seletor de instância WhatsApp
+  const [instancias, setInstancias] = useState<InstanciaWhatsApp[]>([]);
+  const [instanciaSelecionada, setInstanciaSelecionada] = useState<string>("todas");
+
+  // Buscar instâncias disponíveis
+  useEffect(() => {
+    const fetchInstancias = async () => {
+      try {
+        const res = await fetch("/api/instances");
+        if (res.ok) {
+          const data = await res.json();
+          setInstancias(data.instancias || []);
+        }
+      } catch (err) {
+        console.error("Erro ao buscar instâncias:", err);
+      }
+    };
+    fetchInstancias();
+  }, []);
 
   const atendimentosFiltrados = atendimentos.filter((a) => {
     const termo = busca.toLowerCase().trim();
@@ -74,7 +102,13 @@ export default function AtendimentoPage() {
       matchEtiqueta = etiquetasDoAtendimento.includes(etiquetaFiltro);
     }
 
-    return matchBusca && matchData && matchEtiqueta;
+    // Filtro por instância
+    let matchInstancia = true;
+    if (instanciaSelecionada && instanciaSelecionada !== "todas") {
+      matchInstancia = a.instancia === instanciaSelecionada;
+    }
+
+    return matchBusca && matchData && matchEtiqueta && matchInstancia;
   });
 
   const fetchAtendimentos = useCallback(async (silent = false) => {
@@ -177,6 +211,12 @@ export default function AtendimentoPage() {
     year: "numeric",
   });
 
+  // Contagem de conversas por instância
+  const contarPorInstancia = (instName: string) => {
+    if (instName === "todas") return atendimentos.length;
+    return atendimentos.filter(a => a.instancia === instName).length;
+  };
+
   return (
     <div className="h-[calc(100vh-9rem)] flex flex-col overflow-hidden">
       
@@ -228,6 +268,43 @@ export default function AtendimentoPage() {
         
         {/* PAINEL ESQUERDO: Lista de conversas */}
         <div className="w-[320px] min-w-[280px] flex flex-col border-r border-white/10 bg-[#0f1d32]">
+          
+          {/* SELETOR DE INSTÂNCIA WHATSAPP */}
+          {instancias.length > 0 && (
+            <div className="shrink-0 px-3 py-2 border-b border-white/10">
+              <div className="flex items-center gap-1.5 overflow-x-auto">
+                <Smartphone className="h-3.5 w-3.5 text-white/30 shrink-0" />
+                {/* Botão "Todas" */}
+                <button
+                  onClick={() => setInstanciaSelecionada("todas")}
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-all ${
+                    instanciaSelecionada === "todas"
+                      ? "bg-[#14919B] text-white"
+                      : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70"
+                  }`}
+                >
+                  Todas ({contarPorInstancia("todas")})
+                </button>
+                {/* Botões por instância */}
+                {instancias.map((inst) => (
+                  <button
+                    key={inst.name}
+                    onClick={() => setInstanciaSelecionada(inst.name)}
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-all flex items-center gap-1 ${
+                      instanciaSelecionada === inst.name
+                        ? "bg-[#14919B] text-white"
+                        : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70"
+                    }`}
+                  >
+                    <span className={`h-1.5 w-1.5 rounded-full ${inst.status === "open" ? "bg-green-400" : "bg-red-400"}`} />
+                    {inst.number ? `(${inst.number.slice(-4)})` : inst.name}
+                    <span className="text-white/30 ml-0.5">{contarPorInstancia(inst.name)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Busca dentro da lista */}
           <div className="shrink-0 px-3 py-2 border-b border-white/10 space-y-2">
             <div className="relative">
@@ -263,6 +340,8 @@ export default function AtendimentoPage() {
             onMarcarResolvido={handleFecharAtendimento}
             onMensagemEnviada={fetchAtendimentos}
             onFechar={() => setAtendimentoChat(null)}
+            instancia={instanciaSelecionada !== "todas" ? instanciaSelecionada : undefined}
+            instancias={instancias}
           />
         </div>
 

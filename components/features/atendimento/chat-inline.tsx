@@ -32,7 +32,15 @@ interface Atendimento {
   nao_lido?: boolean;
   created_at?: string;
   cliente_id?: string | null;
+  instancia?: string | null;
   clientes?: { id: string; nome_razao_social: string; telefone?: string; celular?: string } | null;
+}
+
+interface InstanciaWhatsApp {
+  id: string;
+  name: string;
+  number: string;
+  status: string;
 }
 
 interface ChatInlineProps {
@@ -40,6 +48,10 @@ interface ChatInlineProps {
   onMarcarResolvido?: (id: string) => void;
   onMensagemEnviada?: () => void;
   onFechar?: () => void;
+  /** Instância selecionada globalmente na página */
+  instancia?: string;
+  /** Lista de instâncias disponíveis (para info no header) */
+  instancias?: InstanciaWhatsApp[];
 }
 
 interface Vendedor {
@@ -48,7 +60,7 @@ interface Vendedor {
   cargo: string;
 }
 
-export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, onFechar }: ChatInlineProps) {
+export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, onFechar, instancia, instancias }: ChatInlineProps) {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [novaMensagem, setNovaMensagem] = useState("");
   const [loading, setLoading] = useState(false);
@@ -67,9 +79,11 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
-  // State para instância do WhatsApp
-  const [instancias, setInstancias] = useState<Array<{id: string; name: string; number: string; status: string}>>([]);
-  const [instanciaSelecionada, setInstanciaSelecionada] = useState<string>("");
+  // Determinar instância a usar: se atendimento tem instância própria, usa ela; senão usa a global
+  const instanciaAtivo = atendimento?.instancia || instancia || undefined;
+
+  // Encontrar info da instância ativa para exibir no header
+  const instanciaInfo = instancias?.find(i => i.name === instanciaAtivo);
 
   const fetchMensagens = useCallback(async (silent = false) => {
     if (!atendimento) return;
@@ -139,28 +153,6 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
       fetchVendedores();
     }
   }, [modoTransferencia, fetchVendedores]);
-
-  // Buscar instâncias disponíveis do Evolution API
-  useEffect(() => {
-    const fetchInstancias = async () => {
-      try {
-        const res = await fetch("/api/instances");
-        if (res.ok) {
-          const data = await res.json();
-          const insts = data.instancias || [];
-          setInstancias(insts);
-          // Selecionar a primeira instância conectada por padrão
-          if (insts.length > 0 && !instanciaSelecionada) {
-            const conectada = insts.find((i: any) => i.status === "open");
-            setInstanciaSelecionada(conectada?.name || insts[0].name);
-          }
-        }
-      } catch (err) {
-        console.error("Erro ao buscar instâncias:", err);
-      }
-    };
-    fetchInstancias();
-  }, []);
 
   const transferirAtendimento = async (novoVendedorId: string) => {
     if (!atendimento || !novoVendedorId) return;
@@ -305,7 +297,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
           atendimento_id: atendimento.id,
           conteudo: novaMensagem.trim(),
           remetente: "vendedor",
-          instance: instanciaSelecionada || undefined,
+          instance: instanciaAtivo,
         }),
       });
 
@@ -349,7 +341,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
             mimetype: file.type,
             media: base64,
             fileName: file.name,
-            instance: instanciaSelecionada || undefined,
+            instance: instanciaAtivo,
           }),
         });
 
@@ -417,7 +409,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
                   mediatype: "audio",
                   mimetype: "audio/ogg; codecs=opus",
                   media: base64,
-                  instance: instanciaSelecionada || undefined,
+                  instance: instanciaAtivo,
                 }),
               });
 
@@ -543,7 +535,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
 
   return (
     <div className="h-full flex flex-col bg-[#0a1628]">
-      {/* Header do Chat — simplificado (nome + telefone + ações) */}
+      {/* Header do Chat — simplificado (nome + telefone + instância + ações) */}
       <div className="shrink-0 px-4 py-2.5 border-b border-white/10 bg-[#0f1d32]">
         {modoTransferencia ? (
           <div className="flex items-center gap-2">
@@ -565,7 +557,14 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-white">{nomeCliente}</h3>
-                <span className="text-[11px] text-white/40">{telefone}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-white/40">{telefone}</span>
+                  {instanciaInfo && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#14919B]/20 text-[#14919B] font-medium">
+                      {instanciaInfo.number ? `(${instanciaInfo.number.slice(-4)})` : instanciaInfo.name}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-1">
@@ -675,26 +674,6 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
               })
             )}
           </div>
-
-          {/* Seletor de instância WhatsApp */}
-          {instancias.length > 1 && (
-            <div className="px-4 py-2 border-t border-white/10 bg-[#0a1628]">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-white/50">Enviar via:</span>
-                <select
-                  value={instanciaSelecionada}
-                  onChange={(e) => setInstanciaSelecionada(e.target.value)}
-                  className="bg-white/5 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-[#14919B]"
-                >
-                  {instancias.map((inst) => (
-                    <option key={inst.name} value={inst.name} className="bg-[#0f1d32]">
-                      {inst.name} ({inst.number}) {inst.status === "open" ? "🟢" : "🔴"}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          )}
 
           {/* Input */}
           <div className="px-4 py-3 border-t border-white/10 shrink-0 bg-[#0f1d32]">

@@ -123,6 +123,7 @@ export async function POST(request: NextRequest) {
           nome_cliente: nomeCliente || atendimentoExistente.nome_cliente,
           cliente_id: cliente?.id || atendimentoExistente.cliente_id,
           vendedor_id: vendedorUpdate,
+          instancia: dados.instance || atendimentoExistente.instancia || "minha-conexao",
         })
         .eq("id", atendimentoExistente.id);
 
@@ -176,6 +177,7 @@ export async function POST(request: NextRequest) {
         ultima_mensagem_data: new Date().toISOString(),
         ultima_mensagem_remetente: remetente,
         nao_lido: !dados.fromMe,
+        instancia: dados.instance || "minha-conexao",
       })
       .select()
       .single();
@@ -237,6 +239,7 @@ function extrairDadosEvolutionAPI(payload: any): {
   remoteJid: string | null;
   fromMe: boolean;
   messageId: string | null;
+  instance: string | null;
 } {
   // Formato Evolution API: { event: 'messages.upsert', data: { key, message, pushName } }
   if (payload.event && payload.data) {
@@ -306,11 +309,12 @@ function extrairDadosEvolutionAPI(payload: any): {
       remoteJid: key.remoteJid || null,
       fromMe: !!key.fromMe,
       messageId: key.id || null,
+      instance: payload.instance || null,
     };
-  }
+    }
 
-  // Fallback: tenta extrair de outros formatos
-  return {
+    // Fallback: tenta extrair de outros formatos
+    return {
     telefone: payload.phone || payload.telefone || payload.number || null,
     mensagem: payload.message || payload.mensagem || payload.text || null,
     nome: payload.name || payload.nome || payload.pushName || null,
@@ -320,7 +324,8 @@ function extrairDadosEvolutionAPI(payload: any): {
     remoteJid: null,
     fromMe: false,
     messageId: payload.messageId || payload.id || null,
-  };
+    instance: payload.instance || null,
+    };
 }
 
 /**
@@ -358,7 +363,7 @@ async function buscarAtendimentoAberto(telefoneLimpo: string) {
   // Primeiro: busca exata (rápida)
   const { data: exato } = await getSupabase()
     .from("atendimentos")
-    .select("id, nome_cliente, cliente_id, vendedor_id")
+    .select("id, nome_cliente, cliente_id, vendedor_id, instancia")
     .eq("telefone_cliente", telefoneLimpo)
     .eq("status", "aberto")
     .limit(1)
@@ -372,7 +377,7 @@ async function buscarAtendimentoAberto(telefoneLimpo: string) {
 
   const { data: candidatos } = await getSupabase()
     .from("atendimentos")
-    .select("id, nome_cliente, cliente_id, vendedor_id, telefone_cliente")
+    .select("id, nome_cliente, cliente_id, vendedor_id, telefone_cliente, instancia")
     .eq("status", "aberto")
     .order("ultima_mensagem_data", { ascending: false })
     .limit(50);
