@@ -28,6 +28,7 @@ interface ListaAtendimentosLateralProps {
   onRefresh: () => void;
   onAbrirChat: (a: Atendimento) => void;
   etiquetas?: Record<string, string[]>;
+  selectedId?: string | null;
 }
 
 export function ListaAtendimentosLateral({
@@ -36,6 +37,7 @@ export function ListaAtendimentosLateral({
   onRefresh,
   onAbrirChat,
   etiquetas = {},
+  selectedId,
 }: ListaAtendimentosLateralProps) {
   const supabase = createClient();
 
@@ -85,6 +87,7 @@ export function ListaAtendimentosLateral({
             <div className="space-y-1 p-1">
               {atendimentos.map((a) => {
                 const isNaoLido = a.nao_lido;
+                const isSelected = selectedId === a.id;
                 const hora = a.ultima_mensagem_data
                   ? horaAtendimento(a.ultima_mensagem_data)
                   : "";
@@ -102,9 +105,11 @@ export function ListaAtendimentosLateral({
                     key={a.id}
                     className={cn(
                       "overflow-hidden rounded-lg cursor-pointer transition-all border",
-                      isNaoLido
-                        ? "bg-[#14919B]/15 hover:bg-[#14919B]/25 border-[#14919B]/30"
-                        : "bg-white/5 hover:bg-white/10 border-white/5"
+                      isSelected
+                        ? "bg-[#14919B]/30 border-[#14919B]/50 ring-1 ring-[#14919B]/20"
+                        : isNaoLido
+                          ? "bg-[#14919B]/15 hover:bg-[#14919B]/25 border-[#14919B]/30"
+                          : "bg-white/5 hover:bg-white/10 border-white/5"
                     )}
                     onClick={() => onAbrirChat(a)}
                   >
@@ -114,9 +119,11 @@ export function ListaAtendimentosLateral({
                         <div
                           className={cn(
                             "h-10 w-10 rounded-full flex items-center justify-center text-xs font-bold",
-                            isNaoLido
+                            isSelected
                               ? "bg-[#14919B] text-white"
-                              : "bg-white/10 text-white/70"
+                              : isNaoLido
+                                ? "bg-[#14919B] text-white"
+                                : "bg-white/10 text-white/70"
                           )}
                         >
                           {iniciais}
@@ -129,7 +136,7 @@ export function ListaAtendimentosLateral({
                       {/* Conteúdo */}
                       <div className="flex-1 min-w-0 max-w-full overflow-hidden">
                         <div className="flex items-center gap-1.5">
-                          <span className={cn("text-sm font-semibold truncate", isNaoLido ? "text-white" : "text-white/80")}>
+                          <span className={cn("text-sm font-semibold truncate", isSelected || isNaoLido ? "text-white" : "text-white/80")}>
                             {nome}
                           </span>
                           <span className="text-[11px] text-white/30 whitespace-nowrap shrink-0">
