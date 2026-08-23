@@ -2,7 +2,7 @@
  * Rota para enviar mídia via WhatsApp
  * 
  * Endpoint: POST /api/send/media
- * Body: { number, mediatype, mimetype, media (base64), fileName? }
+ * Body: { number, mediatype, mimetype, media (base64), fileName?, instance? }
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { number, mediatype, mimetype, media, fileName } = body;
+    const { number, mediatype, mimetype, media, fileName, instance } = body;
 
     if (!number || !media) {
       return NextResponse.json(
@@ -22,13 +22,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`[Send Media] Enviando ${mediatype || 'image'} para ${number}`);
+    console.log(`[Send Media] Enviando ${mediatype || 'image'} para ${number} via ${instance || 'padrão'}`);
 
     // Se for áudio, usar endpoint especial de áudio (ptt)
     if (mediatype === 'audio') {
       const result = await enviarAudioWhatsApp({
         telefone: number,
         audio: media,
+        instance,
       });
 
       if (!result.success) {
@@ -50,6 +51,7 @@ export async function POST(request: NextRequest) {
       mimetype: mimetype || 'image/jpeg',
       media,
       fileName,
+      instance,
     });
 
     if (!result.success) {

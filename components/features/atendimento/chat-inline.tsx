@@ -67,6 +67,10 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
+  // State para instância do WhatsApp
+  const [instancias, setInstancias] = useState<Array<{id: string; name: string; number: string; status: string}>>([]);
+  const [instanciaSelecionada, setInstanciaSelecionada] = useState<string>("");
+
   const fetchMensagens = useCallback(async (silent = false) => {
     if (!atendimento) return;
     if (!silent) setLoading(true);
@@ -135,6 +139,28 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
       fetchVendedores();
     }
   }, [modoTransferencia, fetchVendedores]);
+
+  // Buscar instâncias disponíveis do Evolution API
+  useEffect(() => {
+    const fetchInstancias = async () => {
+      try {
+        const res = await fetch("/api/instances");
+        if (res.ok) {
+          const data = await res.json();
+          const insts = data.instancias || [];
+          setInstancias(insts);
+          // Selecionar a primeira instância conectada por padrão
+          if (insts.length > 0 && !instanciaSelecionada) {
+            const conectada = insts.find((i: any) => i.status === "open");
+            setInstanciaSelecionada(conectada?.name || insts[0].name);
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao buscar instâncias:", err);
+      }
+    };
+    fetchInstancias();
+  }, []);
 
   const transferirAtendimento = async (novoVendedorId: string) => {
     if (!atendimento || !novoVendedorId) return;
@@ -279,6 +305,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
           atendimento_id: atendimento.id,
           conteudo: novaMensagem.trim(),
           remetente: "vendedor",
+          instance: instanciaSelecionada || undefined,
         }),
       });
 
@@ -322,6 +349,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
             mimetype: file.type,
             media: base64,
             fileName: file.name,
+            instance: instanciaSelecionada || undefined,
           }),
         });
 
@@ -389,6 +417,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
                   mediatype: "audio",
                   mimetype: "audio/ogg; codecs=opus",
                   media: base64,
+                  instance: instanciaSelecionada || undefined,
                 }),
               });
 
@@ -646,6 +675,26 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
               })
             )}
           </div>
+
+          {/* Seletor de instância WhatsApp */}
+          {instancias.length > 1 && (
+            <div className="px-4 py-2 border-t border-white/10 bg-[#0a1628]">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-white/50">Enviar via:</span>
+                <select
+                  value={instanciaSelecionada}
+                  onChange={(e) => setInstanciaSelecionada(e.target.value)}
+                  className="bg-white/5 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-[#14919B]"
+                >
+                  {instancias.map((inst) => (
+                    <option key={inst.name} value={inst.name} className="bg-[#0f1d32]">
+                      {inst.name} ({inst.number}) {inst.status === "open" ? "🟢" : "🔴"}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
 
           {/* Input */}
           <div className="px-4 py-3 border-t border-white/10 shrink-0 bg-[#0f1d32]">

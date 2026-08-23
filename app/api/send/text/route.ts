@@ -2,7 +2,7 @@
  * Rota para enviar mensagem de texto via WhatsApp
  * 
  * Endpoint: POST /api/send/text
- * Body: { number: string, text: string }
+ * Body: { number: string, text: string, instance?: string }
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -13,8 +13,7 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { number, text } = body;
-
+    const { number, text, instance } = body;
     if (!number || !text) {
       return NextResponse.json(
         { error: "number e text são obrigatórios" },
@@ -22,11 +21,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`[Send Text] Enviando para ${number}: ${text.substring(0, 50)}...`);
+    console.log(`[Send Text] Enviando para ${number} via ${instance || 'padrão'}: ${text.substring(0, 50)}...`);
 
     const result = await enviarMensagemWhatsApp({
       telefone: number,
       mensagem: text,
+      instance,
     });
 
     if (!result.success) {

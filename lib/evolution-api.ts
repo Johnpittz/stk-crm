@@ -13,6 +13,7 @@ const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE || 'minha-conexao';
 interface EnviarMensagemParams {
   telefone: string;
   mensagem: string;
+  instance?: string; // Instância do Evolution API (opcional, usa a padrão se não informado)
 }
 
 interface EnviarMensagemResponse {
@@ -27,6 +28,7 @@ interface EnviarMidiaParams {
   mimetype: string;
   media: string; // base64
   fileName?: string;
+  instance?: string; // Instância do Evolution API (opcional)
 }
 
 /**
@@ -34,7 +36,8 @@ interface EnviarMidiaParams {
  * POST /message/sendText/{instance}
  */
 export async function enviarMensagemWhatsApp(params: EnviarMensagemParams): Promise<EnviarMensagemResponse> {
-  const { telefone, mensagem } = params;
+  const { telefone, mensagem, instance } = params;
+  const instanceName = instance || EVOLUTION_INSTANCE;
 
   if (!EVOLUTION_API_KEY) {
     return { success: false, error: 'API Key não configurada' };
@@ -44,7 +47,7 @@ export async function enviarMensagemWhatsApp(params: EnviarMensagemParams): Prom
 
   try {
     const response = await fetch(
-      `${EVOLUTION_API_URL}/message/sendText/${EVOLUTION_INSTANCE}`,
+      `${EVOLUTION_API_URL}/message/sendText/${instanceName}`,
       {
         method: 'POST',
         headers: {
@@ -77,7 +80,8 @@ export async function enviarMensagemWhatsApp(params: EnviarMensagemParams): Prom
  * POST /message/sendMedia/{instance}
  */
 export async function enviarMidiaWhatsApp(params: EnviarMidiaParams): Promise<EnviarMensagemResponse> {
-  const { telefone, mediatype, mimetype, media, fileName } = params;
+  const { telefone, mediatype, mimetype, media, fileName, instance } = params;
+  const instanceName = instance || EVOLUTION_INSTANCE;
 
   if (!EVOLUTION_API_KEY) {
     return { success: false, error: 'API Key não configurada' };
@@ -87,7 +91,7 @@ export async function enviarMidiaWhatsApp(params: EnviarMidiaParams): Promise<En
 
   try {
     const response = await fetch(
-      `${EVOLUTION_API_URL}/message/sendMedia/${EVOLUTION_INSTANCE}`,
+      `${EVOLUTION_API_URL}/message/sendMedia/${instanceName}`,
       {
         method: 'POST',
         headers: {
@@ -125,8 +129,10 @@ export async function enviarMidiaWhatsApp(params: EnviarMidiaParams): Promise<En
 export async function enviarAudioWhatsApp(params: {
   telefone: string;
   audio: string; // base64
+  instance?: string;
 }): Promise<EnviarMensagemResponse> {
-  const { telefone, audio } = params;
+  const { telefone, audio, instance } = params;
+  const instanceName = instance || EVOLUTION_INSTANCE;
 
   if (!EVOLUTION_API_KEY) {
     return { success: false, error: 'API Key não configurada' };
@@ -136,7 +142,7 @@ export async function enviarAudioWhatsApp(params: {
 
   try {
     const response = await fetch(
-      `${EVOLUTION_API_URL}/message/sendWhatsAppAudio/${EVOLUTION_INSTANCE}`,
+      `${EVOLUTION_API_URL}/message/sendWhatsAppAudio/${instanceName}`,
       {
         method: 'POST',
         headers: {
@@ -235,4 +241,41 @@ export function formatarTelefone(telefone: string): string {
  */
 export function telefoneParaDigitos(telefone: string): string {
   return telefone.replace(/\D/g, '');
+}
+
+/**
+ * Lista instâncias disponíveis no Evolution API
+ * GET /instance/fetchInstances
+ */
+export async function listarInstancias(): Promise<Array<{
+  id: string;
+  name: string;
+  number: string;
+  connectionStatus: string;
+}>> {
+  if (!EVOLUTION_API_KEY) {
+    return [];
+  }
+
+  try {
+    const response = await fetch(
+      `${EVOLUTION_API_URL}/instance/fetchInstances`,
+      {
+        headers: {
+          'apikey': EVOLUTION_API_KEY,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.error('[Evolution API] Erro listar instâncias:', response.status);
+      return [];
+    }
+
+    const data = await response.json();
+    return data || [];
+  } catch (err: any) {
+    console.error('[Evolution API] Erro listar instâncias:', err.message);
+    return [];
+  }
 }

@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { atendimento_id, conteudo, remetente = "vendedor" } = body;
+  const { atendimento_id, conteudo, remetente = "vendedor", instance } = body;
 
   if (!atendimento_id || !conteudo) {
     return NextResponse.json({ error: "atendimento_id e conteudo são obrigatórios" }, { status: 400 });
@@ -99,6 +99,7 @@ export async function POST(request: NextRequest) {
         const resultado = await enviarMensagemWhatsApp({
           telefone: atendimento.telefone_cliente,
           mensagem: conteudo,
+          instance,
         });
 
         if (resultado.success) {
