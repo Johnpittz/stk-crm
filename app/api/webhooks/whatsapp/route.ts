@@ -120,7 +120,8 @@ export async function POST(request: NextRequest) {
           ultima_mensagem_data: new Date().toISOString(),
           ultima_mensagem_remetente: remetente,
           nao_lido: naoLido,
-          nome_cliente: nomeCliente || atendimentoExistente.nome_cliente,
+          // Só atualiza nome se veio do CLIENTE (pushName do operador é o próprio nome)
+          ...(nomeCliente && !dados.fromMe ? { nome_cliente: nomeCliente } : {}),
           cliente_id: cliente?.id || atendimentoExistente.cliente_id,
           vendedor_id: vendedorUpdate,
           instancia: dados.instance || atendimentoExistente.instancia || "minha-conexao",
@@ -169,7 +170,8 @@ export async function POST(request: NextRequest) {
         vendedor_id: vendedorFinal,
         canal: "whatsapp",
         telefone_cliente: telefoneLimpo,
-        nome_cliente: nomeCliente || cliente?.nome_razao_social || "Cliente",
+        // Só usa pushName se veio do CLIENTE; operador = "Cliente" ou nome do cadastro
+        nome_cliente: (!dados.fromMe && nomeCliente) || cliente?.nome_razao_social || "Cliente",
         status: "aberto",
         prioridade: cliente ? "normal" : "alta",
         assunto: conteudoMensagem.substring(0, 100),
