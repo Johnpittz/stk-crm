@@ -492,29 +492,42 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
 
     switch (msg.media_type) {
       case "image":
-        return mediaUrl ? (
-          <img src={mediaUrl} alt="Imagem" className="max-w-[250px] rounded-lg cursor-pointer hover:opacity-90" onClick={() => window.open(mediaUrl, "_blank")} />
-        ) : null;
+        if (mediaUrl && !mediaUrl.includes("[media_proxy_needed]")) {
+          return <img src={mediaUrl} alt="Imagem" className="max-w-[250px] rounded-lg cursor-pointer hover:opacity-90" onClick={() => window.open(mediaUrl, "_blank")} />;
+        }
+        return <div className="flex items-center gap-2 text-white/40 text-xs"><span className="text-lg">🖼️</span>Imagem recebida</div>;
       case "audio":
-        return (
-          <div className="flex items-center gap-2 min-w-[180px]">
-            <span className="text-lg">🎵</span>
-            <audio controls preload="metadata" className="h-8 flex-1" style={{ filter: "invert(1) hue-rotate(180deg)" }}>
-              <source src={mediaUrl || undefined} />
-            </audio>
-          </div>
-        );
+        if (mediaUrl && !mediaUrl.includes("[media_proxy_needed]")) {
+          return (
+            <div className="flex items-center gap-2 min-w-[180px]">
+              <span className="text-lg">🎵</span>
+              <audio controls preload="metadata" className="h-8 flex-1" style={{ filter: "invert(1) hue-rotate(180deg)" }}>
+                <source src={mediaUrl} />
+              </audio>
+            </div>
+          );
+        }
+        return <div className="flex items-center gap-2 text-white/40 text-xs"><span className="text-lg">🎵</span>Áudio recebido</div>;
       case "video":
-        return mediaUrl ? <video src={mediaUrl} controls className="max-w-[250px] rounded-lg" /> : null;
+        if (mediaUrl && !mediaUrl.includes("[media_proxy_needed]")) {
+          return <video src={mediaUrl} controls className="max-w-[250px] rounded-lg" />;
+        }
+        return <div className="flex items-center gap-2 text-white/40 text-xs"><span className="text-lg">🎬</span>Vídeo recebido</div>;
       case "document":
-        return mediaUrl ? (
-          <a href={mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-blue-400 hover:text-blue-300">
-            <span className="text-2xl">📄</span>
-            <span className="text-sm truncate">{msg.file_name || "Documento"}</span>
-          </a>
-        ) : null;
+        if (mediaUrl && !mediaUrl.includes("[media_proxy_needed]")) {
+          return (
+            <a href={mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-blue-400 hover:text-blue-300">
+              <span className="text-2xl">📄</span>
+              <span className="text-sm truncate">{msg.file_name || "Documento"}</span>
+            </a>
+          );
+        }
+        return <div className="flex items-center gap-2 text-white/40 text-xs"><span className="text-lg">📄</span>{msg.file_name || "Documento recebido"}</div>;
       case "sticker":
-        return mediaUrl ? <img src={mediaUrl} alt="Sticker" className="max-h-32" /> : null;
+        if (mediaUrl && !mediaUrl.includes("[media_proxy_needed]")) {
+          return <img src={mediaUrl} alt="Sticker" className="max-h-32" />;
+        }
+        return <div className="text-white/40 text-xs">📎 Figurinha</div>;
       default:
         return null;
     }

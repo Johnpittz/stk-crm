@@ -266,36 +266,26 @@ function extrairDadosEvolutionAPI(payload: any): {
     let mediaUrl = null;
     let fileName = null;
 
-    // Extrair base64 (campo "message.base64" adicionado pela Evolution API com webhookBase64)
-    const base64Data = message.base64 || null;
+    // IMPORTANTE: NÃO salvar base64 no banco! Causa 7+ GB de egress.
+    // Salvar apenas o tipo da mídia e um placeholder.
+    // O frontend mostra ícone de mídia quando media_url é null.
 
     if (message.imageMessage) {
       mediaType = "image";
-      // Prioriza base64 decodificado, senão usa URL do CDN
-      mediaUrl = base64Data
-        ? `data:${message.imageMessage.mimetype || "image/jpeg"};base64,${base64Data}`
-        : message.imageMessage.url || null;
+      mediaUrl = null; // base64 NÃO salvo no banco
     } else if (message.audioMessage) {
       mediaType = "audio";
-      mediaUrl = base64Data
-        ? `data:${message.audioMessage.mimetype || "audio/ogg; codecs=opus"};base64,${base64Data}`
-        : message.audioMessage.url || null;
+      mediaUrl = null;
     } else if (message.videoMessage) {
       mediaType = "video";
-      mediaUrl = base64Data
-        ? `data:${message.videoMessage.mimetype || "video/mp4"};base64,${base64Data}`
-        : message.videoMessage.url || null;
+      mediaUrl = null;
     } else if (message.documentMessage) {
       mediaType = "document";
-      mediaUrl = base64Data
-        ? `data:${message.documentMessage.mimetype || "application/octet-stream"};base64,${base64Data}`
-        : message.documentMessage.url || null;
+      mediaUrl = null;
       fileName = message.documentMessage.fileName || null;
     } else if (message.stickerMessage) {
       mediaType = "sticker";
-      mediaUrl = base64Data
-        ? `data:${message.stickerMessage.mimetype || "image/webp"};base64,${base64Data}`
-        : message.stickerMessage.url || null;
+      mediaUrl = null;
     }
 
     // Extrair telefone (remove @s.whatsapp.net)
