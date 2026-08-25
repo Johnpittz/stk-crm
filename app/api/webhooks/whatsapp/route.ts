@@ -15,6 +15,7 @@ import { createClient } from "@supabase/supabase-js";
 import { rateLimit } from "@/lib/rate-limit";
 import { telefoneParaDigitos } from "@/lib/evolution-api";
 import { buscarVendedorPadrao } from "@/lib/roteamento";
+import { uploadMediaToStorage } from "@/lib/media-storage";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +65,22 @@ export async function POST(request: NextRequest) {
 
     // Extrair dados do payload da Evolution API
     const dados = extrairDadosEvolutionAPI(payload);
+
+    // Se tem base64 raw, faz upload para Supabase Storage (evita egress no banco)
+    if (dados.rawBase64 && dados.rawMime && dados.mediaType) {
+      const prefix = dados.mediaType === "audio" ? "audio"
+        : dados.mediaType === "video" ? "video"
+        : dados.mediaType === "sticker" ? "sticker"
+        : "image";
+      const publicUrl = await uploadMediaToStorage(dados.rawBase64, dados.rawMime, prefix);
+      if (publicUrl) {
+        dados.mediaUrl = publicUrl;
+        console.log(`[Webhook WhatsApp] Mídia salva no Storage: ${publicUrl}`);
+      } else {
+        console.error("[Webhook WhatsApp] Falha ao salvar mídia no Storage");
+      }
+      dados.rawBase64 = null;
+    }
 
     // Ignorar mensagens de GRUPO (remoteJid termina em @g.us)
     if (dados.remoteJid && dados.remoteJid.endsWith("@g.us")) {
@@ -262,30 +279,37 @@ function extrairDadosEvolutionAPI(payload: any): {
     }
 
     // Extrair mídia
+    // Extrair mídia
     let mediaType = null;
     let mediaUrl = null;
     let fileName = null;
+    let rawBase64: string | null = null;
+    let rawMime: string | null = null;
 
-    // IMPORTANTE: NÃO salvar base64 no banco! Causa 7+ GB de egress.
-    // Salvar apenas o tipo da mídia e um placeholder.
-    // O frontend mostra ícone de mídia quando media_url é null.
+    // Extrair base64 (campo "message.base64" adicionado pela Evolution API com webhookBase64)
+    const base64Data = message.base64 || null;
 
     if (message.imageMessage) {
       mediaType = "image";
-      mediaUrl = null; // base64 NÃO salvo no banco
+      rawMime = message.imageMessage.mimetype || "image/jpeg";
+      if (base64Data) { rawBase64 = base64Data; } else { mediaUrl = message.imageMessage.url || null; }
     } else if (message.audioMessage) {
       mediaType = "audio";
-      mediaUrl = null;
+      rawMime = message.audioMessage.mimetype || "audio/ogg; codecs=opus";
+      if (base64Data) { rawBase64 = base64Data; } else { mediaUrl = message.audioMessage.url || null; }
     } else if (message.videoMessage) {
       mediaType = "video";
-      mediaUrl = null;
+      rawMime = message.videoMessage.mimetype || "video/mp4";
+      if (base64Data) { rawBase64 = base64Data; } else { mediaUrl = message.videoMessage.url || null; }
     } else if (message.documentMessage) {
       mediaType = "document";
-      mediaUrl = null;
+      rawMime = message.documentMessage.mimetype || "application/octet-stream";
+      if (base64Data) { rawBase64 = base64Data; } else { mediaUrl = message.documentMessage.url || null; }
       fileName = message.documentMessage.fileName || null;
     } else if (message.stickerMessage) {
       mediaType = "sticker";
-      mediaUrl = null;
+      rawMime = message.stickerMessage.mimetype || "image/webp";
+      if (base64Data) { rawBase64 = base64Data; } else { mediaUrl = message.stickerMessage.url || null; }
     }
 
     // Extrair telefone (remove @s.whatsapp.net)
@@ -302,6 +326,8 @@ function extrairDadosEvolutionAPI(payload: any): {
       fromMe: !!key.fromMe,
       messageId: key.id || null,
       instance: payload.instance || null,
+      rawBase64,
+      rawMime,
     };
     }
 
