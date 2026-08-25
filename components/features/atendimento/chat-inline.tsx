@@ -482,9 +482,12 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
   const renderMidia = (msg: Mensagem) => {
     if (!msg.media_url && !msg.media_type) return null;
 
-    // Se é data URL (base64), usa direto — proxy não precisa
+    // data URLs (base64), HTTPS URLs (Supabase Storage) usam direto
+    // Apenas URLs HTTP externas passam pelo proxy
     const isDataUrl = msg.media_url?.startsWith("data:");
-    const mediaUrl = isDataUrl
+    const isSecureUrl = msg.media_url?.startsWith("https://");
+    const useDirect = isDataUrl || isSecureUrl;
+    const mediaUrl = useDirect
       ? msg.media_url!
       : msg.media_url
         ? `/api/media?url=${encodeURIComponent(msg.media_url)}&type=${msg.media_type || "image"}`
