@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { atendimento_id, conteudo, remetente = "vendedor", instance } = body;
+  const { atendimento_id, conteudo, remetente = "vendedor", instance, media_url, media_type, file_name } = body;
 
   if (!atendimento_id || !conteudo) {
     return NextResponse.json({ error: "atendimento_id e conteudo são obrigatórios" }, { status: 400 });
@@ -62,6 +62,9 @@ export async function POST(request: NextRequest) {
       remetente,
       conteudo,
       enviada_por: user.id,
+      ...(media_url ? { media_url } : {}),
+      ...(media_type ? { media_type } : {}),
+      ...(file_name ? { file_name } : {}),
     })
     .select()
     .single();

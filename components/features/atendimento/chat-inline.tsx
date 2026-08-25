@@ -346,6 +346,10 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
         });
 
         if (res.ok) {
+          // Lê a media_url da resposta (URL do Supabase Storage)
+          const resDataArq = await res.json().catch(() => ({}));
+          const mediaUrlArq = resDataArq.media_url || null;
+
           // Salvar no banco
           const { data: { session } } = await supabase.auth.getSession();
           if (session) {
@@ -359,7 +363,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
                 atendimento_id: atendimento.id,
                 conteudo: `[${mediatype}]`,
                 remetente: "vendedor",
-                media_url: base64,
+                media_url: mediaUrlArq,
                 media_type: mediatype,
                 file_name: file.name,
               }),
@@ -414,6 +418,10 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
               });
 
               if (res.ok) {
+                // Lê a media_url da resposta (URL do Supabase Storage)
+                const resData = await res.json().catch(() => ({}));
+                const mediaUrlSalvo = resData.media_url || null;
+
                 // Salvar no banco
                 const { data: { session } } = await supabase.auth.getSession();
                 if (session) {
@@ -428,6 +436,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
                       conteudo: "[Áudio]",
                       remetente: "vendedor",
                       media_type: "audio",
+                      media_url: mediaUrlSalvo,
                     }),
                   });
                 }
