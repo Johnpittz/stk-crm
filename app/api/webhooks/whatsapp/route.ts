@@ -259,6 +259,8 @@ function extrairDadosEvolutionAPI(payload: any): {
   fromMe: boolean;
   messageId: string | null;
   instance: string | null;
+  rawBase64: string | null;
+  rawMime: string | null;
 } {
   // Formato Evolution API: { event: 'messages.upsert', data: { key, message, pushName } }
   if (payload.event && payload.data) {
@@ -343,6 +345,8 @@ function extrairDadosEvolutionAPI(payload: any): {
     fromMe: false,
     messageId: payload.messageId || payload.id || null,
     instance: payload.instance || null,
+    rawBase64: null,
+    rawMime: null,
     };
 }
 
