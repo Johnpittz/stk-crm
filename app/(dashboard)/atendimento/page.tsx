@@ -6,6 +6,7 @@ import { PerformanceRealTime } from "@/components/features/atendimento/performan
 import { ListaAtendimentosLateral } from "@/components/features/atendimento/lista-atendimentos-lateral";
 import { ChatInline } from "@/components/features/atendimento/chat-inline";
 import { TogglePresenca } from "@/components/features/atendimento/toggle-presenca";
+import { ToggleIA } from "@/components/features/atendimento/toggle-ia";
 import { PainelContato } from "@/components/features/atendimento/painel-contato";
 import { FiltroEtiquetas } from "@/components/features/atendimento/filtro-etiquetas";
 import { Search, Calendar, HelpCircle, Bell, Smartphone } from "lucide-react";
@@ -262,9 +263,10 @@ export default function AtendimentoPage() {
   return (
     <div className="h-[calc(100vh-9rem)] flex flex-col overflow-hidden">
       
-      {/* HEADER COMPACTO — Toggle + Performance + Data + Busca + Ícones */}
+      {/* HEADER COMPACTO — Toggle + IA + Performance + Data + Busca + Ícones */}
       <div className="shrink-0 flex items-center gap-3 mb-2">
         <TogglePresenca />
+        <ToggleIA />
         <PerformanceRealTime />
 
         <div className="flex items-center gap-3 ml-auto shrink-0">
