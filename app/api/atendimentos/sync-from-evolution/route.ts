@@ -2,78 +2,86 @@
  * Sync de mensagens do WhatsApp via Evolution API REST
  * 
  * Busca mensagens recentes da Evolution API via POST /chat/findMessages
- * e salva no Supabase. Resolve o problema de mensagens enviadas do
- * celular não aparecerem no chat do CRM.
- * 
- * POST /api/atendimentos/sync-from-evolution
- * Body: { "telefone": "556291889764" } (opcional)
- */
+ /**
+  * Sync de mensagens do WhatsApp via Evolution API REST
+  * 
+  * Busca mensagens recentes da Evolution API via POST /chat/findMessages
+  * e salva no Supabase. Resolve o problema de mensagens enviadas do
+  * celular não aparecerem no chat do CRM.
+  * 
+  * CORRIGIDO: Agora itera em TODAS as instâncias, não só "minha-conexao".
+  * Cada mensagem é salva no atendimento da instância CORRESPONDENTE.
+  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+ import { NextRequest, NextResponse } from "next/server";
+ import { createClient } from "@supabase/supabase-js";
 
-export const dynamic = "force-dynamic";
+ export const dynamic = "force-dynamic";
 
-const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || "http://2.25.192.248:8080";
-const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || "";
-const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE || "minha-conexao";
+ const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || "http://2.25.192.248:8080";
+ const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || "";
 
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error("Supabase env vars missing");
-  return createClient(url, key);
-}
+ // Mapa de instâncias conhecidas (phone → instance name)
+ const INSTANCIAS_CONHECIDAS: Record<string, string> = {
+   "5562982735286": "minha-conexao",
+   "556299190117": "STK",
+ };
 
-/**
- * Busca mensagens via POST /chat/findMessages/{instance}
- * Endpoint correto da Evolution API v2
- */
-async function fetchMessagesFromEvolution(phoneNumber: string, limit = 50): Promise<any[]> {
-  if (!EVOLUTION_API_KEY) {
-    console.error("[Sync] Evolution API key não configurada");
-    return [];
-  }
+ function getSupabase() {
+   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+   if (!url || !key) throw new Error("Supabase env vars missing");
+   return createClient(url, key);
+ }
 
-  const jid = `${phoneNumber}@s.whatsapp.net`;
+ /** Lista todas as instâncias disponíveis na Evolution API */
+ async function listarInstancias(): Promise<Array<{ name: string; number: string }>> {
+   if (!EVOLUTION_API_KEY) return [];
+   try {
+     const response = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances`, {
+       headers: { apikey: EVOLUTION_API_KEY },
+     });
+     if (!response.ok) return [];
+     const data = await response.json();
+     return (data || []).map((i: any) => ({
+       name: i.name || "",
+       number: i.number || "",
+     }));
+   } catch {
+     return [];
+   }
+ }
 
-  try {
-    const response = await fetch(
-      `${EVOLUTION_API_URL}/chat/findMessages/${EVOLUTION_INSTANCE}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: EVOLUTION_API_KEY,
-        },
-        body: JSON.stringify({
-          where: {
-            key: {
-              remoteJid: jid,
-            },
-          },
-          limit,
-          page: 1,
-        }),
-      }
-    );
+ /** Busca mensagens via POST /chat/findMessages/{instance} */
+ async function fetchMessagesFromEvolution(phoneNumber: string, instanceName: string, limit = 50): Promise<any[]> {
+   if (!EVOLUTION_API_KEY) return [];
 
-    if (!response.ok) {
-      const text = await response.text();
-      console.error("[Sync] Evolution API error:", response.status, text.substring(0, 200));
-      return [];
-    }
+   const jid = `${phoneNumber}@s.whatsapp.net`;
+   try {
+     const response = await fetch(
+       `${EVOLUTION_API_URL}/chat/findMessages/${instanceName}`,
+       {
+         method: "POST",
+         headers: {
+           "Content-Type": "application/json",
+           apikey: EVOLUTION_API_KEY,
+         },
+         body: JSON.stringify({
+           where: { key: { remoteJid: jid } },
+           limit,
+           page: 1,
+         }),
+       }
+     );
 
-    const data = await response.json();
-    // Evolution API v2 retorna { messages: { total, records: [...] } }
-    const records = data?.messages?.records || data?.records || [];
-    console.log(`[Sync] Evolution API retornou ${records.length} mensagens para ${phoneNumber} (total: ${data?.messages?.total || records.length})`);
-    return records;
-  } catch (err: any) {
-    console.error("[Sync] Erro ao buscar mensagens:", err.message);
-    return [];
-  }
-}
+     if (!response.ok) return [];
+     const data = await response.json();
+     const records = data?.messages?.records || data?.records || [];
+     return records;
+   } catch {
+     return [];
+   }
+ }
 
 /** Extrai telefone do remoteJid */
 function extrairTelefone(remoteJid: string): string {
@@ -128,26 +136,28 @@ function extrairConteudo(msg: any): { conteudo: string; mediaType: string | null
   return { conteudo: "", mediaType: null, mediaUrl: null };
 }
 
-/** Busca atendimento aberto por telefone (tolerante a formatos) */
-async function buscarAtendimento(supabase: any, telefoneLimpo: string) {
-  // Busca exata
+/** Busca atendimento aberto por telefone + instância */
+async function buscarAtendimento(supabase: any, telefoneLimpo: string, instancia: string) {
+  // Busca exata por telefone + instância
   const { data: exato } = await supabase
     .from("atendimentos")
-    .select("id, telefone_cliente, nome_cliente, cliente_id, vendedor_id")
+    .select("id, telefone_cliente, nome_cliente, cliente_id, vendedor_id, instancia")
     .eq("telefone_cliente", telefoneLimpo)
+    .eq("instancia", instancia)
     .eq("status", "aberto")
     .limit(1)
     .single();
 
   if (exato) return exato;
 
-  // Busca fuzzy (últimos 8 dígitos)
+  // Busca fuzzy (últimos 8 dígitos) + instância
   if (telefoneLimpo.length < 8) return null;
   const ultimos8 = telefoneLimpo.slice(-8);
 
   const { data: candidatos } = await supabase
     .from("atendimentos")
-    .select("id, telefone_cliente, nome_cliente, cliente_id, vendedor_id")
+    .select("id, telefone_cliente, nome_cliente, cliente_id, vendedor_id, instancia")
+    .eq("instancia", instancia)
     .eq("status", "aberto")
     .order("ultima_mensagem_data", { ascending: false })
     .limit(100);
@@ -170,41 +180,49 @@ export async function POST(request: NextRequest) {
     let totalIgnoradas = 0;
     const erros: string[] = [];
 
-    if (telefoneEspecifico) {
-      // Sincronizar um número específico
-      const telefoneLimpo = telefoneEspecifico.replace(/\D/g, "");
-      console.log(`[Sync] Buscando mensagens para ${telefoneLimpo}`);
-      
-      const msgs = await fetchMessagesFromEvolution(telefoneLimpo);
+    // Listar todas as instâncias da Evolution API
+    const instancias = await listarInstancias();
+    console.log(`[Sync] Instâncias encontradas: ${instancias.map(i => `${i.name}(${i.number})`).join(", ")}`);
 
-      for (const msg of msgs) {
-        try {
-          const resultado = await processarMensagem(supabase, msg);
-          if (resultado === "inserida") totalInseridas++;
-          else totalIgnoradas++;
-        } catch (err: any) {
-          erros.push(err.message);
-          console.error("[Sync] Erro processando mensagem:", err.message);
+    if (telefoneEspecifico) {
+      // Sincronizar um número específico em TODAS as instâncias
+      const telefoneLimpo = telefoneEspecifico.replace(/\D/g, "");
+      console.log(`[Sync] Buscando mensagens para ${telefoneLimpo} em todas as instâncias`);
+
+      for (const inst of instancias) {
+        const msgs = await fetchMessagesFromEvolution(telefoneLimpo, inst.name);
+        console.log(`[Sync] ${inst.name}: ${msgs.length} mensagens para ${telefoneLimpo}`);
+
+        for (const msg of msgs) {
+          try {
+            const resultado = await processarMensagem(supabase, msg, inst.name);
+            if (resultado === "inserida") totalInseridas++;
+            else totalIgnoradas++;
+          } catch (err: any) {
+            erros.push(err.message);
+          }
         }
       }
     } else {
-      // Sincronizar todas as conversas ativas do Supabase
+      // Sincronizar conversas ativas — cada atendimento só busca na sua instância
       const { data: atendimentos } = await supabase
         .from("atendimentos")
-        .select("id, telefone_cliente")
+        .select("id, telefone_cliente, instancia")
         .eq("status", "aberto")
         .not("telefone_cliente", "is", null)
+        .not("instancia", "is", null)
         .limit(50);
 
       if (atendimentos) {
         for (const at of atendimentos) {
           const telefoneLimpo = (at.telefone_cliente || "").replace(/\D/g, "");
+          const instancia = at.instancia || "minha-conexao";
           if (telefoneLimpo.length < 8) continue;
 
-          const msgs = await fetchMessagesFromEvolution(telefoneLimpo, 20);
+          const msgs = await fetchMessagesFromEvolution(telefoneLimpo, instancia, 20);
           for (const msg of msgs) {
             try {
-              const resultado = await processarMensagem(supabase, msg);
+              const resultado = await processarMensagem(supabase, msg, instancia);
               if (resultado === "inserida") totalInseridas++;
               else totalIgnoradas++;
             } catch (err: any) {
@@ -229,7 +247,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function processarMensagem(supabase: any, msg: any): Promise<"inserida" | "ignorada"> {
+async function processarMensagem(supabase: any, msg: any, instancia: string): Promise<"inserida" | "ignorada"> {
   const remoteJid = msg.key?.remoteJid || "";
 
   // Ignorar grupos e canais
@@ -250,8 +268,8 @@ async function processarMensagem(supabase: any, msg: any): Promise<"inserida" | 
 
   const conteudoFinal = mediaType ? `[${mediaType}]` : conteudo;
 
-  // Buscar atendimento existente
-  const atendimento = await buscarAtendimento(supabase, telefoneLimpo);
+  // Buscar atendimento existente FILTRANDO POR INSTÂNCIA
+  const atendimento = await buscarAtendimento(supabase, telefoneLimpo, instancia);
   if (!atendimento) {
     console.log(`[Sync] Atendimento não encontrado para ${telefoneLimpo}`);
     return "ignorada";
