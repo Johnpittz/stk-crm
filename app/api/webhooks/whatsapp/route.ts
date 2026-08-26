@@ -13,9 +13,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { rateLimit } from "@/lib/rate-limit";
-import { telefoneParaDigitos } from "@/lib/evolution-api";
+import { telefoneParaDigitos, enviarMensagemWhatsApp } from "@/lib/evolution-api";
 import { buscarVendedorPadrao } from "@/lib/roteamento";
 import { uploadMediaToStorage } from "@/lib/media-storage";
+import { gerarRespostaIA, verificarIAAtivada } from "@/lib/ai-assistant";
 
 export const dynamic = "force-dynamic";
 
@@ -170,6 +171,57 @@ export async function POST(request: NextRequest) {
       });
 
       console.log(`[Webhook WhatsApp] Mensagem adicionada ao atendimento ${atendimentoExistente.id}`);
+
+      // ===== INTEGRAÇÃO IA =====
+      // Se a IA está ativada e a mensagem é do cliente, gera e envia resposta automática
+      if (!dados.fromMe && mensagem) {
+        const iaAtivada = await verificarIAAtivada(getSupabase());
+        if (iaAtivada) {
+          try {
+            // Buscar histórico recente do atendimento
+            const { data: historico } = await getSupabase()
+              .from('atendimento_mensagens')
+              .select('remetente, conteudo')
+              .eq('atendimento_id', atendimentoExistente.id)
+              .order('created_at', { ascending: true })
+              .limit(20);
+
+            // Gerar resposta da IA
+            const respostaIA = await gerarRespostaIA({
+              mensagemCliente: mensagem,
+              nomeCliente: nomeCliente || undefined,
+              historico: historico || [],
+            });
+
+            if (respostaIA) {
+              // Enviar resposta via Evolution API
+              const resultado = await enviarMensagemWhatsApp({
+                telefone: telefoneLimpo,
+                mensagem: respostaIA,
+                instance: dados.instance || undefined,
+              });
+
+              if (resultado.success) {
+                console.log(`[Webhook WhatsApp] IA respondeu para ${telefoneLimpo}: ${respostaIA.substring(0, 50)}...`);
+                // Salvar resposta da IA no chat
+                await getSupabase().from('atendimento_mensagens').insert({
+                  atendimento_id: atendimentoExistente.id,
+                  remetente: 'vendedor',
+                  conteudo: respostaIA,
+                  enviada_por: null, // IA não é um vendedor específico
+                  whatsapp_message_id: resultado.message_id,
+                });
+              } else {
+                console.error(`[Webhook WhatsApp] Erro ao enviar resposta IA:`, resultado.error);
+              }
+            }
+          } catch (err: any) {
+            console.error('[Webhook WhatsApp] Erro na integração IA:', err.message);
+          }
+        }
+      }
+      // ===== FIM INTEGRAÇÃO IA =====
+
       return NextResponse.json({ success: true, atendimento_id: atendimentoExistente.id, action: "updated" });
     }
 
@@ -231,6 +283,42 @@ export async function POST(request: NextRequest) {
     });
 
     console.log(`[Webhook WhatsApp] Novo atendimento criado: ${novoAtendimento.id}`);
+
+    // ===== INTEGRAÇÃO IA (novo atendimento) =====
+    if (!dados.fromMe && mensagem) {
+      const iaAtivada = await verificarIAAtivada(getSupabase());
+      if (iaAtivada) {
+        try {
+          const respostaIA = await gerarRespostaIA({
+            mensagemCliente: mensagem,
+            nomeCliente: nomeCliente || undefined,
+          });
+
+          if (respostaIA) {
+            const resultado = await enviarMensagemWhatsApp({
+              telefone: telefoneLimpo,
+              mensagem: respostaIA,
+              instance: dados.instance || undefined,
+            });
+
+            if (resultado.success) {
+              console.log(`[Webhook WhatsApp] IA respondeu (novo atendimento) para ${telefoneLimpo}`);
+              await getSupabase().from('atendimento_mensagens').insert({
+                atendimento_id: novoAtendimento.id,
+                remetente: 'vendedor',
+                conteudo: respostaIA,
+                enviada_por: null,
+                whatsapp_message_id: resultado.message_id,
+              });
+            }
+          }
+        } catch (err: any) {
+          console.error('[Webhook WhatsApp] Erro IA (novo atendimento):', err.message);
+        }
+      }
+    }
+    // ===== FIM INTEGRAÇÃO IA =====
+
     return NextResponse.json({ success: true, atendimento_id: novoAtendimento.id, action: "created" });
 
   } catch (error: any) {
