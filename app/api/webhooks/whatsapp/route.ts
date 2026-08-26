@@ -117,8 +117,8 @@ export async function POST(request: NextRequest) {
     // 1. Busca cliente pelo telefone
     const cliente = await buscarClientePorTelefone(telefoneLimpo);
 
-    // 2. Busca atendimento aberto existente para este telefone
-    const atendimentoExistente = await buscarAtendimentoAberto(telefoneLimpo);
+    // 2. Busca atendimento aberto existente para este telefone + instância
+    const atendimentoExistente = await buscarAtendimentoAberto(telefoneLimpo, dados.instance);
 
     if (atendimentoExistente) {
       // Se atendimento não tem vendedor, tenta atribuir (cliente ou padrão)
@@ -466,29 +466,40 @@ async function buscarClientePorTelefone(telefoneLimpo: string) {
 }
 
 /**
- * Busca atendimento aberto existente para o telefone
- * Faz busca tolerante a formatos diferentes (com/sem 9, com/sem código país, etc.)
+ * Busca atendimento aberto existente para o telefone + instância
+ * Cada instância WhatsApp mantém atendimentos separados
  */
-async function buscarAtendimentoAberto(telefoneLimpo: string) {
-  // Primeiro: busca exata (rápida)
-  const { data: exato } = await getSupabase()
+async function buscarAtendimentoAberto(telefoneLimpo: string, instancia: string | null) {
+  // Primeiro: busca exata por telefone + instância (rápida)
+  const query = getSupabase()
     .from("atendimentos")
     .select("id, nome_cliente, cliente_id, vendedor_id, instancia")
     .eq("telefone_cliente", telefoneLimpo)
-    .eq("status", "aberto")
-    .limit(1)
-    .single();
+    .eq("status", "aberto");
+
+  // Se tem instância, filtra por ela
+  if (instancia) {
+    query.eq("instancia", instancia);
+  }
+
+  const { data: exato } = await query.limit(1).single();
 
   if (exato) return exato;
 
-  // Segundo: busca ampla — compara apenas os últimos 8 dígitos (tolerante a formatos)
+  // Segundo: busca ampla — compara apenas os últimos 8 dígitos
   const ultimos8 = telefoneLimpo.slice(-8);
   if (ultimos8.length < 8) return null;
 
-  const { data: candidatos } = await getSupabase()
+  const queryAmpla = getSupabase()
     .from("atendimentos")
     .select("id, nome_cliente, cliente_id, vendedor_id, telefone_cliente, instancia")
-    .eq("status", "aberto")
+    .eq("status", "aberto");
+
+  if (instancia) {
+    queryAmpla.eq("instancia", instancia);
+  }
+
+  const { data: candidatos } = await queryAmpla
     .order("ultima_mensagem_data", { ascending: false })
     .limit(50);
 
