@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = getSupabase();
     const body = await request.json();
-    const { name, message, numbers } = body;
+    const { name, message, numbers, instancia, delay_min, delay_max } = body;
 
     if (!name || !message || !numbers || numbers.length === 0) {
       return NextResponse.json(
@@ -61,6 +61,9 @@ export async function POST(request: NextRequest) {
         status: "pending",
         sent: 0,
         failed: 0,
+        instancia: instancia || "minha-conexao",
+        delay_min: delay_min || 3,
+        delay_max: delay_max || 8,
       })
       .select()
       .single();

@@ -3,20 +3,20 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { 
-  Play, 
-  Pause, 
-  Square, 
-  Send, 
-  Users, 
-  CheckCircle, 
-  XCircle, 
+import {
+  Play,
+  Send,
+  Users,
+  CheckCircle,
+  XCircle,
   Clock,
   FileText,
-  Trash2
+  Trash2,
+  Smartphone,
+  Timer,
+  Loader2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -25,23 +25,49 @@ interface Campaign {
   name: string;
   message: string;
   numbers: string[];
-  status: 'pending' | 'running' | 'paused' | 'completed' | 'failed';
+  status: "pending" | "running" | "paused" | "completed" | "failed";
   sent: number;
   failed: number;
+  instancia: string | null;
+  delay_min: number | null;
+  delay_max: number | null;
   createdAt: string;
+}
+
+interface InstanciaWhatsApp {
+  name: string;
+  number: string;
+  status: string;
 }
 
 export function BulkSender() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [newCampaign, setNewCampaign] = useState({ name: "", message: "", numbers: "" });
+  const [newInstance, setNewInstance] = useState("minha-conexao");
+  const [newDelayMin, setNewDelayMin] = useState(3);
+  const [newDelayMax, setNewDelayMax] = useState(8);
+  const [newCampaign, setNewCampaign] = useState({
+    name: "",
+    message: "",
+    numbers: "",
+  });
   const [creating, setCreating] = useState(false);
-  const [activeCampaign, setActiveCampaign] = useState<Campaign | null>(null);
+  const [instancias, setInstancias] = useState<InstanciaWhatsApp[]>([]);
   const supabase = createClient();
+
+  // Carregar instâncias
+  useEffect(() => {
+    fetch("/api/instances")
+      .then((r) => r.json())
+      .then((d) => setInstancias(d.instancias || []))
+      .catch(() => {});
+  }, []);
 
   // Carregar campanhas
   const fetchCampaigns = useCallback(async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) return;
 
       const res = await fetch("/api/bulk/campaigns", {
@@ -61,9 +87,19 @@ export function BulkSender() {
     fetchCampaigns();
   }, [fetchCampaigns]);
 
+  // Auto-refresh: atualiza campanhas a cada 5s (apenas se tem "running")
+  useEffect(() => {
+    const hasRunning = campaigns.some((c) => c.status === "running");
+    if (!hasRunning) return;
+
+    const interval = setInterval(fetchCampaigns, 5000);
+    return () => clearInterval(interval);
+  }, [campaigns, fetchCampaigns]);
+
   // Criar nova campanha
   const criarCampanha = async () => {
-    if (!newCampaign.name || !newCampaign.message || !newCampaign.numbers) return;
+    if (!newCampaign.name || !newCampaign.message || !newCampaign.numbers)
+      return;
 
     setCreating(true);
     try {
@@ -74,7 +110,9 @@ export function BulkSender() {
 
       if (numbers.length === 0) return;
 
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) return;
 
       const res = await fetch("/api/bulk/campaigns", {
@@ -87,6 +125,9 @@ export function BulkSender() {
           name: newCampaign.name,
           message: newCampaign.message,
           numbers,
+          instancia: newInstance,
+          delay_min: newDelayMin,
+          delay_max: newDelayMax,
         }),
       });
 
@@ -103,10 +144,10 @@ export function BulkSender() {
 
   // Enviar campanha
   const enviarCampanha = async (campaign: Campaign) => {
-    setActiveCampaign({ ...campaign, status: "running", sent: 0, failed: 0 });
-
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) return;
 
       const res = await fetch("/api/bulk/send", {
@@ -123,15 +164,15 @@ export function BulkSender() {
       }
     } catch (err) {
       console.error("Erro ao enviar campanha:", err);
-    } finally {
-      setActiveCampaign(null);
     }
   };
 
   // Deletar campanha
   const deletarCampanha = async (id: string) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) return;
 
       const res = await fetch(`/api/bulk/campaigns?id=${id}`, {
@@ -157,151 +198,276 @@ export function BulkSender() {
   };
 
   return (
-    <div className="flex flex-col h-full gap-4 p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">📨 Disparo em Massa</h1>
-          <p className="text-sm text-slate-500">Envie mensagens para múltiplos contatos</p>
-        </div>
+    <div className="h-[calc(100vh-9rem)] flex flex-col overflow-hidden">
+      {/* Header */}
+      <div className="shrink-0 mb-4">
+        <h1 className="text-2xl font-bold text-white">
+          📨 Disparo em Massa
+        </h1>
+        <p className="text-sm text-white/50">
+          Envie mensagens para múltiplos contatos
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0">
-        {/* Formulário de nova campanha */}
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle className="text-lg">Nova Campanha</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Formulário */}
+        <div className="lg:col-span-1 bg-[#0f1d32] border border-white/10 rounded-lg p-4 overflow-y-auto">
+          <h2 className="text-lg font-semibold text-white mb-4">
+            Nova Campanha
+          </h2>
+
+          <div className="space-y-4">
+            {/* Nome */}
             <div>
-              <label className="text-sm font-medium text-slate-700">Nome da Campanha</label>
+              <label className="text-xs font-medium text-white/60 mb-1 block">
+                Nome da Campanha
+              </label>
               <Input
                 placeholder="Ex: Promoção de Verão"
                 value={newCampaign.name}
-                onChange={(e) => setNewCampaign({ ...newCampaign, name: e.target.value })}
+                onChange={(e) =>
+                  setNewCampaign({ ...newCampaign, name: e.target.value })
+                }
+                className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
               />
             </div>
+
+            {/* Instância */}
             <div>
-              <label className="text-sm font-medium text-slate-700">Mensagem</label>
+              <label className="text-xs font-medium text-white/60 mb-1 block">
+                <Smartphone className="inline h-3 w-3 mr-1" />
+                Número de envio
+              </label>
+              <select
+                value={newInstance}
+                onChange={(e) => setNewInstance(e.target.value)}
+                className="w-full h-10 px-3 rounded-md bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#14919B]"
+              >
+                {instancias.map((inst) => (
+                  <option key={inst.name} value={inst.name} className="bg-[#0f1d32]">
+                    {inst.number
+                      ? `${inst.name} (${inst.number.slice(-4)})`
+                      : inst.name}
+                    {inst.status === "open" ? " ✅" : " ❌"}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Timer */}
+            <div>
+              <label className="text-xs font-medium text-white/60 mb-1 block">
+                <Timer className="inline h-3 w-3 mr-1" />
+                Delay entre envios (segundos)
+              </label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={newDelayMin}
+                  onChange={(e) => setNewDelayMin(Number(e.target.value))}
+                  className="bg-white/5 border-white/10 text-white text-center"
+                />
+                <span className="text-white/40 text-xs">até</span>
+                <Input
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={newDelayMax}
+                  onChange={(e) => setNewDelayMax(Number(e.target.value))}
+                  className="bg-white/5 border-white/10 text-white text-center"
+                />
+              </div>
+              <p className="text-[10px] text-white/30 mt-1">
+                Aleatório entre {newDelayMin}s e {newDelayMax}s por envio
+              </p>
+            </div>
+
+            {/* Mensagem */}
+            <div>
+              <label className="text-xs font-medium text-white/60 mb-1 block">
+                Mensagem
+              </label>
               <textarea
                 placeholder="Digite sua mensagem aqui..."
-                className="w-full h-32 px-3 py-2 border border-slate-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="w-full h-32 px-3 py-2 bg-white/5 border border-white/10 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[#14919B] text-white placeholder:text-white/30 text-sm"
                 value={newCampaign.message}
-                onChange={(e) => setNewCampaign({ ...newCampaign, message: e.target.value })}
+                onChange={(e) =>
+                  setNewCampaign({ ...newCampaign, message: e.target.value })
+                }
               />
             </div>
+
+            {/* Números */}
             <div>
-              <label className="text-sm font-medium text-slate-700">
+              <label className="text-xs font-medium text-white/60 mb-1 block">
                 Telefones (um por linha)
               </label>
               <textarea
                 placeholder={"5562999999999\n5562888888888"}
-                className="w-full h-24 px-3 py-2 border border-slate-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-green-500 font-mono text-sm"
+                className="w-full h-24 px-3 py-2 bg-white/5 border border-white/10 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[#14919B] text-white placeholder:text-white/30 font-mono text-sm"
                 value={newCampaign.numbers}
-                onChange={(e) => setNewCampaign({ ...newCampaign, numbers: e.target.value })}
+                onChange={(e) =>
+                  setNewCampaign({ ...newCampaign, numbers: e.target.value })
+                }
               />
-              <p className="text-xs text-slate-400 mt-1">
-                {newCampaign.numbers.split("\n").filter((n) => n.trim()).length} números
+              <p className="text-xs text-white/30 mt-1">
+                {newCampaign.numbers.split("\n").filter((n) => n.trim()).length}{" "}
+                números
               </p>
             </div>
+
             <Button
               onClick={criarCampanha}
-              disabled={creating || !newCampaign.name || !newCampaign.message || !newCampaign.numbers}
-              className="w-full bg-green-600 hover:bg-green-700"
+              disabled={
+                creating ||
+                !newCampaign.name ||
+                !newCampaign.message ||
+                !newCampaign.numbers
+              }
+              className="w-full bg-[#14919B] hover:bg-[#14919B]/80 text-white"
             >
-              {creating ? "Criando..." : "Criar Campanha"}
+              {creating ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4 mr-2" />
+              )}
+              Criar Campanha
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Lista de campanhas */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-lg">Campanhas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-[calc(100vh-320px)]">
-              {campaigns.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-40 text-slate-400">
-                  <FileText className="h-8 w-8 mb-2 opacity-40" />
-                  <p className="text-sm">Nenhuma campanha criada</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {campaigns.map((campaign) => (
-                    <div
-                      key={campaign.id}
-                      className="p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-slate-900">{campaign.name}</h3>
-                            <Badge
-                              variant={
-                                campaign.status === "running"
-                                  ? "default"
-                                  : campaign.status === "completed"
-                                  ? "secondary"
-                                  : "outline"
-                              }
-                            >
-                              {campaign.status === "pending" && "⏳ Pendente"}
-                              {campaign.status === "running" && "▶️ Enviando"}
-                              {campaign.status === "paused" && "⏸️ Pausada"}
-                              {campaign.status === "completed" && "✅ Concluída"}
-                              {campaign.status === "failed" && "❌ Falhou"}
+        <div className="lg:col-span-2 bg-[#0f1d32] border border-white/10 rounded-lg p-4 overflow-hidden flex flex-col">
+          <h2 className="text-lg font-semibold text-white mb-4">
+            Campanhas
+          </h2>
+
+          <ScrollArea className="flex-1 min-h-0">
+            {campaigns.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-40 text-white/30">
+                <FileText className="h-8 w-8 mb-2 opacity-40" />
+                <p className="text-sm">Nenhuma campanha criada</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {campaigns.map((campaign) => (
+                  <div
+                    key={campaign.id}
+                    className="p-4 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition-colors"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-white">
+                            {campaign.name}
+                          </h3>
+                          <Badge
+                            className={
+                              campaign.status === "running"
+                                ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
+                                : campaign.status === "completed"
+                                ? "bg-green-500/20 text-green-300 border-green-500/30"
+                                : campaign.status === "failed"
+                                ? "bg-red-500/20 text-red-300 border-red-500/30"
+                                : "bg-white/10 text-white/50 border-white/10"
+                            }
+                          >
+                            {campaign.status === "pending" && "⏳ Pendente"}
+                            {campaign.status === "running" && (
+                              <>
+                                <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
+                                Enviando
+                              </>
+                            )}
+                            {campaign.status === "paused" && "⏸️ Pausada"}
+                            {campaign.status === "completed" && "✅ Concluída"}
+                            {campaign.status === "failed" && "❌ Falhou"}
+                          </Badge>
+                          {campaign.instancia && (
+                            <Badge className="bg-white/5 text-white/40 border-white/10 text-[10px]">
+                              📱 {campaign.instancia.slice(-4)}
                             </Badge>
-                          </div>
-                          <p className="text-sm text-slate-500 mt-1 line-clamp-2">
-                            {campaign.message}
-                          </p>
-                          <div className="flex items-center gap-4 mt-2 text-xs text-slate-400">
-                            <span className="flex items-center gap-1">
-                              <Users className="h-3 w-3" />
-                              {campaign.numbers.length} contatos
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <CheckCircle className="h-3 w-3 text-green-500" />
-                              {campaign.sent} enviados
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <XCircle className="h-3 w-3 text-red-500" />
-                              {campaign.failed} falharam
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {formatarData(campaign.createdAt)}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 ml-4">
-                          {campaign.status === "pending" && (
-                            <Button
-                              size="sm"
-                              onClick={() => enviarCampanha(campaign)}
-                              className="bg-green-600 hover:bg-green-700"
-                            >
-                              <Send className="h-4 w-4 mr-1" />
-                              Enviar
-                            </Button>
                           )}
+                        </div>
+                        <p className="text-sm text-white/40 mt-1 line-clamp-2">
+                          {campaign.message}
+                        </p>
+                        <div className="flex items-center gap-4 mt-2 text-xs text-white/30">
+                          <span className="flex items-center gap-1">
+                            <Users className="h-3 w-3" />
+                            {campaign.numbers.length} contatos
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <CheckCircle className="h-3 w-3 text-green-400" />
+                            {campaign.sent} enviados
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <XCircle className="h-3 w-3 text-red-400" />
+                            {campaign.failed} falharam
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {formatarData(campaign.createdAt)}
+                          </span>
+                          {campaign.delay_min && campaign.delay_max && (
+                            <span className="flex items-center gap-1">
+                              <Timer className="h-3 w-3" />
+                              {campaign.delay_min}-{campaign.delay_max}s
+                            </span>
+                          )}
+                        </div>
+                        {/* Barra de progresso */}
+                        {campaign.status === "running" &&
+                          campaign.numbers.length > 0 && (
+                            <div className="mt-2">
+                              <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-[#14919B] rounded-full transition-all duration-500"
+                                  style={{
+                                    width: `${
+                                      ((campaign.sent + campaign.failed) /
+                                        campaign.numbers.length) *
+                                      100
+                                    }%`,
+                                  }}
+                                />
+                              </div>
+                              <p className="text-[10px] text-white/30 mt-1">
+                                {campaign.sent + campaign.failed} de{" "}
+                                {campaign.numbers.length}
+                              </p>
+                            </div>
+                          )}
+                      </div>
+                      <div className="flex items-center gap-2 ml-4">
+                        {campaign.status === "pending" && (
                           <Button
                             size="sm"
-                            variant="ghost"
-                            onClick={() => deletarCampanha(campaign.id)}
-                            className="text-red-500 hover:text-red-700"
+                            onClick={() => enviarCampanha(campaign)}
+                            className="bg-[#14919B] hover:bg-[#14919B]/80 text-white"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Play className="h-4 w-4 mr-1" />
+                            Enviar
                           </Button>
-                        </div>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => deletarCampanha(campaign.id)}
+                          className="text-white/30 hover:text-red-400 hover:bg-red-500/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
-          </CardContent>
-        </Card>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </div>
       </div>
     </div>
   );

@@ -65,10 +65,13 @@ export async function POST(request: NextRequest) {
 
 async function enviarCampanha(supabase: any, campaign: any) {
   const numbers = campaign.numbers || [];
+  const instanceName = campaign.instancia || "minha-conexao";
+  const delayMin = (campaign.delay_min || 3) * 1000;
+  const delayMax = (campaign.delay_max || 8) * 1000;
   let sent = 0;
   let failed = 0;
 
-  console.log(`[Bulk Send] Iniciando campanha "${campaign.name}" - ${numbers.length} números`);
+  console.log(`[Bulk Send] Iniciando campanha "${campaign.name}" - ${numbers.length} números - instância: ${instanceName} - delay: ${delayMin/1000}-${delayMax/1000}s`);
 
   for (const number of numbers) {
     try {
@@ -78,10 +81,11 @@ async function enviarCampanha(supabase: any, campaign: any) {
         formattedNumber = "55" + formattedNumber;
       }
 
-      // Enviar mensagem
+      // Enviar mensagem via instância correta
       const result = await enviarMensagemWhatsApp({
         telefone: formattedNumber,
         mensagem: campaign.message,
+        instance: instanceName,
       });
 
       if (result.success) {
@@ -97,8 +101,8 @@ async function enviarCampanha(supabase: any, campaign: any) {
         .update({ sent, failed })
         .eq("id", campaign.id);
 
-      // Cadência: 3-8 segundos entre envios
-      const delay = 3000 + Math.random() * 5000;
+      // Cadência: delay configurável entre envios
+      const delay = delayMin + Math.random() * (delayMax - delayMin);
       await new Promise((resolve) => setTimeout(resolve, delay));
     } catch (err: any) {
       failed++;
