@@ -8,6 +8,7 @@ import {
   Save,
   Camera,
   Loader2,
+  Smartphone,
 } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { Badge } from "@/components/ui/badge";
@@ -793,25 +794,217 @@ export default function ConfiguracoesPage() {
 
         {/* Equipe */}
         <TabsContent value="equipe" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Gestão de Vendedores</CardTitle>
-              <CardDescription>
-                Cadastre, edite e gerencie os vendedores da equipe.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-slate-500 mb-4">
-                Acesse a página de vendedores para visualizar todos os membros da equipe,
-                seus cargos, status e permissões.
-              </p>
-              <Button asChild>
-                <a href="/configuracoes/vendedores">Gerenciar Vendedores</a>
-              </Button>
-            </CardContent>
-          </Card>
+          <EquipeContent />
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+// ==================== CONTEÚDO DA ABA EQUIPE ====================
+
+function EquipeContent() {
+  const supabase = createClient();
+  const [vendedores, setVendedores] = useState<any[]>([]);
+  const [instancias, setInstancias] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCriar, setShowCriar] = useState(false);
+  const [novoVendedor, setNovoVendedor] = useState({ nome: "", email: "", senha: "", telefone: "" });
+  const [criando, setCriando] = useState(false);
+
+  const fetchVendedores = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Buscar profiles com cargo vendedor
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, nome_completo, email, telefone, cargo, whatsapp_instance, avatar_url")
+        .in("cargo", ["vendedor", "demonstracao"])
+        .order("nome_completo");
+
+      setVendedores(profiles || []);
+
+      // Buscar instâncias WhatsApp
+      const res = await fetch("/api/instances");
+      if (res.ok) {
+        const d = await res.json();
+        setInstancias(d.instancias || []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [supabase]);
+
+  useEffect(() => { fetchVendedores(); }, [fetchVendedores]);
+
+  // Atribuir instância ao vendedor
+  const atribuirInstancia = async (userId: string, instancia: string | null) => {
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ whatsapp_instance: instancia })
+        .eq("id", userId);
+
+      if (error) {
+        toast.error("Erro ao atribuir número: " + error.message);
+      } else {
+        toast.success("Número atualizado!");
+        fetchVendedores();
+      }
+    } catch {
+      toast.error("Erro inesperado");
+    }
+  };
+
+  // Criar novo vendedor
+  const criarVendedor = async () => {
+    if (!novoVendedor.nome || !novoVendedor.email || !novoVendedor.senha) return;
+    setCriando(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const res = await fetch("/api/auth/cadastro", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          nome_completo: novoVendedor.nome,
+          email: novoVendedor.email,
+          senha: novoVendedor.senha,
+          telefone: novoVendedor.telefone,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Vendedor criado com sucesso!");
+        setNovoVendedor({ nome: "", email: "", senha: "", telefone: "" });
+        setShowCriar(false);
+        fetchVendedores();
+      } else {
+        toast.error(data.error || "Erro ao criar vendedor");
+      }
+    } catch {
+      toast.error("Erro inesperado");
+    } finally {
+      setCriando(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-[#14919B]" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Criar vendedor */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Vendedores</CardTitle>
+            <CardDescription>Gerencie a equipe e atribua números WhatsApp</CardDescription>
+          </div>
+          <Button onClick={() => setShowCriar(!showCriar)} className="bg-[#14919B] hover:bg-[#14919B]/80">
+            {showCriar ? "Cancelar" : "+ Novo Vendedor"}
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {showCriar && (
+            <div className="p-4 bg-white/5 border border-white/10 rounded-lg space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-white/60 mb-1 block">Nome *</label>
+                  <Input
+                    placeholder="Nome completo"
+                    value={novoVendedor.nome}
+                    onChange={(e) => setNovoVendedor({ ...novoVendedor, nome: e.target.value })}
+                    className="bg-white/5 border-white/10 text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-white/60 mb-1 block">Email *</label>
+                  <Input
+                    placeholder="email@exemplo.com"
+                    type="email"
+                    value={novoVendedor.email}
+                    onChange={(e) => setNovoVendedor({ ...novoVendedor, email: e.target.value })}
+                    className="bg-white/5 border-white/10 text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-white/60 mb-1 block">Senha *</label>
+                  <Input
+                    placeholder="Mínimo 6 caracteres"
+                    type="password"
+                    value={novoVendedor.senha}
+                    onChange={(e) => setNovoVendedor({ ...novoVendedor, senha: e.target.value })}
+                    className="bg-white/5 border-white/10 text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-white/60 mb-1 block">Telefone</label>
+                  <Input
+                    placeholder="(62) 99999-9999"
+                    value={novoVendedor.telefone}
+                    onChange={(e) => setNovoVendedor({ ...novoVendedor, telefone: e.target.value })}
+                    className="bg-white/5 border-white/10 text-white"
+                  />
+                </div>
+              </div>
+              <Button onClick={criarVendedor} disabled={criando} className="bg-[#14919B]">
+                {criando ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                {criando ? "Criando..." : "Criar Vendedor"}
+              </Button>
+            </div>
+          )}
+
+          {/* Lista de vendedores */}
+          {vendedores.length === 0 ? (
+            <p className="text-white/30 text-center py-4">Nenhum vendedor cadastrado</p>
+          ) : (
+            <div className="space-y-3">
+              {vendedores.map((v) => (
+                <div key={v.id} className="flex items-center gap-4 p-3 bg-white/5 border border-white/10 rounded-lg">
+                  <Avatar className="h-10 w-10 shrink-0">
+                    <AvatarImage src={v.avatar_url || undefined} />
+                    <AvatarFallback className="bg-[#14919B] text-white text-sm">
+                      {v.nome_completo?.charAt(0) || "?"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-medium truncate">{v.nome_completo || "Sem nome"}</p>
+                    <p className="text-white/40 text-xs truncate">{v.email}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Smartphone className="h-4 w-4 text-white/30" />
+                    <select
+                      value={v.whatsapp_instance || ""}
+                      onChange={(e) => atribuirInstancia(v.id, e.target.value || null)}
+                      className="h-9 px-2 bg-white/5 border border-white/10 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-[#14919B]"
+                    >
+                      <option value="" className="bg-[#0f1d32]">Sem número</option>
+                      {instancias.map((inst) => (
+                        <option key={inst.name} value={inst.name} className="bg-[#0f1d32]">
+                          {inst.number ? `${inst.name} (${inst.number.slice(-4)})` : inst.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

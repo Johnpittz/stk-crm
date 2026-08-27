@@ -51,12 +51,13 @@ export function Sidebar({ user }: SidebarProps) {
       description: "Conversas WhatsApp",
       badge: "Ativo",
     },
-    {
+    // Disparo: apenas gestores
+    ...(isGestor ? [{
       href: "/disparo",
       label: "Disparo",
       icon: Zap,
       description: "Envio em massa",
-    },
+    }] : []),
     {
       href: "/kanban",
       label: "Kanban",
