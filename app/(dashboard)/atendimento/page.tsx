@@ -194,19 +194,31 @@ export default function AtendimentoPage() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        // Query 1: buscar cargo (coluna que com certeza existe)
         const { data: profile } = await supabase
           .from("profiles")
-          .select("cargo, whatsapp_instance")
+          .select("cargo")
           .eq("id", user.id)
           .single();
         if (profile?.cargo) setUserCargo(profile.cargo);
-        if (profile?.whatsapp_instance) {
-          setUserInstance(profile.whatsapp_instance);
-          // Vendedor só vê conversas do seu número
-          const isVendedor = !["diretor", "gerente_comercial", "admin"].includes(profile.cargo);
-          if (isVendedor) {
-            setInstanciaSelecionada(profile.whatsapp_instance);
+
+        // Query 2: tentar buscar whatsapp_instance (pode não existir)
+        try {
+          const { data: instData } = await supabase
+            .from("profiles")
+            .select("whatsapp_instance")
+            .eq("id", user.id)
+            .single();
+          if (instData?.whatsapp_instance) {
+            setUserInstance(instData.whatsapp_instance);
+            // Vendedor só vê conversas do seu número
+            const isVendedor = !["diretor", "gerente_comercial", "admin"].includes(profile?.cargo || "");
+            if (isVendedor) {
+              setInstanciaSelecionada(instData.whatsapp_instance);
+            }
           }
+        } catch {
+          // Coluna whatsapp_instance não existe ainda
         }
       }
     })();
