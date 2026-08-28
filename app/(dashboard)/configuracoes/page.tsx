@@ -188,18 +188,33 @@ export default function ConfiguracoesPage() {
           return;
         }
 
+        // Select sem avatar_url para evitar 400 se a coluna não existir ainda
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
-          .select("id, nome_completo, email, telefone, whatsapp, cargo, avatar_url")
+          .select("id, nome_completo, email, telefone, whatsapp, cargo")
           .eq("id", user.id)
           .single();
 
         if (profileError) {
+          console.error("Erro ao carregar perfil:", profileError);
           toast.error("Não foi possível carregar seu perfil.");
           return;
         }
 
-        setProfile(profileData);
+        // Tenta buscar avatar separadamente (coluna pode não existir)
+        let avatarUrl = null;
+        try {
+          const { data: avData } = await supabase
+            .from("profiles")
+            .select("avatar_url")
+            .eq("id", user.id)
+            .single();
+          avatarUrl = avData?.avatar_url || null;
+        } catch {
+          // Coluna avatar_url não existe ainda, tudo bem
+        }
+
+        setProfile({ ...profileData, avatar_url: avatarUrl });
         setIsGestor(profileData?.cargo ? cargosGerencia.includes(profileData.cargo) : false);
         setFormData({
           nome_completo: profileData?.nome_completo || user.email?.split("@")[0] || "",
@@ -299,19 +314,25 @@ export default function ConfiguracoesPage() {
       // Pega URL pública
       const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(filePath);
 
-      // Atualiza perfil com nova URL
+      // Atualiza perfil com nova URL (pode falhar se coluna não existir)
       const { error: updateError } = await supabase
         .from("profiles")
         .update({ avatar_url: publicUrl })
         .eq("id", profile.id);
 
       if (updateError) {
-        toast.error("Foto enviada, mas não foi possível atualizar perfil.");
-        return;
+        // Se a coluna não existe, avisa mas não bloqueia
+        if (updateError.message?.includes("column") || updateError.code === "42703") {
+          toast.success("Foto salva no storage! Coluna avatar_url ainda não existe no banco.");
+        } else {
+          toast.error("Foto enviada, mas não foi possível atualizar perfil.");
+          return;
+        }
+      } else {
+        toast.success("Foto de perfil atualizada!");
       }
 
       setProfile((prev) => (prev ? { ...prev, avatar_url: publicUrl } : prev));
-      toast.success("Foto de perfil atualizada!");
     } catch {
       toast.error("Erro inesperado no upload.");
     } finally {
