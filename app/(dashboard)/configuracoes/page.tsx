@@ -225,8 +225,8 @@ export default function ConfiguracoesPage() {
         setFormData({
           nome_completo: profileData?.nome_completo || user.email?.split("@")[0] || "",
           email: user.email || "",
-          telefone: profileData?.telefone || "",
-          whatsapp: profileData?.whatsapp || "",
+          telefone: telefone || "",
+          whatsapp: whatsapp || "",
         });
       } finally {
         setLoading(false);
