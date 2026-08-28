@@ -29,7 +29,7 @@ export default async function VendedoresPage() {
   }
 
   const cargosGerencia = ["diretor", "gerente_comercial", "admin"];
-  const isGerencia = profile && cargosGerencia.includes(profile.cargo);
+  const isGerencia = profile?.cargo ? cargosGerencia.includes(profile.cargo) : false;
 
   // Busca todos os vendedores (sem telefone para evitar 406 se coluna não existir)
   let vendedores: any[] | null = null;
