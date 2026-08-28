@@ -7,6 +7,21 @@ import { Search, Calendar, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificacoesBell } from "@/components/notificacoes-bell";
 
+function useFormattedDate() {
+  const [formattedDate, setFormattedDate] = useState<string>("");
+  useEffect(() => {
+    setFormattedDate(
+      new Date().toLocaleDateString("pt-BR", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    );
+  }, []);
+  return formattedDate;
+}
+
 // Mapeamento de títulos por rota
 const routeTitles: Record<string, { title: string; subtitle?: string }> = {
   "/dashboard": { title: "Dashboard", subtitle: "Visão gerencial" },
@@ -60,15 +75,7 @@ function WhatsAppStatus() {
 export function Header() {
   const pathname = usePathname();
   const routeInfo = routeTitles[pathname] || { title: "STK CRM" };
-
-  const formatDate = () => {
-    return new Date().toLocaleDateString("pt-BR", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
+  const formattedDate = useFormattedDate();
 
   return (
     <header className="sticky top-0 z-30 border-b border-[#14919B]/20 bg-[#0D3B33]/95 backdrop-blur-md px-6 py-4">
@@ -89,10 +96,12 @@ export function Header() {
           <WhatsAppStatus />
 
           {/* Date */}
-          <div className="hidden md:flex items-center gap-2 text-sm text-white/60 bg-white/10 px-3 py-1.5 rounded-full">
-            <Calendar className="h-4 w-4" />
-            <span className="capitalize">{formatDate()}</span>
-          </div>
+          {formattedDate && (
+            <div className="hidden md:flex items-center gap-2 text-sm text-white/60 bg-white/10 px-3 py-1.5 rounded-full">
+              <Calendar className="h-4 w-4" />
+              <span className="capitalize">{formattedDate}</span>
+            </div>
+          )}
 
           {/* Search */}
           <Button variant="ghost" size="icon" className="relative text-white/60 hover:text-white hover:bg-white/10">

@@ -311,8 +311,14 @@ export function PromocoesTab() {
     return new Date(date).toLocaleDateString("pt-BR");
   };
 
+  const [hoje, setHoje] = useState<Date | null>(null);
+
+  useEffect(() => {
+    setHoje(new Date());
+  }, []);
+
   const isVigente = (promo: Promocao) => {
-    const hoje = new Date();
+    if (!hoje) return false;
     const inicio = new Date(promo.data_inicio);
     const fim = new Date(promo.data_fim);
     return promo.status === "ativa" && hoje >= inicio && hoje <= fim;

@@ -43,9 +43,15 @@ export function AgendaDia() {
   const [loading, setLoading] = useState(true);
   const [tarefaSelecionada, setTarefaSelecionada] = useState<AgendaItem | null>(null);
   const [modalAberto, setModalAberto] = useState(false);
+  const [hoje, setHoje] = useState<string>("");
+  const [hojeFormatado, setHojeFormatado] = useState<string>("");
   const supabase = createClient();
 
-  const hoje = new Date().toISOString().split("T")[0];
+  useEffect(() => {
+    const now = new Date();
+    setHoje(now.toISOString().split("T")[0]);
+    setHojeFormatado(now.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }));
+  }, []);
 
   const fetchAgenda = useCallback(async () => {
     setLoading(true);
@@ -113,9 +119,11 @@ export function AgendaDia() {
       <CardHeader className="pb-2 py-3">
         <CardTitle className="flex items-center gap-2 text-base">
           📅 Agenda do Dia
-          <span className="text-xs font-normal text-slate-400">
-            {new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
-          </span>
+          {hojeFormatado && (
+            <span className="text-xs font-normal text-slate-400">
+              {hojeFormatado}
+            </span>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">

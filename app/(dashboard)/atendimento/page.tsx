@@ -250,13 +250,18 @@ export default function AtendimentoPage() {
     }
   };
 
-  // Data de hoje formatada
-  const hoje = new Date().toLocaleDateString("pt-BR", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
+  // Data de hoje formatada (client-only para evitar hydration mismatch)
+  const [hoje, setHoje] = useState("");
+  useEffect(() => {
+    setHoje(
+      new Date().toLocaleDateString("pt-BR", {
+        weekday: "long",
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      })
+    );
+  }, []);
 
   // Contagem de conversas por instância
   const contarPorInstancia = useCallback((instName: string) => {
