@@ -202,23 +202,24 @@ export default function ConfiguracoesPage() {
         }
 
         // Busca colunas que podem não existir yet (uma por uma, sem quebrar)
-        let telefone = null;
-        let whatsapp = null;
-        let avatarUrl = null;
-        for (const col of ["telefone", "whatsapp", "avatar_url"]) {
-          try {
-            const { data } = await supabase
-              .from("profiles")
-              .select(col)
-              .eq("id", user.id)
-              .single();
-            if (col === "telefone") telefone = data?.[col] ?? null;
-            if (col === "whatsapp") whatsapp = data?.[col] ?? null;
-            if (col === "avatar_url") avatarUrl = data?.[col] ?? null;
-          } catch {
-            // Coluna não existe, tudo bem
-          }
-        }
+        let telefone: string | null = null;
+        let whatsapp: string | null = null;
+        let avatarUrl: string | null = null;
+
+        try {
+          const r = await supabase.from("profiles").select("telefone").eq("id", user.id).single();
+          telefone = r.data?.telefone ?? null;
+        } catch { /* coluna não existe */ }
+
+        try {
+          const r = await supabase.from("profiles").select("whatsapp").eq("id", user.id).single();
+          whatsapp = r.data?.whatsapp ?? null;
+        } catch { /* coluna não existe */ }
+
+        try {
+          const r = await supabase.from("profiles").select("avatar_url").eq("id", user.id).single();
+          avatarUrl = r.data?.avatar_url ?? null;
+        } catch { /* coluna não existe */ }
 
         setProfile({ ...profileData, telefone, whatsapp, avatar_url: avatarUrl });
         setIsGestor(profileData?.cargo ? cargosGerencia.includes(profileData.cargo) : false);
