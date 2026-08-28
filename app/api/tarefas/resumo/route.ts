@@ -82,14 +82,19 @@ export async function GET(request: NextRequest) {
       query = query.eq("vendedor_id", user.id);
     }
 
-    const { data: tarefas, error } = await query;
-
-    if (error) {
-      console.error("[API tarefas/resumo] Erro:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    let todasTarefas: any[] = [];
+    try {
+      const { data, error } = await query;
+      if (error) {
+        // Table may not exist or RLS may block — return empty result gracefully
+        console.warn("[API tarefas/resumo] Query tarefas falhou (tabela pode nao existir):", error.message);
+      } else {
+        todasTarefas = data || [];
+      }
+    } catch (queryErr: any) {
+      // Network or other unexpected error — return empty result gracefully
+      console.warn("[API tarefas/resumo] Excecao na query de tarefas:", queryErr?.message);
     }
-
-    const todasTarefas = tarefas || [];
 
     // Calcula métricas
     const tarefasSucesso = todasTarefas.filter((t) => t.resultado === "sucesso");

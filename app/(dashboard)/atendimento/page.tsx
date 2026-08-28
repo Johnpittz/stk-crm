@@ -194,22 +194,32 @@ export default function AtendimentoPage() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        // Query 1: buscar cargo (coluna que com certeza existe)
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("cargo")
-          .eq("id", user.id)
-          .single();
+        // Query 1: buscar cargo (com proteção contra 406)
+        let profile: { cargo?: string } | null = null;
+        try {
+          const result = await supabase
+            .from("profiles")
+            .select("cargo")
+            .eq("id", user.id)
+            .single();
+          profile = result.data;
+        } catch {
+          // coluna cargo pode não existir ainda
+        }
         if (profile?.cargo) setUserCargo(profile.cargo);
-
         // Query 2: tentar buscar whatsapp_instance (pode não existir)
         try {
-          const { data: instData } = await supabase
+          const { data: instData, error: instError } = await supabase
             .from("profiles")
             .select("whatsapp_instance")
             .eq("id", user.id)
             .single();
-          if (instData?.whatsapp_instance) {
+          // Supabase retorna { data, error } em vez de lançar exceção em 406
+          if (instError || !instData) {
+            // Coluna whatsapp_instance não existe na tabela profiles — ignora silenciosamente
+            return;
+          }
+          if (instData.whatsapp_instance) {
             setUserInstance(instData.whatsapp_instance);
             // Vendedor só vê conversas do seu número
             const isVendedor = !["diretor", "gerente_comercial", "admin"].includes(profile?.cargo || "");
@@ -217,8 +227,9 @@ export default function AtendimentoPage() {
               setInstanciaSelecionada(instData.whatsapp_instance);
             }
           }
-        } catch {
-          // Coluna whatsapp_instance não existe ainda
+        } catch (err) {
+          // Erro inesperado ao buscar whatsapp_instance — ignora
+          console.error("Erro ao buscar whatsapp_instance:", err);
         }
       }
     })();

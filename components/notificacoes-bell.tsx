@@ -131,7 +131,9 @@ export function NotificacoesBell() {
           .select("*")
           .eq("user_id", user.id)
           .single();
-        if (error && error.code !== "PGRST116") return;
+        // Ignora erros de tabela inexistente (406/42P01) ou registro não encontrado
+        if (error && (error.code === "PGRST116" || error.message?.includes("does not exist") || error.code === "42P01")) return;
+        if (error) return;
         if (data) {
           setPrefs({
             canal_push: data.canal_push ?? true,
@@ -144,7 +146,7 @@ export function NotificacoesBell() {
           });
         }
       } catch {
-        // silent fail
+        // silent fail - tabela pode não existir
       }
     }
     fetchPrefs();

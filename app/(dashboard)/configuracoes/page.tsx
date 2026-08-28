@@ -115,7 +115,12 @@ export default function ConfiguracoesPage() {
           .single();
 
         if (error && error.code !== "PGRST116") {
-          console.error("Erro ao buscar prefs:", error);
+          // Ignora erros de tabela inexistente (42P01) ou 406
+          if (error.code === "42P01" || error.message?.includes("does not exist") || error.code === "406") {
+            // Tabela não existe — silencioso
+          } else {
+            console.error("Erro ao buscar prefs:", error);
+          }
           return;
         }
 
@@ -166,7 +171,12 @@ export default function ConfiguracoesPage() {
         }, { onConflict: "user_id" });
 
       if (error) {
-        toast.error("Erro ao salvar: " + error.message);
+        // Se tabela não existe, avisa de forma amigável
+        if (error.code === "42P01" || error.message?.includes("does not exist")) {
+          toast.error("Tabela de preferências ainda não foi criada no banco de dados.");
+        } else {
+          toast.error("Erro ao salvar: " + error.message);
+        }
       } else {
         toast.success("Preferências de notificação salvas!");
       }
@@ -260,19 +270,36 @@ export default function ConfiguracoesPage() {
         }
       }
 
-      // Atualiza perfil no banco
+      // Atualiza perfil no banco — apenas colunas que com certeza existem
+      const updatePayload: Record<string, any> = {
+        nome_completo: formData.nome_completo,
+        email: formData.email,
+      };
+
+      // Tenta atualizar telefone e whatsapp (podem não existir como colunas)
+      if (formData.telefone) updatePayload.telefone = formData.telefone;
+      if (formData.whatsapp) updatePayload.whatsapp = formData.whatsapp;
+
       const { error } = await supabase
         .from("profiles")
-        .update({
-          nome_completo: formData.nome_completo,
-          telefone: formData.telefone,
-          whatsapp: formData.whatsapp,
-          email: formData.email,
-        })
+        .update(updatePayload)
         .eq("id", profile.id);
 
       if (error) {
-        toast.error("Não foi possível salvar as alterações.");
+        // Se erro é por coluna inexistente, tenta sem telefone/whatsapp
+        if (error.message?.includes("column") || error.code === "42703") {
+          const { error: retryError } = await supabase
+            .from("profiles")
+            .update({ nome_completo: formData.nome_completo, email: formData.email })
+            .eq("id", profile.id);
+          if (retryError) {
+            toast.error("Não foi possível salvar as alterações.");
+          } else {
+            toast.success("Perfil atualizado! (telefone/whatsapp ainda não disponíveis no banco)");
+          }
+        } else {
+          toast.error("Não foi possível salvar as alterações.");
+        }
       } else {
         toast.success("Perfil atualizado com sucesso!");
       }

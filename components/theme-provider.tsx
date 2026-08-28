@@ -72,13 +72,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user || cancelled) return;
 
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from("preferencias_notificacoes")
           .select("modo_compacto, animacoes_ativadas")
           .eq("user_id", user.id)
           .single();
 
-        if (data && !cancelled) {
+        // Ignora erros de tabela inexistente (42P01) ou registro não encontrado (PGRST116)
+        if (error && (error.code === "PGRST116" || error.code === "42P01" || error.message?.includes("does not exist"))) {
+          // Tabela não existe ou sem registro — usa defaults
+        } else if (data && !cancelled) {
           const c = data.modo_compacto || false;
           const a = data.animacoes_ativadas !== false;
           setCompactState(c);
@@ -86,7 +89,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           localStorage.setItem(STORAGE_KEY, JSON.stringify({ compact: c, animations: a }));
         }
       } catch {
-        // falha silenciosa
+        // falha silenciosa - tabela pode não existir
       } finally {
         if (!cancelled) setLoaded(true);
       }

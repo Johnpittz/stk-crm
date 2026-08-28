@@ -23,12 +23,18 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  // Busca perfil do usuário logado (sem avatar_url para evitar 400 se coluna não existir)
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("nome_completo, cargo")
-    .eq("id", data.user.id)
-    .single();
+  // Busca perfil do usuário logado (com proteção contra 406)
+  let profile: { nome_completo?: string; cargo?: string } | null = null;
+  try {
+    const result = await supabase
+      .from("profiles")
+      .select("nome_completo, cargo")
+      .eq("id", data.user.id)
+      .single();
+    profile = result.data;
+  } catch {
+    // Tabela profiles ou colunas podem não existir ainda
+  }
 
   // Tenta buscar avatar separadamente
   let avatarUrl: string | null = null;

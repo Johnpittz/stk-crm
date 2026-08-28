@@ -16,20 +16,34 @@ export default async function VendedoresPage() {
   }
 
   // Verifica se é gerência
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("cargo")
-    .eq("id", user.id)
-    .single();
+  let profile: { cargo?: string } | null = null;
+  try {
+    const result = await supabase
+      .from("profiles")
+      .select("cargo")
+      .eq("id", user.id)
+      .single();
+    profile = result.data;
+  } catch {
+    // coluna cargo pode não existir ainda
+  }
 
   const cargosGerencia = ["diretor", "gerente_comercial", "admin"];
   const isGerencia = profile && cargosGerencia.includes(profile.cargo);
 
-  // Busca todos os vendedores
-  const { data: vendedores, error } = await supabase
-    .from("profiles")
-    .select("id, nome_completo, email, cargo, telefone")
-    .order("nome_completo", { ascending: true });
+  // Busca todos os vendedores (sem telefone para evitar 406 se coluna não existir)
+  let vendedores: any[] | null = null;
+  let error: any = null;
+  try {
+    const result = await supabase
+      .from("profiles")
+      .select("id, nome_completo, email, cargo")
+      .order("nome_completo", { ascending: true });
+    vendedores = result.data;
+    error = result.error;
+  } catch {
+    // tabela profiles pode não existir ainda
+  }
 
   const cargoBadge = (cargo: string) => {
     switch (cargo) {

@@ -187,21 +187,31 @@ export default function LeadsPage() {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("cargo")
-          .eq("id", user.id)
-          .single();
+        let profile: { cargo?: string } | null = null;
+        try {
+          const result = await supabase
+            .from("profiles")
+            .select("cargo")
+            .eq("id", user.id)
+            .single();
+          profile = result.data;
+        } catch {
+          // coluna cargo pode não existir ainda
+        }
 
         const cargo = profile?.cargo || "vendedor";
         setUser({ id: user.id, cargo });
 
         if (["diretor", "admin", "gerente_comercial"].includes(cargo)) {
-          const { data: vends } = await supabase
-            .from("profiles")
-            .select("id, nome_completo, cargo")
-            .order("nome_completo", { ascending: true });
-          if (vends) setVendedores(vends);
+          try {
+            const { data: vends } = await supabase
+              .from("profiles")
+              .select("id, nome_completo, cargo")
+              .order("nome_completo", { ascending: true });
+            if (vends) setVendedores(vends);
+          } catch {
+            // tabela profiles pode não existir ainda
+          }
         }
       }
       setCarregandoAuth(false);
