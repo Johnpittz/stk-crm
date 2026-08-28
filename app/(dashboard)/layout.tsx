@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { createClient } from "@/lib/supabase/server";
-import { cn } from "@/lib/utils/cn";
+import { UserProfileProvider } from "@/lib/user-profile-context";
 
 /**
  * Layout do Dashboard (Rotas Autenticadas)
@@ -23,17 +23,17 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  // Busca perfil do usuário logado (com proteção contra 406)
-  let profile: { nome_completo?: string; cargo?: string } | null = null;
+  // Busca perfil do usuário logado (server-side)
+  let profile: { nome_completo?: string; cargo?: string; whatsapp_instance?: string } | null = null;
   try {
     const result = await supabase
       .from("profiles")
-      .select("nome_completo, cargo")
+      .select("nome_completo, cargo, whatsapp_instance")
       .eq("id", data.user.id)
       .single();
     profile = result.data;
   } catch {
-    // Tabela profiles ou colunas podem não existir ainda
+    // Tabela profiles pode não existir ainda
   }
 
   // Tenta buscar avatar separadamente
@@ -55,33 +55,18 @@ export default async function DashboardLayout({
     canal: profile?.cargo ?? "Comercial",
     cargo: profile?.cargo ?? "vendedor",
     avatar_url: avatarUrl,
+    whatsapp_instance: profile?.whatsapp_instance ?? null,
   };
 
   return (
-    <DashboardShell user={user}>{children}</DashboardShell>
-  );
-}
-
-function DashboardShell({
-  children,
-  user,
-}: {
-  children: React.ReactNode;
-  user: {
-    email: string;
-    nome: string;
-    canal: string;
-    cargo: string;
-    avatar_url: string | null;
-  };
-}) {
-  return (
-    <div className="min-h-screen bg-[#0a2e28]">
-      <Sidebar user={user} />
-      <main className="min-h-screen transition-all duration-300 ease-in-out ml-64">
-        <Header />
-        <div className="p-6">{children}</div>
-      </main>
-    </div>
+    <UserProfileProvider user={user}>
+      <div className="min-h-screen bg-[#0a2e28]">
+        <Sidebar user={user} />
+        <main className="min-h-screen transition-all duration-300 ease-in-out ml-64">
+          <Header />
+          <div className="p-6">{children}</div>
+        </main>
+      </div>
+    </UserProfileProvider>
   );
 }

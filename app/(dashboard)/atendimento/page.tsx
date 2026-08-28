@@ -12,6 +12,7 @@ import { FiltroEtiquetas } from "@/components/features/atendimento/filtro-etique
 import { Search, Calendar, HelpCircle, Bell, Smartphone } from "lucide-react";
 import { SimularWhatsAppModal } from "@/components/features/atendimento/simular-whatsapp-modal";
 import { createClient } from "@/lib/supabase/client";
+import { useUserProfile } from "@/lib/user-profile-context";
 
 interface Atendimento {
   id: string;
@@ -38,6 +39,7 @@ interface InstanciaWhatsApp {
 }
 
 export default function AtendimentoPage() {
+  const userProfile = useUserProfile();
   const [atendimentos, setAtendimentos] = useState<Atendimento[]>([]);
   const [loadingAtendimentos, setLoadingAtendimentos] = useState(true);
   const supabase = createClient();
@@ -52,12 +54,14 @@ export default function AtendimentoPage() {
   const [painelContatoAberto, setPainelContatoAberto] = useState(true);
   const [etiquetaFiltro, setEtiquetaFiltro] = useState<string | null>(null);
   const [atendimentosComEtiquetas, setAtendimentosComEtiquetas] = useState<Record<string, string[]>>({});
-  const [userCargo, setUserCargo] = useState<string>("");
+
+  // Dados do perfil vêm do context (server-side)
+  const userCargo = userProfile?.cargo || "";
+  const userInstance = userProfile?.whatsapp_instance || null;
 
   // Estado do seletor de instância WhatsApp
   const [instancias, setInstancias] = useState<InstanciaWhatsApp[]>([]);
   const [instanciaSelecionada, setInstanciaSelecionada] = useState<string>("todas");
-  const [userInstance, setUserInstance] = useState<string | null>(null);
 
   // Ref para controlar se deve atualizar a lista durante polling
   const isChatOpenRef = useRef(false);
@@ -190,50 +194,18 @@ export default function AtendimentoPage() {
   useEffect(() => {
     fetchAtendimentos();
     fetchEtiquetasAtendimentos();
-    // Busca cargo e instância do usuário
-    (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        // Query 1: buscar cargo (com proteção contra 406)
-        let profile: { cargo?: string } | null = null;
-        try {
-          const result = await supabase
-            .from("profiles")
-            .select("cargo")
-            .eq("id", user.id)
-            .single();
-          profile = result.data;
-        } catch {
-          // coluna cargo pode não existir ainda
-        }
-        if (profile?.cargo) setUserCargo(profile.cargo);
-        // Query 2: tentar buscar whatsapp_instance (pode não existir)
-        try {
-          const { data: instData, error: instError } = await supabase
-            .from("profiles")
-            .select("whatsapp_instance")
-            .eq("id", user.id)
-            .single();
-          // Supabase retorna { data, error } em vez de lançar exceção em 406
-          if (instError || !instData) {
-            // Coluna whatsapp_instance não existe na tabela profiles — ignora silenciosamente
-            return;
-          }
-          if (instData.whatsapp_instance) {
-            setUserInstance(instData.whatsapp_instance);
-            // Vendedor só vê conversas do seu número
-            const isVendedor = !["diretor", "gerente_comercial", "admin"].includes(profile?.cargo || "");
-            if (isVendedor) {
-              setInstanciaSelecionada(instData.whatsapp_instance);
-            }
-          }
-        } catch (err) {
-          // Erro inesperado ao buscar whatsapp_instance — ignora
-          console.error("Erro ao buscar whatsapp_instance:", err);
-        }
+  }, [fetchAtendimentos, fetchEtiquetasAtendimentos]);
+
+  // Auto-filtrar por instância do vendedor quando o perfil carrega
+  useEffect(() => {
+    if (userInstance) {
+      const cargosGerencia = ["diretor", "gerente_comercial", "admin"];
+      const isVendedor = !cargosGerencia.includes(userCargo);
+      if (isVendedor) {
+        setInstanciaSelecionada(userInstance);
       }
-    })();
-  }, [fetchAtendimentos, fetchEtiquetasAtendimentos, supabase]);
+    }
+  }, [userInstance, userCargo]);
 
   // Polling: atualiza lista a cada 20s em background (sem loading visual)
   // Se chat aberto, aumenta intervalo para 30s para não perturbar
