@@ -57,6 +57,7 @@ export default function AtendimentoPage() {
   // Estado do seletor de instância WhatsApp
   const [instancias, setInstancias] = useState<InstanciaWhatsApp[]>([]);
   const [instanciaSelecionada, setInstanciaSelecionada] = useState<string>("todas");
+  const [userInstance, setUserInstance] = useState<string | null>(null);
 
   // Ref para controlar se deve atualizar a lista durante polling
   const isChatOpenRef = useRef(false);
@@ -189,16 +190,24 @@ export default function AtendimentoPage() {
   useEffect(() => {
     fetchAtendimentos();
     fetchEtiquetasAtendimentos();
-    // Busca cargo do usuário para mostrar simular WhatsApp
+    // Busca cargo e instância do usuário
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("cargo")
+          .select("cargo, whatsapp_instance")
           .eq("id", user.id)
           .single();
         if (profile?.cargo) setUserCargo(profile.cargo);
+        if (profile?.whatsapp_instance) {
+          setUserInstance(profile.whatsapp_instance);
+          // Vendedor só vê conversas do seu número
+          const isVendedor = !["diretor", "gerente_comercial", "admin"].includes(profile.cargo);
+          if (isVendedor) {
+            setInstanciaSelecionada(profile.whatsapp_instance);
+          }
+        }
       }
     })();
   }, [fetchAtendimentos, fetchEtiquetasAtendimentos, supabase]);
@@ -313,8 +322,8 @@ export default function AtendimentoPage() {
         {/* PAINEL ESQUERDO: Lista de conversas */}
         <div className="w-[320px] min-w-[280px] flex flex-col border-r border-white/10 bg-[#0f1d32]">
           
-          {/* SELETOR DE INSTÂNCIA WHATSAPP */}
-          {instancias.length > 0 && (
+          {/* SELETOR DE INSTÂNCIA WHATSAPP — apenas gestores veem os botões */}
+          {instancias.length > 0 && !userInstance && (
             <div className="shrink-0 px-3 py-2 border-b border-white/10">
               <div className="flex items-center gap-1.5 overflow-x-auto">
                 <Smartphone className="h-3.5 w-3.5 text-white/30 shrink-0" />
