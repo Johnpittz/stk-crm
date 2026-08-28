@@ -188,10 +188,10 @@ export default function ConfiguracoesPage() {
           return;
         }
 
-        // Select sem avatar_url para evitar 400 se a coluna não existir ainda
+        // Select mínimo - só colunas que com certeza existem
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
-          .select("id, nome_completo, email, telefone, whatsapp, cargo")
+          .select("id, nome_completo, email, cargo")
           .eq("id", user.id)
           .single();
 
@@ -201,20 +201,26 @@ export default function ConfiguracoesPage() {
           return;
         }
 
-        // Tenta buscar avatar separadamente (coluna pode não existir)
+        // Busca colunas que podem não existir yet (uma por uma, sem quebrar)
+        let telefone = null;
+        let whatsapp = null;
         let avatarUrl = null;
-        try {
-          const { data: avData } = await supabase
-            .from("profiles")
-            .select("avatar_url")
-            .eq("id", user.id)
-            .single();
-          avatarUrl = avData?.avatar_url || null;
-        } catch {
-          // Coluna avatar_url não existe ainda, tudo bem
+        for (const col of ["telefone", "whatsapp", "avatar_url"]) {
+          try {
+            const { data } = await supabase
+              .from("profiles")
+              .select(col)
+              .eq("id", user.id)
+              .single();
+            if (col === "telefone") telefone = data?.[col] ?? null;
+            if (col === "whatsapp") whatsapp = data?.[col] ?? null;
+            if (col === "avatar_url") avatarUrl = data?.[col] ?? null;
+          } catch {
+            // Coluna não existe, tudo bem
+          }
         }
 
-        setProfile({ ...profileData, avatar_url: avatarUrl });
+        setProfile({ ...profileData, telefone, whatsapp, avatar_url: avatarUrl });
         setIsGestor(profileData?.cargo ? cargosGerencia.includes(profileData.cargo) : false);
         setFormData({
           nome_completo: profileData?.nome_completo || user.email?.split("@")[0] || "",
