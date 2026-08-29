@@ -7,9 +7,7 @@ import {
   LayoutDashboard,
   Headset,
   Users,
-  // ShoppingCart, // ⚠️ MVP SIMPLIFICADO: descomentar quando Vendas for reativada (depende Millennium)
   Package,
-  // Trophy, // ⚠️ MVP SIMPLIFICADO: descomentar quando Campanhas for reativada
   Briefcase,
   Settings,
   ChevronLeft,
@@ -19,12 +17,22 @@ import {
   HelpCircle,
   ClipboardList,
   Zap,
+  Megaphone,
+  BarChart3,
+  Send,
+  Flag,
+  HeadphonesIcon,
+  MessageSquare,
+  Star,
+  Truck,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { logout } from "@/app/(dashboard)/actions";
+import { usePerfilAtivo } from "@/lib/perfil-ativo-context";
+import type { PerfilAtivo } from "@/lib/perfil-ativo-context";
 
 interface SidebarProps {
   user: {
@@ -36,14 +44,15 @@ interface SidebarProps {
   };
 }
 
-export function Sidebar({ user }: SidebarProps) {
-  const pathname = usePathname();
-  const [isOpen, setIsOpen] = useState(true);
-
-  const isGestor = ['gerente_comercial', 'diretor', 'admin'].includes(user.cargo);
-  const isDemo = user.cargo === 'demonstracao';
-
-  const navItems = [
+// Itens de navegação por perfil
+const navItemsPorPerfil: Record<PerfilAtivo, Array<{
+  href: string;
+  label: string;
+  icon: any;
+  description?: string;
+  badge?: string;
+}>> = {
+  crm: [
     {
       href: "/atendimento",
       label: "Atendimento",
@@ -51,64 +60,117 @@ export function Sidebar({ user }: SidebarProps) {
       description: "Conversas WhatsApp",
       badge: "Ativo",
     },
-    // Disparo: apenas gestores
-    ...(isGestor ? [{
-      href: "/disparo",
-      label: "Disparo",
-      icon: Zap,
-      description: "Envio em massa",
-    }] : []),
     {
       href: "/kanban",
       label: "Kanban",
       icon: ClipboardList,
       description: "Tarefas e acompanhamento",
     },
-    // --- ITENS OCULTOS (manter código, só não mostra) ---
-    // {
-    //   href: "/leads",
-    //   label: "Leads",
-    //   icon: Target,
-    //   description: "Prospecção de leads",
-    // },
-    // {
-    //   href: "/clientes",
-    //   label: "Clientes",
-    //   icon: Users,
-    //   description: "Gestão de clientes",
-    // },
-    // {
-    //   href: "/produtos",
-    //   label: "Produtos",
-    //   icon: Package,
-    //   description: "Catálogo de produtos",
-    // },
     {
       href: "/dashboard",
       label: "Dashboard",
       icon: LayoutDashboard,
       description: "Visão gerencial",
     },
-    // {
-    //   href: "/equipes",
-    //   label: "Equipes",
-    //   icon: Briefcase,
-    //   description: "Gestão da equipe",
-    // },
-  ];
+    {
+      href: "/clientes",
+      label: "Clientes",
+      icon: Users,
+      description: "Gestão de clientes",
+    },
+  ],
+  marketing: [
+    {
+      href: "/marketing",
+      label: "Dashboard",
+      icon: BarChart3,
+      description: "Métricas de marketing",
+    },
+    {
+      href: "/disparo",
+      label: "Disparo",
+      icon: Send,
+      description: "Envio em massa",
+    },
+    {
+      href: "/marketing/campanhas",
+      label: "Campanhas",
+      icon: Megaphone,
+      description: "Criar e gerenciar campanhas",
+    },
+    {
+      href: "/marketing/leads",
+      label: "Leads",
+      icon: Target,
+      description: "Prospecção de leads",
+    },
+    {
+      href: "/marketing/relatorios",
+      label: "Relatórios",
+      icon: BarChart3,
+      description: "Análises e relatórios",
+    },
+    {
+      href: "/marketing/promocoes",
+      label: "Promoções",
+      icon: Flag,
+      description: "Ofertas e cupons",
+    },
+  ],
+  pos_vendas: [
+    {
+      href: "/pos-vendas",
+      label: "Dashboard",
+      icon: BarChart3,
+      description: "Visão pós-venda",
+    },
+    {
+      href: "/pos-vendas/followup",
+      label: "Follow-up",
+      icon: MessageSquare,
+      description: "Acompanhamento pós-venda",
+    },
+    {
+      href: "/pos-vendas/satisfacao",
+      label: "Satisfação",
+      icon: Star,
+      description: "Pesquisas e reviews",
+    },
+    {
+      href: "/pos-vendas/suporte",
+      label: "Suporte",
+      icon: HeadphonesIcon,
+      description: "Chamados e suporte",
+    },
+    {
+      href: "/pos-vendas/acompanhamento",
+      label: "Acompanhamento",
+      icon: Truck,
+      description: "Entregas e logística",
+    },
+  ],
+};
 
-  const bottomItems = [
-    {
-      href: "/configuracoes",
-      label: "Configurações",
-      icon: Settings,
-    },
-    {
-      href: "/ajuda",
-      label: "Ajuda",
-      icon: HelpCircle,
-    },
-  ];
+// Itens do rodapé (sempre visíveis)
+const bottomItems = [
+  {
+    href: "/configuracoes",
+    label: "Configurações",
+    icon: Settings,
+  },
+  {
+    href: "/ajuda",
+    label: "Ajuda",
+    icon: HelpCircle,
+  },
+];
+
+export function Sidebar({ user }: SidebarProps) {
+  const pathname = usePathname();
+  const [isOpen, setIsOpen] = useState(true);
+  const { perfilAtivo } = usePerfilAtivo();
+
+  const navItems = navItemsPorPerfil[perfilAtivo] || navItemsPorPerfil.crm;
 
   return (
     <aside
@@ -163,7 +225,7 @@ export function Sidebar({ user }: SidebarProps) {
                       </Badge>
                     )}
                   </div>
-                  {isActive && (
+                  {isActive && item.description && (
                     <p className="text-xs text-white/70 truncate">{item.description}</p>
                   )}
                 </div>

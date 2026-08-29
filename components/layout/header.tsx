@@ -1,3 +1,4 @@
+import { PerfilSelector } from "@/components/layout/perfil-selector";
 "use client";
 
 import { useState, useEffect } from "react";
@@ -96,6 +97,9 @@ export function Header() {
 
         {/* Right side */}
         <div className="flex items-center gap-4">
+          {/* Perfil Selector */}
+          <PerfilSelector />
+
           {/* WhatsApp Status */}
           <WhatsAppStatus />
 

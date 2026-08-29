@@ -1,3 +1,4 @@
+import { PerfilAtivoProvider } from "@/lib/perfil-ativo-context";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
@@ -59,14 +60,16 @@ export default async function DashboardLayout({
   };
 
   return (
-    <UserProfileProvider user={user}>
-      <div className="min-h-screen bg-[#0a2e28]">
-        <Sidebar user={user} />
-        <main className="min-h-screen transition-all duration-300 ease-in-out ml-64">
-          <Header />
-          <div className="p-6">{children}</div>
-        </main>
-      </div>
-    </UserProfileProvider>
+    <PerfilAtivoProvider cargo={user.cargo}>
+      <UserProfileProvider user={user}>
+        <div className="min-h-screen bg-[#0a2e28]">
+          <Sidebar user={user} />
+          <main className="min-h-screen transition-all duration-300 ease-in-out ml-64">
+            <Header />
+            <div className="p-6">{children}</div>
+          </main>
+        </div>
+      </UserProfileProvider>
+    </PerfilAtivoProvider>
   );
 }
