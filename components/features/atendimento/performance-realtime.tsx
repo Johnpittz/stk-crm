@@ -35,10 +35,16 @@ export function PerformanceRealTime() {
   }, [supabase]);
 
   useEffect(() => {
-    fetchResumo();
+    // Delay initial fetch to avoid cold start cascade on page load
+    const timer = setTimeout(() => {
+      fetchResumo();
+    }, 8000); // 8s delay
     // Atualiza a cada 60 segundos
     const interval = setInterval(fetchResumo, 60000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timer);
+    };
   }, [fetchResumo]);
 
   const formatCurrency = (value: number) =>

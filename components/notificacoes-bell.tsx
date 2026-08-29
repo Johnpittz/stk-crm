@@ -155,11 +155,14 @@ export function NotificacoesBell() {
   // Busca inicial e polling a cada 120s (pausa quando aba invisível)
   // Reduzido de 60s para 120s para economizar recursos na Vercel (plano free)
   useEffect(() => {
-    fetchNotificacoes();
+    // Delay initial fetch to avoid cold start cascade
+    const timer = setTimeout(() => {
+      fetchNotificacoes();
+    }, 15000); // 15s delay
     let interval: NodeJS.Timeout;
     
     const startPolling = () => {
-      interval = setInterval(fetchNotificacoes, 120000);
+      interval = setInterval(fetchNotificacoes, 180000); // Reduced from 120s to 180s
     };
     
     const handleVisibility = () => {
@@ -177,6 +180,7 @@ export function NotificacoesBell() {
     return () => {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", handleVisibility);
+      clearTimeout(timer);
     };
   }, [fetchNotificacoes]);
 

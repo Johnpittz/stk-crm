@@ -38,7 +38,9 @@ function WhatsAppStatus() {
   const [status, setStatus] = useState<"connected" | "disconnected" | "loading">("loading");
 
   useEffect(() => {
-    async function checkStatus() {
+    // Delay initial check to avoid cold start cascade on page load
+    const timer = setTimeout(() => {
+      async function checkStatus() {
       try {
         const res = await fetch("/api/whatsapp/status");
         const data = await res.json();
@@ -48,8 +50,10 @@ function WhatsAppStatus() {
       }
     }
     checkStatus();
-    const interval = setInterval(checkStatus, 30000);
+    const interval = setInterval(checkStatus, 60000); // Reduced from 30s to 60s
     return () => clearInterval(interval);
+    }, 10000); // 10s delay to not compete with page-data
+    return () => clearTimeout(timer);
   }, []);
 
   return (

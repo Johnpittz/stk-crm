@@ -228,7 +228,11 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
     if (atendimento) {
       fetchMensagens();
       marcarComoLido();
-      syncFromEvolution(); // Sync do celular ao abrir
+      // Delay sync to avoid cold start cascade - sync after page is loaded
+      const timer = setTimeout(() => {
+        syncFromEvolution();
+      }, 20000); // 20s delay
+      return () => clearTimeout(timer);
     }
   }, [atendimento, fetchMensagens, marcarComoLido, syncFromEvolution]);
 
@@ -269,11 +273,11 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
       fetchMensagens(true);
       // Sync do celular a cada 30s
       const agora = Date.now();
-      if (agora - lastSyncRef.current > 30000) {
+      if (agora - lastSyncRef.current > 60000) { // Changed from 30s to 60s
         lastSyncRef.current = agora;
         syncFromEvolution();
       }
-    }, 8000);
+    }, 15000); // Changed from 8s to 15s
 
     return () => clearInterval(interval);
   }, [atendimento, fetchMensagens, mensagens.length, syncFromEvolution]);
