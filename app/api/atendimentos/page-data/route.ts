@@ -103,12 +103,13 @@ export async function GET(request: NextRequest) {
         .limit(50),
       
       // 5. Tarefas resumo (silencioso se falhar)
-      supabaseAdmin
-        .from("tarefas")
-        .select("id, resultado, valor_venda, coluna_kanban, created_at")
-        .gte("created_at", new Date(new Date().setHours(0, 0, 0, 0)).toISOString())
-        .lte("created_at", new Date(new Date().setHours(23, 59, 59, 999)).toISOString())
-        .then(({ data, error }) => {
+      (async () => {
+        try {
+          const { data, error } = await supabaseAdmin
+            .from("tarefas")
+            .select("id, resultado, valor_venda, coluna_kanban, created_at")
+            .gte("created_at", new Date(new Date().setHours(0, 0, 0, 0)).toISOString())
+            .lte("created_at", new Date(new Date().setHours(23, 59, 59, 999)).toISOString());
           if (error) return null;
           const tarefas = data || [];
           const sucesso = tarefas.filter((t: any) => t.resultado === "sucesso");
@@ -117,8 +118,10 @@ export async function GET(request: NextRequest) {
             quantidade_vendas: sucesso.length,
             total_tarefas: tarefas.length,
           };
-        })
-        .catch(() => null),
+        } catch {
+          return null;
+        }
+      })(),
     ]);
 
     // Montar resposta
