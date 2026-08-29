@@ -163,7 +163,7 @@ export default function AtendimentoPage() {
   useEffect(() => {
     const interval = setInterval(() => {
       fetchPageData(true); // silent = true
-    }, 30000);
+    , 10000); // Reduzido para 10s - indicador de mensagem nova aparece mais rápido
     return () => clearInterval(interval);
   }, [fetchPageData]);
 
