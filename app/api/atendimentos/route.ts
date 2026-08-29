@@ -242,14 +242,25 @@ export async function PATCH(request: NextRequest) {
     .single();
   const isGestor = ["diretor", "admin", "gerente_comercial"].includes(meuPerfil?.cargo || "");
 
-  // Se não é gestor e não está assumindo, verifica se o atendimento é dele
+  // Se não é gestor e não está assumindo, verifica permissão
   if (!isGestor && !assumir) {
+    const { data: meuPerfilFull } = await supabase
+      .from("profiles")
+      .select("cargo, whatsapp_instance")
+      .eq("id", user.id)
+      .single();
+    
     const { data: atendimentoAtual } = await supabase
       .from("atendimentos")
-      .select("vendedor_id")
+      .select("vendedor_id, instancia")
       .eq("id", id)
       .single();
-    if (atendimentoAtual?.vendedor_id !== user.id) {
+    
+    const isDono = atendimentoAtual?.vendedor_id === user.id;
+    const isMesmaInstancia = meuPerfilFull?.whatsapp_instance && 
+                             atendimentoAtual?.instancia === meuPerfilFull.whatsapp_instance;
+    
+    if (!isDono && !isMesmaInstancia) {
       return NextResponse.json({ error: "Sem permissão para alterar este atendimento" }, { status: 403 });
     }
   }

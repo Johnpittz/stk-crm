@@ -221,11 +221,33 @@ export default function AtendimentoPage() {
     isChatOpenRef.current = !!atendimentoChat;
   }, [atendimentoChat]);
 
-  const handleAbrirChat = useCallback((a: Atendimento) => {
+  const handleAbrirChat = useCallback(async (a: Atendimento) => {
     // SEMPRE usar os dados mais recentes do mapa
     const atual = atendimentosMapRef.current.get(a.id) || a;
     setAtendimentoChat(atual);
-  }, []);
+
+    // Marcar como lido (nao_lido = false)
+    if (atual.nao_lido) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        await fetch("/api/atendimentos", {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ id: atual.id, nao_lido: false }),
+        });
+        // Atualizar localmente
+        setAtendimentos((prev) =>
+          prev.map((at) => (at.id === atual.id ? { ...at, nao_lido: false } : at))
+        );
+      } catch (err) {
+        console.error("Erro ao marcar como lido:", err);
+      }
+    }
+  }, [supabase]);
 
   const handleFecharAtendimento = async (id: string) => {
     try {
