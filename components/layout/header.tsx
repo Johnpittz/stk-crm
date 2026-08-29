@@ -1,4 +1,3 @@
-import { PerfilSelector } from "@/components/layout/perfil-selector";
 "use client";
 
 import { useState, useEffect } from "react";
@@ -7,6 +6,8 @@ import Link from "next/link";
 import { Search, Calendar, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificacoesBell } from "@/components/notificacoes-bell";
+import { PerfilSelector } from "@/components/layout/perfil-selector";
+
 
 function useFormattedDate() {
   const [formattedDate, setFormattedDate] = useState<string>("");
