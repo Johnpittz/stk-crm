@@ -403,7 +403,17 @@ function extrairDadosEvolutionAPI(payload: any): {
     }
 
     // Extrair telefone (remove @s.whatsapp.net)
-    const telefone = key.remoteJid?.replace("@s.whatsapp.net", "") || null;
+    // IMPORTANTE: Quando addressingMode é "lid", remoteJid vem como "12345@lid"
+    // Nesse caso, usar remoteJidAlt que contém o número real (ex: "556299190117@s.whatsapp.net")
+    let telefone: string | null = null;
+    const jid = key.remoteJid || "";
+    if (jid.endsWith("@lid") && key.remoteJidAlt) {
+      // LID mode: usar remoteJidAlt que tem o número real
+      telefone = key.remoteJidAlt.replace("@s.whatsapp.net", "") || null;
+    } else if (jid) {
+      // Normal mode: extrair do remoteJid
+      telefone = jid.replace("@s.whatsapp.net", "") || null;
+    }
 
     return {
       telefone,
