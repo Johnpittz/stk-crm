@@ -18,8 +18,13 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
 
-    // Busca perfil completo do usuário
-    const { data: meuPerfil } = await supabase
+    // Usa service_role para garantir leitura do perfil (RLS pode bloquear o client da sessão)
+    const supabaseAdmin = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    const { data: meuPerfil } = await supabaseAdmin
       .from("profiles")
       .select("cargo, whatsapp_instance")
       .eq("id", user.id)
@@ -28,7 +33,10 @@ export async function GET(request: NextRequest) {
     const isGestor = ["diretor", "admin", "gerente_comercial"].includes(meuPerfil?.cargo || "");
     const whatsappInstance = meuPerfil?.whatsapp_instance || null;
 
-    let query = supabase
+    console.log(`[API atendimentos] user=${user.id} cargo=${meuPerfil?.cargo} instance=${whatsappInstance} isGestor=${isGestor}`);
+
+    // Query com service_role para bypassar RLS
+    let query = supabaseAdmin
       .from("atendimentos")
       .select("*, clientes(id, nome_razao_social), ultima_mensagem_remetente, nao_lido")
       .order("ultima_mensagem_data", { ascending: false })
@@ -42,15 +50,14 @@ export async function GET(request: NextRequest) {
       // Gestores veem todos
     } else if (whatsappInstance) {
       // Vendedor com instância atribuída: vê TODOS os atendimentos daquela instância
+      console.log(`[API atendimentos] Filtrando por instancia=${whatsappInstance}`);
       query = query.eq("instancia", whatsappInstance);
     } else {
       const isDemo = (meuPerfil?.cargo || "") === "demonstracao";
       
       if (isDemo) {
-        // Demo só vê seus próprios atendimentos
         query = query.eq("vendedor_id", user.id);
       } else {
-        // Vendedor sem instância: vê seus atendimentos + fila geral
         query = query.or(`vendedor_id.eq.${user.id},vendedor_id.is.null`);
       }
     }
