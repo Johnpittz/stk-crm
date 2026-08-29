@@ -18,14 +18,15 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
 
-    // Busca perfil do usuário para verificar se é gestor/admin
+    // Busca perfil completo do usuário
     const { data: meuPerfil } = await supabase
       .from("profiles")
-      .select("cargo")
+      .select("cargo, whatsapp_instance")
       .eq("id", user.id)
       .single();
 
     const isGestor = ["diretor", "admin", "gerente_comercial"].includes(meuPerfil?.cargo || "");
+    const whatsappInstance = meuPerfil?.whatsapp_instance || null;
 
     let query = supabase
       .from("atendimentos")
@@ -39,20 +40,17 @@ export async function GET(request: NextRequest) {
 
     if (isGestor) {
       // Gestores veem todos
+    } else if (whatsappInstance) {
+      // Vendedor com instância atribuída: vê TODOS os atendimentos daquela instância
+      query = query.eq("instancia", whatsappInstance);
     } else {
-      // Verifica se é demonstração
-      const { data: meuPerfilFull } = await supabase
-        .from("profiles")
-        .select("cargo")
-        .eq("id", user.id)
-        .single();
-      const isDemo = (meuPerfilFull?.cargo || "") === "demonstracao";
+      const isDemo = (meuPerfil?.cargo || "") === "demonstracao";
       
       if (isDemo) {
         // Demo só vê seus próprios atendimentos
         query = query.eq("vendedor_id", user.id);
       } else {
-        // Vendedor comum vê seus atendimentos + fila geral
+        // Vendedor sem instância: vê seus atendimentos + fila geral
         query = query.or(`vendedor_id.eq.${user.id},vendedor_id.is.null`);
       }
     }
