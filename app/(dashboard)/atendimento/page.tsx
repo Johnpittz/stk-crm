@@ -67,21 +67,56 @@ export default function AtendimentoPage() {
   const isChatOpenRef = useRef(false);
   const atendimentosMapRef = useRef<Map<string, Atendimento>>(new Map());
 
-  // Buscar instâncias disponíveis
-  useEffect(() => {
-    const fetchInstancias = async () => {
-      try {
-        const res = await fetch("/api/instances");
-        if (res.ok) {
-          const data = await res.json();
-          setInstancias(data.instancias || []);
+  // OTIMIZAÇÃO: Usar endpoint unificado para carregar tudo de uma vez
+  const fetchPageData = useCallback(async (silent = false) => {
+    if (!silent) setLoadingAtendimentos(true);
+    try {
+      const res = await fetch("/api/atendimentos/page-data");
+      if (!res.ok) return;
+      
+      const data = await res.json();
+      
+      // Atendimentos
+      const novosAtendimentos = data.atendimentos || [];
+      const newMap = new Map<string, Atendimento>();
+      for (const a of novosAtendimentos) {
+        const existente = atendimentosMapRef.current.get(a.id);
+        if (existente && 
+            existente.ultima_mensagem === a.ultima_mensagem &&
+            existente.ultima_mensagem_data === a.ultima_mensagem_data &&
+            existente.nao_lido === a.nao_lido) {
+          newMap.set(a.id, existente);
+        } else {
+          newMap.set(a.id, a);
         }
-      } catch (err) {
-        console.error("Erro ao buscar instâncias:", err);
       }
-    };
-    fetchInstancias();
-  }, []);
+      atendimentosMapRef.current = newMap;
+      setAtendimentos(novosAtendimentos.map((a: Atendimento) => newMap.get(a.id) || a));
+      
+      // Atualizar chat se aberto
+      if (atendimentoChat) {
+        const atualizado = newMap.get(atendimentoChat.id);
+        if (atualizado) setAtendimentoChat(atualizado);
+      }
+      
+      // Etiquetas
+      setAtendimentosComEtiquetas(data.etiquetas || {});
+      
+      // Instâncias
+      if (data.instancias && data.instancias.length > 0) {
+        setInstancias(data.instancias);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      if (!silent) setLoadingAtendimentos(false);
+    }
+  }, [atendimentoChat]);
+
+  // Carregar dados na montagem
+  useEffect(() => {
+    fetchPageData();
+  }, [fetchPageData]);
 
   // Filtrar atendimentos com useMemo para estabilidade
   const atendimentosFiltrados = useMemo(() => {
@@ -124,105 +159,15 @@ export default function AtendimentoPage() {
     });
   }, [atendimentos, busca, dataInicio, dataFim, etiquetaFiltro, atendimentosComEtiquetas, instanciaSelecionada]);
 
-  const fetchAtendimentos = useCallback(async (silent = false) => {
-    if (!silent) setLoadingAtendimentos(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const res = await fetch("/api/atendimentos", {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        const novosAtendimentos = data.atendimentos || [];
-        
-        // Atualizar mapa de referências estáveis
-        const newMap = new Map<string, Atendimento>();
-        for (const a of novosAtendimentos) {
-          // Se já existia, manter referência do objeto se nada mudou
-          const existente = atendimentosMapRef.current.get(a.id);
-          if (existente && 
-              existente.ultima_mensagem === a.ultima_mensagem &&
-              existente.ultima_mensagem_data === a.ultima_mensagem_data &&
-              existente.nao_lido === a.nao_lido) {
-            newMap.set(a.id, existente);
-          } else {
-            newMap.set(a.id, a);
-          }
-        }
-        atendimentosMapRef.current = newMap;
-        
-        // Usar os objetos do mapa para preservar referências
-        setAtendimentos(novosAtendimentos.map((a: Atendimento) => newMap.get(a.id) || a));
-        
-        // Se tem chat aberto, atualizar o objeto do chat com dados frescos
-        if (atendimentoChat) {
-          const atualizado = newMap.get(atendimentoChat.id);
-          if (atualizado) {
-            setAtendimentoChat(atualizado);
-          }
-        }
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      if (!silent) setLoadingAtendimentos(false);
-    }
-  }, [supabase, atendimentoChat]);
-
-  // Buscar todas as etiquetas vinculadas a atendimentos (para o filtro)
-  const fetchEtiquetasAtendimentos = useCallback(async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const res = await fetch("/api/atendimentos/etiquetas?todos=true", {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setAtendimentosComEtiquetas(data.mapa || {});
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  }, [supabase]);
-
-  useEffect(() => {
-    fetchAtendimentos();
-    fetchEtiquetasAtendimentos();
-  }, [fetchAtendimentos, fetchEtiquetasAtendimentos]);
-
-  // Auto-filtrar por instância do vendedor quando o perfil carrega
-  useEffect(() => {
-    if (userInstance) {
-      const cargosGerencia = ["diretor", "gerente_comercial", "admin"];
-      const isVendedor = !cargosGerencia.includes(userCargo);
-      if (isVendedor) {
-        setInstanciaSelecionada(userInstance);
-      }
-    }
-  }, [userInstance, userCargo]);
-
-  // Polling: atualiza lista a cada 20s em background (sem loading visual)
-  // Se chat aberto, aumenta intervalo para 30s para não perturbar
+  // Polling: atualiza lista a cada 30s em background (sem loading visual)
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchAtendimentos(true); // silent = true
-    }, isChatOpenRef.current ? 30000 : 20000);
+      fetchPageData(true); // silent = true
+    }, 30000);
     return () => clearInterval(interval);
-  }, [fetchAtendimentos]);
-
-  // Atualizar ref quando chat abre/fecha
-  useEffect(() => {
-    isChatOpenRef.current = !!atendimentoChat;
-  }, [atendimentoChat]);
+  }, [fetchPageData]);
 
   const handleAbrirChat = useCallback(async (a: Atendimento) => {
-    // SEMPRE usar os dados mais recentes do mapa
     const atual = atendimentosMapRef.current.get(a.id) || a;
     setAtendimentoChat(atual);
 
@@ -239,7 +184,6 @@ export default function AtendimentoPage() {
           },
           body: JSON.stringify({ id: atual.id, nao_lido: false }),
         });
-        // Atualizar localmente
         setAtendimentos((prev) =>
           prev.map((at) => (at.id === atual.id ? { ...at, nao_lido: false } : at))
         );
@@ -253,7 +197,6 @@ export default function AtendimentoPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-
       const res = await fetch("/api/atendimentos", {
         method: "PATCH",
         headers: {
@@ -265,7 +208,7 @@ export default function AtendimentoPage() {
 
       if (res.ok) {
         setAtendimentoChat(null);
-        await fetchAtendimentos();
+        await fetchPageData();
       }
     } catch (err) {
       console.error(err);
@@ -309,7 +252,7 @@ export default function AtendimentoPage() {
 
           {/* Botão Simular WhatsApp — apenas para demonstração */}
           {userCargo === "demonstracao" && (
-            <SimularWhatsAppModal onSuccess={fetchAtendimentos} />
+            <SimularWhatsAppModal onSuccess={fetchPageData} />
           )}
 
           {/* Busca geral */}
@@ -401,7 +344,7 @@ export default function AtendimentoPage() {
             <ListaAtendimentosLateral
               atendimentos={atendimentosFiltrados}
               loading={loadingAtendimentos}
-              onRefresh={fetchAtendimentos}
+              onRefresh={fetchPageData}
               onAbrirChat={handleAbrirChat}
               etiquetas={atendimentosComEtiquetas}
               selectedId={atendimentoChat?.id}
@@ -414,7 +357,7 @@ export default function AtendimentoPage() {
           <ChatInline
             atendimento={atendimentoChat}
             onMarcarResolvido={handleFecharAtendimento}
-            onMensagemEnviada={fetchAtendimentos}
+            onMensagemEnviada={fetchPageData}
             onFechar={() => setAtendimentoChat(null)}
             instancia={instanciaSelecionada !== "todas" ? instanciaSelecionada : undefined}
             instancias={instancias}
@@ -428,7 +371,7 @@ export default function AtendimentoPage() {
               atendimento={atendimentoChat}
               onFechar={() => setAtendimentoChat(null)}
               onMarcarConcluido={handleFecharAtendimento}
-              onEtiquetaChange={fetchEtiquetasAtendimentos}
+              onEtiquetaChange={fetchPageData}
             />
           </div>
         )}
