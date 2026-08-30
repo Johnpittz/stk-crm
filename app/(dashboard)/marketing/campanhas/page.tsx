@@ -167,8 +167,9 @@ export default function CampanhasPage() {
 
         // Debug: log das colunas encontradas
         if (jsonData.length > 0) {
-          console.log('[Planilha] Colunas encontradas:', Object.keys(jsonData[0]));
-          console.log('[Planilha] Primeira linha:', jsonData[0]);
+          const firstRow = jsonData[0] as Record<string, unknown>;
+          console.log('[Planilha] Colunas encontradas:', Object.keys(firstRow));
+          console.log('[Planilha] Primeira linha:', firstRow);
         }
 
         const contatos: ContatoPlanilha[] = jsonData.map((row: any) => {
