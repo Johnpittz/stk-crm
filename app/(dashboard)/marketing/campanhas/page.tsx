@@ -76,7 +76,6 @@ export default function CampanhasPage() {
   const [instances, setInstances] = useState<any[]>([]);
   const [promocoes, setPromocoes] = useState<any[]>([]);
   const [sending, setSending] = useState(false);
-  const { toast } = useToast();
   const supabase = createClient();
 
   const [novaCampanha, setNovaCampanha] = useState({
