@@ -9,10 +9,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Megaphone, Trash2, ChevronDown, ChevronUp, Send, Loader2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Plus, Megaphone, Trash2, ChevronDown, ChevronUp, Send, Loader2, Upload, FileSpreadsheet, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import * as XLSX from 'xlsx';
 
 interface Campanha {
   id: string;
@@ -41,6 +43,8 @@ interface Disparo {
   delay_min: number;
   delay_max: number;
   created_at: string;
+  tipo_envio?: string;
+  contatos?: any[];
   promocao?: { id: string; nome: string; desconto: number; cupom: string };
 }
 
@@ -50,6 +54,11 @@ interface CampanhaStats {
   totalEntregues: number;
   totalLidos: number;
   totalFalhas: number;
+}
+
+interface ContatoPlanilha {
+  nome: string;
+  telefone: string;
 }
 
 export default function CampanhasPage() {
@@ -62,6 +71,9 @@ export default function CampanhasPage() {
   const [instances, setInstances] = useState<any[]>([]);
   const [promocoes, setPromocoes] = useState<any[]>([]);
   const [sending, setSending] = useState(false);
+  const [tipoEnvio, setTipoEnvio] = useState<'avulso' | 'massa'>('avulso');
+  const [contatosImportados, setContatosImportados] = useState<ContatoPlanilha[]>([]);
+  const [fileName, setFileName] = useState('');
   const supabase = createClient();
 
   const [novaCampanha, setNovaCampanha] = useState({
@@ -71,7 +83,8 @@ export default function CampanhasPage() {
 
   const [novoDisparo, setNovoDisparo] = useState({
     nome: '', mensagem: '', instanceName: '', phone_from: '',
-    delay_min: 5, delay_max: 30, promocao_id: ''
+    delay_min: 5, delay_max: 30, promocao_id: '',
+    telefone_avulso: ''
   });
 
   const loadCampanhas = useCallback(async () => {
@@ -138,6 +151,44 @@ export default function CampanhasPage() {
     };
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setFileName(file.name);
+    const reader = new FileReader();
+
+    reader.onload = (event) => {
+      try {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+        const contatos: ContatoPlanilha[] = jsonData.map((row: any) => {
+          // Buscar coluna de nome (variações possíveis)
+          const nome = row['Nome do Estabelecimento'] || row['nome'] || row['Nome'] || row['estabelecimento'] || '';
+          
+          // Buscar coluna de telefone (variações possíveis)
+          const telefoneRaw = row['Whatsapp/Telefone'] || row['telefone'] || row['Telefone'] || row['whatsapp'] || row['Whatsapp'] || row['DDD'] || row['numero'] || '';
+          
+          // Limpar telefone: remover caracteres não numéricos
+          const telefone = String(telefoneRaw).replace(/\D/g, '');
+
+          return { nome: String(nome), telefone };
+        }).filter(c => c.telefone.length >= 10); // Filtrar apenas contatos com telefone válido
+
+        setContatosImportados(contatos);
+        toast.success(`${contatos.length} contatos importados com sucesso!`);
+      } catch (error) {
+        console.error('Erro ao ler planilha:', error);
+        toast.error("Erro ao ler a planilha. Verifique o formato.");
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
+  };
+
   const criarCampanha = async () => {
     if (!novaCampanha.nome) {
       toast.error("Nome da campanha é obrigatório");
@@ -167,29 +218,61 @@ export default function CampanhasPage() {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
+
+    // Validação por tipo de envio
+    if (tipoEnvio === 'avulso' && !novoDisparo.telefone_avulso) {
+      toast.error("Digite o número de telefone para envio avulso");
+      return;
+    }
+
+    if (tipoEnvio === 'massa' && contatosImportados.length === 0) {
+      toast.error("Faça upload de uma planilha com contatos");
+      return;
+    }
+
     try {
       let mensagemFinal = novoDisparo.mensagem;
       if (novoDisparo.promocao_id) {
         const promocao = promocoes.find(p => p.id === novoDisparo.promocao_id);
         if (promocao) mensagemFinal = mensagemFinal.replace(/\{\{promocao\}\}/g, promocao.cupom);
       }
+
       const { error } = await supabase.from('bulk_campaigns').insert([{
-        nome: novoDisparo.nome, instanceName: novoDisparo.instanceName,
+        nome: novoDisparo.nome,
+        instanceName: novoDisparo.instanceName,
         phone_from: novoDisparo.phone_from || null,
-        delay_min: novoDisparo.delay_min || 5, delay_max: novoDisparo.delay_max || 30,
-        status: 'rascunho', mensagem: mensagemFinal,
+        delay_min: novoDisparo.delay_min || 5,
+        delay_max: novoDisparo.delay_max || 30,
+        status: 'rascunho',
+        mensagem: mensagemFinal,
         campanha_id: campanhaSelecionada.id,
-        promocao_id: novoDisparo.promocao_id || null
+        promocao_id: novoDisparo.promocao_id || null,
+        tipo_envio: tipoEnvio,
+        contatos: tipoEnvio === 'massa' ? contatosImportados : [{ nome: '', telefone: novoDisparo.telefone_avulso }],
+        telefone_avulso: tipoEnvio === 'avulso' ? novoDisparo.telefone_avulso : null
       }]);
+
       if (error) throw error;
-      toast.success("Disparo criado e vinculado à campanha!");
-      setShowDisparoDialog(false);
-      setNovoDisparo({ nome: '', mensagem: '', instanceName: '', phone_from: '', delay_min: 5, delay_max: 30, promocao_id: '' });
+
+      const msg = tipoEnvio === 'avulso'
+        ? "Disparo avulso criado!"
+        : `Disparo em massa criado! ${contatosImportados.length} contatos.`;
+      toast.success(msg);
+
+      resetarDialog();
       loadCampanhas();
     } catch (error) {
       console.error('Erro ao criar disparo:', error);
       toast.error("Não foi possível criar o disparo.");
     }
+  };
+
+  const resetarDialog = () => {
+    setShowDisparoDialog(false);
+    setNovoDisparo({ nome: '', mensagem: '', instanceName: '', phone_from: '', delay_min: 5, delay_max: 30, promocao_id: '', telefone_avulso: '' });
+    setContatosImportados([]);
+    setFileName('');
+    setTipoEnvio('avulso');
   };
 
   const enviarDisparo = async (disparoId: string) => {
@@ -387,10 +470,10 @@ export default function CampanhasPage() {
                           <TableHeader>
                             <TableRow className="border-gray-700">
                               <TableHead className="text-gray-300">Nome</TableHead>
+                              <TableHead className="text-gray-300">Tipo</TableHead>
                               <TableHead className="text-gray-300">Instância</TableHead>
-                              <TableHead className="text-gray-300">Promoção</TableHead>
+                              <TableHead className="text-gray-300">Contatos</TableHead>
                               <TableHead className="text-gray-300">Enviados</TableHead>
-                              <TableHead className="text-gray-300">Entregues</TableHead>
                               <TableHead className="text-gray-300">Status</TableHead>
                               <TableHead className="text-gray-300">Ações</TableHead>
                             </TableRow>
@@ -399,14 +482,16 @@ export default function CampanhasPage() {
                             {campanha.disparos.map((disparo) => (
                               <TableRow key={disparo.id} className="border-gray-700">
                                 <TableCell className="text-white font-medium">{disparo.nome}</TableCell>
-                                <TableCell className="text-gray-300">{disparo.instanceName}</TableCell>
                                 <TableCell>
-                                  {disparo.promocao ? (
-                                    <Badge className="bg-purple-600 text-purple-100">{disparo.promocao.cupom}</Badge>
-                                  ) : <span className="text-gray-500">-</span>}
+                                  <Badge className={disparo.tipo_envio === 'massa' ? 'bg-blue-600 text-blue-100' : 'bg-purple-600 text-purple-100'}>
+                                    {disparo.tipo_envio === 'massa' ? 'Em Massa' : 'Avulso'}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-gray-300">{disparo.instanceName}</TableCell>
+                                <TableCell className="text-gray-300">
+                                  {disparo.tipo_envio === 'massa' && disparo.contatos ? disparo.contatos.length : 1}
                                 </TableCell>
                                 <TableCell className="text-gray-300">{disparo.sent || 0}</TableCell>
-                                <TableCell className="text-gray-300">{disparo.delivered || 0}</TableCell>
                                 <TableCell>{getStatusBadge(disparo.status)}</TableCell>
                                 <TableCell>
                                   <div className="flex gap-1">
@@ -460,61 +545,173 @@ export default function CampanhasPage() {
         )}
       </div>
 
-      <Dialog open={showDisparoDialog} onOpenChange={setShowDisparoDialog}>
-        <DialogContent className="bg-gray-800 border-gray-700 max-w-2xl">
+      {/* Dialog de Criar Disparo */}
+      <Dialog open={showDisparoDialog} onOpenChange={(open) => { if (!open) resetarDialog(); else setShowDisparoDialog(true); }}>
+        <DialogContent className="bg-gray-800 border-gray-700 max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-white">Criar Disparo - {campanhaSelecionada?.nome}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label className="text-gray-300">Nome do Disparo *</Label>
-              <Input value={novoDisparo.nome} onChange={(e) => setNovoDisparo({...novoDisparo, nome: e.target.value})} placeholder="Ex: Envio 1 - Clientes Ativos" className="bg-gray-700 border-gray-600 text-white" />
-            </div>
-            <div>
-              <Label className="text-gray-300">Mensagem *</Label>
-              <Textarea value={novoDisparo.mensagem} onChange={(e) => setNovoDisparo({...novoDisparo, mensagem: e.target.value})} placeholder="Olá! Temos uma oferta especial para você..." className="bg-gray-700 border-gray-600 text-white min-h-[120px]" />
-              <p className="text-gray-500 text-xs mt-1">Use {'{{nome}}'}, {'{{telefone}}'}, {'{{promocao}}'} como variáveis</p>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+          
+          <Tabs value={tipoEnvio} onValueChange={(v) => setTipoEnvio(v as 'avulso' | 'massa')}>
+            <TabsList className="bg-gray-700 w-full">
+              <TabsTrigger value="avulso" className="flex-1 data-[state=active]:bg-emerald-600">
+                <Send className="h-4 w-4 mr-2" /> Avulso
+              </TabsTrigger>
+              <TabsTrigger value="massa" className="flex-1 data-[state=active]:bg-emerald-600">
+                <FileSpreadsheet className="h-4 w-4 mr-2" /> Em Massa
+              </TabsTrigger>
+            </TabsList>
+
+            <div className="space-y-4 mt-4">
+              {/* CAMPOS COMUNS */}
               <div>
-                <Label className="text-gray-300">Instância WhatsApp *</Label>
-                <Select value={novoDisparo.instanceName} onValueChange={(v) => setNovoDisparo({...novoDisparo, instanceName: v})}>
-                  <SelectTrigger className="bg-gray-700 border-gray-600 text-white"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                  <SelectContent className="bg-gray-700 border-gray-600">
-                    {instances.map((instance) => (
-                      <SelectItem key={instance.name} value={instance.name}>{instance.name} ({instance.number})</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label className="text-gray-300">Nome do Disparo *</Label>
+                <Input value={novoDisparo.nome} onChange={(e) => setNovoDisparo({...novoDisparo, nome: e.target.value})} placeholder="Ex: Envio 1 - Clientes Ativos" className="bg-gray-700 border-gray-600 text-white" />
               </div>
-              <div>
-                <Label className="text-gray-300">Promoção (Opcional)</Label>
-                <Select value={novoDisparo.promocao_id || undefined} onValueChange={(v) => setNovoDisparo({...novoDisparo, promocao_id: v})}>
-                  <SelectTrigger className="bg-gray-700 border-gray-600 text-white"><SelectValue placeholder="Nenhuma" /></SelectTrigger>
-                  <SelectContent className="bg-gray-700 border-gray-600">
-                    {promocoes.map((promocao) => (
-                      <SelectItem key={promocao.id} value={promocao.id}>{promocao.nome} ({promocao.cupom})</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-gray-300">Instância WhatsApp *</Label>
+                  <Select value={novoDisparo.instanceName} onValueChange={(v) => setNovoDisparo({...novoDisparo, instanceName: v})}>
+                    <SelectTrigger className="bg-gray-700 border-gray-600 text-white"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent className="bg-gray-700 border-gray-600">
+                      {instances.map((instance) => (
+                        <SelectItem key={instance.name} value={instance.name}>{instance.name} ({instance.number})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-gray-300">Promoção (Opcional)</Label>
+                  <Select value={novoDisparo.promocao_id || undefined} onValueChange={(v) => setNovoDisparo({...novoDisparo, promocao_id: v})}>
+                    <SelectTrigger className="bg-gray-700 border-gray-600 text-white"><SelectValue placeholder="Nenhuma" /></SelectTrigger>
+                    <SelectContent className="bg-gray-700 border-gray-600">
+                      {promocoes.map((promocao) => (
+                        <SelectItem key={promocao.id} value={promocao.id}>{promocao.nome} ({promocao.cupom})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+
+              {/* ABAS POR TIPO */}
+              <TabsContent value="avulso" className="space-y-4 mt-0">
+                <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600">
+                  <Label className="text-gray-300">Número de Telefone *</Label>
+                  <Input 
+                    value={novoDisparo.telefone_avulso} 
+                    onChange={(e) => setNovoDisparo({...novoDisparo, telefone_avulso: e.target.value.replace(/\D/g, '')})} 
+                    placeholder="Ex: 556299190117" 
+                    className="bg-gray-700 border-gray-600 text-white mt-1"
+                  />
+                  <p className="text-gray-500 text-xs mt-1">Formato: código do país + DDD + número (ex: 556299190117)</p>
+                </div>
+                <div>
+                  <Label className="text-gray-300">Mensagem *</Label>
+                  <Textarea value={novoDisparo.mensagem} onChange={(e) => setNovoDisparo({...novoDisparo, mensagem: e.target.value})} placeholder="Olá! Temos uma oferta especial para você..." className="bg-gray-700 border-gray-600 text-white min-h-[120px]" />
+                  <p className="text-gray-500 text-xs mt-1">Use {'{{nome}}'}, {'{{telefone}}'}, {'{{promocao}}'} como variáveis</p>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="massa" className="space-y-4 mt-0">
+                <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600">
+                  <Label className="text-gray-300">Planilha de Contatos *</Label>
+                  <div className="mt-2">
+                    <label className="flex items-center justify-center gap-2 w-full h-32 border-2 border-dashed border-gray-600 rounded-lg cursor-pointer hover:border-emerald-500 transition-colors">
+                      <div className="text-center">
+                        <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                        {fileName ? (
+                          <div>
+                            <p className="text-emerald-400 font-medium">{fileName}</p>
+                            <p className="text-gray-500 text-xs">{contatosImportados.length} contatos encontrados</p>
+                          </div>
+                        ) : (
+                          <div>
+                            <p className="text-gray-400">Clique para fazer upload</p>
+                            <p className="text-gray-500 text-xs">Formatos: .xlsx, .xls, .csv</p>
+                          </div>
+                        )}
+                      </div>
+                      <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileUpload} className="hidden" />
+                    </label>
+                  </div>
+                  {contatosImportados.length > 0 && (
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-gray-300 text-sm font-medium">Pré-visualização dos contatos:</p>
+                        <Button size="sm" variant="ghost" onClick={() => { setContatosImportados([]); setFileName(''); }} className="text-red-400 hover:text-red-300">
+                          <X className="h-4 w-4 mr-1" /> Limpar
+                        </Button>
+                      </div>
+                      <div className="max-h-40 overflow-y-auto bg-gray-800 rounded-lg">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="border-gray-700">
+                              <TableHead className="text-gray-300 text-xs">Nome</TableHead>
+                              <TableHead className="text-gray-300 text-xs">Telefone</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {contatosImportados.slice(0, 10).map((contato, idx) => (
+                              <TableRow key={idx} className="border-gray-700">
+                                <TableCell className="text-white text-sm py-1">{contato.nome || '-'}</TableCell>
+                                <TableCell className="text-gray-300 text-sm py-1">{contato.telefone}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                        {contatosImportados.length > 10 && (
+                          <p className="text-center text-gray-500 text-xs py-2">...e mais {contatosImportados.length - 10} contatos</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <Label className="text-gray-300">Mensagem-Padrão *</Label>
+                  <Textarea value={novoDisparo.mensagem} onChange={(e) => setNovoDisparo({...novoDisparo, mensagem: e.target.value})} placeholder={'Olá {{nome}}! Temos uma proposta especial para a sua empresa...'} className="bg-gray-700 border-gray-600 text-white min-h-[120px]" />
+                  <div className="flex items-center gap-4 mt-2">
+                    <p className="text-gray-500 text-xs">Variáveis disponíveis:</p>
+                    <button type="button" onClick={() => setNovoDisparo({...novoDisparo, mensagem: novoDisparo.mensagem + '{{nome}}'})} className="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-emerald-400">
+                      {'{{nome}}'}
+                    </button>
+                    <button type="button" onClick={() => setNovoDisparo({...novoDisparo, mensagem: novoDisparo.mensagem + '{{telefone}}'})} className="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-emerald-400">
+                      {'{{telefone}}'}
+                    </button>
+                    <button type="button" onClick={() => setNovoDisparo({...novoDisparo, mensagem: novoDisparo.mensagem + '{{promocao}}'})} className="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-emerald-400">
+                      {'{{promocao}}'}
+                    </button>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* DELAYS COMUNS */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-gray-300">Delay Mínimo entre envios (seg)</Label>
+                  <Input type="number" value={novoDisparo.delay_min} onChange={(e) => setNovoDisparo({...novoDisparo, delay_min: parseInt(e.target.value) || 5})} className="bg-gray-700 border-gray-600 text-white" />
+                </div>
+                <div>
+                  <Label className="text-gray-300">Delay Máximo entre envios (seg)</Label>
+                  <Input type="number" value={novoDisparo.delay_max} onChange={(e) => setNovoDisparo({...novoDisparo, delay_max: parseInt(e.target.value) || 30})} className="bg-gray-700 border-gray-600 text-white" />
+                </div>
+              </div>
+
+              {/* RESUMO */}
+              <div className="bg-gray-700/50 rounded-lg p-4">
+                <p className="text-gray-300 text-sm"><strong>Vinculado à campanha:</strong> {campanhaSelecionada?.nome}</p>
+                {tipoEnvio === 'massa' && contatosImportados.length > 0 && (
+                  <p className="text-emerald-400 text-sm mt-1"><strong>{contatosImportados.length}</strong> mensagens serão enviadas</p>
+                )}
+                {tipoEnvio === 'avulso' && novoDisparo.telefone_avulso && (
+                  <p className="text-emerald-400 text-sm mt-1">Enviando para: <strong>{novoDisparo.telefone_avulso}</strong></p>
+                )}
+              </div>
+
+              <Button onClick={criarDisparo} className="w-full bg-emerald-600 hover:bg-emerald-700">
+                {tipoEnvio === 'massa' ? `Criar Disparo (${contatosImportados.length} contatos)` : 'Criar Disparo'}
+              </Button>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-gray-300">Delay Mínimo (seg)</Label>
-                <Input type="number" value={novoDisparo.delay_min} onChange={(e) => setNovoDisparo({...novoDisparo, delay_min: parseInt(e.target.value) || 5})} className="bg-gray-700 border-gray-600 text-white" />
-              </div>
-              <div>
-                <Label className="text-gray-300">Delay Máximo (seg)</Label>
-                <Input type="number" value={novoDisparo.delay_max} onChange={(e) => setNovoDisparo({...novoDisparo, delay_max: parseInt(e.target.value) || 30})} className="bg-gray-700 border-gray-600 text-white" />
-              </div>
-            </div>
-            <div className="bg-gray-700/50 rounded-lg p-4">
-              <p className="text-gray-300 text-sm"><strong>Vinculado à campanha:</strong> {campanhaSelecionada?.nome}</p>
-              <p className="text-gray-400 text-xs mt-1">Os disparos ficam organizados dentro desta campanha</p>
-            </div>
-            <Button onClick={criarDisparo} className="w-full bg-emerald-600 hover:bg-emerald-700">Criar Disparo</Button>
-          </div>
+          </Tabs>
         </DialogContent>
       </Dialog>
     </div>
