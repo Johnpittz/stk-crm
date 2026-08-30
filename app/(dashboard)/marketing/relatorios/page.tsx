@@ -5,40 +5,47 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
-  FileText, Download, Calendar, TrendingUp, Users, 
-  BarChart3, PieChart, Filter 
+  FileText, Download, Calendar, TrendingUp, 
+  BarChart3, Loader2 
 } from "lucide-react";
 import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, 
-  ResponsiveContainer, BarChart, Bar 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
+  ResponsiveContainer 
 } from "recharts";
+import { useApi } from "@/lib/hooks/use-api";
 
-// Mock data
-const relatoriosDisponiveis = [
-  { id: 1, titulo: "Performance de Campanhas", tipo: "campanhas", ultimoGerado: "2024-11-28", status: "pronto" },
-  { id: 2, titulo: "Análise de Leads", tipo: "leads", ultimoGerado: "2024-11-27", status: "pronto" },
-  { id: 3, titulo: "ROI por Canal", tipo: "roi", ultimoGerado: "2024-11-26", status: "pronto" },
-  { id: 4, titulo: "Taxa de Conversão", tipo: "conversao", ultimoGerado: "2024-11-25", status: "processando" },
-];
-
-const dadosPerformance = [
-  { mes: "Jul", leads: 180, conversoes: 42, custo: 2500 },
-  { mes: "Ago", leads: 220, conversoes: 55, custo: 2800 },
-  { mes: "Set", leads: 195, conversoes: 48, custo: 2200 },
-  { mes: "Out", leads: 280, conversoes: 72, custo: 3500 },
-  { mes: "Nov", leads: 350, conversoes: 89, custo: 4200 },
-  { mes: "Dez", leads: 420, conversoes: 105, custo: 5000 },
-];
-
-const roiPorCanal = [
-  { canal: "WhatsApp", roi: 450, investimento: 1200 },
-  { canal: "Instagram", roi: 320, investimento: 800 },
-  { canal: "Facebook", roi: 280, investimento: 600 },
-  { canal: "Indicação", roi: 890, investimento: 200 },
-];
+// Tipos
+interface Campanha { id: string; nome: string; status: string; conversoes: number; orcamento: number; gasto: number; }
+interface Lead { id: string; origem: string; status: string; }
+interface Avaliacao { id: string; nota: number; tipo_nps: string; }
 
 export default function MarketingRelatoriosPage() {
   const [periodoSelecionado, setPeriodoSelecionado] = useState("mes");
+
+  const { data: campanhas, loading: loadingCampanhas } = useApi<Campanha[]>({ url: '/api/marketing/campanhas' });
+  const { data: leads, loading: loadingLeads } = useApi<Lead[]>({ url: '/api/marketing/leads' });
+
+  const loading = loadingCampanhas || loadingLeads;
+
+  // Métricas reais
+  const totalConversoes = campanhas?.reduce((acc, c) => acc + (c.conversoes || 0), 0) || 0;
+  const totalOrcamento = campanhas?.reduce((acc, c) => acc + (c.orcamento || 0), 0) || 0;
+  const totalGasto = campanhas?.reduce((acc, c) => acc + (c.gasto || 0), 0) || 0;
+  const totalLeads = leads?.length || 0;
+  const leadsConvertidos = leads?.filter(l => l.status === 'convertido').length || 0;
+  const taxaConversao = totalLeads > 0 ? ((leadsConvertidos / totalLeads) * 100).toFixed(1) : '0';
+  const roiGeral = totalGasto > 0 ? (((totalConversoes * 100 - totalGasto) / totalGasto) * 100).toFixed(0) : '0';
+
+  // Leads por origem para gráfico
+  const leadsPorOrigemMap: Record<string, number> = {};
+  leads?.forEach(l => {
+    const origem = l.origem || 'outro';
+    leadsPorOrigemMap[origem] = (leadsPorOrigemMap[origem] || 0) + 1;
+  });
+  const roiPorCanal = Object.entries(leadsPorOrigemMap).map(([canal, quantidade]) => ({
+    canal: canal.charAt(0).toUpperCase() + canal.slice(1),
+    leads: quantidade,
+  }));
 
   return (
     <div className="space-y-6">
@@ -84,122 +91,158 @@ export default function MarketingRelatoriosPage() {
         </CardContent>
       </Card>
 
-      {/* Gráficos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Performance Mensal */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <TrendingUp className="w-5 h-5" />
-              Performance Mensal
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={dadosPerformance}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                <XAxis dataKey="mes" stroke="#888" fontSize={12} />
-                <YAxis stroke="#888" fontSize={12} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333' }}
-                  labelStyle={{ color: '#fff' }}
-                />
-                <Line type="monotone" dataKey="leads" stroke="#3b82f6" strokeWidth={2} name="Leads" />
-                <Line type="monotone" dataKey="conversoes" stroke="#22c55e" strokeWidth={2} name="Conversões" />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* ROI por Canal */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <BarChart3 className="w-5 h-5" />
-              ROI por Canal
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={roiPorCanal}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                <XAxis dataKey="canal" stroke="#888" fontSize={12} />
-                <YAxis stroke="#888" fontSize={12} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333' }}
-                  labelStyle={{ color: '#fff' }}
-                />
-                <Bar dataKey="roi" fill="#22c55e" name="ROI %" />
-                <Bar dataKey="investimento" fill="#3b82f6" name="Investimento (R$)" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Resumo Executivo */}
+      {/* Resumo Executivo - Dados Reais */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Resumo Executivo</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="text-center">
-              <p className="text-3xl font-bold text-green-500">R$ 45.200</p>
-              <p className="text-sm text-muted-foreground">Receita Total</p>
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-8 h-8 animate-spin text-[#14919B]" />
             </div>
-            <div className="text-center">
-              <p className="text-3xl font-bold text-blue-500">R$ 12.500</p>
-              <p className="text-sm text-muted-foreground">Investimento Total</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="text-center">
+                <p className="text-3xl font-bold text-green-500">{totalConversoes}</p>
+                <p className="text-sm text-muted-foreground">Total Conversões</p>
+              </div>
+              <div className="text-center">
+                <p className="text-3xl font-bold text-blue-500">R$ {totalGasto.toLocaleString('pt-BR')}</p>
+                <p className="text-sm text-muted-foreground">Investimento Total</p>
+              </div>
+              <div className="text-center">
+                <p className="text-3xl font-bold text-purple-500">{roiGeral}%</p>
+                <p className="text-sm text-muted-foreground">ROI Geral</p>
+              </div>
+              <div className="text-center">
+                <p className="text-3xl font-bold text-orange-500">{taxaConversao}%</p>
+                <p className="text-sm text-muted-foreground">Taxa de Conversão</p>
+              </div>
             </div>
-            <div className="text-center">
-              <p className="text-3xl font-bold text-purple-500">362%</p>
-              <p className="text-sm text-muted-foreground">ROI Geral</p>
-            </div>
-            <div className="text-center">
-              <p className="text-3xl font-bold text-orange-500">23.5%</p>
-              <p className="text-sm text-muted-foreground">Taxa de Conversão</p>
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Relatórios Disponíveis para Download */}
+      {/* Gráficos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Leads por Canal */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <BarChart3 className="w-5 h-5" />
+              Leads por Canal
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-[#14919B]" />
+              </div>
+            ) : roiPorCanal.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={roiPorCanal}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1a3a32" />
+                  <XAxis dataKey="canal" stroke="#888" fontSize={12} />
+                  <YAxis stroke="#888" fontSize={12} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#0f3830', border: '1px solid #1a5c4a' }}
+                    labelStyle={{ color: '#fff' }}
+                  />
+                  <Bar dataKey="leads" fill="#14919B" name="Leads" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">Nenhum dado disponível</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Resumo por Status */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Leads por Status</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-[#14919B]" />
+              </div>
+            ) : leads && leads.length > 0 ? (
+              <div className="space-y-4">
+                {['novo', 'qualificado', 'em_contato', 'convertido', 'perdido'].map(status => {
+                  const count = leads.filter(l => l.status === status).length;
+                  const labels: Record<string, string> = {
+                    novo: 'Novo', qualificado: 'Qualificado', em_contato: 'Em Contato',
+                    convertido: 'Convertido', perdido: 'Perdido'
+                  };
+                  const cores: Record<string, string> = {
+                    novo: 'text-blue-500', qualificado: 'text-yellow-500', em_contato: 'text-purple-500',
+                    convertido: 'text-green-500', perdido: 'text-red-500'
+                  };
+                  if (count === 0) return null;
+                  const percent = ((count / leads.length) * 100).toFixed(1);
+                  return (
+                    <div key={status}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm">{labels[status]}</span>
+                        <span className={`text-sm font-bold ${cores[status]}`}>{count} ({percent}%)</span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div 
+                          className="bg-primary h-2 rounded-full transition-all"
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">Nenhum lead cadastrado ainda</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Resumo de Campanhas */}
       <Card>
         <CardHeader>
-          <CardTitle>Relatórios Anteriores</CardTitle>
+          <CardTitle>Resumo das Campanhas</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {relatoriosDisponiveis.map((relatorio) => (
-              <div 
-                key={relatorio.id}
-                className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <FileText className="w-5 h-5 text-primary" />
-                  </div>
+          {loadingCampanhas ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-8 h-8 animate-spin text-[#14919B]" />
+            </div>
+          ) : campanhas && campanhas.length > 0 ? (
+            <div className="space-y-3">
+              {campanhas.slice(0, 5).map((campanha) => (
+                <div 
+                  key={campanha.id}
+                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-white/5 transition-colors"
+                >
                   <div>
-                    <h4 className="font-medium">{relatorio.titulo}</h4>
+                    <h4 className="font-medium">{campanha.nome}</h4>
                     <p className="text-sm text-muted-foreground">
-                      Último gerado: {new Date(relatorio.ultimoGerado).toLocaleDateString('pt-BR')}
+                      {campanha.conversoes || 0} conversões • R$ {(campanha.gasto || 0).toLocaleString('pt-BR')} gasto
                     </p>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant={relatorio.status === "pronto" ? "default" : "secondary"}>
-                    {relatorio.status === "pronto" ? "Pronto" : "Processando..."}
+                  <Badge variant={campanha.status === 'ativa' ? 'default' : 'secondary'}>
+                    {campanha.status}
                   </Badge>
-                  {relatorio.status === "pronto" && (
-                    <Button variant="ghost" size="icon">
-                      <Download className="w-4 h-4" />
-                    </Button>
-                  )}
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">Nenhuma campanha criada ainda</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

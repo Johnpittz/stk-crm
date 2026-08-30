@@ -1,47 +1,55 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { BarChart3, TrendingUp, Users, Send, Megaphone, Tag } from "lucide-react";
+import { BarChart3, TrendingUp, Users, Send, Loader2 } from "lucide-react";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
-  ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell 
+  ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line 
 } from "recharts";
+import { useApi } from "@/lib/hooks/use-api";
 
-// Mock data para demonstração
-const metricasGerais = [
-  { titulo: "Campanhas Ativas", valor: "12", icon: Megaphone, cor: "text-blue-500", bg: "bg-blue-500/10" },
-  { titulo: "Leads Captados", valor: "1.247", icon: Users, cor: "text-green-500", bg: "bg-green-500/10" },
-  { titulo: "Mensagens Enviadas", valor: "8.432", icon: Send, cor: "text-purple-500", bg: "bg-purple-500/10" },
-  { titulo: "Taxa de Conversão", valor: "23.5%", icon: TrendingUp, cor: "text-orange-500", bg: "bg-orange-500/10" },
-];
-
-const desempenhoCampanhas = [
-  { nome: "Black Friday", enviados: 2500, abertos: 1800, convertidos: 450 },
-  { nome: "Natal", enviados: 1800, abertos: 1200, convertidos: 280 },
-  { nome: "Dia das Mães", enviados: 2200, abertos: 1650, convertidos: 390 },
-  { nome: "Aniversário", enviados: 950, abertos: 720, convertidos: 180 },
-  { nome: "Boas-vindas", enviados: 1100, abertos: 890, convertidos: 210 },
-];
-
-const leadsPorOrigem = [
-  { nome: "WhatsApp", valor: 450, cor: "#25D366" },
-  { nome: "Instagram", valor: 320, cor: "#E1306C" },
-  { nome: "Facebook", valor: 280, cor: "#1877F2" },
-  { nome: "Indicação", valor: 197, cor: "#FFD700" },
-];
-
-const evolucaoMensal = [
-  { mes: "Jul", leads: 180, conversoes: 42 },
-  { mes: "Ago", leads: 220, conversoes: 55 },
-  { mes: "Set", leads: 195, conversoes: 48 },
-  { mes: "Out", leads: 280, conversoes: 72 },
-  { mes: "Nov", leads: 350, conversoes: 89 },
-  { mes: "Dez", leads: 420, conversoes: 105 },
-];
+// Tipos
+interface Campanha { id: string; status: string; conversoes: number; nome: string; }
+interface Lead { id: string; origem: string; status: string; created_at: string; }
+interface Promocao { id: string; uso_atual: number; }
 
 export default function MarketingDashboardPage() {
+  const { data: campanhas, loading: loadingCampanhas } = useApi<Campanha[]>({ url: '/api/marketing/campanhas' });
+  const { data: leads, loading: loadingLeads } = useApi<Lead[]>({ url: '/api/marketing/leads' });
+  const { data: promocoes } = useApi<Promocao[]>({ url: '/api/marketing/promocoes' });
+
+  const loading = loadingCampanhas || loadingLeads;
+
+  // Métricas reais
+  const campanhasAtivas = campanhas?.filter(c => c.status === 'ativa').length || 0;
+  const totalLeads = leads?.length || 0;
+  const totalConversoes = campanhas?.reduce((acc, c) => acc + (c.conversoes || 0), 0) || 0;
+  const totalUtilizacoesPromo = promocoes?.reduce((acc, p) => acc + (p.uso_atual || 0), 0) || 0;
+  const taxaConversao = totalLeads > 0 ? ((totalConversoes / totalLeads) * 100).toFixed(1) : '0';
+
+  // Leads por origem (dados reais)
+  const leadsPorOrigemMap: Record<string, number> = {};
+  leads?.forEach(l => {
+    const origem = l.origem || 'outro';
+    leadsPorOrigemMap[origem] = (leadsPorOrigemMap[origem] || 0) + 1;
+  });
+  const leadsPorOrigem = Object.entries(leadsPorOrigemMap).map(([nome, valor]) => ({
+    nome: nome.charAt(0).toUpperCase() + nome.slice(1),
+    valor,
+  }));
+  const origemCores: Record<string, string> = {
+    whatsapp: '#25D366', instagram: '#E1306C', facebook: '#1877F2',
+    indicacao: '#FFD700', site: '#3b82f6', outro: '#94A3B8',
+  };
+
+  // Métricas gerais
+  const metricasGerais = [
+    { titulo: "Campanhas Ativas", valor: String(campanhasAtivas), icon: BarChart3, cor: "text-blue-500", bg: "bg-blue-500/10" },
+    { titulo: "Leads Captados", valor: totalLeads.toLocaleString('pt-BR'), icon: Users, cor: "text-green-500", bg: "bg-green-500/10" },
+    { titulo: "Utilizações Promoções", valor: totalUtilizacoesPromo.toLocaleString('pt-BR'), icon: Send, cor: "text-purple-500", bg: "bg-purple-500/10" },
+    { titulo: "Taxa de Conversão", valor: `${taxaConversao}%`, icon: TrendingUp, cor: "text-orange-500", bg: "bg-orange-500/10" },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Métricas Gerais */}
@@ -67,86 +75,93 @@ export default function MarketingDashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Desempenho por Campanha */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Desempenho por Campanha</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={desempenhoCampanhas}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                <XAxis dataKey="nome" stroke="#888" fontSize={12} />
-                <YAxis stroke="#888" fontSize={12} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333' }}
-                  labelStyle={{ color: '#fff' }}
-                />
-                <Bar dataKey="enviados" fill="#3b82f6" name="Enviados" />
-                <Bar dataKey="abertos" fill="#22c55e" name="Abertos" />
-                <Bar dataKey="convertidos" fill="#f59e0b" name="Convertidos" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
         {/* Leads por Origem */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Leads por Origem</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-center gap-8">
-              <ResponsiveContainer width={200} height={200}>
-                <PieChart>
-                  <Pie
-                    data={leadsPorOrigem}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="valor"
-                  >
-                    {leadsPorOrigem.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.cor} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="space-y-3">
-                {leadsPorOrigem.map((origem, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: origem.cor }} />
-                    <span className="text-sm">{origem.nome}</span>
-                    <span className="text-sm text-muted-foreground ml-auto">{origem.valor}</span>
-                  </div>
-                ))}
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-[#14919B]" />
               </div>
-            </div>
+            ) : leadsPorOrigem.length > 0 ? (
+              <div className="flex items-center justify-center gap-8">
+                <ResponsiveContainer width={200} height={200}>
+                  <PieChart>
+                    <Pie
+                      data={leadsPorOrigem}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="valor"
+                    >
+                      {leadsPorOrigem.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={origemCores[entry.nome.toLowerCase()] || '#94A3B8'} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="space-y-3">
+                  {leadsPorOrigem.map((origem, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: origemCores[origem.nome.toLowerCase()] || '#94A3B8' }} />
+                      <span className="text-sm">{origem.nome}</span>
+                      <span className="text-sm text-muted-foreground ml-auto">{origem.valor}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">Nenhum lead cadastrado ainda</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Evolução Mensal */}
-        <Card className="lg:col-span-2">
+        {/* Campanhas por Status */}
+        <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Evolução Mensal - Leads vs Conversões</CardTitle>
+            <CardTitle className="text-lg">Campanhas por Status</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={evolucaoMensal}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                <XAxis dataKey="mes" stroke="#888" fontSize={12} />
-                <YAxis stroke="#888" fontSize={12} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333' }}
-                  labelStyle={{ color: '#fff' }}
-                />
-                <Line type="monotone" dataKey="leads" stroke="#3b82f6" strokeWidth={2} name="Leads" />
-                <Line type="monotone" dataKey="conversoes" stroke="#22c55e" strokeWidth={2} name="Conversões" />
-              </LineChart>
-            </ResponsiveContainer>
+            {loadingCampanhas ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-[#14919B]" />
+              </div>
+            ) : campanhas && campanhas.length > 0 ? (
+              <div className="space-y-4">
+                {['ativa', 'agendada', 'rascunho', 'finalizada', 'pausada'].map(status => {
+                  const count = campanhas.filter(c => c.status === status).length;
+                  const labels: Record<string, string> = {
+                    ativa: 'Ativa', agendada: 'Agendada', rascunho: 'Rascunho',
+                    finalizada: 'Finalizada', pausada: 'Pausada'
+                  };
+                  const cores: Record<string, string> = {
+                    ativa: 'bg-green-500', agendada: 'bg-yellow-500', rascunho: 'bg-gray-500',
+                    finalizada: 'bg-blue-500', pausada: 'bg-red-500'
+                  };
+                  if (count === 0) return null;
+                  return (
+                    <div key={status} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-3 h-3 rounded-full ${cores[status]}`} />
+                        <span className="text-sm">{labels[status]}</span>
+                      </div>
+                      <span className="font-bold">{count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">Nenhuma campanha criada ainda</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
