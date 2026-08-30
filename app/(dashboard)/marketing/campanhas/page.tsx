@@ -489,10 +489,9 @@ export default function CampanhasPage() {
               </div>
               <div>
                 <Label className="text-gray-300">Promoção (Opcional)</Label>
-                <Select value={novoDisparo.promocao_id} onValueChange={(v) => setNovoDisparo({...novoDisparo, promocao_id: v})}>
+                <Select value={novoDisparo.promocao_id || undefined} onValueChange={(v) => setNovoDisparo({...novoDisparo, promocao_id: v})}>
                   <SelectTrigger className="bg-gray-700 border-gray-600 text-white"><SelectValue placeholder="Nenhuma" /></SelectTrigger>
                   <SelectContent className="bg-gray-700 border-gray-600">
-                    <SelectItem value="">Nenhuma</SelectItem>
                     {promocoes.map((promocao) => (
                       <SelectItem key={promocao.id} value={promocao.id}>{promocao.nome} ({promocao.cupom})</SelectItem>
                     ))}
