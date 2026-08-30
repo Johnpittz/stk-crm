@@ -163,72 +163,53 @@ export default function CampanhasPage() {
         const data = new Uint8Array(event.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(firstSheet);
 
-        // Debug: log das colunas encontradas
-        if (jsonData.length > 0) {
-          const firstRow = jsonData[0] as Record<string, unknown>;
-          console.log('[Planilha] Colunas encontradas:', Object.keys(firstRow));
-          console.log('[Planilha] Primeira linha:', firstRow);
-        }
+        // Converter tudo para arrays brutos para encontrar o header corretamente
+        const rawData: any[][] = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "" });
 
-        // Se a primeira linha parece ser um título (sem coluna de telefone), pula linhas
-        let dadosParaProcessar = jsonData;
-        if (jsonData.length > 0) {
-          const primeiraLinha = jsonData[0] as Record<string, unknown>;
-          const colunas = Object.keys(primeiraLinha);
-          
-          const temColunaTelefone = colunas.some(c => 
-            /telefone|whatsapp|celular|phone|cel/i.test(c)
-          );
-          
-          if (!temColunaTelefone) {
-            console.log('[Planilha] Primeira linha parece título, buscando header real...');
-            
-            // Tenta pular de 1 a 5 linhas para encontrar o header real
-            for (let skip = 1; skip <= 5; skip++) {
-              const tentativa = XLSX.utils.sheet_to_json(firstSheet, { range: skip, defval: "" });
-              if (tentativa.length > 0) {
-                const colunasTentativa = Object.keys(tentativa[0] as object);
-                const temTel = colunasTentativa.some(c => 
-                  /telefone|whatsapp|celular|phone|cel/i.test(c)
-                );
-                if (temTel) {
-                  dadosParaProcessar = tentativa;
-                  console.log('[Planilha] Header encontrado na linha', skip + 1, ':', colunasTentativa);
-                  break;
-                }
-              }
-            }
+        // Encontrar a linha do header: procura a linha que contém coluna de telefone
+        let headerRowIndex = -1;
+        for (let i = 0; i < Math.min(rawData.length, 10); i++) {
+          const row = rawData[i];
+          const rowJoined = row.map((c: any) => String(c).toLowerCase()).join(' | ');
+          if (/whatsapp|telefone|celular|phone|cel/.test(rowJoined)) {
+            headerRowIndex = i;
+            break;
           }
         }
 
-        const contatos: ContatoPlanilha[] = dadosParaProcessar.map((row: any) => {
-          // Buscar coluna de nome (variações possíveis)
-          const nome = row['Nome do Estabelecimento'] || row['NOME DO ESTABELECIMENTO']
-            || row['nome'] || row['Nome'] || row['estabelecimento'] || row['Estabelecimento']
-            || row['nome_estabelecimento'] || row['Nome Estabelecimento']
-            || row['RAZAO SOCIAL'] || row['Razão Social'] || row['razao_social']
-            || row['EMPRESA'] || row['Empresa'] || row['empresa']
-            || row['ACS_Name'] || row['name'] || row['Name'] || '';
-          
-          // Buscar coluna de telefone (variações possíveis)
-          const telefoneRaw = row['Whatsapp/Telefone'] || row['WHATSAPP/TELEFONE']
-            || row['telefone'] || row['Telefone'] || row['TELEFONE']
-            || row['whatsapp'] || row['Whatsapp'] || row['WHATSAPP']
-            || row['numero'] || row['Numero'] || row['NUMERO']
-            || row['celular'] || row['Celular'] || row['CELULAR']
-            || row['phone'] || row['Phone'] || row['PHONE']
-            || row['cel'] || row['Cel'] || row['CEL']
-            || row['DDD'] || row['ddd'] || row['telefone1'] || '';
-          
-          // Limpar telefone: remover caracteres não numéricos
-          const telefone = String(telefoneRaw).replace(/\D/g, '');
+        if (headerRowIndex === -1) {
+          toast.error("Nao foi possivel encontrar coluna de telefone na planilha.");
+          return;
+        }
 
-          return { nome: String(nome), telefone };
-        }).filter(c => c.telefone.length >= 10); // Filtrar apenas contatos com telefone válido
+        const headers: string[] = rawData[headerRowIndex].map((h: any) => String(h || '').trim());
+        const dataRows = rawData.slice(headerRowIndex + 1);
 
-        console.log(`[Planilha] ${contatos.length} contatos válidos de ${jsonData.length} linhas`);
+        console.log('[Planilha] Headers encontrados:', headers);
+        console.log('[Planilha] Total de linhas de dados:', dataRows.length);
+
+        const contatos: ContatoPlanilha[] = dataRows
+          .filter((row: any[]) => row.some((cell: any) => cell !== null && cell !== undefined && String(cell).trim() !== ''))
+          .map((row: any[]) => {
+            const rowObj: Record<string, string> = {};
+            headers.forEach((h, idx) => { rowObj[h] = String(row[idx] || ''); });
+            
+            // Buscar nome
+            const nomeKey = headers.find(h => /nome.*estabelecimento|razao|empresa|name/i.test(h)) || headers[0];
+            const nome = rowObj[nomeKey] || '';
+            
+            // Buscar telefone
+            const telKey = headers.find(h => /whatsapp|telefone|celular|phone|cel/i.test(h)) || '';
+            const telefoneRaw = rowObj[telKey] || '';
+            const telefone = telefoneRaw.replace(/\D/g, '');
+
+            return { nome, telefone };
+          })
+          .filter(c => c.telefone.length >= 10);
+
+        console.log('[Planilha] Contatos validos:', contatos.length);
+
         setContatosImportados(contatos);
         toast.success(`${contatos.length} contatos importados com sucesso!`);
       } catch (error) {
