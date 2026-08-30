@@ -10,28 +10,28 @@
     --roma-accent: #0D7377;
     --roma-light: #E8F5F0;
     
-    /* Cores do Sistema */
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    /* Cores do Sistema - Tema Escuro */
+    --background: 160 40% 7%;
+    --foreground: 210 40% 98%;
+    --card: 160 40% 10%;
+    --card-foreground: 210 40% 98%;
+    --popover: 160 40% 10%;
+    --popover-foreground: 210 40% 98%;
     
     /* Primary - Usando o verde da marca */
     --primary: 168 66% 14%;
     --primary-foreground: 210 40% 98%;
     
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --secondary: 160 30% 15%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 160 30% 15%;
+    --muted-foreground: 210 20% 65%;
+    --accent: 160 40% 12%;
+    --accent-foreground: 210 40% 98%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
+    --border: 160 30% 18%;
+    --input: 160 30% 18%;
     --ring: 168 66% 14%;
     --radius: 0.5rem;
   }
@@ -130,16 +130,16 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: #0a2e28;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #0D3B33;
+  background: #14919B;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #14919B;
+  background: #1aadb8;
 }
 
 /* Custom Selection */
