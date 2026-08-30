@@ -172,7 +172,38 @@ export default function CampanhasPage() {
           console.log('[Planilha] Primeira linha:', firstRow);
         }
 
-        const contatos: ContatoPlanilha[] = jsonData.map((row: any) => {
+        // Se a primeira linha parece ser um título (sem coluna de telefone), pula linhas
+        let dadosParaProcessar = jsonData;
+        if (jsonData.length > 0) {
+          const primeiraLinha = jsonData[0] as Record<string, unknown>;
+          const colunas = Object.keys(primeiraLinha);
+          
+          const temColunaTelefone = colunas.some(c => 
+            /telefone|whatsapp|celular|phone|cel/i.test(c)
+          );
+          
+          if (!temColunaTelefone) {
+            console.log('[Planilha] Primeira linha parece título, buscando header real...');
+            
+            // Tenta pular de 1 a 5 linhas para encontrar o header real
+            for (let skip = 1; skip <= 5; skip++) {
+              const tentativa = XLSX.utils.sheet_to_json(firstSheet, { range: skip, defval: "" });
+              if (tentativa.length > 0) {
+                const colunasTentativa = Object.keys(tentativa[0] as object);
+                const temTel = colunasTentativa.some(c => 
+                  /telefone|whatsapp|celular|phone|cel/i.test(c)
+                );
+                if (temTel) {
+                  dadosParaProcessar = tentativa;
+                  console.log('[Planilha] Header encontrado na linha', skip + 1, ':', colunasTentativa);
+                  break;
+                }
+              }
+            }
+          }
+        }
+
+        const contatos: ContatoPlanilha[] = dadosParaProcessar.map((row: any) => {
           // Buscar coluna de nome (variações possíveis)
           const nome = row['Nome do Estabelecimento'] || row['NOME DO ESTABELECIMENTO']
             || row['nome'] || row['Nome'] || row['estabelecimento'] || row['Estabelecimento']
