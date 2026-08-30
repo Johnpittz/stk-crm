@@ -165,12 +165,30 @@ export default function CampanhasPage() {
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
         const jsonData = XLSX.utils.sheet_to_json(firstSheet);
 
+        // Debug: log das colunas encontradas
+        if (jsonData.length > 0) {
+          console.log('[Planilha] Colunas encontradas:', Object.keys(jsonData[0]));
+          console.log('[Planilha] Primeira linha:', jsonData[0]);
+        }
+
         const contatos: ContatoPlanilha[] = jsonData.map((row: any) => {
           // Buscar coluna de nome (variações possíveis)
-          const nome = row['Nome do Estabelecimento'] || row['nome'] || row['Nome'] || row['estabelecimento'] || '';
+          const nome = row['Nome do Estabelecimento'] || row['NOME DO ESTABELECIMENTO']
+            || row['nome'] || row['Nome'] || row['estabelecimento'] || row['Estabelecimento']
+            || row['nome_estabelecimento'] || row['Nome Estabelecimento']
+            || row['RAZAO SOCIAL'] || row['Razão Social'] || row['razao_social']
+            || row['EMPRESA'] || row['Empresa'] || row['empresa']
+            || row['ACS_Name'] || row['name'] || row['Name'] || '';
           
           // Buscar coluna de telefone (variações possíveis)
-          const telefoneRaw = row['Whatsapp/Telefone'] || row['telefone'] || row['Telefone'] || row['whatsapp'] || row['Whatsapp'] || row['DDD'] || row['numero'] || '';
+          const telefoneRaw = row['Whatsapp/Telefone'] || row['WHATSAPP/TELEFONE']
+            || row['telefone'] || row['Telefone'] || row['TELEFONE']
+            || row['whatsapp'] || row['Whatsapp'] || row['WHATSAPP']
+            || row['numero'] || row['Numero'] || row['NUMERO']
+            || row['celular'] || row['Celular'] || row['CELULAR']
+            || row['phone'] || row['Phone'] || row['PHONE']
+            || row['cel'] || row['Cel'] || row['CEL']
+            || row['DDD'] || row['ddd'] || row['telefone1'] || '';
           
           // Limpar telefone: remover caracteres não numéricos
           const telefone = String(telefoneRaw).replace(/\D/g, '');
@@ -178,6 +196,7 @@ export default function CampanhasPage() {
           return { nome: String(nome), telefone };
         }).filter(c => c.telefone.length >= 10); // Filtrar apenas contatos com telefone válido
 
+        console.log(`[Planilha] ${contatos.length} contatos válidos de ${jsonData.length} linhas`);
         setContatosImportados(contatos);
         toast.success(`${contatos.length} contatos importados com sucesso!`);
       } catch (error) {
@@ -704,9 +723,6 @@ export default function CampanhasPage() {
                     <p className="text-gray-500 text-xs">Variáveis disponíveis:</p>
                     <button type="button" onClick={() => setNovoDisparo({...novoDisparo, mensagem: novoDisparo.mensagem + '{{nome}}'})} className="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-emerald-400">
                       {'{{nome}}'}
-                    </button>
-                    <button type="button" onClick={() => setNovoDisparo({...novoDisparo, mensagem: novoDisparo.mensagem + '{{telefone}}'})} className="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-emerald-400">
-                      {'{{telefone}}'}
                     </button>
                     <button type="button" onClick={() => setNovoDisparo({...novoDisparo, mensagem: novoDisparo.mensagem + '{{promocao}}'})} className="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-emerald-400">
                       {'{{promocao}}'}
