@@ -19,7 +19,6 @@ import {
   Zap,
   Megaphone,
   BarChart3,
-  Send,
   Flag,
   HeadphonesIcon,
   MessageSquare,
@@ -87,16 +86,10 @@ const navItemsPorPerfil: Record<PerfilAtivo, Array<{
       description: "Métricas de marketing",
     },
     {
-      href: "/marketing/disparo",
-      label: "Disparo",
-      icon: Send,
-      description: "Envio em massa",
-    },
-    {
       href: "/marketing/campanhas",
       label: "Campanhas",
       icon: Megaphone,
-      description: "Criar e gerenciar campanhas",
+      description: "Criar campanhas e disparos",
     },
     {
       href: "/marketing/leads",
