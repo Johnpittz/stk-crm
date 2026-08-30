@@ -81,13 +81,13 @@ const navItemsPorPerfil: Record<PerfilAtivo, Array<{
   ],
   marketing: [
     {
-      href: "/marketing",
+      href: "/marketing/dashboard",
       label: "Dashboard",
       icon: BarChart3,
       description: "Métricas de marketing",
     },
     {
-      href: "/disparo",
+      href: "/marketing/disparo",
       label: "Disparo",
       icon: Send,
       description: "Envio em massa",
@@ -119,13 +119,13 @@ const navItemsPorPerfil: Record<PerfilAtivo, Array<{
   ],
   pos_vendas: [
     {
-      href: "/pos-vendas",
+      href: "/pos-vendas/dashboard",
       label: "Dashboard",
       icon: BarChart3,
       description: "Visão pós-venda",
     },
     {
-      href: "/pos-vendas/followup",
+      href: "/pos-vendas/follow-up",
       label: "Follow-up",
       icon: MessageSquare,
       description: "Acompanhamento pós-venda",
