@@ -275,7 +275,7 @@ export default function MarketingDisparoPage() {
                 onChange={e => setMensagem(e.target.value)}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Variáveis disponíveis: {{"{{nome}}"}}, {{"{{empresa}}"}}, {{"{{telefone}}"}}
+                Variáveis disponíveis: {"{{nome}}"}, {"{{empresa}}"}, {"{{telefone}}"}
               </p>
             </div>
 
