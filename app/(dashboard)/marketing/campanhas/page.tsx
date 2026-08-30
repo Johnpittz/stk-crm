@@ -220,9 +220,15 @@ export default function CampanhasPage() {
     }
 
     // Validação por tipo de envio
-    if (tipoEnvio === 'avulso' && !novoDisparo.telefone_avulso) {
-      toast.error("Digite o número de telefone para envio avulso");
-      return;
+    if (tipoEnvio === 'avulso') {
+      const numeros = novoDisparo.telefone_avulso
+        .split(/[\n,]+/)
+        .map(n => n.replace(/\D/g, '').trim())
+        .filter(n => n.length >= 10);
+      if (numeros.length === 0) {
+        toast.error("Digite pelo menos um número de telefone válido");
+        return;
+      }
     }
 
     if (tipoEnvio === 'massa' && contatosImportados.length === 0) {
@@ -237,6 +243,14 @@ export default function CampanhasPage() {
         if (promocao) mensagemFinal = mensagemFinal.replace(/\{\{promocao\}\}/g, promocao.cupom);
       }
 
+      const contatosAvulso = tipoEnvio === 'avulso'
+        ? novoDisparo.telefone_avulso
+            .split(/[\n,]+/)
+            .map(n => n.replace(/\D/g, '').trim())
+            .filter(n => n.length >= 10)
+            .map(n => ({ nome: '', telefone: n }))
+        : [];
+
       const { error } = await supabase.from('bulk_campaigns').insert([{
         nome: novoDisparo.nome,
         instanceName: novoDisparo.instanceName,
@@ -248,8 +262,7 @@ export default function CampanhasPage() {
         campanha_id: campanhaSelecionada.id,
         promocao_id: novoDisparo.promocao_id || null,
         tipo_envio: tipoEnvio,
-        contatos: tipoEnvio === 'massa' ? contatosImportados : [{ nome: '', telefone: novoDisparo.telefone_avulso }],
-        telefone_avulso: tipoEnvio === 'avulso' ? novoDisparo.telefone_avulso : null
+        contatos: tipoEnvio === 'massa' ? contatosImportados : contatosAvulso,
       }]);
 
       if (error) throw error;
@@ -596,14 +609,32 @@ export default function CampanhasPage() {
               {/* ABAS POR TIPO */}
               <TabsContent value="avulso" className="space-y-4 mt-0">
                 <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600">
-                  <Label className="text-gray-300">Número de Telefone *</Label>
-                  <Input 
-                    value={novoDisparo.telefone_avulso} 
-                    onChange={(e) => setNovoDisparo({...novoDisparo, telefone_avulso: e.target.value.replace(/\D/g, '')})} 
-                    placeholder="Ex: 556299190117" 
-                    className="bg-gray-700 border-gray-600 text-white mt-1"
+                  <Label className="text-gray-300">Números de Telefone *</Label>
+                  <Textarea
+                    value={novoDisparo.telefone_avulso}
+                    onChange={(e) => {
+                      // Permitir apenas números, vírgulas, espaços, quebras de linha e + no início
+                      const raw = e.target.value;
+                      setNovoDisparo({...novoDisparo, telefone_avulso: raw});
+                    }}
+                    placeholder={"556299190117\n556299190118\n556299190119"}
+                    className="bg-gray-700 border-gray-600 text-white mt-1 min-h-[100px] font-mono text-sm"
                   />
-                  <p className="text-gray-500 text-xs mt-1">Formato: código do país + DDD + número (ex: 556299190117)</p>
+                  <p className="text-gray-500 text-xs mt-1">
+                    Um número por linha, ou separados por vírgula. Formato: código do país + DDD + número
+                  </p>
+                  {novoDisparo.telefone_avulso && (() => {
+                    const numeros = novoDisparo.telefone_avulso
+                      .split(/[\n,]+/)
+                      .map(n => n.replace(/\D/g, '').trim())
+                      .filter(n => n.length >= 10);
+                    return numeros.length > 0 ? (
+                      <div className="mt-2 flex items-center gap-2">
+                        <Badge className="bg-emerald-600 text-emerald-100">{numeros.length} número{numeros.length > 1 ? 's' : ''}</Badge>
+                        <span className="text-gray-400 text-xs">será{numeros.length > 1 ? 'ão' : ''} enviada{numeros.length > 1 ? 's' : ''} 1 mensagem para cada</span>
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
                 <div>
                   <Label className="text-gray-300">Mensagem *</Label>
@@ -702,9 +733,15 @@ export default function CampanhasPage() {
                 {tipoEnvio === 'massa' && contatosImportados.length > 0 && (
                   <p className="text-emerald-400 text-sm mt-1"><strong>{contatosImportados.length}</strong> mensagens serão enviadas</p>
                 )}
-                {tipoEnvio === 'avulso' && novoDisparo.telefone_avulso && (
-                  <p className="text-emerald-400 text-sm mt-1">Enviando para: <strong>{novoDisparo.telefone_avulso}</strong></p>
-                )}
+                {tipoEnvio === 'avulso' && novoDisparo.telefone_avulso && (() => {
+                  const count = novoDisparo.telefone_avulso
+                    .split(/[\n,]+/)
+                    .map(n => n.replace(/\D/g, '').trim())
+                    .filter(n => n.length >= 10).length;
+                  return count > 0 ? (
+                    <p className="text-emerald-400 text-sm mt-1"><strong>{count}</strong> mensagens serão enviadas</p>
+                  ) : null;
+                })()}
               </div>
 
               <Button onClick={criarDisparo} className="w-full bg-emerald-600 hover:bg-emerald-700">
