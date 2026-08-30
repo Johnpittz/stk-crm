@@ -25,7 +25,11 @@ export async function GET(request: NextRequest) {
     
     const { data, error } = await supabase
       .from("bulk_campaigns")
-      .select("*")
+      .select(`
+        *,
+        campanha:campanhas(id, nome, status),
+        promocao:promocoes_marketing(id, nome, tipo, valor)
+      `)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -43,7 +47,7 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = getSupabase();
     const body = await request.json();
-    const { name, message, numbers, instancia, delay_min, delay_max } = body;
+    const { name, message, numbers, instancia, delay_min, delay_max, campanha_id, promocao_id } = body;
 
     if (!name || !message || !numbers || numbers.length === 0) {
       return NextResponse.json(
@@ -64,12 +68,30 @@ export async function POST(request: NextRequest) {
         instancia: instancia || "minha-conexao",
         delay_min: delay_min || 3,
         delay_max: delay_max || 8,
+        campanha_id: campanha_id || null,
+        promocao_id: promocao_id || null,
       })
-      .select()
+      .select(`
+        *,
+        campanha:campanhas(id, nome, status),
+        promocao:promocoes_marketing(id, nome, tipo, valor)
+      `)
       .single();
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Se vinculou a uma campanha, incrementar contador de disparos
+    if (campanha_id) {
+      // Buscar quantos disparos já existem para essa campanha
+      const { data: existingCampaigns } = await supabase
+        .from("bulk_campaigns")
+        .select("id")
+        .eq("campanha_id", campanha_id);
+      
+      // Atualizar conversões da campanha (novo disparo = potenciais conversões)
+      // Não incrementamos aqui, pois a conversão é contada quando o lead é criado
     }
 
     return NextResponse.json({ campaign: data });

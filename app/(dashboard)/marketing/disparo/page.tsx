@@ -7,8 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { 
-  Send, Clock, CheckCircle, XCircle, 
-  MoreVertical, Search, Filter, Plus, Loader2, Trash2
+  Send, Plus, Loader2, Trash2, Search, Link, Tag
 } from "lucide-react";
 
 // Tipos
@@ -17,6 +16,19 @@ interface Instance {
   name: string;
   number: string;
   status: string;
+}
+
+interface CampanhaMarketing {
+  id: string;
+  nome: string;
+  status: string;
+}
+
+interface Promocao {
+  id: string;
+  nome: string;
+  tipo: string;
+  valor: number;
 }
 
 interface Campanha {
@@ -30,6 +42,10 @@ interface Campanha {
   instancia: string;
   delay_min: number;
   delay_max: number;
+  campanha_id: string | null;
+  promocao_id: string | null;
+  campanha: CampanhaMarketing | null;
+  promocao: Promocao | null;
   created_at: string;
 }
 
@@ -44,49 +60,55 @@ export default function MarketingDisparoPage() {
   const [showNewDisparo, setShowNewDisparo] = useState(false);
   const [instancias, setInstancias] = useState<Instance[]>([]);
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
+  const [campanhasMarketing, setCampanhasMarketing] = useState<CampanhaMarketing[]>([]);
+  const [promocoes, setPromocoes] = useState<Promocao[]>([]);
   const [loading, setLoading] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [busca, setBusca] = useState('');
 
   // Formulário
   const [nome, setNome] = useState('');
-  const [canal, setCanal] = useState('whatsapp');
   const [mensagem, setMensagem] = useState('');
   const [instancia, setInstancia] = useState('');
   const [delayMin, setDelayMin] = useState(3);
   const [delayMax, setDelayMax] = useState(8);
-  const [agendamento, setAgendamento] = useState('');
   const [numeros, setNumeros] = useState('');
+  const [campanhaId, setCampanhaId] = useState('');
+  const [promocaoId, setPromocaoId] = useState('');
 
-  // Carregar instâncias
+  // Carregar dados
   useEffect(() => {
-    fetch('/api/instances')
-      .then(r => r.json())
-      .then(data => {
-        setInstancias(data.instancias || []);
-        if (data.instancias?.length > 0) {
-          setInstancia(data.instancias[0].name);
-        }
-      })
-      .catch(() => {});
+    Promise.all([
+      fetch('/api/instances').then(r => r.json()),
+      fetch('/api/bulk/campaigns').then(r => r.json()),
+      fetch('/api/marketing/campanhas').then(r => r.json()),
+      fetch('/api/marketing/promocoes').then(r => r.json()),
+    ]).then(([instData, campData, campMpData, promoData]) => {
+      setInstancias(instData.instancias || []);
+      if (instData.instancias?.length > 0) {
+        setInstancia(instData.instancias[0].name);
+      }
+      setCampanhas(campData.campaigns || []);
+      setCampanhasMarketing(campMpData.data || []);
+      setPromocoes(promoData.data || []);
+    }).finally(() => setLoading(false));
   }, []);
 
-  // Carregar campanhas
+  // Recarregar disparos
   const carregarCampanhas = async () => {
-    try {
-      const res = await fetch('/api/bulk/campaigns');
-      const data = await res.json();
-      setCampanhas(data.campaigns || []);
-    } catch (err) {
-      console.error('Erro ao carregar campanhas:', err);
-    } finally {
-      setLoading(false);
-    }
+    const res = await fetch('/api/bulk/campaigns');
+    const data = await res.json();
+    setCampanhas(data.campaigns || []);
   };
 
-  useEffect(() => {
-    carregarCampanhas();
-  }, []);
+  // Inserir variável de promoção na mensagem
+  const handlePromocaoSelect = (id: string) => {
+    setPromocaoId(id);
+    const promo = promocoes.find(p => p.id === id);
+    if (promo && !mensagem.includes('{{promocao}}')) {
+      setMensagem(prev => prev + (prev ? '\n\n' : '') + `Use o cupom {{promocao}} e ganhe ${promo.tipo === 'percentual' ? promo.valor + '% OFF' : 'R$ ' + promo.valor + ' de desconto'}!`);
+    }
+  };
 
   // Criar campanha
   const handleCriar = async (acao: 'enviar' | 'rascunho') => {
@@ -108,6 +130,8 @@ export default function MarketingDisparoPage() {
           instancia,
           delay_min: delayMin,
           delay_max: delayMax,
+          campanha_id: campanhaId || null,
+          promocao_id: promocaoId || null,
         }),
       });
 
@@ -123,10 +147,11 @@ export default function MarketingDisparoPage() {
         setEnviando(false);
       }
 
-      // Limpar formulário e recarregar
       setNome('');
       setMensagem('');
       setNumeros('');
+      setCampanhaId('');
+      setPromocaoId('');
       setShowNewDisparo(false);
       carregarCampanhas();
     } catch (err) {
@@ -135,18 +160,13 @@ export default function MarketingDisparoPage() {
     }
   };
 
-  // Deletar campanha
+  // Deletar
   const handleDeletar = async (id: string) => {
-    if (!confirm('Deseja excluir esta campanha?')) return;
-    try {
-      await fetch(`/api/bulk/campaigns?id=${id}`, { method: 'DELETE' });
-      carregarCampanhas();
-    } catch (err) {
-      console.error('Erro ao deletar:', err);
-    }
+    if (!confirm('Deseja excluir este disparo?')) return;
+    await fetch(`/api/bulk/campaigns?id=${id}`, { method: 'DELETE' });
+    carregarCampanhas();
   };
 
-  // Filtrar
   const campanhasFiltradas = campanhas.filter(c =>
     c.name.toLowerCase().includes(busca.toLowerCase())
   );
@@ -183,23 +203,7 @@ export default function MarketingDisparoPage() {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium">Canal</label>
-                <select 
-                  className="w-full mt-1 p-2 border rounded-md bg-[#0f3830]"
-                  value={canal}
-                  onChange={e => setCanal(e.target.value)}
-                >
-                  <option value="whatsapp">WhatsApp</option>
-                  <option value="email">E-mail</option>
-                  <option value="sms">SMS</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Instância / Número de Origem */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium">Enviar de qual número?</label>
+                <label className="text-sm font-medium">Instância / Número de Origem</label>
                 <select 
                   className="w-full mt-1 p-2 border rounded-md bg-[#0f3830]"
                   value={instancia}
@@ -208,60 +212,77 @@ export default function MarketingDisparoPage() {
                   {instancias.length > 0 ? (
                     instancias.map(inst => (
                       <option key={inst.name} value={inst.name}>
-                        {inst.name} ({inst.number}) - {inst.status === 'open' ? '🟢 Conectado' : '🔴 Desconectado'}
+                        {inst.name} ({inst.number}) - {inst.status === 'open' ? '🟢' : '🔴'}
                       </option>
                     ))
                   ) : (
                     <option value="minha-conexao">minha-conexao (padrão)</option>
                   )}
                 </select>
+              </div>
+            </div>
+
+            {/* Vincular Campanha + Promoção */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium flex items-center gap-2">
+                  <Link className="w-4 h-4" />
+                  Vincular à Campanha
+                </label>
+                <select 
+                  className="w-full mt-1 p-2 border rounded-md bg-[#0f3830]"
+                  value={campanhaId}
+                  onChange={e => setCampanhaId(e.target.value)}
+                >
+                  <option value="">Nenhuma (disparo avulso)</option>
+                  {campanhasMarketing.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.nome} ({c.status})
+                    </option>
+                  ))}
+                </select>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Selecione a instância WhatsApp que será usada para o envio
+                  Vincula este disparo a uma campanha estratégica
                 </p>
               </div>
               <div>
-                <label className="text-sm font-medium">Agendamento</label>
-                <Input 
-                  type="datetime-local" 
-                  className="mt-1"
-                  value={agendamento}
-                  onChange={e => setAgendamento(e.target.value)}
-                />
+                <label className="text-sm font-medium flex items-center gap-2">
+                  <Tag className="w-4 h-4" />
+                  Inserir Promoção na Mensagem
+                </label>
+                <select 
+                  className="w-full mt-1 p-2 border rounded-md bg-[#0f3830]"
+                  value={promocaoId}
+                  onChange={e => handlePromocaoSelect(e.target.value)}
+                >
+                  <option value="">Nenhuma promoção</option>
+                  {promocoes.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.nome} - {p.tipo === 'percentual' ? p.valor + '% OFF' : 'R$ ' + p.valor}
+                    </option>
+                  ))}
+                </select>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Deixe vazio para enviar imediatamente
+                  Adiciona o cupom {"{{promocao}}"} na mensagem
                 </p>
               </div>
             </div>
 
-            {/* Delay entre envios */}
+            {/* Delay */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium">Delay Mínimo (segundos)</label>
                 <Input 
-                  type="number" 
-                  min="1" 
-                  max="60"
-                  className="mt-1"
-                  value={delayMin}
-                  onChange={e => setDelayMin(Number(e.target.value))}
+                  type="number" min="1" max="60" className="mt-1"
+                  value={delayMin} onChange={e => setDelayMin(Number(e.target.value))}
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Tempo mínimo entre cada envio (recomendado: 3-5s)
-                </p>
               </div>
               <div>
                 <label className="text-sm font-medium">Delay Máximo (segundos)</label>
                 <Input 
-                  type="number" 
-                  min="1" 
-                  max="120"
-                  className="mt-1"
-                  value={delayMax}
-                  onChange={e => setDelayMax(Number(e.target.value))}
+                  type="number" min="1" max="120" className="mt-1"
+                  value={delayMax} onChange={e => setDelayMax(Number(e.target.value))}
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Tempo máximo entre envios (aleatório entre min e max)
-                </p>
               </div>
             </div>
 
@@ -269,13 +290,13 @@ export default function MarketingDisparoPage() {
             <div>
               <label className="text-sm font-medium">Mensagem</label>
               <Textarea 
-                placeholder="Digite sua mensagem aqui... Use {{nome}} para personalizar" 
+                placeholder={"Olá {{nome}}! Temos uma oferta especial para você..."} 
                 className="mt-1 h-32"
                 value={mensagem}
                 onChange={e => setMensagem(e.target.value)}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Variáveis disponíveis: {"{{nome}}"}, {"{{empresa}}"}, {"{{telefone}}"}
+                Variáveis: {"{{nome}}"}, {"{{empresa}}"}, {"{{telefone}}"}, {"{{promocao}}"}
               </p>
             </div>
 
@@ -283,27 +304,21 @@ export default function MarketingDisparoPage() {
             <div>
               <label className="text-sm font-medium">Números (1 por linha)</label>
               <Textarea 
-                placeholder={"11999991234\n11988885678\n21977774321"}
+                placeholder={"11999991234\n11988885678"}
                 className="mt-1 h-24 font-mono text-sm"
                 value={numeros}
                 onChange={e => setNumeros(e.target.value)}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Cole os números, 1 por linha. O sistema adiciona automaticamente o 55 (Brasil) se não tiver.
+                O sistema adiciona o 55 automaticamente se não tiver.
               </p>
             </div>
 
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setShowNewDisparo(false)}>Cancelar</Button>
-              <Button variant="outline" onClick={() => handleCriar('rascunho')}>
-                Salvar Rascunho
-              </Button>
+              <Button variant="outline" onClick={() => handleCriar('rascunho')}>Salvar Rascunho</Button>
               <Button onClick={() => handleCriar('enviar')} disabled={enviando}>
-                {enviando ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4 mr-2" />
-                )}
+                {enviando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                 {enviando ? 'Enviando...' : 'Enviar Agora'}
               </Button>
             </div>
@@ -316,16 +331,14 @@ export default function MarketingDisparoPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Disparos Recentes</CardTitle>
-            <div className="flex gap-2">
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-                <Input 
-                  placeholder="Buscar disparo..." 
-                  className="pl-9 w-64"
-                  value={busca}
-                  onChange={e => setBusca(e.target.value)}
-                />
-              </div>
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+              <Input 
+                placeholder="Buscar disparo..." 
+                className="pl-9 w-64"
+                value={busca}
+                onChange={e => setBusca(e.target.value)}
+              />
             </div>
           </div>
         </CardHeader>
@@ -339,50 +352,62 @@ export default function MarketingDisparoPage() {
               {campanhasFiltradas.map((campanha) => (
                 <div 
                   key={campanha.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-white/5 transition-colors"
+                  className="p-4 border rounded-lg hover:bg-white/5 transition-colors"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <Send className="w-5 h-5 text-primary" />
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        <Send className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <h4 className="font-medium">{campanha.name}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(campanha.created_at).toLocaleDateString('pt-BR')} • 
+                          {' '}{campanha.numbers?.length || 0} contatos • 
+                          {' '}{campanha.instancia || 'minha-conexao'}
+                        </p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <p className="text-xs text-muted-foreground">
+                            Delay: {campanha.delay_min || 3}-{campanha.delay_max || 8}s
+                          </p>
+                          {campanha.campanha && (
+                            <Badge variant="outline" className="text-xs">
+                              <Link className="w-3 h-3 mr-1" />
+                              {campanha.campanha.nome}
+                            </Badge>
+                          )}
+                          {campanha.promocao && (
+                            <Badge variant="outline" className="text-xs">
+                              <Tag className="w-3 h-3 mr-1" />
+                              {campanha.promocao.nome}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-medium">{campanha.name}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {new Date(campanha.created_at).toLocaleDateString('pt-BR')} • 
-                        {campanha.numbers?.length || 0} contatos • 
-                        Instância: {campanha.instancia || 'minha-conexao'}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Delay: {campanha.delay_min || 3}-{campanha.delay_max || 8}s
-                      </p>
-                    </div>
-                  </div>
 
-                  <div className="flex items-center gap-4">
-                    {campanha.status === 'completed' && (
-                      <div className="text-right">
-                        <p className="text-sm font-medium">{campanha.sent} enviados</p>
-                        {campanha.failed > 0 && (
-                          <p className="text-xs text-red-400">{campanha.failed} falharam</p>
-                        )}
-                      </div>
-                    )}
-                    {campanha.status === 'running' && (
-                      <div className="text-right">
-                        <p className="text-sm font-medium text-blue-400">{campanha.sent} enviados</p>
-                        <Loader2 className="w-4 h-4 animate-spin text-blue-400 inline" />
-                      </div>
-                    )}
-                    <Badge className={statusConfig[campanha.status]?.cor || 'bg-gray-500/20 text-gray-400'}>
-                      {statusConfig[campanha.status]?.label || campanha.status}
-                    </Badge>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={() => handleDeletar(campanha.id)}
-                    >
-                      <Trash2 className="w-4 h-4 text-red-500" />
-                    </Button>
+                    <div className="flex items-center gap-4">
+                      {campanha.status === 'completed' && (
+                        <div className="text-right">
+                          <p className="text-sm font-medium">{campanha.sent} enviados</p>
+                          {campanha.failed > 0 && (
+                            <p className="text-xs text-red-400">{campanha.failed} falharam</p>
+                          )}
+                        </div>
+                      )}
+                      {campanha.status === 'running' && (
+                        <div className="text-right">
+                          <p className="text-sm font-medium text-blue-400">{campanha.sent} enviados</p>
+                          <Loader2 className="w-4 h-4 animate-spin text-blue-400 inline" />
+                        </div>
+                      )}
+                      <Badge className={statusConfig[campanha.status]?.cor || 'bg-gray-500/20 text-gray-400'}>
+                        {statusConfig[campanha.status]?.label || campanha.status}
+                      </Badge>
+                      <Button variant="ghost" size="icon" onClick={() => handleDeletar(campanha.id)}>
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}
