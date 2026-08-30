@@ -20,7 +20,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface Campanha {
@@ -77,6 +77,7 @@ export default function CampanhasPage() {
   const [promocoes, setPromocoes] = useState<any[]>([]);
   const [sending, setSending] = useState(false);
   const { toast } = useToast();
+  const supabase = createClient();
 
   const [novaCampanha, setNovaCampanha] = useState({
     nome: '',
