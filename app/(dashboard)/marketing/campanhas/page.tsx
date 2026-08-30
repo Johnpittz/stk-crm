@@ -19,7 +19,7 @@ import {
   Send,
   Loader2,
 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
@@ -123,15 +123,11 @@ export default function CampanhasPage() {
       setCampanhas(campanhasComDisparos);
     } catch (error) {
       console.error('Erro ao carregar campanhas:', error);
-      toast({
-        title: "Erro ao carregar campanhas",
-        description: "Não foi possível carregar as campanhas.",
-        variant: "destructive"
-      });
+      toast.error("Não foi possível carregar as campanhas.");
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, []);
 
   const loadInstances = useCallback(async () => {
     try {
@@ -179,11 +175,7 @@ export default function CampanhasPage() {
 
   const criarCampanha = async () => {
     if (!novaCampanha.nome) {
-      toast({
-        title: "Erro",
-        description: "Nome da campanha é obrigatório",
-        variant: "destructive"
-      });
+      toast.error("Nome da campanha é obrigatório");
       return;
     }
 
@@ -202,10 +194,7 @@ export default function CampanhasPage() {
 
       if (error) throw error;
 
-      toast({
-        title: "Campanha criada!",
-        description: "A campanha foi criada com sucesso."
-      });
+      toast.success("A campanha foi criada com sucesso.");
 
       setShowNovoDialog(false);
       setNovaCampanha({
@@ -220,21 +209,13 @@ export default function CampanhasPage() {
       loadCampanhas();
     } catch (error) {
       console.error('Erro ao criar campanha:', error);
-      toast({
-        title: "Erro ao criar campanha",
-        description: "Não foi possível criar a campanha.",
-        variant: "destructive"
-      });
+      toast.error("Não foi possível criar a campanha.");
     }
   };
 
   const criarDisparo = async () => {
     if (!novoDisparo.nome || !novoDisparo.mensagem || !novoDisparo.instanceName || !campanhaSelecionada) {
-      toast({
-        title: "Erro",
-        description: "Preencha todos os campos obrigatórios",
-        variant: "destructive"
-      });
+      toast.error("Preencha todos os campos obrigatórios");
       return;
     }
 
@@ -264,10 +245,7 @@ export default function CampanhasPage() {
 
       if (error) throw error;
 
-      toast({
-        title: "Disparo criado!",
-        description: "O disparo foi vinculado à campanha."
-      });
+      toast.success("O disparo foi vinculado à campanha.");
 
       setShowDisparoDialog(false);
       setNovoDisparo({
@@ -282,11 +260,7 @@ export default function CampanhasPage() {
       loadCampanhas();
     } catch (error) {
       console.error('Erro ao criar disparo:', error);
-      toast({
-        title: "Erro ao criar disparo",
-        description: "Não foi possível criar o disparo.",
-        variant: "destructive"
-      });
+      toast.error("Não foi possível criar o disparo.");
     }
   };
 
@@ -312,11 +286,7 @@ export default function CampanhasPage() {
       }
     } catch (error) {
       console.error('Erro ao enviar disparo:', error);
-      toast({
-        title: "Erro ao enviar",
-        description: "Não foi possível enviar o disparo.",
-        variant: "destructive"
-      });
+      toast.error("Não foi possível enviar o disparo.");
     } finally {
       setSending(false);
     }
@@ -331,18 +301,11 @@ export default function CampanhasPage() {
 
       if (error) throw error;
 
-      toast({
-        title: "Campanha excluída",
-        description: "A campanha foi removida."
-      });
+      toast.success("A campanha foi removida.");
       loadCampanhas();
     } catch (error) {
       console.error('Erro ao excluir campanha:', error);
-      toast({
-        title: "Erro ao excluir",
-        description: "Não foi possível excluir a campanha.",
-        variant: "destructive"
-      });
+      toast.error("Não foi possível excluir a campanha.");
     }
   };
 
@@ -355,18 +318,11 @@ export default function CampanhasPage() {
 
       if (error) throw error;
 
-      toast({
-        title: "Disparo excluído",
-        description: "O disparo foi removido."
-      });
+      toast.success("O disparo foi removido.");
       loadCampanhas();
     } catch (error) {
       console.error('Erro ao excluir disparo:', error);
-      toast({
-        title: "Erro ao excluir",
-        description: "Não foi possível excluir o disparo.",
-        variant: "destructive"
-      });
+      toast.error("Não foi possível excluir o disparo.");
     }
   };
 
@@ -498,287 +454,3 @@ export default function CampanhasPage() {
               <div>
                 <Label className="text-gray-300">Meta de Mensagens</Label>
                 <Input
-                  type="number"
-                  value={novaCampanha.meta}
-                  onChange={(e) => setNovaCampanha({...novaCampanha, meta: parseInt(e.target.value) || 0})}
-                  placeholder="0"
-                  className="bg-gray-700 border-gray-600 text-white"
-                />
-              </div>
-              <Button onClick={criarCampanha} className="w-full bg-emerald-600 hover:bg-emerald-700">
-                Criar Campanha
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      <div className="grid gap-4">
-        {campanhas.length === 0 ? (
-          <Card className="bg-gray-800/50 border-gray-700">
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <Megaphone className="h-12 w-12 text-gray-500 mb-4" />
-              <p className="text-gray-400 text-lg">Nenhuma campanha criada</p>
-              <p className="text-gray-500 text-sm mt-1">Crie sua primeira campanha para começar</p>
-            </CardContent>
-          </Card>
-        ) : (
-          campanhas.map((campanha) => {
-            const stats = getCampanhaStats(campanha);
-            const isExpanded = expandedCampanha === campanha.id;
-            
-            return (
-              <Card key={campanha.id} className="bg-gray-800/50 border-gray-700">
-                <CardHeader 
-                  className="cursor-pointer hover:bg-gray-700/30 transition-colors"
-                  onClick={() => setExpandedCampanha(isExpanded ? null : campanha.id)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-lg bg-emerald-600/20 flex items-center justify-center">
-                        <Megaphone className="h-6 w-6 text-emerald-400" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-white text-lg">{campanha.nome}</CardTitle>
-                        <p className="text-gray-400 text-sm">{campanha.descricao || 'Sem descrição'}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <p className="text-white font-semibold">{stats.totalDisparos} disparos</p>
-                        <p className="text-gray-400 text-sm">{stats.totalEnviados} mensagens</p>
-                      </div>
-                      {getStatusBadge(campanha.status)}
-                      {isExpanded ? (
-                        <ChevronUp className="h-5 w-5 text-gray-400" />
-                      ) : (
-                        <ChevronDown className="h-5 w-5 text-gray-400" />
-                      )}
-                    </div>
-                  </div>
-                </CardHeader>
-                
-                {isExpanded && (
-                  <CardContent className="border-t border-gray-700">
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-white font-medium">Disparos desta Campanha</h3>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setCampanhaSelecionada(campanha);
-                              setShowDisparoDialog(true);
-                            }}
-                            className="bg-emerald-600 hover:bg-emerald-700"
-                          >
-                            <Plus className="h-4 w-4 mr-1" />
-                            Novo Disparo
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              excluirCampanha(campanha.id);
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      {campanha.disparos && campanha.disparos.length > 0 ? (
-                        <Table>
-                          <TableHeader>
-                            <TableRow className="border-gray-700">
-                              <TableHead className="text-gray-300">Nome</TableHead>
-                              <TableHead className="text-gray-300">Instância</TableHead>
-                              <TableHead className="text-gray-300">Promoção</TableHead>
-                              <TableHead className="text-gray-300">Enviados</TableHead>
-                              <TableHead className="text-gray-300">Entregues</TableHead>
-                              <TableHead className="text-gray-300">Status</TableHead>
-                              <TableHead className="text-gray-300">Ações</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {campanha.disparos.map((disparo) => (
-                              <TableRow key={disparo.id} className="border-gray-700">
-                                <TableCell className="text-white font-medium">{disparo.nome}</TableCell>
-                                <TableCell className="text-gray-300">{disparo.instanceName}</TableCell>
-                                <TableCell>
-                                  {disparo.promocao ? (
-                                    <Badge className="bg-purple-600 text-purple-100">
-                                      {disparo.promocao.cupom}
-                                    </Badge>
-                                  ) : (
-                                    <span className="text-gray-500">-</span>
-                                  )}
-                                </TableCell>
-                                <TableCell className="text-gray-300">{disparo.sent || 0}</TableCell>
-                                <TableCell className="text-gray-300">{disparo.delivered || 0}</TableCell>
-                                <TableCell>{getStatusBadge(disparo.status)}</TableCell>
-                                <TableCell>
-                                  <div className="flex gap-1">
-                                    {disparo.status === 'rascunho' && (
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => enviarDisparo(disparo.id)}
-                                        disabled={sending}
-                                        className="text-emerald-400 hover:text-emerald-300"
-                                      >
-                                        <Send className="h-4 w-4" />
-                                      </Button>
-                                    )}
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => excluirDisparo(disparo.id)}
-                                      className="text-red-400 hover:text-red-300"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      ) : (
-                        <div className="text-center py-8 text-gray-500">
-                          <Send className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                          <p>Nenhum disparo criado para esta campanha</p>
-                          <p className="text-sm mt-1">Clique em "Novo Disparo" para começar</p>
-                        </div>
-                      )}
-
-                      {stats.totalDisparos > 0 && (
-                        <div className="grid grid-cols-4 gap-4 mt-4">
-                          <div className="bg-gray-700/50 rounded-lg p-3 text-center">
-                            <p className="text-2xl font-bold text-white">{stats.totalEnviados}</p>
-                            <p className="text-gray-400 text-sm">Enviados</p>
-                          </div>
-                          <div className="bg-gray-700/50 rounded-lg p-3 text-center">
-                            <p className="text-2xl font-bold text-green-400">{stats.totalEntregues}</p>
-                            <p className="text-gray-400 text-sm">Entregues</p>
-                          </div>
-                          <div className="bg-gray-700/50 rounded-lg p-3 text-center">
-                            <p className="text-2xl font-bold text-blue-400">{stats.totalLidos}</p>
-                            <p className="text-gray-400 text-sm">Lidos</p>
-                          </div>
-                          <div className="bg-gray-700/50 rounded-lg p-3 text-center">
-                            <p className="text-2xl font-bold text-red-400">{stats.totalFalhas}</p>
-                            <p className="text-gray-400 text-sm">Falhas</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                )}
-              </Card>
-            );
-          })
-        )}
-      </div>
-
-      <Dialog open={showDisparoDialog} onOpenChange={setShowDisparoDialog}>
-        <DialogContent className="bg-gray-800 border-gray-700 max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-white">
-              Criar Disparo - {campanhaSelecionada?.nome}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label className="text-gray-300">Nome do Disparo *</Label>
-              <Input
-                value={novoDisparo.nome}
-                onChange={(e) => setNovoDisparo({...novoDisparo, nome: e.target.value})}
-                placeholder="Ex: Envio 1 - Clientes Ativos"
-                className="bg-gray-700 border-gray-600 text-white"
-              />
-            </div>
-            <div>
-              <Label className="text-gray-300">Mensagem *</Label>
-              <Textarea
-                value={novoDisparo.mensagem}
-                onChange={(e) => setNovoDisparo({...novoDisparo, mensagem: e.target.value})}
-                placeholder="Olá! Temos uma oferta especial para você..."
-                className="bg-gray-700 border-gray-600 text-white min-h-[120px]"
-              />
-              <p className="text-gray-500 text-xs mt-1">
-                Use {'{{nome}}'}, {'{{telefone}}'}, {'{{promocao}}'} como variáveis
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-gray-300">Instância WhatsApp *</Label>
-                <Select value={novoDisparo.instanceName} onValueChange={(v) => setNovoDisparo({...novoDisparo, instanceName: v})}>
-                  <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent className="bg-gray-700 border-gray-600">
-                    {instances.map((instance) => (
-                      <SelectItem key={instance.name} value={instance.name}>
-                        {instance.name} ({instance.number})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-gray-300">Promoção (Opcional)</Label>
-                <Select value={novoDisparo.promocao_id} onValueChange={(v) => setNovoDisparo({...novoDisparo, promocao_id: v})}>
-                  <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
-                    <SelectValue placeholder="Nenhuma" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-gray-700 border-gray-600">
-                    <SelectItem value="">Nenhuma</SelectItem>
-                    {promocoes.map((promocao) => (
-                      <SelectItem key={promocao.id} value={promocao.id}>
-                        {promocao.nome} ({promocao.cupom})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-gray-300">Delay Mínimo (seg)</Label>
-                <Input
-                  type="number"
-                  value={novoDisparo.delay_min}
-                  onChange={(e) => setNovoDisparo({...novoDisparo, delay_min: parseInt(e.target.value) || 5})}
-                  className="bg-gray-700 border-gray-600 text-white"
-                />
-              </div>
-              <div>
-                <Label className="text-gray-300">Delay Máximo (seg)</Label>
-                <Input
-                  type="number"
-                  value={novoDisparo.delay_max}
-                  onChange={(e) => setNovoDisparo({...novoDisparo, delay_max: parseInt(e.target.value) || 30})}
-                  className="bg-gray-700 border-gray-600 text-white"
-                />
-              </div>
-            </div>
-            <div className="bg-gray-700/50 rounded-lg p-4">
-              <p className="text-gray-300 text-sm">
-                <strong>Vinculado à campanha:</strong> {campanhaSelecionada?.nome}
-              </p>
-              <p className="text-gray-400 text-xs mt-1">
-                Os disparos ficam organizados dentro desta campanha
-              </p>
-            </div>
-            <Button onClick={criarDisparo} className="w-full bg-emerald-600 hover:bg-emerald-700">
-              Criar Disparo
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
