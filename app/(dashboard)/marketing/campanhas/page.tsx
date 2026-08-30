@@ -103,7 +103,7 @@ export default function CampanhasPage() {
     try {
       const response = await fetch('/api/instances');
       const data = await response.json();
-      if (data.success) setInstances(data.instances);
+      setInstances(data.instancias || data.instances || []);
     } catch (error) {
       console.error('Erro ao carregar instâncias:', error);
     }
