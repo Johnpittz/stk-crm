@@ -7,68 +7,38 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { 
   CalendarCheck, Plus, Clock, CheckCircle, AlertTriangle, 
-  Phone, Mail, MessageSquare, MoreVertical, Search, Filter 
+  Phone, Mail, MessageSquare, MoreVertical, Search, Filter, Loader2 
 } from "lucide-react";
+import { useApi, useCreate } from "@/lib/hooks/use-api";
 
-// Mock data
-const followUps = [
-  { 
-    id: 1, 
-    cliente: "Maria Silva", 
-    tipo: "ligacao", 
-    motivo: "Verificar satisfação com produto",
-    data: "2024-12-10 14:00",
-    status: "pendente",
-    vendedor: "Ana Santos",
-    prioridade: "alta"
-  },
-  { 
-    id: 2, 
-    cliente: "João Oliveira", 
-    tipo: "whatsapp", 
-    motivo: "Enviar cupom de desconto",
-    data: "2024-12-10 10:30",
-    status: "concluido",
-    vendedor: "Pedro Costa",
-    prioridade: "media"
-  },
-  { 
-    id: 3, 
-    cliente: "Ana Pereira", 
-    tipo: "email", 
-    motivo: "Apresentar novos produtos",
-    data: "2024-12-09 16:00",
-    status: "atrasado",
-    vendedor: "Maria Lima",
-    prioridade: "alta"
-  },
-  { 
-    id: 4, 
-    cliente: "Carlos Souza", 
-    tipo: "visita", 
-    motivo: "Demonstração em loja",
-    data: "2024-12-11 09:00",
-    status: "agendado",
-    vendedor: "Ana Santos",
-    prioridade: "media"
-  },
-];
+// Tipos
+interface FollowUp {
+  id: string;
+  cliente_nome: string;
+  tipo: string;
+  motivo: string;
+  data_agendada: string;
+  status: string;
+  prioridade: string;
+  responsavel_nome: string;
+  created_at: string;
+}
 
-const tipoConfig = {
+const tipoConfig: Record<string, { label: string; icon: any; cor: string; bg: string }> = {
   ligacao: { label: "Ligação", icon: Phone, cor: "text-blue-500", bg: "bg-blue-500/10" },
   whatsapp: { label: "WhatsApp", icon: MessageSquare, cor: "text-green-500", bg: "bg-green-500/10" },
   email: { label: "E-mail", icon: Mail, cor: "text-purple-500", bg: "bg-purple-500/10" },
   visita: { label: "Visita", icon: CalendarCheck, cor: "text-orange-500", bg: "bg-orange-500/10" },
 };
 
-const statusConfig = {
+const statusConfig: Record<string, { label: string; cor: string }> = {
   pendente: { label: "Pendente", cor: "bg-yellow-500/20 text-yellow-400" },
   concluido: { label: "Concluído", cor: "bg-green-500/20 text-green-400" },
   atrasado: { label: "Atrasado", cor: "bg-red-500/20 text-red-400" },
   agendado: { label: "Agendado", cor: "bg-blue-500/20 text-blue-400" },
 };
 
-const prioridadeConfig = {
+const prioridadeConfig: Record<string, { label: string; cor: string }> = {
   alta: { label: "Alta", cor: "bg-red-500/20 text-red-400" },
   media: { label: "Média", cor: "bg-yellow-500/20 text-yellow-400" },
   baixa: { label: "Baixa", cor: "bg-green-500/20 text-green-400" },
@@ -76,6 +46,40 @@ const prioridadeConfig = {
 
 export default function PosVendasFollowUpPage() {
   const [showNewFollowUp, setShowNewFollowUp] = useState(false);
+  const [novoFollowUp, setNovoFollowUp] = useState({
+    cliente_nome: '',
+    tipo: 'ligacao',
+    motivo: '',
+    data_agendada: '',
+    prioridade: 'media',
+    responsavel_nome: ''
+  });
+
+  const { data: followUps, loading, refetch } = useApi<FollowUp[]>({ url: '/api/pos-vendas/followups' });
+  const { create: criarFollowUp, loading: criando } = useCreate<typeof novoFollowUp>('/api/pos-vendas/followups');
+
+  const handleCriarFollowUp = async () => {
+    if (!novoFollowUp.cliente_nome || !novoFollowUp.motivo || !novoFollowUp.data_agendada) return;
+    
+    const resultado = await criarFollowUp(novoFollowUp);
+    if (resultado) {
+      setShowNewFollowUp(false);
+      setNovoFollowUp({ cliente_nome: '', tipo: 'ligacao', motivo: '', data_agendada: '', prioridade: 'media', responsavel_nome: '' });
+      refetch();
+    }
+  };
+
+  // Estatísticas
+  const stats = {
+    pendentes: followUps?.filter(f => f.status === 'pendente').length || 0,
+    atrasados: followUps?.filter(f => f.status === 'atrasado').length || 0,
+    concluidosHoje: followUps?.filter(f => {
+      const data = new Date(f.created_at);
+      const hoje = new Date();
+      return data.toDateString() === hoje.toDateString() && f.status === 'concluido';
+    }).length || 0,
+    agendados: followUps?.filter(f => f.status === 'agendado').length || 0,
+  };
 
   return (
     <div className="space-y-6">
@@ -101,7 +105,7 @@ export default function PosVendasFollowUpPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Pendentes</p>
-                <p className="text-2xl font-bold">8</p>
+                <p className="text-2xl font-bold">{stats.pendentes}</p>
               </div>
             </div>
           </CardContent>
@@ -114,7 +118,7 @@ export default function PosVendasFollowUpPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Atrasados</p>
-                <p className="text-2xl font-bold">3</p>
+                <p className="text-2xl font-bold">{stats.atrasados}</p>
               </div>
             </div>
           </CardContent>
@@ -127,7 +131,7 @@ export default function PosVendasFollowUpPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Concluídos Hoje</p>
-                <p className="text-2xl font-bold">12</p>
+                <p className="text-2xl font-bold">{stats.concluidosHoje}</p>
               </div>
             </div>
           </CardContent>
@@ -140,7 +144,7 @@ export default function PosVendasFollowUpPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Agendados</p>
-                <p className="text-2xl font-bold">15</p>
+                <p className="text-2xl font-bold">{stats.agendados}</p>
               </div>
             </div>
           </CardContent>
@@ -156,50 +160,77 @@ export default function PosVendasFollowUpPage() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium">Cliente</label>
-                <Input placeholder="Nome do cliente" className="mt-1" />
+                <label className="text-sm font-medium">Cliente *</label>
+                <Input 
+                  placeholder="Nome do cliente" 
+                  className="mt-1"
+                  value={novoFollowUp.cliente_nome}
+                  onChange={(e) => setNovoFollowUp({ ...novoFollowUp, cliente_nome: e.target.value })}
+                />
               </div>
               <div>
                 <label className="text-sm font-medium">Tipo de Contato</label>
-                <select className="w-full mt-1 p-2 border rounded-md bg-[#0f3830]">
-                  <option>Ligação</option>
-                  <option>WhatsApp</option>
-                  <option>E-mail</option>
-                  <option>Visita</option>
+                <select 
+                  className="w-full mt-1 p-2 border rounded-md bg-[#0f3830]"
+                  value={novoFollowUp.tipo}
+                  onChange={(e) => setNovoFollowUp({ ...novoFollowUp, tipo: e.target.value })}
+                >
+                  <option value="ligacao">Ligação</option>
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="email">E-mail</option>
+                  <option value="visita">Visita</option>
                 </select>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium">Motivo</label>
-                <Input placeholder="Ex: Verificar satisfação" className="mt-1" />
+                <label className="text-sm font-medium">Motivo *</label>
+                <Input 
+                  placeholder="Ex: Verificar satisfação" 
+                  className="mt-1"
+                  value={novoFollowUp.motivo}
+                  onChange={(e) => setNovoFollowUp({ ...novoFollowUp, motivo: e.target.value })}
+                />
               </div>
               <div>
-                <label className="text-sm font-medium">Data/Hora</label>
-                <Input type="datetime-local" className="mt-1" />
+                <label className="text-sm font-medium">Data/Hora *</label>
+                <Input 
+                  type="datetime-local" 
+                  className="mt-1"
+                  value={novoFollowUp.data_agendada}
+                  onChange={(e) => setNovoFollowUp({ ...novoFollowUp, data_agendada: e.target.value })}
+                />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium">Prioridade</label>
-                <select className="w-full mt-1 p-2 border rounded-md bg-[#0f3830]">
-                  <option>Alta</option>
-                  <option>Média</option>
-                  <option>Baixa</option>
+                <select 
+                  className="w-full mt-1 p-2 border rounded-md bg-[#0f3830]"
+                  value={novoFollowUp.prioridade}
+                  onChange={(e) => setNovoFollowUp({ ...novoFollowUp, prioridade: e.target.value })}
+                >
+                  <option value="alta">Alta</option>
+                  <option value="media">Média</option>
+                  <option value="baixa">Baixa</option>
                 </select>
               </div>
               <div>
                 <label className="text-sm font-medium">Responsável</label>
-                <select className="w-full mt-1 p-2 border rounded-md bg-[#0f3830]">
-                  <option>Ana Santos</option>
-                  <option>Pedro Costa</option>
-                  <option>Maria Lima</option>
-                </select>
+                <Input 
+                  placeholder="Nome do responsável" 
+                  className="mt-1"
+                  value={novoFollowUp.responsavel_nome}
+                  onChange={(e) => setNovoFollowUp({ ...novoFollowUp, responsavel_nome: e.target.value })}
+                />
               </div>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setShowNewFollowUp(false)}>Cancelar</Button>
-              <Button>Agendar Follow-up</Button>
+              <Button onClick={handleCriarFollowUp} disabled={criando}>
+                {criando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                Agendar Follow-up
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -222,51 +253,65 @@ export default function PosVendasFollowUpPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {followUps.map((followUp) => {
-              const TipoIcon = tipoConfig[followUp.tipo as keyof typeof tipoConfig].icon;
-              return (
-                <div 
-                  key={followUp.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-white/5 transition-colors"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className={`p-2 rounded-lg ${tipoConfig[followUp.tipo as keyof typeof tipoConfig].bg}`}>
-                      <TipoIcon className={`w-5 h-5 ${tipoConfig[followUp.tipo as keyof typeof tipoConfig].cor}`} />
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-[#14919B]" />
+            </div>
+          ) : followUps && followUps.length > 0 ? (
+            <div className="space-y-4">
+              {followUps.map((followUp) => {
+                const TipoIcon = tipoConfig[followUp.tipo]?.icon || Phone;
+                return (
+                  <div 
+                    key={followUp.id}
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-white/5 transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`p-2 rounded-lg ${tipoConfig[followUp.tipo]?.bg || 'bg-gray-500/10'}`}>
+                        <TipoIcon className={`w-5 h-5 ${tipoConfig[followUp.tipo]?.cor || 'text-gray-500'}`} />
+                      </div>
+                      <div>
+                        <h4 className="font-medium">{followUp.cliente_nome}</h4>
+                        <p className="text-sm text-muted-foreground">{followUp.motivo}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-medium">{followUp.cliente}</h4>
-                      <p className="text-sm text-muted-foreground">{followUp.motivo}</p>
+
+                    <div className="flex items-center gap-6">
+                      <div className="text-right">
+                        <p className="text-sm">{new Date(followUp.data_agendada).toLocaleDateString('pt-BR')}</p>
+                        <p className="text-xs text-muted-foreground">{new Date(followUp.data_agendada).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+                      </div>
+
+                      <div className="text-right">
+                        <p className="text-sm text-muted-foreground">Responsável</p>
+                        <p className="text-sm">{followUp.responsavel_nome || '-'}</p>
+                      </div>
+
+                      <Badge className={prioridadeConfig[followUp.prioridade]?.cor || 'bg-gray-500/20 text-gray-400'}>
+                        {prioridadeConfig[followUp.prioridade]?.label || followUp.prioridade}
+                      </Badge>
+
+                      <Badge className={statusConfig[followUp.status]?.cor || 'bg-gray-500/20 text-gray-400'}>
+                        {statusConfig[followUp.status]?.label || followUp.status}
+                      </Badge>
+
+                      <Button variant="ghost" size="icon">
+                        <MoreVertical className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-6">
-                    <div className="text-right">
-                      <p className="text-sm">{new Date(followUp.data).toLocaleDateString('pt-BR')}</p>
-                      <p className="text-xs text-muted-foreground">{new Date(followUp.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
-                    </div>
-
-                    <div className="text-right">
-                      <p className="text-sm text-muted-foreground">Responsável</p>
-                      <p className="text-sm">{followUp.vendedor}</p>
-                    </div>
-
-                    <Badge className={prioridadeConfig[followUp.prioridade as keyof typeof prioridadeConfig].cor}>
-                      {prioridadeConfig[followUp.prioridade as keyof typeof prioridadeConfig].label}
-                    </Badge>
-
-                    <Badge className={statusConfig[followUp.status as keyof typeof statusConfig].cor}>
-                      {statusConfig[followUp.status as keyof typeof statusConfig].label}
-                    </Badge>
-
-                    <Button variant="ghost" size="icon">
-                      <MoreVertical className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <CalendarCheck className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-muted-foreground">Nenhum follow-up agendado</p>
+              <Button className="mt-4" onClick={() => setShowNewFollowUp(true)}>
+                Agendar Primeiro Follow-up
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

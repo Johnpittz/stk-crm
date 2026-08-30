@@ -8,83 +8,39 @@ import { Input } from "@/components/ui/input";
 import { 
   LifeBuoy, Plus, Clock, CheckCircle, AlertTriangle, 
   MessageSquare, User, MoreVertical, Search, Filter, 
-  ArrowUpRight, Headphones 
+  ArrowUpRight, Headphones, Loader2 
 } from "lucide-react";
+import { useApi, useCreate } from "@/lib/hooks/use-api";
 
-// Mock data
-const chamados = [
-  { 
-    id: 1, 
-    cliente: "Maria Silva", 
-    assunto: "Produto com defeito - Não liga", 
-    categoria: "tecnico",
-    status: "aberto", 
-    prioridade: "alta",
-    data: "10/12/2024 14:30",
-    atendente: null,
-    tempoEspera: "2h 15min"
-  },
-  { 
-    id: 2, 
-    cliente: "João Santos", 
-    assunto: "Dúvida sobre garantia estendida", 
-    categoria: "duvida",
-    status: "em_atendimento", 
-    prioridade: "media",
-    data: "10/12/2024 13:15",
-    atendente: "Ana Costa",
-    tempoEspera: "3h 30min"
-  },
-  { 
-    id: 3, 
-    cliente: "Ana Oliveira", 
-    assunto: "Nota fiscal com dados errados", 
-    categoria: "financeiro",
-    status: "aguardando_cliente", 
-    prioridade: "alta",
-    data: "10/12/2024 11:45",
-    atendente: "Pedro Lima",
-    tempoEspera: "5h"
-  },
-  { 
-    id: 4, 
-    cliente: "Pedro Costa", 
-    assunto: "Solicitar cancelamento de pedido", 
-    categoria: "financeiro",
-    status: "resolvido", 
-    prioridade: "media",
-    data: "10/12/2024 10:20",
-    atendente: "Maria Souza",
-    tempoEspera: "1h 45min"
-  },
-  { 
-    id: 5, 
-    cliente: "Carlos Lima", 
-    assunto: "Reclamação sobre atraso na entrega", 
-    categoria: "reclamacao",
-    status: "aberto", 
-    prioridade: "critica",
-    data: "10/12/2024 15:00",
-    atendente: null,
-    tempoEspera: "45min"
-  },
-];
+// Tipos
+interface Chamado {
+  id: string;
+  cliente_nome: string;
+  assunto: string;
+  categoria: string;
+  status: string;
+  prioridade: string;
+  atendente_nome: string | null;
+  created_at: string;
+}
 
-const categoriaConfig = {
+const categoriaConfig: Record<string, { label: string; cor: string }> = {
   tecnico: { label: "Técnico", cor: "bg-blue-500/20 text-blue-400" },
   financeiro: { label: "Financeiro", cor: "bg-purple-500/20 text-purple-400" },
   duvida: { label: "Dúvida", cor: "bg-yellow-500/20 text-yellow-400" },
   reclamacao: { label: "Reclamação", cor: "bg-red-500/20 text-red-400" },
+  sugestao: { label: "Sugestão", cor: "bg-green-500/20 text-green-400" },
 };
 
-const statusConfig = {
+const statusConfig: Record<string, { label: string; cor: string }> = {
   aberto: { label: "Aberto", cor: "bg-yellow-500/20 text-yellow-400" },
   em_atendimento: { label: "Em Atendimento", cor: "bg-blue-500/20 text-blue-400" },
   aguardando_cliente: { label: "Aguardando Cliente", cor: "bg-orange-500/20 text-orange-400" },
   resolvido: { label: "Resolvido", cor: "bg-green-500/20 text-green-400" },
+  fechado: { label: "Fechado", cor: "bg-gray-500/20 text-gray-400" },
 };
 
-const prioridadeConfig = {
+const prioridadeConfig: Record<string, { label: string; cor: string }> = {
   critica: { label: "Crítica", cor: "bg-red-600/20 text-red-300" },
   alta: { label: "Alta", cor: "bg-red-500/20 text-red-400" },
   media: { label: "Média", cor: "bg-yellow-500/20 text-yellow-400" },
@@ -93,6 +49,41 @@ const prioridadeConfig = {
 
 export default function PosVendasSuportePage() {
   const [showNewChamado, setShowNewChamado] = useState(false);
+  const [novoChamado, setNovoChamado] = useState({
+    cliente_nome: '',
+    cliente_telefone: '',
+    cliente_email: '',
+    assunto: '',
+    descricao: '',
+    categoria: 'duvida',
+    prioridade: 'media'
+  });
+
+  const { data: chamados, loading, refetch } = useApi<Chamado[]>({ url: '/api/pos-vendas/chamados' });
+  const { create: criarChamado, loading: criando } = useCreate<typeof novoChamado>('/api/pos-vendas/chamados');
+
+  const handleCriarChamado = async () => {
+    if (!novoChamado.cliente_nome || !novoChamado.assunto) return;
+    
+    const resultado = await criarChamado(novoChamado);
+    if (resultado) {
+      setShowNewChamado(false);
+      setNovoChamado({ cliente_nome: '', cliente_telefone: '', cliente_email: '', assunto: '', descricao: '', categoria: 'duvida', prioridade: 'media' });
+      refetch();
+    }
+  };
+
+  // Estatísticas
+  const stats = {
+    abertos: chamados?.filter(c => c.status === 'aberto').length || 0,
+    emAtendimento: chamados?.filter(c => c.status === 'em_atendimento').length || 0,
+    tempoMedio: '2.8h', // Mock
+    resolvidosHoje: chamados?.filter(c => {
+      const data = new Date(c.created_at);
+      const hoje = new Date();
+      return data.toDateString() === hoje.toDateString() && c.status === 'resolvido';
+    }).length || 0,
+  };
 
   return (
     <div className="space-y-6">
@@ -118,7 +109,7 @@ export default function PosVendasSuportePage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Abertos</p>
-                <p className="text-2xl font-bold">23</p>
+                <p className="text-2xl font-bold">{stats.abertos}</p>
               </div>
             </div>
           </CardContent>
@@ -131,7 +122,7 @@ export default function PosVendasSuportePage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Em Atendimento</p>
-                <p className="text-2xl font-bold">12</p>
+                <p className="text-2xl font-bold">{stats.emAtendimento}</p>
               </div>
             </div>
           </CardContent>
@@ -144,7 +135,7 @@ export default function PosVendasSuportePage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Tempo Médio</p>
-                <p className="text-2xl font-bold">2.8h</p>
+                <p className="text-2xl font-bold">{stats.tempoMedio}</p>
               </div>
             </div>
           </CardContent>
@@ -157,7 +148,7 @@ export default function PosVendasSuportePage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Resolvidos Hoje</p>
-                <p className="text-2xl font-bold">18</p>
+                <p className="text-2xl font-bold">{stats.resolvidosHoje}</p>
               </div>
             </div>
           </CardContent>
@@ -173,44 +164,77 @@ export default function PosVendasSuportePage() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium">Cliente</label>
-                <Input placeholder="Nome ou telefone do cliente" className="mt-1" />
+                <label className="text-sm font-medium">Cliente *</label>
+                <Input 
+                  placeholder="Nome do cliente" 
+                  className="mt-1"
+                  value={novoChamado.cliente_nome}
+                  onChange={(e) => setNovoChamado({ ...novoChamado, cliente_nome: e.target.value })}
+                />
               </div>
               <div>
-                <label className="text-sm font-medium">Categoria</label>
-                <select className="w-full mt-1 p-2 border rounded-md bg-[#0f3830]">
-                  <option>Técnico</option>
-                  <option>Financeiro</option>
-                  <option>Dúvida</option>
-                  <option>Reclamação</option>
-                </select>
+                <label className="text-sm font-medium">Telefone</label>
+                <Input 
+                  placeholder="(11) 99999-9999" 
+                  className="mt-1"
+                  value={novoChamado.cliente_telefone}
+                  onChange={(e) => setNovoChamado({ ...novoChamado, cliente_telefone: e.target.value })}
+                />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium">Prioridade</label>
-                <select className="w-full mt-1 p-2 border rounded-md bg-[#0f3830]">
-                  <option>Crítica</option>
-                  <option>Alta</option>
-                  <option>Média</option>
-                  <option>Baixa</option>
+                <label className="text-sm font-medium">Categoria</label>
+                <select 
+                  className="w-full mt-1 p-2 border rounded-md bg-[#0f3830]"
+                  value={novoChamado.categoria}
+                  onChange={(e) => setNovoChamado({ ...novoChamado, categoria: e.target.value })}
+                >
+                  <option value="tecnico">Técnico</option>
+                  <option value="financeiro">Financeiro</option>
+                  <option value="duvida">Dúvida</option>
+                  <option value="reclamacao">Reclamação</option>
+                  <option value="sugestao">Sugestão</option>
                 </select>
               </div>
               <div>
-                <label className="text-sm font-medium">Assunto</label>
-                <Input placeholder="Resumo do problema" className="mt-1" />
+                <label className="text-sm font-medium">Prioridade</label>
+                <select 
+                  className="w-full mt-1 p-2 border rounded-md bg-[#0f3830]"
+                  value={novoChamado.prioridade}
+                  onChange={(e) => setNovoChamado({ ...novoChamado, prioridade: e.target.value })}
+                >
+                  <option value="critica">Crítica</option>
+                  <option value="alta">Alta</option>
+                  <option value="media">Média</option>
+                  <option value="baixa">Baixa</option>
+                </select>
               </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Assunto *</label>
+              <Input 
+                placeholder="Resumo do problema" 
+                className="mt-1"
+                value={novoChamado.assunto}
+                onChange={(e) => setNovoChamado({ ...novoChamado, assunto: e.target.value })}
+              />
             </div>
             <div>
               <label className="text-sm font-medium">Descrição</label>
               <textarea 
                 className="w-full mt-1 p-2 border rounded-md bg-[#0f3830] min-h-[100px]"
                 placeholder="Descreva o problema detalhadamente..."
+                value={novoChamado.descricao}
+                onChange={(e) => setNovoChamado({ ...novoChamado, descricao: e.target.value })}
               />
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setShowNewChamado(false)}>Cancelar</Button>
-              <Button>Abrir Chamado</Button>
+              <Button onClick={handleCriarChamado} disabled={criando}>
+                {criando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                Abrir Chamado
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -233,57 +257,66 @@ export default function PosVendasSuportePage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {chamados.map((chamado) => (
-              <div 
-                key={chamado.id}
-                className="p-4 border rounded-lg hover:bg-white/5 transition-colors"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h4 className="font-medium">{chamado.assunto}</h4>
-                      <Badge className={prioridadeConfig[chamado.prioridade as keyof typeof prioridadeConfig].cor}>
-                        {prioridadeConfig[chamado.prioridade as keyof typeof prioridadeConfig].label}
-                      </Badge>
-                    </div>
-                    
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <User className="w-4 h-4" />
-                        {chamado.cliente}
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-[#14919B]" />
+            </div>
+          ) : chamados && chamados.length > 0 ? (
+            <div className="space-y-4">
+              {chamados.map((chamado) => (
+                <div 
+                  key={chamado.id}
+                  className="p-4 border rounded-lg hover:bg-white/5 transition-colors"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h4 className="font-medium">{chamado.assunto}</h4>
+                        <Badge className={prioridadeConfig[chamado.prioridade]?.cor || 'bg-gray-500/20 text-gray-400'}>
+                          {prioridadeConfig[chamado.prioridade]?.label || chamado.prioridade}
+                        </Badge>
                       </div>
-                      <Badge className={categoriaConfig[chamado.categoria as keyof typeof categoriaConfig].cor}>
-                        {categoriaConfig[chamado.categoria as keyof typeof categoriaConfig].label}
+                      
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <User className="w-4 h-4" />
+                          {chamado.cliente_nome}
+                        </div>
+                        <Badge className={categoriaConfig[chamado.categoria]?.cor || 'bg-gray-500/20 text-gray-400'}>
+                          {categoriaConfig[chamado.categoria]?.label || chamado.categoria}
+                        </Badge>
+                        <span>{new Date(chamado.created_at).toLocaleDateString('pt-BR')}</span>
+                      </div>
+
+                      {chamado.atendente_nome && (
+                        <p className="text-sm mt-2">
+                          <span className="text-muted-foreground">Atendente:</span> {chamado.atendente_nome}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <Badge className={statusConfig[chamado.status]?.cor || 'bg-gray-500/20 text-gray-400'}>
+                        {statusConfig[chamado.status]?.label || chamado.status}
                       </Badge>
-                      <span>{chamado.data}</span>
+
+                      <Button variant="ghost" size="icon">
+                        <MoreVertical className="w-4 h-4" />
+                      </Button>
                     </div>
-
-                    {chamado.atendente && (
-                      <p className="text-sm mt-2">
-                        <span className="text-muted-foreground">Atendente:</span> {chamado.atendente}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="text-xs text-muted-foreground">Tempo de espera</p>
-                      <p className="text-sm font-medium">{chamado.tempoEspera}</p>
-                    </div>
-                    
-                    <Badge className={statusConfig[chamado.status as keyof typeof statusConfig].cor}>
-                      {statusConfig[chamado.status as keyof typeof statusConfig].label}
-                    </Badge>
-
-                    <Button variant="ghost" size="icon">
-                      <MoreVertical className="w-4 h-4" />
-                    </Button>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <LifeBuoy className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-muted-foreground">Nenhum chamado encontrado</p>
+              <Button className="mt-4" onClick={() => setShowNewChamado(true)}>
+                Abrir Primeiro Chamado
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

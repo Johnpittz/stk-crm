@@ -1,64 +1,69 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { 
   Megaphone, Plus, Calendar, Target, TrendingUp, 
-  MoreVertical, Eye, Edit, Trash2 
+  MoreVertical, Eye, Edit, Trash2, Loader2 
 } from "lucide-react";
+import { useApi, useCreate } from "@/lib/hooks/use-api";
 
-// Mock data
-const campanhas = [
-  { 
-    id: 1, 
-    nome: "Black Friday 2024", 
-    status: "ativa", 
-    inicio: "2024-11-20", 
-    fim: "2024-11-30",
-    publico: "Todos os clientes",
-    orcamento: 5000,
-    gasto: 3200,
-    conversoes: 145,
-    roi: 320
-  },
-  { 
-    id: 2, 
-    nome: "Natal Especial", 
-    status: "agendada", 
-    inicio: "2024-12-15", 
-    fim: "2024-12-25",
-    publico: "Clientes VIP",
-    orcamento: 8000,
-    gasto: 0,
-    conversoes: 0,
-    roi: 0
-  },
-  { 
-    id: 3, 
-    nome: "Dia dos Namorados", 
-    status: "finalizada", 
-    inicio: "2024-06-01", 
-    fim: "2024-06-15",
-    publico: "Leads qualificados",
-    orcamento: 3000,
-    gasto: 2800,
-    conversoes: 89,
-    roi: 245
-  },
-];
+// Tipos
+interface Campanha {
+  id: string;
+  nome: string;
+  status: string;
+  data_inicio: string;
+  data_fim: string;
+  publico_alvo: string;
+  orcamento: number;
+  gasto: number;
+  conversoes: number;
+  tipo: string;
+}
 
-const statusConfig = {
+const statusConfig: Record<string, { label: string; cor: string }> = {
   ativa: { label: "Ativa", cor: "bg-green-500/20 text-green-400" },
   agendada: { label: "Agendada", cor: "bg-yellow-500/20 text-yellow-400" },
   finalizada: { label: "Finalizada", cor: "bg-gray-500/20 text-gray-400" },
   pausada: { label: "Pausada", cor: "bg-red-500/20 text-red-400" },
+  rascunho: { label: "Rascunho", cor: "bg-gray-500/20 text-gray-400" },
 };
 
 export default function MarketingCampanhasPage() {
   const [showNewCampanha, setShowNewCampanha] = useState(false);
+  const [novaCampanha, setNovaCampanha] = useState({
+    nome: '',
+    tipo: 'whatsapp',
+    publico_alvo: 'todos',
+    orcamento: 0,
+    data_inicio: '',
+    data_fim: ''
+  });
+
+  const { data: campanhas, loading, refetch } = useApi<Campanha[]>({ url: '/api/marketing/campanhas' });
+  const { create: criarCampanha, loading: criando } = useCreate<typeof novaCampanha>('/api/marketing/campanhas');
+
+  const handleCriarCampanha = async () => {
+    if (!novaCampanha.nome) return;
+    
+    const resultado = await criarCampanha(novaCampanha);
+    if (resultado) {
+      setShowNewCampanha(false);
+      setNovaCampanha({ nome: '', tipo: 'whatsapp', publico_alvo: 'todos', orcamento: 0, data_inicio: '', data_fim: '' });
+      refetch();
+    }
+  };
+
+  // Estatísticas
+  const stats = {
+    ativas: campanhas?.filter(c => c.status === 'ativa').length || 0,
+    conversoes: campanhas?.reduce((acc, c) => acc + (c.conversoes || 0), 0) || 0,
+    roiMedio: 282, // Mock - calcular com dados reais depois
+  };
 
   return (
     <div className="space-y-6">
@@ -84,7 +89,7 @@ export default function MarketingCampanhasPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Campanhas Ativas</p>
-                <p className="text-2xl font-bold">1</p>
+                <p className="text-2xl font-bold">{stats.ativas}</p>
               </div>
             </div>
           </CardContent>
@@ -97,7 +102,7 @@ export default function MarketingCampanhasPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Conversões</p>
-                <p className="text-2xl font-bold">234</p>
+                <p className="text-2xl font-bold">{stats.conversoes}</p>
               </div>
             </div>
           </CardContent>
@@ -110,7 +115,7 @@ export default function MarketingCampanhasPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">ROI Médio</p>
-                <p className="text-2xl font-bold">282%</p>
+                <p className="text-2xl font-bold">{stats.roiMedio}%</p>
               </div>
             </div>
           </CardContent>
@@ -127,35 +132,78 @@ export default function MarketingCampanhasPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium">Nome da Campanha</label>
-                <Input placeholder="Ex: Promoção de Verão" className="mt-1" />
+                <Input 
+                  placeholder="Ex: Promoção de Verão" 
+                  className="mt-1"
+                  value={novaCampanha.nome}
+                  onChange={(e) => setNovaCampanha({ ...novaCampanha, nome: e.target.value })}
+                />
               </div>
               <div>
-                <label className="text-sm font-medium">Público-alvo</label>
-                <select className="w-full mt-1 p-2 border rounded-md bg-background">
-                  <option>Todos os clientes</option>
-                  <option>Clientes VIP</option>
-                  <option>Leads novos</option>
-                  <option>Sem compra há 30 dias</option>
+                <label className="text-sm font-medium">Tipo</label>
+                <select 
+                  className="w-full mt-1 p-2 border rounded-md bg-[#0f3830]"
+                  value={novaCampanha.tipo}
+                  onChange={(e) => setNovaCampanha({ ...novaCampanha, tipo: e.target.value })}
+                >
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="email">E-mail</option>
+                  <option value="sms">SMS</option>
+                  <option value="multi_canal">Multi-canal</option>
                 </select>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
+                <label className="text-sm font-medium">Público-alvo</label>
+                <select 
+                  className="w-full mt-1 p-2 border rounded-md bg-[#0f3830]"
+                  value={novaCampanha.publico_alvo}
+                  onChange={(e) => setNovaCampanha({ ...novaCampanha, publico_alvo: e.target.value })}
+                >
+                  <option value="todos">Todos os clientes</option>
+                  <option value="vip">Clientes VIP</option>
+                  <option value="leads">Leads novos</option>
+                  <option value="inativos">Sem compra há 30 dias</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Orçamento (R$)</label>
+                <Input 
+                  type="number" 
+                  placeholder="5000" 
+                  className="mt-1"
+                  value={novaCampanha.orcamento || ''}
+                  onChange={(e) => setNovaCampanha({ ...novaCampanha, orcamento: Number(e.target.value) })}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
                 <label className="text-sm font-medium">Data Início</label>
-                <Input type="date" className="mt-1" />
+                <Input 
+                  type="date" 
+                  className="mt-1"
+                  value={novaCampanha.data_inicio}
+                  onChange={(e) => setNovaCampanha({ ...novaCampanha, data_inicio: e.target.value })}
+                />
               </div>
               <div>
                 <label className="text-sm font-medium">Data Fim</label>
-                <Input type="date" className="mt-1" />
+                <Input 
+                  type="date" 
+                  className="mt-1"
+                  value={novaCampanha.data_fim}
+                  onChange={(e) => setNovaCampanha({ ...novaCampanha, data_fim: e.target.value })}
+                />
               </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Orçamento (R$)</label>
-              <Input type="number" placeholder="5000" className="mt-1" />
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setShowNewCampanha(false)}>Cancelar</Button>
-              <Button>Criar Campanha</Button>
+              <Button onClick={handleCriarCampanha} disabled={criando}>
+                {criando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                Criar Campanha
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -167,72 +215,90 @@ export default function MarketingCampanhasPage() {
           <CardTitle>Todas as Campanhas</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {campanhas.map((campanha) => (
-              <div 
-                key={campanha.id}
-                className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h4 className="font-medium text-lg">{campanha.nome}</h4>
-                      <Badge className={statusConfig[campanha.status as keyof typeof statusConfig].cor}>
-                        {statusConfig[campanha.status as keyof typeof statusConfig].label}
-                      </Badge>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <p className="text-muted-foreground">Período</p>
-                        <p>{new Date(campanha.inicio).toLocaleDateString('pt-BR')} - {new Date(campanha.fim).toLocaleDateString('pt-BR')}</p>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-[#14919B]" />
+            </div>
+          ) : campanhas && campanhas.length > 0 ? (
+            <div className="space-y-4">
+              {campanhas.map((campanha) => (
+                <div 
+                  key={campanha.id}
+                  className="p-4 border rounded-lg hover:bg-white/5 transition-colors"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h4 className="font-medium text-lg">{campanha.nome}</h4>
+                        <Badge className={statusConfig[campanha.status]?.cor || 'bg-gray-500/20 text-gray-400'}>
+                          {statusConfig[campanha.status]?.label || campanha.status}
+                        </Badge>
                       </div>
-                      <div>
-                        <p className="text-muted-foreground">Público</p>
-                        <p>{campanha.publico}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Orçamento</p>
-                        <p>R$ {campanha.orcamento.toLocaleString('pt-BR')}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Conversões</p>
-                        <p className="font-medium text-green-500">{campanha.conversoes}</p>
-                      </div>
-                    </div>
-
-                    {/* Barra de progresso do orçamento */}
-                    {campanha.status === "ativa" && (
-                      <div className="mt-3">
-                        <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                          <span>Orçamento utilizado</span>
-                          <span>R$ {campanha.gasto.toLocaleString('pt-BR')} / R$ {campanha.orcamento.toLocaleString('pt-BR')}</span>
+                      
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <p className="text-muted-foreground">Período</p>
+                          <p>
+                            {campanha.data_inicio ? new Date(campanha.data_inicio).toLocaleDateString('pt-BR') : '-'} 
+                            {' - '} 
+                            {campanha.data_fim ? new Date(campanha.data_fim).toLocaleDateString('pt-BR') : '-'}
+                          </p>
                         </div>
-                        <div className="w-full bg-muted rounded-full h-2">
-                          <div 
-                            className="bg-primary h-2 rounded-full transition-all"
-                            style={{ width: `${(campanha.gasto / campanha.orcamento) * 100}%` }}
-                          />
+                        <div>
+                          <p className="text-muted-foreground">Público</p>
+                          <p>{campanha.publico_alvo || 'Todos'}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Orçamento</p>
+                          <p>R$ {(campanha.orcamento || 0).toLocaleString('pt-BR')}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Conversões</p>
+                          <p className="font-medium text-green-500">{campanha.conversoes || 0}</p>
                         </div>
                       </div>
-                    )}
-                  </div>
 
-                  <div className="flex items-center gap-2 ml-4">
-                    <Button variant="ghost" size="icon" title="Ver detalhes">
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" title="Editar">
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" title="Excluir">
-                      <Trash2 className="w-4 h-4 text-red-500" />
-                    </Button>
+                      {/* Barra de progresso do orçamento */}
+                      {campanha.status === 'ativa' && campanha.orcamento > 0 && (
+                        <div className="mt-3">
+                          <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                            <span>Orçamento utilizado</span>
+                            <span>R$ {(campanha.gasto || 0).toLocaleString('pt-BR')} / R$ {(campanha.orcamento || 0).toLocaleString('pt-BR')}</span>
+                          </div>
+                          <div className="w-full bg-muted rounded-full h-2">
+                            <div 
+                              className="bg-primary h-2 rounded-full transition-all"
+                              style={{ width: `${Math.min(((campanha.gasto || 0) / (campanha.orcamento || 1)) * 100, 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 ml-4">
+                      <Button variant="ghost" size="icon" title="Ver detalhes">
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" title="Editar">
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" title="Excluir">
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <Megaphone className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-muted-foreground">Nenhuma campanha encontrada</p>
+              <Button className="mt-4" onClick={() => setShowNewCampanha(true)}>
+                Criar Primeira Campanha
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
