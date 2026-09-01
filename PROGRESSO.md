@@ -1,121 +1,104 @@
-# 📋 PROGRESSO - STK CRM
+# 📊 PROGRESSO - STK CRM
 
-> Última atualização: 30/08/2026
-
----
-
-## 🎯 Visão Geral
-
-O **STK CRM** é um sistema completo de gerenciamento de clientes, atendimento, marketing e pós-vendas, construído com Next.js, Supabase e Evolution API (WhatsApp).
-
-- **Frontend:** Next.js 14 + Tailwind CSS + shadcn/ui
-- **Backend:** Supabase (PostgreSQL + Auth + Storage)
-- **WhatsApp:** Evolution API (Baileys)
-- **Deploy:** Vercel (frontend) + Hostinger VPS (backend/WhatsApp)
-- **URL:** https://stk-crm-amber.vercel.app
+> Última atualização: 10/06/2026
 
 ---
 
-## 🏗️ Arquitetura de Perfis
+## 🏗️ Visão Geral do Projeto
 
-O sistema possui **3 perfis** de usuário, cada um com sua sidebar e rotas próprias:
-
-### 1. CRM (Atendimento)
-| Rota | Descrição | Status |
-|------|-----------|--------|
-| `/atendimento` | Chat WhatsApp em tempo real | ✅ Funcional |
-| `/kanban` | Tarefas e acompanhamento | ✅ Funcional |
-| `/dashboard` | Visão gerencial | ✅ Funcional |
-| `/clientes` | Gestão de clientes | ✅ Funcional |
-
-### 2. Marketing
-| Rota | Descrição | Status |
-|------|-----------|--------|
-| `/marketing/dashboard` | Métricas de marketing | ✅ Funcional |
-| `/marketing/campanhas` | Campanhas + Disparos (hub) | ✅ Funcional |
-| `/marketing/leads` | Prospecção de leads | ✅ Funcional |
-| `/marketing/relatorios` | Análises e relatórios | ✅ Funcional |
-| `/marketing/promocoes` | Ofertas e cupons | ✅ Funcional |
-
-### 3. Pós-Vendas
-| Rota | Descrição | Status |
-|------|-----------|--------|
-| `/pos-vendas/dashboard` | Visão pós-venda | ✅ Funcional |
-| `/pos-vendas/follow-up` | Acompanhamento pós-venda | ✅ Funcional |
-| `/pos-vendas/satisfacao` | Pesquisas e reviews | ✅ Funcional |
-| `/pos-vendas/suporte` | Chamados e suporte | ✅ Funcional |
-| `/pos-vendas/acompanhamento` | Entregas e logística | ✅ Funcional |
-
-### Compartilhados
-| Rota | Descrição | Status |
-|------|-----------|--------|
-| `/configuracoes` | Configurações do sistema | ✅ Funcional |
-| `/ajuda` | Central de ajuda | ✅ Funcional |
+O **STK CRM** é um sistema de gestão de relacionamento com clientes construído com:
+- **Frontend:** Next.js 14 + TypeScript + Tailwind CSS (tema escuro verde)
+- **Backend:** Next.js API Routes + Supabase (PostgreSQL)
+- **WhatsApp:** Evolution API (Baileys) rodando em Docker
+- **Hospedagem:** Vercel (frontend) + Hostinger VPS (backend/WhatsApp)
+- **Banco de Dados:** Supabase (PostgreSQL gerenciado)
 
 ---
 
-## 📊 Fluxo de Marketing (Implementado)
+## 👥 Perfis do Sistema
 
-```
-┌─────────────────┐
-│  CRIAR CAMPANHA │  ← Nome, descrição, tipo, datas, meta
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  NOVO DISPARO   │  ← Dentro da campanha
-│  (Avulso/Massa) │
-└────────┬────────┘
-         │
-         ├──→ AVULSO: Digita números manualmente
-         │
-         └──→ EM MASSA: Upload planilha (Excel/CSV)
-                    │
-                    ├── Sistema extrai automaticamente:
-                    │   • Nome do Estabelecimento → {{nome}}
-                    │   • WhatsApp/Telefone → destino
-                    │
-                    └── Mensagem-padrão com variáveis
-                            │
-                            ▼
-                    ┌───────────────┐
-                    │  ENVIO MASSA  │  ← Evolution API
-                    └───────┬───────┘
-                            │
-                            ▼
-                    ┌───────────────┐
-                    │  ATENDIMENTO  │  ← Cliente responde
-                    └───────────────┘
-```
+| Perfil | Descrição | Módulos |
+|--------|-----------|---------|
+| **Admin** | Visualiza tudo dos 3 perfis | Todos os módulos |
+| **CRM** | Atendimento e gestão de clientes | Atendimento, Kanban, Dashboard, Clientes |
+| **Marketing** | Campanhas e disparos em massa | Dashboard, Campanhas, Leads, Relatórios, Promoções |
+| **Pós-Vendas** | Follow-up e suporte | Dashboard, Follow-up, Satisfação, Suporte, Acompanhamento |
 
 ---
 
-## 🔗 Ligação entre Módulos
+## ✅ Funcionalidades Implementadas
 
-### Tabelas Criadas (Migration 071)
+### Fase 1 - Seletor de Perfil
+- [x] Seletor de perfil no header
+- [x] Sidebar dinâmica por perfil
+- [x] Context de perfil ativo (localStorage)
+- [x] Rotas prefixadas: `/`, `/marketing/`, `/pos-vendas/`
 
-| Tabela | Descrição |
-|--------|-----------|
-| `campanhas` | Campanhas de marketing |
-| `leads_marketing` | Leads captados |
-| `promocoes_marketing` | Cupons e promoções |
-| `bulk_campaigns` | Disparos em massa (estendida) |
-| `chamados_suporte` | Chamados de suporte |
-| `pedidos_acompanhamento` | Pedidos em acompanhamento |
-| `followups` | Follow-ups pós-venda |
-| `avaliacoes_satisfacao` | Avaliações de satisfação |
+### Fase 2 - Rotas Básicas
+- [x] 6 rotas de Marketing (Dashboard, Disparo, Campanhas, Leads, Relatórios, Promoções)
+- [x] 5 rotas de Pós-Vendas (Dashboard, Follow-up, Satisfação, Suporte, Acompanhamento)
 
-### Colunas Adicionadas
+### Fase 3 - Páginas de Marketing
+- [x] Dashboard com métricas reais
+- [x] Campanhas (hub principal)
+- [x] Leads com CRUD completo
+- [x] Relatórios com dados conectados
+- [x] Promoções com cupons
 
-**bulk_campaigns:**
-- `campanha_id` → Vincula disparo à campanha
-- `promocao_id` → Vincula promoção ao disparo
-- `tipo_envio` → "avulso" ou "massa"
-- `contatos` → JSON com lista de contatos (nome + telefone)
-- `delay_min` / `delay_max` → Delay entre envios
+### Fase 4 - Páginas de Pós-Vendas
+- [x] Dashboard com visão pós-venda
+- [x] Follow-up de clientes
+- [x] Pesquisas de satisfação (NPS)
+- [x] Chamados de suporte
+- [x] Acompanhamento de entregas
 
-**campanhas:**
-- `meta` → Meta de mensagens
+### Fase 5 - Banco de Dados
+- [x] Migration SQL criada (`071_marketing_posvendas_tables.sql`)
+- [x] 7 tabelas no Supabase:
+  - `campanhas`
+  - `leads_marketing`
+  - `promocoes_marketing`
+  - `chamados_suporte`
+  - `pedidos_acompanhamento`
+  - `followups`
+  - `avaliacoes_satisfacao`
+
+### Fase 6 - Integração entre Módulos
+- [x] Campanha → Disparo (vinculação)
+- [x] Disparo → Promoção (cupom automático)
+- [x] Campanhas como hub (disparos dentro)
+- [x] Remoção do módulo Disparo independente
+
+### Fase 7 - Sistema de Disparos
+- [x] **Avulso**: Campo para múltiplos números (textarea)
+- [x] **Em Massa**: Upload de planilha (Excel/CSV)
+- [x] Extração automática de nome + telefone da planilha
+- [x] Detecção automática de header (pula linhas de título)
+- [x] Mensagem-padrão com variáveis `{{nome}}` e `{{promocao}}`
+- [x] Delay configurável entre envios
+
+---
+
+## 🔧 Correções e Otimizações
+
+### Performance
+- [x] Otimização do sync-from-evolution (300s → 700ms)
+- [x] Polling de conversas: 30s → 10s
+- [x] Endpoint unificado `/api/atendimentos/page-data`
+
+### Bugs Corrigidos
+- [x] MIDDLEWARE_INVOCATION_TIMEOUT (504) - timeout de 3s no auth
+- [x] Indicador de mensagem nova não aparecia
+- [x] SelectItem value vazio crashava dialog
+- [x] Instâncias WhatsApp não carregavam no dropdown
+- [x] Planilha não reconhecia contatos (header em linha de título)
+- [x] Constraint CHECK na tabela campanhas
+
+### Infraestrutura
+- [x] Docker container `john_hermes` com `network_mode: host`
+- [x] Supervisor com autorestart
+- [x] Webhooks configurados (STK + minha-conexao)
+- [x] Tema escuro verde aplicado globalmente
 
 ---
 
@@ -124,133 +107,178 @@ O sistema possui **3 perfis** de usuário, cada um com sua sidebar e rotas próp
 ```
 stk-crm/
 ├── app/
-│   ├── (dashboard)/
+│   ├── (auth)/                    # Autenticação
+│   │   ├── login/
+│   │   └── solicitar-acesso/
+│   ├── (dashboard)/               # Dashboard principal
+│   │   ├── atendimento/           # Chat WhatsApp
+│   │   ├── kanban/                # Tarefas
+│   │   ├── dashboard/             # Métricas gerais
+│   │   ├── clientes/              # Gestão de clientes
 │   │   ├── marketing/
-│   │   │   ├── campanhas/page.tsx    ← Hub principal
-│   │   │   ├── dashboard/page.tsx
-│   │   │   ├── leads/page.tsx
-│   │   │   ├── promocoes/page.tsx
-│   │   │   └── relatorios/page.tsx
+│   │   │   ├── dashboard/         # Métricas marketing
+│   │   │   ├── campanhas/         # Hub principal
+│   │   │   ├── leads/             # Prospecção
+│   │   │   ├── relatorios/        # Análises
+│   │   │   └── promocoes/         # Cupons
 │   │   ├── pos-vendas/
-│   │   │   ├── dashboard/page.tsx
-│   │   │   ├── follow-up/page.tsx
-│   │   │   ├── satisfacao/page.tsx
-│   │   │   ├── suporte/page.tsx
-│   │   │   └── acompanhamento/page.tsx
-│   │   ├── atendimento/page.tsx
-│   │   ├── kanban/page.tsx
-│   │   ├── dashboard/page.tsx
-│   │   ├── clientes/page.tsx
-│   │   ├── configuracoes/page.tsx
-│   │   └── ajuda/page.tsx
-│   ├── api/
-│   │   ├── atendimentos/
-│   │   ├── bulk/campaigns/
-│   │   ├── instances/
-│   │   └── marketing/
-│   └── login/page.tsx
+│   │   │   ├── dashboard/         # Visão pós-venda
+│   │   │   ├── follow-up/         # Acompanhamento
+│   │   │   ├── satisfacao/        # NPS/Reviews
+│   │   │   ├── suporte/           # Chamados
+│   │   │   └── acompanhamento/    # Entregas
+│   │   ├── configuracoes/         # Config do sistema
+│   │   └── ajuda/                 # Central de ajuda
+│   └── api/                       # Backend
+│       ├── atendimentos/          # CRUD atendimentos
+│       ├── bulk/                  # Disparos em massa
+│       ├── instances/             # Instâncias WhatsApp
+│       ├── marketing/             # APIs de marketing
+│       └── pos-vendas/            # APIs de pós-vendas
 ├── components/
-│   ├── layout/
-│   │   ├── sidebar.tsx              ← Sidebar dinâmica por perfil
-│   │   └── perfil-selector.tsx      ← Seletor de perfil
-│   └── ui/                          ← shadcn/ui
+│   ├── layout/                    # Sidebar, Header, PerfilSelector
+│   └── ui/                        # Componentes shadcn/ui
 ├── lib/
-│   ├── perfil-ativo-context.tsx     ← Context do perfil
-│   ├── supabase/
-│   │   ├── client.ts
-│   │   └── server.ts
-│   └── hooks/use-api.ts
-└── supabase/migrations/
-    └── 071_marketing_posvendas_tables.sql
+│   ├── supabase/                  # Cliente Supabase
+│   ├── hooks/                     # Hooks customizados
+│   └── perfil-ativo-context.tsx   # Context do perfil
+└── supabase/
+    └── migrations/                # Migrations SQL
 ```
 
 ---
 
-## 🔧 Infraestrutura
+## 🗄️ Tabelas do Banco de Dados
 
-### VPS (Hostinger KVM)
-- **IP:** 2.25.192.248
-- **Container:** `john_hermes` (Docker, network_mode: host)
-- **Serviços:** PostgreSQL 18 + Evolution API + Supervisor
-- **Reinício:** `docker restart john_hermes`
+### Tabelas Principais
+| Tabela | Descrição |
+|--------|-----------|
+| `atendimentos` | Conversas WhatsApp |
+| `atendimento_mensagens` | Mensagens das conversas |
+| `profiles` | Perfis dos usuários |
+| `tarefas` | Tarefas do Kanban |
+| `notificacoes` | Notificações do sistema |
 
-### Evolution API
-- **Porta:** 8082
-- **Instâncias:**
-  - `STK` (556299190117)
-  - `minha-conexao` (5562982735286)
-- **Webhooks:** MESSAGES_UPSERT configurados
+### Tabelas Marketing
+| Tabela | Descrição |
+|--------|-----------|
+| `campanhas` | Campanhas de marketing |
+| `leads_marketing` | Leads de prospecção |
+| `promocoes_marketing` | Cupons e promoções |
+| `bulk_campaigns` | Disparos em massa |
 
-### Supabase
-- **Projeto:** `otmkukicneotcpkemvcq`
-- **Tabelas principais:** atendimentos, atendimento_mensagens, profiles, campanhas, leads_marketing, promocoes_marketing, bulk_campaigns, chamados_suporte, followups, avaliacoes_satisfacao
-
-### Variáveis de Ambiente (Vercel)
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `EVOLUTION_API_URL`
-- `EVOLUTION_API_KEY`
-
----
-
-## ⚡ Otimizações Implementadas
-
-| Problema | Solução | Resultado |
-|----------|---------|-----------|
-| Sync lento (300s) | Batch queries no Supabase | 300s → 0.7s |
-| Múltiplas chamadas API | Endpoint unificado `/api/atendimentos/page-data` | 6-8 → 1 chamada |
-| Polling lento (30s) | Reduzido para 10s | Mensagens mais rápidas |
-| Middleware timeout 504 | Timeout de 3s no `supabase.auth.getUser()` | Estabilidade |
+### Tabelas Pós-Vendas
+| Tabela | Descrição |
+|--------|-----------|
+| `chamados_suporte` | Chamados de suporte |
+| `pedidos_acompanhamento` | Acompanhamento de pedidos |
+| `followups` | Follow-ups pós-venda |
+| `avaliacoes_satisfacao` | Pesquisas de satisfação |
 
 ---
 
-## 🐛 Bugs Corrigidos
+## 🔗 APIs Disponíveis
 
-1. **Indicador de mensagem nova não aparecia** → Polling reduzido
-2. **MIDDLEWARE_INVOCATION_TIMEOUT** → Timeout de 3s adicionado
-3. **Tema escuro com fundo branco** → Variáveis CSS atualizadas
-4. **Build quebrado (syntax)** → Corrigido
-5. **SelectItem value vazio** → Removido
-6. **Instâncias não apareciam** → Fix na chave da API (`instancias`)
-7. **Planilha não reconhecia contatos** → Busca automática de header
-
----
-
-## 📝 Variáveis Disponíveis (Disparos)
-
-| Variável | Descrição | Fonte |
-|----------|-----------|-------|
-| `{{nome}}` | Nome do estabelecimento | Planilha |
-| `{{promocao}}` | Cupom de desconto | Tabela promocoes |
+| Endpoint | Método | Descrição |
+|----------|--------|-----------|
+| `/api/atendimentos/page-data` | GET | Dados da página de atendimento |
+| `/api/bulk/campaigns` | GET/POST | Campanhas de disparo |
+| `/api/bulk/send` | POST | Enviar disparo |
+| `/api/instances` | GET | Listar instâncias WhatsApp |
+| `/api/marketing/campanhas` | GET/POST | CRUD campanhas |
+| `/api/marketing/leads` | GET/POST | CRUD leads |
+| `/api/marketing/promocoes` | GET/POST | CRUD promoções |
+| `/api/pos-vendas/chamados` | GET/POST | CRUD chamados |
+| `/api/pos-vendas/followups` | GET/POST | CRUD follow-ups |
+| `/api/pos-vendas/avaliacoes` | GET/POST | CRUD avaliações |
 
 ---
 
-## 🚀 Comandos Úteis
+## 🚀 Deploy
 
+| Serviço | URL | Observação |
+|---------|-----|------------|
+| Frontend | https://stk-crm-amber.vercel.app | Vercel (free tier) |
+| Supabase | https://otmkukicneotcpkemvcq.supabase.co | Free tier |
+| Evolution API | http://2.25.192.248:8082 | VPS Hostinger |
+| VPS | 2.25.192.248 | Hostinger KVM |
+
+---
+
+## 📋 Fluxo de Marketing (Arquitetura Atual)
+
+```
+1. Criar Campanha (nome, tipo, datas, meta)
+   ↓
+2. Dentro da Campanha → Criar Disparo
+   ↓
+3. Escolher tipo:
+   ├── Avulso → Colar números (1 por linha ou vírgula)
+   └── Em Massa → Upload planilha (Excel/CSV)
+   ↓
+4. Configurar mensagem com variáveis:
+   - {{nome}} → Nome do estabelecimento
+   - {{promocao}} → Cupom de desconto
+   ↓
+5. Selecionar instância WhatsApp
+   ↓
+6. Enviar (com delay configurável)
+   ↓
+7. Mensagem chega no WhatsApp do cliente
+   ↓
+8. Cliente responde → Vai para Atendimento
+   ↓
+9. Vendedor qualifica → Lead → Cliente
+```
+
+---
+
+## ⚠️ Limitações Conhecidas
+
+### Chamadas de Voz
+- **Receber eventos**: ✅ Sim (via webhook)
+- **Rejeitar chamada**: ✅ Sim (`rejectCall`)
+- **Criar link de chamada**: ✅ Sim (`createCallLink`)
+- **Iniciar ligação direta**: ❌ Não suportado pelo Baileys
+- **Atender e falar pelo CRM**: ❌ Não suportado (requer WebRTC)
+
+### Infraestrutura
+- Vercel free tier: cold start em funções serverless
+- Supabase free tier: limites de conexão e存储
+- Evolution API: sem suporte oficial a chamadas
+
+---
+
+## 🎯 Próximos Passos (Sugestões)
+
+1. **Integração Marketing → CRM**: Lead do Marketing vira cliente no CRM
+2. **Permissões por perfil**: Admin, vendedor, atendente
+3. **Relatórios avançados**: Gráficos e exportação
+4. **Notificações push**: Alertas em tempo real
+5. **Integração com ERP**: Dados de vendas/estoque
+
+---
+
+## 📝 Notas Técnicas
+
+### Variáveis de Ambiente Necessárias
+```env
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+```
+
+### Comandos Úteis
 ```bash
-# Deploy no Vercel
-cd /root/stk-crm && vercel --token "$VERCEL_TOKEN" --yes --prod
+# Deploy
+vercel --token "$VERCEL_TOKEN" --yes --prod
 
-# Restart Evolution API
-docker exec john_hermes supervisorctl restart evolution-api
+# Verificar erros TypeScript
+npx tsc --noEmit
 
 # Push para GitHub
-cd /root/stk-crm && git add -A && git commit -m "msg" && git push
-
-# Verificar status das instâncias
-curl -s http://localhost:8082/instance/fetchInstances | jq '.'
+git add -A && git commit -m "msg" && git push
 ```
-
----
-
-## 📌 Pendências / Próximos Passos
-
-- [ ] Conectar dados mockados restantes em páginas
-- [ ] Fase 6: Integração entre perfis (lead do Marketing → cliente no CRM)
-- [ ] Fase 7: Permissões por perfil (admin, vendedor, atendente)
-- [ ] Testar fluxo completo de envio via Evolution API
-- [ ] Implementar relatórios com dados conectados
 
 ---
 
