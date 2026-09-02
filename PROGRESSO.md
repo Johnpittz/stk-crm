@@ -236,3 +236,4 @@ stk-crm/
 ---
 
 *Este arquivo é atualizado automaticamente a cada fase concluída.*
+
