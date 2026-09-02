@@ -629,7 +629,7 @@ export default function LeadsPage() {
       {/* Loader inicial — evita flash de conteúdo de gestor para vendedores */}
       {carregandoAuth && (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-[#14919B]" />
+          <Loader2 className="h-8 w-8 animate-spin text-[#3B64CF]" />
           <span className="ml-3 text-slate-500">Carregando...</span>
         </div>
       )}
@@ -677,7 +677,7 @@ export default function LeadsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Filter className="h-5 w-5 text-[#14919B]" />
+                <Filter className="h-5 w-5 text-[#3B64CF]" />
                 Filtros de Busca
               </CardTitle>
               <CardDescription>
@@ -702,8 +702,8 @@ export default function LeadsPage() {
                         className={cn(
                           "text-xs px-2 py-0.5 rounded-full border transition-colors",
                           cnae === c.codigo
-                            ? "bg-[#0D3B33] text-white border-[#0D3B33]"
-                            : "bg-slate-50 text-slate-600 border-slate-200 hover:border-[#14919B] hover:text-[#14919B]"
+                            ? "bg-[#15317B] text-white border-[#15317B]"
+                            : "bg-slate-50 text-slate-600 border-slate-200 hover:border-[#3B64CF] hover:text-[#3B64CF]"
                         )}
                         title={c.label}
                       >
@@ -734,7 +734,7 @@ export default function LeadsPage() {
                 <Button
                   onClick={handleBuscar}
                   disabled={carregando}
-                  className="bg-[#0D3B33] hover:bg-[#14919B]"
+                  className="bg-[#15317B] hover:bg-[#3B64CF]"
                 >
                   {carregando ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -796,7 +796,7 @@ export default function LeadsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="flex items-center gap-2">
-                      <Building2 className="h-5 w-5 text-[#14919B]" />
+                      <Building2 className="h-5 w-5 text-[#3B64CF]" />
                       Resultados da Busca
                     </CardTitle>
                     <CardDescription>
@@ -810,7 +810,7 @@ export default function LeadsPage() {
                     <Button
                       onClick={handleImportar}
                       disabled={importando || selecionadas.size === 0}
-                      className="bg-[#14919B] hover:bg-[#0D3B33]"
+                      className="bg-[#3B64CF] hover:bg-[#15317B]"
                     >
                       {importando ? (
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -839,7 +839,7 @@ export default function LeadsPage() {
                         className={cn(
                           "flex items-start gap-3 p-4 rounded-lg border transition-colors",
                           selecionadas.has(empresa.cnpj)
-                            ? "border-[#14919B] bg-[#14919B]/5"
+                            ? "border-[#3B64CF] bg-[#3B64CF]/5"
                             : "hover:bg-slate-50"
                         )}
                       >
@@ -930,21 +930,21 @@ export default function LeadsPage() {
                 </p>
                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto text-left">
                   <div className="bg-white p-4 rounded-lg border">
-                    <div className="text-[#14919B] font-bold text-lg">1</div>
+                    <div className="text-[#3B64CF] font-bold text-lg">1</div>
                     <p className="text-sm font-medium mt-1">Filtre por CNAE</p>
                     <p className="text-xs text-slate-500">
                       Escolha a atividade econômica do seu cliente ideal.
                     </p>
                   </div>
                   <div className="bg-white p-4 rounded-lg border">
-                    <div className="text-[#14919B] font-bold text-lg">2</div>
+                    <div className="text-[#3B64CF] font-bold text-lg">2</div>
                     <p className="text-sm font-medium mt-1">Selecione empresas</p>
                     <p className="text-xs text-slate-500">
                       Visualize dados e marque as que quer importar.
                     </p>
                   </div>
                   <div className="bg-white p-4 rounded-lg border">
-                    <div className="text-[#14919B] font-bold text-lg">3</div>
+                    <div className="text-[#3B64CF] font-bold text-lg">3</div>
                     <p className="text-sm font-medium mt-1">Importe para a fila</p>
                     <p className="text-xs text-slate-500">
                       Os leads entram na fila para distribuição aos vendedores.
@@ -965,7 +965,7 @@ export default function LeadsPage() {
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
                   <CardTitle className="flex items-center gap-2">
-                    <Inbox className="h-5 w-5 text-[#14919B]" />
+                    <Inbox className="h-5 w-5 text-[#3B64CF]" />
                     {isGestor ? "Fila de Leads" : "Meus Leads"}
                   </CardTitle>
                   <CardDescription>
@@ -1044,7 +1044,7 @@ export default function LeadsPage() {
             <CardContent>
               {carregandoLeads ? (
                 <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-[#14919B]" />
+                  <Loader2 className="h-8 w-8 animate-spin text-[#3B64CF]" />
                 </div>
               ) : leads.length === 0 ? (
                 <div className="text-center py-12">
@@ -1166,7 +1166,7 @@ export default function LeadsPage() {
                                       size="sm"
                                       onClick={() => handleAtribuir(lead.id)}
                                       disabled={!vendedorAtribuicao}
-                                      className="bg-[#14919B] hover:bg-[#0D3B33]"
+                                      className="bg-[#3B64CF] hover:bg-[#15317B]"
                                     >
                                       <UserCheck className="h-4 w-4 mr-1" />
                                       {lead.vendedor_id ? "Reatribuir" : "Atribuir"}
@@ -1288,7 +1288,7 @@ export default function LeadsPage() {
                               {obsEditando[lead.id] !== undefined ? (
                                 <div className="flex gap-2 items-start">
                                   <textarea
-                                    className="flex-1 min-h-[60px] text-sm border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-[#14919B]"
+                                    className="flex-1 min-h-[60px] text-sm border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-[#3B64CF]"
                                     placeholder="Registre aqui suas observações sobre o contato..."
                                     value={obsEditando[lead.id]}
                                     onChange={(e) =>
@@ -1300,7 +1300,7 @@ export default function LeadsPage() {
                                       size="sm"
                                       onClick={() => handleSalvarObservacao(lead.id)}
                                       disabled={salvandoObs === lead.id}
-                                      className="bg-[#14919B] hover:bg-[#0D3B33]"
+                                      className="bg-[#3B64CF] hover:bg-[#15317B]"
                                     >
                                       {salvandoObs === lead.id ? (
                                         <Loader2 className="h-3 w-3 animate-spin" />
@@ -1359,7 +1359,7 @@ export default function LeadsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-[#14919B]" />
+                <Users className="h-5 w-5 text-[#3B64CF]" />
                 Leads por Vendedor
               </CardTitle>
               <CardDescription>
@@ -1452,12 +1452,12 @@ export default function LeadsPage() {
                             className={cn(
                               "text-left p-3 rounded-lg border transition-all hover:shadow-md",
                               vendedorFiltro === vendedor.id
-                                ? "border-[#14919B] bg-[#14919B]/5 ring-1 ring-[#14919B]"
+                                ? "border-[#3B64CF] bg-[#3B64CF]/5 ring-1 ring-[#3B64CF]"
                                 : "border-slate-200 bg-white hover:border-slate-300"
                             )}
                           >
                             <div className="flex items-center gap-2 mb-2">
-                              <div className="w-7 h-7 rounded-full bg-[#14919B] text-white flex items-center justify-center text-xs font-semibold">
+                              <div className="w-7 h-7 rounded-full bg-[#3B64CF] text-white flex items-center justify-center text-xs font-semibold">
                                 {vendedor.nome_completo?.charAt(0).toUpperCase() || "?"}
                               </div>
                               <span className="font-medium text-sm truncate">
@@ -1637,7 +1637,7 @@ export default function LeadsPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <ArrowRightLeft className="h-5 w-5 text-[#14919B]" />
+              <ArrowRightLeft className="h-5 w-5 text-[#3B64CF]" />
               Distribuir Leads
             </DialogTitle>
             <DialogDescription>
@@ -1696,7 +1696,7 @@ export default function LeadsPage() {
                     Leads disponíveis: <strong>{previewDistribuicao.total_leads_disponiveis}</strong>
                   </span>
                   <span className="text-slate-600">
-                    A distribuir: <strong className="text-[#14919B]">{previewDistribuicao.total_a_distribuir}</strong>
+                    A distribuir: <strong className="text-[#3B64CF]">{previewDistribuicao.total_a_distribuir}</strong>
                   </span>
                 </div>
                 {previewDistribuicao.sobrarao > 0 && (
@@ -1764,7 +1764,7 @@ export default function LeadsPage() {
                 previewDistribuicao.erro ||
                 previewDistribuicao.total_a_distribuir === 0
               }
-              className="bg-[#14919B] hover:bg-[#0D3B33]"
+              className="bg-[#3B64CF] hover:bg-[#15317B]"
             >
               {executandoDistribuicao ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />

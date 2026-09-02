@@ -581,7 +581,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
         ) : (
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-full bg-[#14919B]/20 flex items-center justify-center text-[#14919B] font-bold text-xs shrink-0">
+              <div className="h-9 w-9 rounded-full bg-[#3B64CF]/20 flex items-center justify-center text-[#3B64CF] font-bold text-xs shrink-0">
                 {nomeCliente.substring(0, 2).toUpperCase()}
               </div>
               <div>
@@ -589,7 +589,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] text-white/40">{telefone}</span>
                   {instanciaInfo && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#14919B]/20 text-[#14919B] font-medium">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#3B64CF]/20 text-[#3B64CF] font-medium">
                       {instanciaInfo.number ? `(${instanciaInfo.number.slice(-4)})` : instanciaInfo.name}
                     </span>
                   )}
@@ -600,7 +600,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-8 text-xs gap-1 text-white/50 hover:text-[#14919B] hover:bg-[#14919B]/10"
+                className="h-8 text-xs gap-1 text-white/50 hover:text-[#3B64CF] hover:bg-[#3B64CF]/10"
                 onClick={() => setModoTransferencia(true)}
                 title="Transferir atendimento"
               >
@@ -679,7 +679,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
                       className={cn(
                         "max-w-[80%] rounded-2xl px-3 py-2 text-sm",
                         isOperador
-                          ? "bg-[#14919B] text-white rounded-br-sm"
+                          ? "bg-[#3B64CF] text-white rounded-br-sm"
                           : "bg-white/10 border border-white/10 text-white/90 rounded-bl-sm"
                       )}
                     >
@@ -761,7 +761,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
                   placeholder="Digite sua resposta..."
                   value={novaMensagem}
                   onChange={(e) => setNovaMensagem(e.target.value)}
-                  className="flex-1 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#14919B]"
+                  className="flex-1 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#3B64CF]"
                   disabled={enviando}
                 />
 
@@ -769,7 +769,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
                 <Button
                   type="submit"
                   size="icon"
-                  className="h-9 w-9 bg-[#14919B] hover:bg-[#14919B]/80 shrink-0"
+                  className="h-9 w-9 bg-[#3B64CF] hover:bg-[#3B64CF]/80 shrink-0"
                   disabled={enviando || !novaMensagem.trim()}
                 >
                   <Send className="h-4 w-4" />

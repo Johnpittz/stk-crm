@@ -41,9 +41,9 @@ const rankingVendedores = [
 ];
 
 const vendasPorRegiao = [
-  { nome: "São Paulo Capital", valor: 125000, percentual: 35, cor: "#0D3B33" },
-  { nome: "Grande ABC", valor: 78000, percentual: 22, cor: "#14919B" },
-  { nome: "Guarulhos", valor: 45000, percentual: 13, cor: "#0D7377" },
+  { nome: "São Paulo Capital", valor: 125000, percentual: 35, cor: "#15317B" },
+  { nome: "Grande ABC", valor: 78000, percentual: 22, cor: "#3B64CF" },
+  { nome: "Guarulhos", valor: 45000, percentual: 13, cor: "#2556B3" },
   { nome: "Osasco", valor: 38000, percentual: 11, cor: "#14B8A6" },
   { nome: "Santo André", valor: 32000, percentual: 9, cor: "#2DD4BF" },
   { nome: "São Bernardo", valor: 28000, percentual: 6, cor: "#5EEAD4" },
@@ -51,10 +51,10 @@ const vendasPorRegiao = [
 ];
 
 const cacPorCanal = [
-  { nome: "Loja Física", valor: 45, cor: "#0D3B33" },
-  { nome: "WhatsApp", valor: 32, cor: "#14919B" },
+  { nome: "Loja Física", valor: 45, cor: "#15317B" },
+  { nome: "WhatsApp", valor: 32, cor: "#3B64CF" },
   { nome: "Online", valor: 28, cor: "#14B8A6" },
-  { nome: "Telefone", valor: 38, cor: "#0D7377" },
+  { nome: "Telefone", valor: 38, cor: "#2556B3" },
 ];
 
 const ticketMedioPorCanal = [
@@ -126,12 +126,12 @@ export default function DashboardPage() {
       </div>
 
       {/* TAXA DE POSITIVAÇÃO - COMPACTA */}
-      <Card className="border-l-4 border-l-[#0D3B33] bg-gradient-to-r from-[#0D3B33]/5 to-transparent shrink-0">
+      <Card className="border-l-4 border-l-[#15317B] bg-gradient-to-r from-[#15317B]/5 to-transparent shrink-0">
         <CardContent className="p-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-6">
               <div className="text-center">
-                <div className="text-2xl font-bold text-[#0D3B33]">{taxaPositivacao.percentual}%</div>
+                <div className="text-2xl font-bold text-[#15317B]">{taxaPositivacao.percentual}%</div>
                 <div className="text-xs text-slate-500">Taxa de Positivação</div>
               </div>
               <div className="h-10 w-px bg-slate-200" />
@@ -149,7 +149,7 @@ export default function DashboardPage() {
             <div className="h-10 w-28">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={[{ v: 60 }, { v: 65 }, { v: 67.5 }]}>
-                  <Area type="monotone" dataKey="v" stroke="#0D3B33" fill="#0D3B33" fillOpacity={0.2} />
+                  <Area type="monotone" dataKey="v" stroke="#15317B" fill="#15317B" fillOpacity={0.2} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -161,7 +161,7 @@ export default function DashboardPage() {
       <Card className="border-0 shadow-sm shrink-0 h-[230px]">
         <CardHeader className="py-2 px-5">
           <CardTitle className="flex items-center gap-2 text-sm">
-            <TrendingUp className="h-4 w-4 text-[#14919B]" />
+            <TrendingUp className="h-4 w-4 text-[#3B64CF]" />
             Evolução Mensal (12 meses) vs Média Comercial
           </CardTitle>
         </CardHeader>
@@ -189,19 +189,19 @@ export default function DashboardPage() {
                 type="monotone" 
                 dataKey="vendedor" 
                 name="Minhas Vendas" 
-                stroke="#0D3B33" 
+                stroke="#15317B" 
                 strokeWidth={3} 
-                dot={{ fill: "#0D3B33", strokeWidth: 0, r: 6 }} 
+                dot={{ fill: "#15317B", strokeWidth: 0, r: 6 }} 
                 activeDot={{ r: 8 }} 
               />
               <Line 
                 type="monotone" 
                 dataKey="media" 
                 name="Média Comercial" 
-                stroke="#14919B" 
+                stroke="#3B64CF" 
                 strokeWidth={2} 
                 strokeDasharray="5 5" 
-                dot={{ fill: "#14919B", strokeWidth: 0, r: 5 }} 
+                dot={{ fill: "#3B64CF", strokeWidth: 0, r: 5 }} 
               />
             </LineChart>
           </ResponsiveContainer>
@@ -215,7 +215,7 @@ export default function DashboardPage() {
         <Card className="border-0 shadow-sm flex flex-col min-h-0">
           <CardHeader className="py-2 px-3 shrink-0">
             <CardTitle className="flex items-center gap-2 text-sm">
-              <Trophy className="h-4 w-4 text-[#0D3B33]" />
+              <Trophy className="h-4 w-4 text-[#15317B]" />
               Ranking
             </CardTitle>
           </CardHeader>
@@ -257,7 +257,7 @@ export default function DashboardPage() {
         <Card className="border-0 shadow-sm flex flex-col min-h-0">
           <CardHeader className="py-2 px-3 shrink-0">
             <CardTitle className="text-sm flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-[#0D3B33]" />
+              <MapPin className="h-4 w-4 text-[#15317B]" />
               Regiões
             </CardTitle>
           </CardHeader>
@@ -306,7 +306,7 @@ export default function DashboardPage() {
         <Card className="border-0 shadow-sm flex flex-col min-h-0">
           <CardHeader className="py-2 px-3 shrink-0">
             <CardTitle className="text-sm flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-[#0D7377]" />
+              <DollarSign className="h-4 w-4 text-[#2556B3]" />
               CAC
             </CardTitle>
           </CardHeader>
@@ -355,7 +355,7 @@ export default function DashboardPage() {
                 {ticketMedioPorCanal.map((t) => (
                   <div key={t.canal} className={cn(
                     "flex justify-between items-center p-1.5 rounded-lg text-[11px]",
-                    t.meu ? "bg-[#0D3B33] text-white" : "bg-slate-50"
+                    t.meu ? "bg-[#15317B] text-white" : "bg-slate-50"
                   )}>
                     <div className="flex items-center gap-1">
                       <span className={cn("font-medium", t.meu ? "" : "text-slate-700")}>{t.canal}</span>

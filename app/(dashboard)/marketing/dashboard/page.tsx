@@ -83,7 +83,7 @@ export default function MarketingDashboardPage() {
           <CardContent>
             {loading ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-[#14919B]" />
+                <Loader2 className="w-8 h-8 animate-spin text-[#3B64CF]" />
               </div>
             ) : leadsPorOrigem.length > 0 ? (
               <div className="flex items-center justify-center gap-8">
@@ -131,7 +131,7 @@ export default function MarketingDashboardPage() {
           <CardContent>
             {loadingCampanhas ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-[#14919B]" />
+                <Loader2 className="w-8 h-8 animate-spin text-[#3B64CF]" />
               </div>
             ) : campanhas && campanhas.length > 0 ? (
               <div className="space-y-4">

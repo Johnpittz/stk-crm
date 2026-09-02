@@ -5,34 +5,34 @@
 @layer base {
   :root {
     /* Paleta de Cores - Marca Roma */
-    --roma-primary: #0D3B33;
-    --roma-secondary: #14919B;
-    --roma-accent: #0D7377;
-    --roma-light: #E8F5F0;
+    --roma-primary: #15317B;
+    --roma-secondary: #3B64CF;
+    --roma-accent: #2556B3;
+    --roma-light: #E8F0FF;
     
     /* Cores do Sistema - Tema Escuro */
-    --background: 160 40% 7%;
+    --background: 224 60% 8%;
     --foreground: 210 40% 98%;
-    --card: 160 40% 10%;
+    --card: 224 50% 11%;
     --card-foreground: 210 40% 98%;
-    --popover: 160 40% 10%;
+    --popover: 224 50% 11%;
     --popover-foreground: 210 40% 98%;
     
-    /* Primary - Usando o verde da marca */
-    --primary: 168 66% 14%;
+    /* Primary - Usando o azul da marca */
+    --primary: 224 71% 28%;
     --primary-foreground: 210 40% 98%;
     
-    --secondary: 160 30% 15%;
+    --secondary: 224 40% 16%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 160 30% 15%;
+    --muted: 224 40% 16%;
     --muted-foreground: 210 20% 65%;
-    --accent: 160 40% 12%;
+    --accent: 224 50% 13%;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 160 30% 18%;
-    --input: 160 30% 18%;
-    --ring: 168 66% 14%;
+    --border: 224 40% 19%;
+    --input: 224 40% 19%;
+    --ring: 224 71% 28%;
     --radius: 0.5rem;
   }
 
@@ -130,20 +130,20 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #0a2e28;
+  background: #0c1425;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #14919B;
+  background: #3B64CF;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #1aadb8;
+  background: #5580E0;
 }
 
 /* Custom Selection */
 ::selection {
-  background: #0D3B33;
+  background: #15317B;
   color: white;
 }

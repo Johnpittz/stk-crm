@@ -61,7 +61,7 @@ export function PerformanceRealTime() {
     <div className="flex items-center gap-6 px-4 py-2 bg-white/5 border border-white/10 rounded-lg">
       {/* Título */}
       <div className="flex items-center gap-2 shrink-0">
-        <Target className="h-4 w-4 text-[#14919B]" />
+        <Target className="h-4 w-4 text-[#3B64CF]" />
         <span className="text-sm font-semibold text-white/80">Performance Hoje</span>
       </div>
 

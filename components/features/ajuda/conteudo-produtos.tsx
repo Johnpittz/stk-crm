@@ -6,10 +6,10 @@ export function ConteudoProdutos() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <Card className="border-[#14919B]/20 bg-gradient-to-r from-[#0D3B33]/5 to-transparent">
+      <Card className="border-[#3B64CF]/20 bg-gradient-to-r from-[#15317B]/5 to-transparent">
         <CardContent className="p-6">
           <div className="flex items-start gap-4">
-            <div className="h-14 w-14 rounded-xl bg-[#0D3B33] flex items-center justify-center shrink-0">
+            <div className="h-14 w-14 rounded-xl bg-[#15317B] flex items-center justify-center shrink-0">
               <Package className="h-7 w-7 text-white" />
             </div>
             <div>
@@ -27,7 +27,7 @@ export function ConteudoProdutos() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <Package className="h-4 w-4 text-[#14919B]" />
+            <Package className="h-4 w-4 text-[#3B64CF]" />
             O que é o catálogo de Produtos?
           </CardTitle>
         </CardHeader>
@@ -38,11 +38,11 @@ export function ConteudoProdutos() {
           </p>
           <div className="grid grid-cols-2 gap-4 mt-3">
             <div className="bg-slate-50 border rounded-lg p-3 text-center">
-              <p className="text-2xl font-bold text-[#14919B]">2.195</p>
+              <p className="text-2xl font-bold text-[#3B64CF]">2.195</p>
               <p className="text-xs text-slate-600">Produtos cadastrados</p>
             </div>
             <div className="bg-slate-50 border rounded-lg p-3 text-center">
-              <p className="text-2xl font-bold text-[#14919B]">50</p>
+              <p className="text-2xl font-bold text-[#3B64CF]">50</p>
               <p className="text-xs text-slate-600">Itens por página</p>
             </div>
           </div>
@@ -53,7 +53,7 @@ export function ConteudoProdutos() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <Search className="h-4 w-4 text-[#14919B]" />
+            <Search className="h-4 w-4 text-[#3B64CF]" />
             Como Buscar Produtos
           </CardTitle>
         </CardHeader>
@@ -76,18 +76,18 @@ export function ConteudoProdutos() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <Filter className="h-4 w-4 text-[#14919B]" />
+            <Filter className="h-4 w-4 text-[#3B64CF]" />
             Filtros Disponíveis
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-slate-700">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="border rounded-lg p-3 bg-slate-50">
-              <Badge className="bg-[#0D3B33] mb-2">Marca</Badge>
+              <Badge className="bg-[#15317B] mb-2">Marca</Badge>
               <p className="text-xs text-slate-600">Filtre por fabricante do produto (ex: Siemens, WEG, etc.)</p>
             </div>
             <div className="border rounded-lg p-3 bg-slate-50">
-              <Badge className="bg-[#14919B] mb-2">Categoria</Badge>
+              <Badge className="bg-[#3B64CF] mb-2">Categoria</Badge>
               <p className="text-xs text-slate-600">Filtre por tipo de produto (ex: disjuntores, fios, etc.)</p>
             </div>
             <div className="border rounded-lg p-3 bg-slate-50">

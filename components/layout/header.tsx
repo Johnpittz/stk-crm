@@ -84,7 +84,7 @@ export function Header() {
   const formattedDate = useFormattedDate();
 
   return (
-    <header className="sticky top-0 z-30 border-b border-[#14919B]/20 bg-[#0D3B33]/95 backdrop-blur-md px-6 py-4">
+    <header className="sticky top-0 z-30 border-b border-[#3B64CF]/20 bg-[#15317B]/95 backdrop-blur-md px-6 py-4">
       <div className="flex items-center justify-between">
         {/* Title */}
         <div>

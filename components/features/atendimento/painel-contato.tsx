@@ -207,7 +207,7 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
 
       {/* Avatar grande */}
       <div className="flex justify-center py-3">
-        <div className="h-[72px] w-[72px] rounded-full bg-[#14919B]/20 flex items-center justify-center text-2xl font-bold text-[#14919B]">
+        <div className="h-[72px] w-[72px] rounded-full bg-[#3B64CF]/20 flex items-center justify-center text-2xl font-bold text-[#3B64CF]">
           {iniciais}
         </div>
       </div>

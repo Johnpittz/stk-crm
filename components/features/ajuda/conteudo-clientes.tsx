@@ -6,10 +6,10 @@ export function ConteudoClientes() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <Card className="border-[#14919B]/20 bg-gradient-to-r from-[#0D3B33]/5 to-transparent">
+      <Card className="border-[#3B64CF]/20 bg-gradient-to-r from-[#15317B]/5 to-transparent">
         <CardContent className="p-6">
           <div className="flex items-start gap-4">
-            <div className="h-14 w-14 rounded-xl bg-[#0D3B33] flex items-center justify-center shrink-0">
+            <div className="h-14 w-14 rounded-xl bg-[#15317B] flex items-center justify-center shrink-0">
               <Users className="h-7 w-7 text-white" />
             </div>
             <div>
@@ -27,7 +27,7 @@ export function ConteudoClientes() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <Users className="h-4 w-4 text-[#14919B]" />
+            <Users className="h-4 w-4 text-[#3B64CF]" />
             O que é a tela de Clientes?
           </CardTitle>
         </CardHeader>
@@ -46,7 +46,7 @@ export function ConteudoClientes() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <Search className="h-4 w-4 text-[#14919B]" />
+            <Search className="h-4 w-4 text-[#3B64CF]" />
             Como Usar
           </CardTitle>
         </CardHeader>
@@ -64,7 +64,7 @@ export function ConteudoClientes() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <Plus className="h-4 w-4 text-[#14919B]" />
+            <Plus className="h-4 w-4 text-[#3B64CF]" />
             Cadastrar Novo Cliente
           </CardTitle>
         </CardHeader>

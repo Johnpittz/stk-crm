@@ -219,7 +219,7 @@ export default function PosVendasSatisfacaoPage() {
           <CardContent>
             {loading ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-[#14919B]" />
+                <Loader2 className="w-8 h-8 animate-spin text-[#3B64CF]" />
               </div>
             ) : distribuicaoNPS.length > 0 ? (
               <div className="flex items-center justify-center gap-8">
@@ -306,7 +306,7 @@ export default function PosVendasSatisfacaoPage() {
         <CardContent>
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-[#14919B]" />
+              <Loader2 className="w-8 h-8 animate-spin text-[#3B64CF]" />
             </div>
           ) : avaliacoes && avaliacoes.length > 0 ? (
             <div className="space-y-4">
@@ -317,8 +317,8 @@ export default function PosVendasSatisfacaoPage() {
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-[#14919B]/20 flex items-center justify-center">
-                        <span className="font-medium text-[#14919B]">{avaliacao.cliente_nome.charAt(0)}</span>
+                      <div className="w-10 h-10 rounded-full bg-[#3B64CF]/20 flex items-center justify-center">
+                        <span className="font-medium text-[#3B64CF]">{avaliacao.cliente_nome.charAt(0)}</span>
                       </div>
                       <div>
                         <h4 className="font-medium">{avaliacao.cliente_nome}</h4>

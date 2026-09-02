@@ -262,7 +262,7 @@ export default function AtendimentoPage() {
               placeholder="Buscar..."
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              className="w-48 h-8 text-xs pl-7 bg-white/10 border-white/10 text-white placeholder:text-white/30 focus:border-[#14919B]"
+              className="w-48 h-8 text-xs pl-7 bg-white/10 border-white/10 text-white placeholder:text-white/30 focus:border-[#3B64CF]"
             />
           </div>
 
@@ -271,7 +271,7 @@ export default function AtendimentoPage() {
             onClick={() => setPainelContatoAberto(!painelContatoAberto)}
             className={`h-8 w-8 rounded-lg border flex items-center justify-center transition-colors ${
               painelContatoAberto
-                ? "bg-[#14919B]/20 border-[#14919B]/30 text-[#14919B]"
+                ? "bg-[#3B64CF]/20 border-[#3B64CF]/30 text-[#3B64CF]"
                 : "bg-white/5 border-white/10 text-white/40 hover:text-white/60"
             }`}
             title={painelContatoAberto ? "Fechar painel de contato" : "Abrir painel de contato"}
@@ -297,7 +297,7 @@ export default function AtendimentoPage() {
                   onClick={() => setInstanciaSelecionada("todas")}
                   className={`px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-all ${
                     instanciaSelecionada === "todas"
-                      ? "bg-[#14919B] text-white"
+                      ? "bg-[#3B64CF] text-white"
                       : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70"
                   }`}
                 >
@@ -310,7 +310,7 @@ export default function AtendimentoPage() {
                     onClick={() => setInstanciaSelecionada(inst.name)}
                     className={`px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-all flex items-center gap-1 ${
                       instanciaSelecionada === inst.name
-                        ? "bg-[#14919B] text-white"
+                        ? "bg-[#3B64CF] text-white"
                         : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70"
                     }`}
                   >
@@ -331,7 +331,7 @@ export default function AtendimentoPage() {
                 placeholder="Buscar conversa..."
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
-                className="w-full h-8 text-xs pl-7 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#14919B]"
+                className="w-full h-8 text-xs pl-7 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#3B64CF]"
               />
             </div>
             <FiltroEtiquetas

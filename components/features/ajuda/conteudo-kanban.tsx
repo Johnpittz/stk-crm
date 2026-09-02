@@ -6,10 +6,10 @@ export function ConteudoKanban() {
   return (
     <div className="space-y-6">
       {/* Header da seção */}
-      <Card className="border-[#14919B]/20 bg-gradient-to-r from-[#0D3B33]/5 to-transparent">
+      <Card className="border-[#3B64CF]/20 bg-gradient-to-r from-[#15317B]/5 to-transparent">
         <CardContent className="p-6">
           <div className="flex items-start gap-4">
-            <div className="h-14 w-14 rounded-xl bg-[#0D3B33] flex items-center justify-center shrink-0">
+            <div className="h-14 w-14 rounded-xl bg-[#15317B] flex items-center justify-center shrink-0">
               <ClipboardList className="h-7 w-7 text-white" />
             </div>
             <div>
@@ -27,7 +27,7 @@ export function ConteudoKanban() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <ClipboardList className="h-4 w-4 text-[#14919B]" />
+            <ClipboardList className="h-4 w-4 text-[#3B64CF]" />
             As 3 Colunas do Kanban
           </CardTitle>
         </CardHeader>
@@ -76,7 +76,7 @@ export function ConteudoKanban() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <Plus className="h-4 w-4 text-[#14919B]" />
+            <Plus className="h-4 w-4 text-[#3B64CF]" />
             Como Criar uma Nova Tarefa
           </CardTitle>
         </CardHeader>
@@ -102,7 +102,7 @@ export function ConteudoKanban() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <CheckCircle className="h-4 w-4 text-[#14919B]" />
+            <CheckCircle className="h-4 w-4 text-[#3B64CF]" />
             Como Concluir uma Tarefa
           </CardTitle>
         </CardHeader>
@@ -129,7 +129,7 @@ export function ConteudoKanban() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <GripVertical className="h-4 w-4 text-[#14919B]" />
+            <GripVertical className="h-4 w-4 text-[#3B64CF]" />
             Arrastar e Soltar (Drag and Drop)
           </CardTitle>
         </CardHeader>
@@ -150,7 +150,7 @@ export function ConteudoKanban() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <ClipboardList className="h-4 w-4 text-[#14919B]" />
+            <ClipboardList className="h-4 w-4 text-[#3B64CF]" />
             Filtros do Kanban
           </CardTitle>
         </CardHeader>

@@ -95,7 +95,7 @@ export default async function VendedoresPage() {
             <CardContent className="p-6">
               <div className="flex items-start gap-4">
                 <Avatar className="h-12 w-12">
-                  <AvatarFallback className="bg-[#14919B] text-white font-semibold">
+                  <AvatarFallback className="bg-[#3B64CF] text-white font-semibold">
                     {v.nome_completo?.charAt(0).toUpperCase() || "?"}
                   </AvatarFallback>
                 </Avatar>

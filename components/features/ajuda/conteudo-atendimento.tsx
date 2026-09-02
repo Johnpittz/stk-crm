@@ -6,10 +6,10 @@ export function ConteudoAtendimento() {
   return (
     <div className="space-y-6">
       {/* Header da seção */}
-      <Card className="border-[#14919B]/20 bg-gradient-to-r from-[#0D3B33]/5 to-transparent">
+      <Card className="border-[#3B64CF]/20 bg-gradient-to-r from-[#15317B]/5 to-transparent">
         <CardContent className="p-6">
           <div className="flex items-start gap-4">
-            <div className="h-14 w-14 rounded-xl bg-[#0D3B33] flex items-center justify-center shrink-0">
+            <div className="h-14 w-14 rounded-xl bg-[#15317B] flex items-center justify-center shrink-0">
               <Headset className="h-7 w-7 text-white" />
             </div>
             <div>
@@ -27,7 +27,7 @@ export function ConteudoAtendimento() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <MessageCircle className="h-4 w-4 text-[#14919B]" />
+            <MessageCircle className="h-4 w-4 text-[#3B64CF]" />
             O que é o Atendimento?
           </CardTitle>
         </CardHeader>
@@ -54,7 +54,7 @@ export function ConteudoAtendimento() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <Headset className="h-4 w-4 text-[#14919B]" />
+            <Headset className="h-4 w-4 text-[#3B64CF]" />
             As 2 Abas do Atendimento
           </CardTitle>
         </CardHeader>
@@ -62,7 +62,7 @@ export function ConteudoAtendimento() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="border rounded-lg p-4 bg-slate-50">
               <div className="flex items-center gap-2 mb-2">
-                <Badge className="bg-[#0D3B33]">📋 Meu Trabalho</Badge>
+                <Badge className="bg-[#15317B]">📋 Meu Trabalho</Badge>
               </div>
               <p className="text-sm text-slate-700 mb-2">
                 Tela principal com <strong>Kanban de Tarefas</strong> (2/3 da tela) + <strong>Lista de Atendimentos</strong> (1/3 lateral).
@@ -75,7 +75,7 @@ export function ConteudoAtendimento() {
             </div>
             <div className="border rounded-lg p-4 bg-slate-50">
               <div className="flex items-center gap-2 mb-2">
-                <Badge className="bg-[#14919B]">💬 Atendimentos</Badge>
+                <Badge className="bg-[#3B64CF]">💬 Atendimentos</Badge>
               </div>
               <p className="text-sm text-slate-700 mb-2">
                 Lista <strong>completa</strong> de todos os atendimentos WhatsApp (seus + da fila geral).
@@ -94,7 +94,7 @@ export function ConteudoAtendimento() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <MessageCircle className="h-4 w-4 text-[#14919B]" />
+            <MessageCircle className="h-4 w-4 text-[#3B64CF]" />
             Como usar o Chat
           </CardTitle>
         </CardHeader>
@@ -113,7 +113,7 @@ export function ConteudoAtendimento() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <ArrowRightLeft className="h-4 w-4 text-[#14919B]" />
+            <ArrowRightLeft className="h-4 w-4 text-[#3B64CF]" />
             Transferir Atendimento
           </CardTitle>
         </CardHeader>
@@ -138,7 +138,7 @@ export function ConteudoAtendimento() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <Search className="h-4 w-4 text-[#14919B]" />
+            <Search className="h-4 w-4 text-[#3B64CF]" />
             Filtros e Busca
           </CardTitle>
         </CardHeader>

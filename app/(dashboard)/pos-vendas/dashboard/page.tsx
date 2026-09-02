@@ -148,7 +148,7 @@ export default function PosVendasDashboardPage() {
                   contentStyle={{ backgroundColor: '#0f3830', border: '1px solid #1a5c4a' }}
                   labelStyle={{ color: '#fff' }}
                 />
-                <Bar dataKey="quantidade" fill="#14919B" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="quantidade" fill="#3B64CF" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -190,8 +190,8 @@ export default function PosVendasDashboardPage() {
                 className="flex items-center justify-between p-3 border rounded-lg hover:bg-white/5 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#14919B]/20 flex items-center justify-center">
-                    <span className="font-medium text-[#14919B]">{chamado.cliente.charAt(0)}</span>
+                  <div className="w-10 h-10 rounded-full bg-[#3B64CF]/20 flex items-center justify-center">
+                    <span className="font-medium text-[#3B64CF]">{chamado.cliente.charAt(0)}</span>
                   </div>
                   <div>
                     <h4 className="font-medium">{chamado.cliente}</h4>

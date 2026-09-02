@@ -95,7 +95,7 @@ export default function MarketingRelatoriosPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="flex items-center justify-center py-8"><Loader2 className="w-8 h-8 animate-spin text-[#14919B]" /></div>
+            <div className="flex items-center justify-center py-8"><Loader2 className="w-8 h-8 animate-spin text-[#3B64CF]" /></div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
               <div className="text-center">
@@ -132,7 +132,7 @@ export default function MarketingRelatoriosPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {loading ? <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-[#14919B]" /></div>
+            {loading ? <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-[#3B64CF]" /></div>
             : leadsPorOrigem.length > 0 ? (
               <div className="flex items-center justify-center gap-8">
                 <ResponsiveContainer width={180} height={180}>
@@ -167,7 +167,7 @@ export default function MarketingRelatoriosPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {loading ? <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-[#14919B]" /></div>
+            {loading ? <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-[#3B64CF]" /></div>
             : leadsPorStatus.length > 0 ? (
               <div className="space-y-4">
                 {leadsPorStatus.map(item => {
@@ -197,7 +197,7 @@ export default function MarketingRelatoriosPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {loading ? <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-[#14919B]" /></div>
+            {loading ? <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-[#3B64CF]" /></div>
             : (
               <div className="space-y-4">
                 <div className="flex items-center justify-between p-3 border rounded-lg">
@@ -229,7 +229,7 @@ export default function MarketingRelatoriosPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {loading ? <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-[#14919B]" /></div>
+            {loading ? <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-[#3B64CF]" /></div>
             : (
               <div className="space-y-4">
                 <div className="flex items-center justify-between p-3 border rounded-lg">

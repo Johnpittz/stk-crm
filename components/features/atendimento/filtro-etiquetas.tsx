@@ -36,7 +36,7 @@ export function FiltroEtiquetas({ etiquetaSelecionada, onSelecionar }: FiltroEti
         className={cn(
           "w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-md border transition-colors",
           etiquetaSelecionada
-            ? "bg-[#14919B]/20 border-[#14919B]/30 text-[#14919B]"
+            ? "bg-[#3B64CF]/20 border-[#3B64CF]/30 text-[#3B64CF]"
             : "bg-white/5 border-white/10 text-white/40 hover:border-white/20"
         )}
       >
@@ -72,7 +72,7 @@ export function FiltroEtiquetas({ etiquetaSelecionada, onSelecionar }: FiltroEti
                 key={etiqueta}
                 className={cn(
                   "w-full text-left px-3 py-2 text-xs hover:bg-white/5 transition-colors",
-                  etiquetaSelecionada === etiqueta && "bg-[#14919B]/20 text-[#14919B] font-medium"
+                  etiquetaSelecionada === etiqueta && "bg-[#3B64CF]/20 text-[#3B64CF] font-medium"
                 )}
                 onClick={() => {
                   onSelecionar(etiqueta === etiquetaSelecionada ? null : etiqueta);

@@ -11,7 +11,7 @@ const perfis = [
     label: "CRM",
     description: "Atendimento e vendas",
     icon: HeadphonesIcon,
-    color: "bg-[#14919B]",
+    color: "bg-[#3B64CF]",
   },
   {
     id: "marketing" as PerfilAtivo,
@@ -96,7 +96,7 @@ export function PerfilSelector() {
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-left",
                     isSelected
-                      ? "bg-[#14919B]/20 text-white"
+                      ? "bg-[#3B64CF]/20 text-white"
                       : "text-white/70 hover:bg-white/10 hover:text-white"
                   )}
                 >
@@ -107,7 +107,7 @@ export function PerfilSelector() {
                     <p className="text-sm font-medium">{perfil.label}</p>
                     <p className="text-xs text-white/40">{perfil.description}</p>
                   </div>
-                  {isSelected && <Check size={16} className="text-[#14919B] shrink-0" />}
+                  {isSelected && <Check size={16} className="text-[#3B64CF] shrink-0" />}
                 </button>
               );
             })}

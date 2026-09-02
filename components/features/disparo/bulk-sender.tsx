@@ -241,7 +241,7 @@ export function BulkSender() {
               <select
                 value={newInstance}
                 onChange={(e) => setNewInstance(e.target.value)}
-                className="w-full h-10 px-3 rounded-md bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#14919B]"
+                className="w-full h-10 px-3 rounded-md bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#3B64CF]"
               >
                 {instancias.map((inst) => (
                   <option key={inst.name} value={inst.name} className="bg-[#0f1d32]">
@@ -291,7 +291,7 @@ export function BulkSender() {
               </label>
               <textarea
                 placeholder="Digite sua mensagem aqui..."
-                className="w-full h-32 px-3 py-2 bg-white/5 border border-white/10 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[#14919B] text-white placeholder:text-white/30 text-sm"
+                className="w-full h-32 px-3 py-2 bg-white/5 border border-white/10 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[#3B64CF] text-white placeholder:text-white/30 text-sm"
                 value={newCampaign.message}
                 onChange={(e) =>
                   setNewCampaign({ ...newCampaign, message: e.target.value })
@@ -306,7 +306,7 @@ export function BulkSender() {
               </label>
               <textarea
                 placeholder={"5562999999999\n5562888888888"}
-                className="w-full h-24 px-3 py-2 bg-white/5 border border-white/10 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[#14919B] text-white placeholder:text-white/30 font-mono text-sm"
+                className="w-full h-24 px-3 py-2 bg-white/5 border border-white/10 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[#3B64CF] text-white placeholder:text-white/30 font-mono text-sm"
                 value={newCampaign.numbers}
                 onChange={(e) =>
                   setNewCampaign({ ...newCampaign, numbers: e.target.value })
@@ -326,7 +326,7 @@ export function BulkSender() {
                 !newCampaign.message ||
                 !newCampaign.numbers
               }
-              className="w-full bg-[#14919B] hover:bg-[#14919B]/80 text-white"
+              className="w-full bg-[#3B64CF] hover:bg-[#3B64CF]/80 text-white"
             >
               {creating ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -424,7 +424,7 @@ export function BulkSender() {
                             <div className="mt-2">
                               <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
                                 <div
-                                  className="h-full bg-[#14919B] rounded-full transition-all duration-500"
+                                  className="h-full bg-[#3B64CF] rounded-full transition-all duration-500"
                                   style={{
                                     width: `${
                                       ((campaign.sent + campaign.failed) /
@@ -446,7 +446,7 @@ export function BulkSender() {
                           <Button
                             size="sm"
                             onClick={() => enviarCampanha(campaign)}
-                            className="bg-[#14919B] hover:bg-[#14919B]/80 text-white"
+                            className="bg-[#3B64CF] hover:bg-[#3B64CF]/80 text-white"
                           >
                             <Play className="h-4 w-4 mr-1" />
                             Enviar

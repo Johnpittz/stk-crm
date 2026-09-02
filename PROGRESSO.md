@@ -1,285 +1,238 @@
-# 📊 PROGRESSO - STK CRM
+# 📋 PROGRESSO - STK CRM
 
-> Última atualização: 10/06/2026
-
----
-
-## 🏗️ Visão Geral do Projeto
-
-O **STK CRM** é um sistema de gestão de relacionamento com clientes construído com:
-- **Frontend:** Next.js 14 + TypeScript + Tailwind CSS (tema escuro verde)
-- **Backend:** Next.js API Routes + Supabase (PostgreSQL)
-- **WhatsApp:** Evolution API (Baileys) rodando em Docker
-- **Hospedagem:** Vercel (frontend) + Hostinger VPS (backend/WhatsApp)
-- **Banco de Dados:** Supabase (PostgreSQL gerenciado)
+> Última atualização: 30/08/2026
+> Repositório: github.com/Johnpittz/stk-crm
+> Deploy: stk-crm-amber.vercel.app
+> Stack: Next.js 14 + Supabase + Vercel (free tier)
 
 ---
 
-## 👥 Perfis do Sistema
+## 🏗️ Visão Geral do Sistema
 
-| Perfil | Descrição | Módulos |
-|--------|-----------|---------|
-| **Admin** | Visualiza tudo dos 3 perfis | Todos os módulos |
-| **CRM** | Atendimento e gestão de clientes | Atendimento, Kanban, Dashboard, Clientes |
-| **Marketing** | Campanhas e disparos em massa | Dashboard, Campanhas, Leads, Relatórios, Promoções |
-| **Pós-Vendas** | Follow-up e suporte | Dashboard, Follow-up, Satisfação, Suporte, Acompanhamento |
+O STK CRM é um sistema de gestão de relacionamento com cliente composto por **3 perfis**:
+
+| Perfil | Descrição | Rotas |
+|--------|-----------|-------|
+| **CRM** | Atendimento, Kanban, Dashboard, Clientes | `/`, `/kanban`, `/dashboard`, `/clientes` |
+| **Marketing** | Campanhas, Disparos, Leads, Relatórios, Promoções | `/marketing/*` |
+| **Pós-Vendas** | Follow-up, Satisfação, Suporte, Acompanhamento | `/pos-vendas/*` |
+
+- **Admin** visualiza todos os 3 perfis
+- **Configurações** e **Ajuda** ficam em comum em todos os perfis
+- Sidebar dinâmica baseada no campo `perfil_principal` na tabela `profiles`
 
 ---
 
 ## ✅ Funcionalidades Implementadas
 
-### Fase 1 - Seletor de Perfil
-- [x] Seletor de perfil no header
-- [x] Sidebar dinâmica por perfil
-- [x] Context de perfil ativo (localStorage)
-- [x] Rotas prefixadas: `/`, `/marketing/`, `/pos-vendas/`
+### Fase 1 - Seletor de Perfil + Sidebar Dinâmica
+- [x] Context do perfil ativo (`lib/perfil-ativo-context.tsx`)
+- [x] Seletor de perfil no header (`components/layout/perfil-selector.tsx`)
+- [x] Sidebar dinâmica por perfil (`components/layout/sidebar.tsx`)
+- [x] Perfil salvo em localStorage
 
 ### Fase 2 - Rotas Básicas
-- [x] 6 rotas de Marketing (Dashboard, Disparo, Campanhas, Leads, Relatórios, Promoções)
-- [x] 5 rotas de Pós-Vendas (Dashboard, Follow-up, Satisfação, Suporte, Acompanhamento)
+- [x] 6 rotas Marketing: Dashboard, Campanhas, Leads, Relatórios, Promoções
+- [x] 5 rotas Pós-Vendas: Dashboard, Follow-up, Satisfação, Suporte, Acompanhamento
+- [x] Componente reutilizável para páginas em desenvolvimento
 
 ### Fase 3 - Páginas de Marketing
-- [x] Dashboard com métricas reais
-- [x] Campanhas (hub principal)
-- [x] Leads com CRUD completo
+- [x] Dashboard com métricas reais do Supabase
+- [x] Campanhas (hub principal - criar, expandir, gerenciar)
+- [x] Leads (CRUD completo)
 - [x] Relatórios com dados conectados
-- [x] Promoções com cupons
+- [x] Promoções (CRUD completo)
 
 ### Fase 4 - Páginas de Pós-Vendas
-- [x] Dashboard com visão pós-venda
-- [x] Follow-up de clientes
-- [x] Pesquisas de satisfação (NPS)
-- [x] Chamados de suporte
-- [x] Acompanhamento de entregas
+- [x] Dashboard Pós-Vendas
+- [x] Follow-up (CRUD)
+- [x] Satisfação/NPS (CRUD)
+- [x] Suporte/Chamados (CRUD)
+- [x] Acompanhamento de entregas (CRUD)
 
-### Fase 5 - Banco de Dados
-- [x] Migration SQL criada (`071_marketing_posvendas_tables.sql`)
-- [x] 7 tabelas no Supabase:
-  - `campanhas`
-  - `leads_marketing`
-  - `promocoes_marketing`
-  - `chamados_suporte`
-  - `pedidos_acompanhamento`
-  - `followups`
-  - `avaliacoes_satisfacao`
+### Fase 5 - Migration SQL + APIs
+- [x] Migration `071_marketing_posvendas_tables.sql` criada
+- [x] 7 tabelas criadas no Supabase
+- [x] APIs CRUD para todas as páginas
+- [x] Dados reais em Dashboard Marketing e Relatórios
 
-### Fase 6 - Integração entre Módulos
-- [x] Campanha → Disparo (vinculação)
-- [x] Disparo → Promoção (cupom automático)
-- [x] Campanhas como hub (disparos dentro)
-- [x] Remoção do módulo Disparo independente
-
-### Fase 7 - Sistema de Disparos
-- [x] **Avulso**: Campo para múltiplos números (textarea)
-- [x] **Em Massa**: Upload de planilha (Excel/CSV)
-- [x] Extração automática de nome + telefone da planilha
-- [x] Detecção automática de header (pula linhas de título)
-- [x] Mensagem-padrão com variáveis `{{nome}}` e `{{promocao}}`
-- [x] Delay configurável entre envios
+### Fase 6 - Arquitetura de Campanhas (ATUAL)
+- [x] Campanhas como hub principal (removido Disparo separado)
+- [x] Disparos vinculados a Campanhas (FK `campanha_id`)
+- [x] Promoções vinculadas a Disparos (FK `promocao_id`)
+- [x] Aba "Avulso" - múltiplos números (textarea)
+- [x] Aba "Em Massa" - upload de planilha (Excel/CSV)
+- [x] Extração automática de Nome + Telefone da planilha
+- [x] Variáveis na mensagem: `{{nome}}`, `{{promocao}}`
+- [x] Detecção automática de header em planilhas com linhas de título
+- [x] Pré-visualização dos contatos importados
 
 ---
 
-## 🔧 Correções e Otimizações
-
-### Performance
-- [x] Otimização do sync-from-evolution (300s → 700ms)
-- [x] Polling de conversas: 30s → 10s
-- [x] Endpoint unificado `/api/atendimentos/page-data`
-
-### Bugs Corrigidos
-- [x] MIDDLEWARE_INVOCATION_TIMEOUT (504) - timeout de 3s no auth
-- [x] Indicador de mensagem nova não aparecia
-- [x] SelectItem value vazio crashava dialog
-- [x] Instâncias WhatsApp não carregavam no dropdown
-- [x] Planilha não reconhecia contatos (header em linha de título)
-- [x] Constraint CHECK na tabela campanhas
-
-### Infraestrutura
-- [x] Docker container `john_hermes` com `network_mode: host`
-- [x] Supervisor com autorestart
-- [x] Webhooks configurados (STK + minha-conexao)
-- [x] Tema escuro verde aplicado globalmente
-
----
-
-## 📁 Estrutura de Pastas
-
-```
-stk-crm/
-├── app/
-│   ├── (auth)/                    # Autenticação
-│   │   ├── login/
-│   │   └── solicitar-acesso/
-│   ├── (dashboard)/               # Dashboard principal
-│   │   ├── atendimento/           # Chat WhatsApp
-│   │   ├── kanban/                # Tarefas
-│   │   ├── dashboard/             # Métricas gerais
-│   │   ├── clientes/              # Gestão de clientes
-│   │   ├── marketing/
-│   │   │   ├── dashboard/         # Métricas marketing
-│   │   │   ├── campanhas/         # Hub principal
-│   │   │   ├── leads/             # Prospecção
-│   │   │   ├── relatorios/        # Análises
-│   │   │   └── promocoes/         # Cupons
-│   │   ├── pos-vendas/
-│   │   │   ├── dashboard/         # Visão pós-venda
-│   │   │   ├── follow-up/         # Acompanhamento
-│   │   │   ├── satisfacao/        # NPS/Reviews
-│   │   │   ├── suporte/           # Chamados
-│   │   │   └── acompanhamento/    # Entregas
-│   │   ├── configuracoes/         # Config do sistema
-│   │   └── ajuda/                 # Central de ajuda
-│   └── api/                       # Backend
-│       ├── atendimentos/          # CRUD atendimentos
-│       ├── bulk/                  # Disparos em massa
-│       ├── instances/             # Instâncias WhatsApp
-│       ├── marketing/             # APIs de marketing
-│       └── pos-vendas/            # APIs de pós-vendas
-├── components/
-│   ├── layout/                    # Sidebar, Header, PerfilSelector
-│   └── ui/                        # Componentes shadcn/ui
-├── lib/
-│   ├── supabase/                  # Cliente Supabase
-│   ├── hooks/                     # Hooks customizados
-│   └── perfil-ativo-context.tsx   # Context do perfil
-└── supabase/
-    └── migrations/                # Migrations SQL
-```
-
----
-
-## 🗄️ Tabelas do Banco de Dados
+## 🗄️ Estrutura do Banco (Supabase)
 
 ### Tabelas Principais
 | Tabela | Descrição |
 |--------|-----------|
+| `profiles` | Usuários do sistema (com `perfil_principal`) |
 | `atendimentos` | Conversas WhatsApp |
 | `atendimento_mensagens` | Mensagens das conversas |
-| `profiles` | Perfis dos usuários |
 | `tarefas` | Tarefas do Kanban |
 | `notificacoes` | Notificações do sistema |
 
-### Tabelas Marketing
+### Tabelas Marketing + Pós-Vendas
 | Tabela | Descrição |
 |--------|-----------|
-| `campanhas` | Campanhas de marketing |
-| `leads_marketing` | Leads de prospecção |
+| `campanhas` | Campanhas de marketing (hub) |
+| `bulk_campaigns` | Disparos vinculados a campanhas |
+| `leads_marketing` | Leads de marketing |
 | `promocoes_marketing` | Cupons e promoções |
-| `bulk_campaigns` | Disparos em massa |
-
-### Tabelas Pós-Vendas
-| Tabela | Descrição |
-|--------|-----------|
 | `chamados_suporte` | Chamados de suporte |
 | `pedidos_acompanhamento` | Acompanhamento de pedidos |
 | `followups` | Follow-ups pós-venda |
-| `avaliacoes_satisfacao` | Pesquisas de satisfação |
+| `avaliacoes_satisfacao` | Pesquisas de satisfação/NPS |
 
----
-
-## 🔗 APIs Disponíveis
-
-| Endpoint | Método | Descrição |
-|----------|--------|-----------|
-| `/api/atendimentos/page-data` | GET | Dados da página de atendimento |
-| `/api/bulk/campaigns` | GET/POST | Campanhas de disparo |
-| `/api/bulk/send` | POST | Enviar disparo |
-| `/api/instances` | GET | Listar instâncias WhatsApp |
-| `/api/marketing/campanhas` | GET/POST | CRUD campanhas |
-| `/api/marketing/leads` | GET/POST | CRUD leads |
-| `/api/marketing/promocoes` | GET/POST | CRUD promoções |
-| `/api/pos-vendas/chamados` | GET/POST | CRUD chamados |
-| `/api/pos-vendas/followups` | GET/POST | CRUD follow-ups |
-| `/api/pos-vendas/avaliacoes` | GET/POST | CRUD avaliações |
-
----
-
-## 🚀 Deploy
-
-| Serviço | URL | Observação |
-|---------|-----|------------|
-| Frontend | https://stk-crm-amber.vercel.app | Vercel (free tier) |
-| Supabase | https://otmkukicneotcpkemvcq.supabase.co | Free tier |
-| Evolution API | http://2.25.192.248:8082 | VPS Hostinger |
-| VPS | 2.25.192.248 | Hostinger KVM |
-
----
-
-## 📋 Fluxo de Marketing (Arquitetura Atual)
-
+### Relacionamentos
 ```
-1. Criar Campanha (nome, tipo, datas, meta)
-   ↓
-2. Dentro da Campanha → Criar Disparo
-   ↓
-3. Escolher tipo:
-   ├── Avulso → Colar números (1 por linha ou vírgula)
-   └── Em Massa → Upload planilha (Excel/CSV)
-   ↓
-4. Configurar mensagem com variáveis:
-   - {{nome}} → Nome do estabelecimento
-   - {{promocao}} → Cupom de desconto
-   ↓
-5. Selecionar instância WhatsApp
-   ↓
-6. Enviar (com delay configurável)
-   ↓
-7. Mensagem chega no WhatsApp do cliente
-   ↓
-8. Cliente responde → Vai para Atendimento
-   ↓
-9. Vendedor qualifica → Lead → Cliente
+campanhas ──1:N──> bulk_campaigns (campanha_id)
+promocoes_marketing ──1:N──> bulk_campaigns (promocao_id)
+campanhas ──1:N──> leads_marketing (origem_campanha_id)
+bulk_campaigns ──1:N──> leads_marketing (origem_disparo_id)
 ```
 
 ---
 
-## ⚠️ Limitações Conhecidas
+## 🔧 Infraestrutura
 
-### Chamadas de Voz
-- **Receber eventos**: ✅ Sim (via webhook)
-- **Rejeitar chamada**: ✅ Sim (`rejectCall`)
-- **Criar link de chamada**: ✅ Sim (`createCallLink`)
-- **Iniciar ligação direta**: ❌ Não suportado pelo Baileys
-- **Atender e falar pelo CRM**: ❌ Não suportado (requer WebRTC)
+### VPS (Hostinger KVM)
+- **IP:** 2.25.192.248
+- **Serviços:** PostgreSQL 18 + Evolution API (Docker container `john_hermes`)
+- **Gerenciamento:** Supervisor + Docker `network_mode: host`
 
-### Infraestrutura
-- Vercel free tier: cold start em funções serverless
-- Supabase free tier: limites de conexão e存储
-- Evolution API: sem suporte oficial a chamadas
+### Evolution API
+- **STK:** 556299190117 (webhook MESSAGES_UPSERT configurado)
+- **minha-conexao:** 5562982735286 (webhook MESSAGES_UPSERT configurado)
+- **Porta:** 8082
 
----
+### Frontend (Vercel)
+- **URL:** stk-crm-amber.vercel.app
+- **Tier:** Free (com cold start)
+- **Deploy:** Via Vercel CLI com `--token`
 
-## 🎯 Próximos Passos (Sugestões)
-
-1. **Integração Marketing → CRM**: Lead do Marketing vira cliente no CRM
-2. **Permissões por perfil**: Admin, vendedor, atendente
-3. **Relatórios avançados**: Gráficos e exportação
-4. **Notificações push**: Alertas em tempo real
-5. **Integração com ERP**: Dados de vendas/estoque
+### Supabase
+- **Projeto:** otmkukicneotcpkemvcq
+- **Tier:** Free
 
 ---
 
-## 📝 Notas Técnicas
+## ⚡ Otimizações Implementadas
 
-### Variáveis de Ambiente Necessárias
-```env
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
+| Otimização | Resultado |
+|------------|-----------|
+| Sync-from-evolution com batch queries | 300s → 743ms (400x) |
+| Endpoint unificado `/api/atendimentos/page-data` | 6-8 chamadas → 1 |
+| Polling da lista de conversas | 30s → 10s |
+| Middleware timeout no `supabase.auth.getUser()` | Evita 504 |
+| Índices no Supabase | `idx_atendimento_mensagens_wa_msg_id`, etc. |
+
+---
+
+## 🐛 Bugs Corrigidos
+
+- **MIDDLEWARE_INVOCATION_TIMEOUT (504):** Timeout de 3s no `supabase.auth.getUser()`
+- **Indicador de mensagem nova não aparecia:** Polling reduzido de 30s para 10s
+- **Tema escuro com fundo branco nos cards:** Variáveis CSS atualizadas
+- **Build quebrou por sed:** Faltava `}` na sintaxe
+- **SelectItem value vazio:** shadcn não aceita `value=""` - removido item "Nenhuma"
+- **LoadInstances retornando vazio:** API retorna `instancias` não `instances`
+- **Planilha não reconhecia contatos:** Detecção automática de header com linhas de título
+
+---
+
+## 📁 Estrutura de Arquivos Importantes
+
+```
+stk-crm/
+├── app/
+│   ├── (dashboard)/
+│   │   ├── marketing/
+│   │   │   ├── campanhas/page.tsx    ← Hub principal (campanhas + disparos)
+│   │   │   ├── dashboard/page.tsx
+│   │   │   ├── leads/page.tsx
+│   │   │   ├── relatorios/page.tsx
+│   │   │   └── promocoes/page.tsx
+│   │   ├── pos-vendas/
+│   │   │   ├── dashboard/page.tsx
+│   │   │   ├── follow-up/page.tsx
+│   │   │   ├── satisfacao/page.tsx
+│   │   │   ├── suporte/page.tsx
+│   │   │   └── acompanhamento/page.tsx
+│   │   ├── atendimento/page.tsx
+│   │   ├── kanban/page.tsx
+│   │   ├── dashboard/page.tsx
+│   │   └── clientes/page.tsx
+│   └── api/
+│       ├── bulk/send/route.ts        ← Envio de disparos
+│       ├── instances/route.ts        ← Lista instâncias Evolution
+│       ├── marketing/campanhas/route.ts
+│       ├── marketing/leads/route.ts
+│       └── marketing/promocoes/route.ts
+├── components/
+│   ├── layout/
+│   │   ├── sidebar.tsx               ← Sidebar dinâmica por perfil
+│   │   └── perfil-selector.tsx       ← Seletor de perfil no header
+│   └── ui/                           ← Componentes shadcn/ui
+├── lib/
+│   ├── perfil-ativo-context.tsx      ← Context do perfil ativo
+│   ├── supabase/client.ts            ← Cliente browser Supabase
+│   └── hooks/use-api.ts             ← Hook genérico useApi
+├── supabase/migrations/
+│   └── 071_marketing_posvendas_tables.sql
+└── middleware.ts                      ← Auth + timeout 3s
 ```
 
-### Comandos Úteis
-```bash
-# Deploy
-vercel --token "$VERCEL_TOKEN" --yes --prod
+---
 
-# Verificar erros TypeScript
-npx tsc --noEmit
+## 🔜 Próximos Passos (Prioridade)
 
-# Push para GitHub
-git add -A && git commit -m "msg" && git push
-```
+1. **Pós-Vendas** → Conectar follow-ups automáticos (quando cliente compra, cria follow-up)
+2. **Marketing** → Conectar leads ao CRM (lead qualificado vira cliente)
+3. **Relatórios** → Dashboard de métricas por perfil
+4. **Permissões** → Controle de acesso por perfil (admin, vendedor, atendente)
+5. **Chamadas** → Integrar VOIP para atender/ligar pelo CRM (ver pesquisa Twilio abaixo)
 
 ---
 
-*Documento gerado automaticamente pelo Hermes Agent*
+## 📞 Pesquisa: Chamadas de Voz no CRM
+
+### Evolution API + Baileys
+| Funcionalidade | Suportado? |
+|----------------|------------|
+| Receber eventos de chamada | ✅ Sim (evento `call`) |
+| Rejeitar chamada recebida | ✅ Sim (`rejectCall`) |
+| Criar link de chamada | ✅ Sim (`createCallLink`) |
+| Iniciar ligação direta | ❌ Não (restrição WhatsApp Web) |
+| Falar pelo CRM | ❌ Não (sem suporte a WebRTC) |
+
+**Conclusão:** A Evolution API (via Baileys) consegue **receber e rejeitar** chamadas, mas **não consegue iniciar** nem **transmitir áudio** em tempo real. Para isso seria necessário um serviço VOIP externo como Twilio.
+
+### Alternativa: Twilio
+- **Preço:** ~$1/minuto para ligações
+- **Setup:** Requer número Twilio + webhook para receber ligações
+- **Integração:** Via API REST do Twilio
+- **Custo mensal estimado:** $20-50 (dependendo do volume)
+
+---
+
+## 🔑 Credenciais (Referência)
+
+| Serviço | Local | Notas |
+|---------|-------|-------|
+| Vercel | `VERCEL_TOKEN` env var | Deploy automático |
+| Supabase | Dashboard web | Projeto `otmkukicneotcpkemvcq` |
+| Evolution API | VPS:8082 | API Key no `.env` |
+| GitHub | Token configurado | Repo `Johnpittz/stk-crm` |
+
+---
+
+*Este arquivo é atualizado automaticamente a cada fase concluída.*

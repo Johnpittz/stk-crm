@@ -136,7 +136,7 @@ export default function EquipesPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Briefcase className="h-6 w-6 text-[#0D3B33]" />
+          <Briefcase className="h-6 w-6 text-[#15317B]" />
           Minha Equipe
         </h1>
         <p className="text-slate-500">
@@ -237,7 +237,7 @@ export default function EquipesPage() {
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-[#0D3B33] flex items-center justify-center text-white font-semibold">
+                        <div className="h-10 w-10 rounded-full bg-[#15317B] flex items-center justify-center text-white font-semibold">
                           {v.nome_completo.charAt(0).toUpperCase()}
                         </div>
                         <div>

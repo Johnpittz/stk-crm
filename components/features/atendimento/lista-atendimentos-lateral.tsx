@@ -106,9 +106,9 @@ export function ListaAtendimentosLateral({
                     className={cn(
                       "overflow-hidden rounded-lg cursor-pointer transition-all border",
                       isSelected
-                        ? "bg-[#14919B]/30 border-[#14919B]/50 ring-1 ring-[#14919B]/20"
+                        ? "bg-[#3B64CF]/30 border-[#3B64CF]/50 ring-1 ring-[#3B64CF]/20"
                         : isNaoLido
-                          ? "bg-[#14919B]/15 hover:bg-[#14919B]/25 border-[#14919B]/30"
+                          ? "bg-[#3B64CF]/15 hover:bg-[#3B64CF]/25 border-[#3B64CF]/30"
                           : "bg-white/5 hover:bg-white/10 border-white/5"
                     )}
                     onClick={() => onAbrirChat(a)}
@@ -120,16 +120,16 @@ export function ListaAtendimentosLateral({
                           className={cn(
                             "h-10 w-10 rounded-full flex items-center justify-center text-xs font-bold",
                             isSelected
-                              ? "bg-[#14919B] text-white"
+                              ? "bg-[#3B64CF] text-white"
                               : isNaoLido
-                                ? "bg-[#14919B] text-white"
+                                ? "bg-[#3B64CF] text-white"
                                 : "bg-white/10 text-white/70"
                           )}
                         >
                           {iniciais}
                         </div>
                         {isNaoLido && (
-                          <span className="absolute -top-0.5 -right-0.5 h-3 w-3 bg-red-500 rounded-full border-2 border-[#0D3B33]" />
+                          <span className="absolute -top-0.5 -right-0.5 h-3 w-3 bg-red-500 rounded-full border-2 border-[#15317B]" />
                         )}
                       </div>
 
@@ -154,7 +154,7 @@ export function ListaAtendimentosLateral({
                                <Badge
                                  key={et}
                                  variant="secondary"
-                                 className="text-[8px] px-1.5 py-0 h-3.5 bg-[#14919B]/20 text-[#14919B] font-medium"
+                                 className="text-[8px] px-1.5 py-0 h-3.5 bg-[#3B64CF]/20 text-[#3B64CF] font-medium"
                                >
                                  {et}
                                </Badge>

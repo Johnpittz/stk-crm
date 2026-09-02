@@ -173,7 +173,7 @@ export default function PosVendasAcompanhamentoPage() {
         <CardContent>
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-[#14919B]" />
+              <Loader2 className="w-8 h-8 animate-spin text-[#3B64CF]" />
             </div>
           ) : pedidos && pedidos.length > 0 ? (
             <div className="space-y-4">
@@ -216,7 +216,7 @@ export default function PosVendasAcompanhamentoPage() {
                         {pedido.codigo_rastreio && (
                           <div className="text-right">
                             <p className="text-sm text-muted-foreground">Rastreio</p>
-                            <p className="text-sm text-[#14919B]">{pedido.codigo_rastreio}</p>
+                            <p className="text-sm text-[#3B64CF]">{pedido.codigo_rastreio}</p>
                           </div>
                         )}
                         <Button variant="ghost" size="icon">

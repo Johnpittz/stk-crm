@@ -382,7 +382,7 @@ export default function ConfiguracoesPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-[#14919B]" />
+        <Loader2 className="h-8 w-8 animate-spin text-[#3B64CF]" />
       </div>
     );
   }
@@ -413,7 +413,7 @@ export default function ConfiguracoesPage() {
               <div className="flex items-center gap-6">
                 <Avatar className="h-24 w-24">
                   <AvatarImage src={profile?.avatar_url || undefined} />
-                  <AvatarFallback className="text-2xl bg-[#14919B] text-white">
+                  <AvatarFallback className="text-2xl bg-[#3B64CF] text-white">
                     {avatarFallback}
                   </AvatarFallback>
                 </Avatar>
@@ -530,7 +530,7 @@ export default function ConfiguracoesPage() {
             <CardContent className="space-y-6">
               {notifLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-[#14919B]" />
+                  <Loader2 className="h-6 w-6 animate-spin text-[#3B64CF]" />
                 </div>
               ) : (
                 <>
@@ -954,7 +954,7 @@ function EquipeContent() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin text-[#14919B]" />
+        <Loader2 className="h-6 w-6 animate-spin text-[#3B64CF]" />
       </div>
     );
   }
@@ -968,7 +968,7 @@ function EquipeContent() {
             <CardTitle>Vendedores</CardTitle>
             <CardDescription>Gerencie a equipe e atribua números WhatsApp</CardDescription>
           </div>
-          <Button onClick={() => setShowCriar(!showCriar)} className="bg-[#14919B] hover:bg-[#14919B]/80">
+          <Button onClick={() => setShowCriar(!showCriar)} className="bg-[#3B64CF] hover:bg-[#3B64CF]/80">
             {showCriar ? "Cancelar" : "+ Novo Vendedor"}
           </Button>
         </CardHeader>
@@ -1015,7 +1015,7 @@ function EquipeContent() {
                   />
                 </div>
               </div>
-              <Button onClick={criarVendedor} disabled={criando} className="bg-[#14919B]">
+              <Button onClick={criarVendedor} disabled={criando} className="bg-[#3B64CF]">
                 {criando ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                 {criando ? "Criando..." : "Criar Vendedor"}
               </Button>
@@ -1031,7 +1031,7 @@ function EquipeContent() {
                 <div key={v.id} className="flex items-center gap-4 p-3 bg-white/5 border border-white/10 rounded-lg">
                   <Avatar className="h-10 w-10 shrink-0">
                     <AvatarImage src={v.avatar_url || undefined} />
-                    <AvatarFallback className="bg-[#14919B] text-white text-sm">
+                    <AvatarFallback className="bg-[#3B64CF] text-white text-sm">
                       {v.nome_completo?.charAt(0) || "?"}
                     </AvatarFallback>
                   </Avatar>
@@ -1044,7 +1044,7 @@ function EquipeContent() {
                     <select
                       value={v.whatsapp_instance || ""}
                       onChange={(e) => atribuirInstancia(v.id, e.target.value || null)}
-                      className="h-9 px-2 bg-white/5 border border-white/10 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-[#14919B]"
+                      className="h-9 px-2 bg-white/5 border border-white/10 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-[#3B64CF]"
                     >
                       <option value="" className="bg-[#0f1d32]">Sem número</option>
                       {instancias.map((inst) => (

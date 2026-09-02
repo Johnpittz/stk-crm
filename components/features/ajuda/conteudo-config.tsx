@@ -6,10 +6,10 @@ export function ConteudoConfig() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <Card className="border-[#14919B]/20 bg-gradient-to-r from-[#0D3B33]/5 to-transparent">
+      <Card className="border-[#3B64CF]/20 bg-gradient-to-r from-[#15317B]/5 to-transparent">
         <CardContent className="p-6">
           <div className="flex items-start gap-4">
-            <div className="h-14 w-14 rounded-xl bg-[#0D3B33] flex items-center justify-center shrink-0">
+            <div className="h-14 w-14 rounded-xl bg-[#15317B] flex items-center justify-center shrink-0">
               <Settings className="h-7 w-7 text-white" />
             </div>
             <div>
@@ -27,7 +27,7 @@ export function ConteudoConfig() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <Settings className="h-4 w-4 text-[#14919B]" />
+            <Settings className="h-4 w-4 text-[#3B64CF]" />
             Seções Disponíveis
           </CardTitle>
         </CardHeader>
@@ -35,8 +35,8 @@ export function ConteudoConfig() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="border rounded-lg p-4 bg-slate-50">
               <div className="flex items-center gap-2 mb-2">
-                <User className="h-4 w-4 text-[#14919B]" />
-                <Badge className="bg-[#0D3B33]">Perfil</Badge>
+                <User className="h-4 w-4 text-[#3B64CF]" />
+                <Badge className="bg-[#15317B]">Perfil</Badge>
               </div>
               <p className="text-sm text-slate-700 mb-1">Seus dados pessoais.</p>
               <ul className="text-xs text-slate-600 space-y-1">
@@ -48,8 +48,8 @@ export function ConteudoConfig() {
             </div>
             <div className="border rounded-lg p-4 bg-slate-50">
               <div className="flex items-center gap-2 mb-2">
-                <Bell className="h-4 w-4 text-[#14919B]" />
-                <Badge className="bg-[#14919B]">Notificações</Badge>
+                <Bell className="h-4 w-4 text-[#3B64CF]" />
+                <Badge className="bg-[#3B64CF]">Notificações</Badge>
               </div>
               <p className="text-sm text-slate-700 mb-1">Configure seus alertas.</p>
               <ul className="text-xs text-slate-600 space-y-1">
@@ -60,7 +60,7 @@ export function ConteudoConfig() {
             </div>
             <div className="border rounded-lg p-4 bg-slate-50">
               <div className="flex items-center gap-2 mb-2">
-                <Shield className="h-4 w-4 text-[#14919B]" />
+                <Shield className="h-4 w-4 text-[#3B64CF]" />
                 <Badge className="bg-amber-100 text-amber-700 border-amber-200">Segurança</Badge>
               </div>
               <p className="text-sm text-slate-700 mb-1">Proteção da sua conta.</p>
@@ -71,7 +71,7 @@ export function ConteudoConfig() {
             </div>
             <div className="border rounded-lg p-4 bg-slate-50">
               <div className="flex items-center gap-2 mb-2">
-                <Palette className="h-4 w-4 text-[#14919B]" />
+                <Palette className="h-4 w-4 text-[#3B64CF]" />
                 <Badge className="bg-purple-100 text-purple-700 border-purple-200">Aparência</Badge>
               </div>
               <p className="text-sm text-slate-700 mb-1">Visual do sistema.</p>
@@ -88,7 +88,7 @@ export function ConteudoConfig() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <Settings className="h-4 w-4 text-[#14919B]" />
+            <Settings className="h-4 w-4 text-[#3B64CF]" />
             Como Acessar
           </CardTitle>
         </CardHeader>

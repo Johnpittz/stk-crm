@@ -6,10 +6,10 @@ export function ConteudoDashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <Card className="border-[#14919B]/20 bg-gradient-to-r from-[#0D3B33]/5 to-transparent">
+      <Card className="border-[#3B64CF]/20 bg-gradient-to-r from-[#15317B]/5 to-transparent">
         <CardContent className="p-6">
           <div className="flex items-start gap-4">
-            <div className="h-14 w-14 rounded-xl bg-[#0D3B33] flex items-center justify-center shrink-0">
+            <div className="h-14 w-14 rounded-xl bg-[#15317B] flex items-center justify-center shrink-0">
               <LayoutDashboard className="h-7 w-7 text-white" />
             </div>
             <div>
@@ -27,7 +27,7 @@ export function ConteudoDashboard() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-[#14919B]" />
+            <BarChart3 className="h-4 w-4 text-[#3B64CF]" />
             O que é o Dashboard?
           </CardTitle>
         </CardHeader>
@@ -46,7 +46,7 @@ export function ConteudoDashboard() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-[#14919B]" />
+            <TrendingUp className="h-4 w-4 text-[#3B64CF]" />
             Métricas Disponíveis
           </CardTitle>
         </CardHeader>
@@ -54,28 +54,28 @@ export function ConteudoDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="border rounded-lg p-4 bg-slate-50">
               <div className="flex items-center gap-2 mb-2">
-                <Users className="h-4 w-4 text-[#14919B]" />
-                <Badge className="bg-[#0D3B33]">Clientes</Badge>
+                <Users className="h-4 w-4 text-[#3B64CF]" />
+                <Badge className="bg-[#15317B]">Clientes</Badge>
               </div>
               <p className="text-xs text-slate-600">Total de clientes ativos, novos clientes no mês e distribuição por vendedor.</p>
             </div>
             <div className="border rounded-lg p-4 bg-slate-50">
               <div className="flex items-center gap-2 mb-2">
-                <Package className="h-4 w-4 text-[#14919B]" />
-                <Badge className="bg-[#14919B]">Vendas</Badge>
+                <Package className="h-4 w-4 text-[#3B64CF]" />
+                <Badge className="bg-[#3B64CF]">Vendas</Badge>
               </div>
               <p className="text-xs text-slate-600">Volume de vendas, ticket médio e comparativo com períodos anteriores.</p>
             </div>
             <div className="border rounded-lg p-4 bg-slate-50">
               <div className="flex items-center gap-2 mb-2">
-                <BarChart3 className="h-4 w-4 text-[#14919B]" />
+                <BarChart3 className="h-4 w-4 text-[#3B64CF]" />
                 <Badge className="bg-purple-100 text-purple-700 border-purple-200">Performance</Badge>
               </div>
               <p className="text-xs text-slate-600">Indicadores de performance individual e da equipe.</p>
             </div>
             <div className="border rounded-lg p-4 bg-slate-50">
               <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="h-4 w-4 text-[#14919B]" />
+                <TrendingUp className="h-4 w-4 text-[#3B64CF]" />
                 <Badge className="bg-amber-100 text-amber-700 border-amber-200">Metas</Badge>
               </div>
               <p className="text-xs text-slate-600">Acompanhamento de metas mensais e projeções de fechamento.</p>
@@ -88,7 +88,7 @@ export function ConteudoDashboard() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <LayoutDashboard className="h-4 w-4 text-[#14919B]" />
+            <LayoutDashboard className="h-4 w-4 text-[#3B64CF]" />
             Como Usar
           </CardTitle>
         </CardHeader>

@@ -289,7 +289,7 @@ export function NotificacoesBell() {
       >
         <Bell className="h-5 w-5" />
         {naoLidas > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 h-5 w-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-[#0D3B33]">
+          <span className="absolute -top-0.5 -right-0.5 h-5 w-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-[#15317B]">
             {naoLidas > 9 ? "9+" : naoLidas}
           </span>
         )}
@@ -303,7 +303,7 @@ export function NotificacoesBell() {
             {naoLidas > 0 && (
               <button
                 onClick={marcarTodasComoLidas}
-                className="text-xs text-[#14919B] hover:text-[#14919B]/80 font-medium"
+                className="text-xs text-[#3B64CF] hover:text-[#3B64CF]/80 font-medium"
               >
                 Marcar todas como lidas
               </button>
@@ -325,7 +325,7 @@ export function NotificacoesBell() {
                     <div
                       key={n.id}
                       className={`px-4 py-3 hover:bg-white/5 cursor-pointer transition-colors ${
-                        !n.lida ? "bg-[#14919B]/10" : ""
+                        !n.lida ? "bg-[#3B64CF]/10" : ""
                       }`}
                       onClick={() => !n.lida && marcarComoLida(n.id)}
                     >
@@ -343,7 +343,7 @@ export function NotificacoesBell() {
                           <div className="flex items-center justify-between mt-1.5">
                             <span className="text-[10px] text-white/30">{formatarTempo(n.created_at)}</span>
                             {!n.lida && (
-                              <Badge variant="secondary" className="h-4 text-[9px] bg-[#14919B]/20 text-[#14919B] px-1.5">
+                              <Badge variant="secondary" className="h-4 text-[9px] bg-[#3B64CF]/20 text-[#3B64CF] px-1.5">
                                 Nova
                               </Badge>
                             )}

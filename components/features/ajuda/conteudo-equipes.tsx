@@ -6,10 +6,10 @@ export function ConteudoEquipes() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <Card className="border-[#14919B]/20 bg-gradient-to-r from-[#0D3B33]/5 to-transparent">
+      <Card className="border-[#3B64CF]/20 bg-gradient-to-r from-[#15317B]/5 to-transparent">
         <CardContent className="p-6">
           <div className="flex items-start gap-4">
-            <div className="h-14 w-14 rounded-xl bg-[#0D3B33] flex items-center justify-center shrink-0">
+            <div className="h-14 w-14 rounded-xl bg-[#15317B] flex items-center justify-center shrink-0">
               <Briefcase className="h-7 w-7 text-white" />
             </div>
             <div>
@@ -41,7 +41,7 @@ export function ConteudoEquipes() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <Briefcase className="h-4 w-4 text-[#14919B]" />
+            <Briefcase className="h-4 w-4 text-[#3B64CF]" />
             O que é a tela de Equipes?
           </CardTitle>
         </CardHeader>
@@ -57,7 +57,7 @@ export function ConteudoEquipes() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <Users className="h-4 w-4 text-[#14919B]" />
+            <Users className="h-4 w-4 text-[#3B64CF]" />
             Funcionalidades
           </CardTitle>
         </CardHeader>
@@ -65,8 +65,8 @@ export function ConteudoEquipes() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="border rounded-lg p-4 bg-slate-50">
               <div className="flex items-center gap-2 mb-2">
-                <UserPlus className="h-4 w-4 text-[#14919B]" />
-                <Badge className="bg-[#0D3B33]">Cadastrar Vendedor</Badge>
+                <UserPlus className="h-4 w-4 text-[#3B64CF]" />
+                <Badge className="bg-[#15317B]">Cadastrar Vendedor</Badge>
               </div>
               <p className="text-xs text-slate-600">
                 Adicione novos vendedores ao sistema. Preencha nome, email, cargo e telephone.
@@ -75,8 +75,8 @@ export function ConteudoEquipes() {
             </div>
             <div className="border rounded-lg p-4 bg-slate-50">
               <div className="flex items-center gap-2 mb-2">
-                <BarChart3 className="h-4 w-4 text-[#14919B]" />
-                <Badge className="bg-[#14919B]">Acompanhar Performance</Badge>
+                <BarChart3 className="h-4 w-4 text-[#3B64CF]" />
+                <Badge className="bg-[#3B64CF]">Acompanhar Performance</Badge>
               </div>
               <p className="text-xs text-slate-600">
                 Veja os indicadores de cada vendedor: atendimentos, leads, vendas e metas.
@@ -90,7 +90,7 @@ export function ConteudoEquipes() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <Users className="h-4 w-4 text-[#14919B]" />
+            <Users className="h-4 w-4 text-[#3B64CF]" />
             Cargos Disponíveis
           </CardTitle>
         </CardHeader>

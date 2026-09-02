@@ -12,10 +12,10 @@ const config: Config = {
       colors: {
         // Cores da Marca Roma
         roma: {
-          primary: "#0D3B33",      // Verde escuro principal
-          secondary: "#14919B",    // Verde água
-          accent: "#0D7377",       // Verde médio
-          light: "#E8F5F0",        // Verde claro/background
+          primary: "#15317B",      // Azul escuro principal
+          secondary: "#3B64CF",    // Azul médio
+          accent: "#2556B3",       // Azul vibrante
+          light: "#E8F0FF",        // Azul claro/background
           success: "#10B981",      // Verde sucesso
           warning: "#F59E0B",      // Amarelo alerta
           danger: "#EF4444",       // Vermelho erro
