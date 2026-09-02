@@ -295,12 +295,12 @@ export function KanbanTarefas({
           <DragDropContext onDragEnd={onDragEnd}>
             <div
               className={cn(
-                "h-full overflow-hidden",
+                "gap-3 h-full overflow-hidden",
                 filtroColuna === "__TODAS__"
-                  ? "flex gap-4 overflow-x-auto pb-2 px-2"
-                  : "grid grid-cols-1 gap-4"
+                  ? "grid pb-2"
+                  : "grid grid-cols-1"
               )}
-              style={filtroColuna === "__TODAS__" ? { minWidth: "max-content" } : undefined}
+              style={filtroColuna === "__TODAS__" ? { gridTemplateColumns: "repeat(7, minmax(150px, 1fr))" } : undefined}
             >
               {colunas
                 .filter((coluna) => filtroColuna === "__TODAS__" || coluna.id === filtroColuna)
@@ -312,8 +312,10 @@ export function KanbanTarefas({
                     <div
                       key={coluna.id}
                       className={cn(
-                        "flex flex-col rounded-xl min-h-0",
-                        filtroColuna === "__TODAS__" ? "w-[240px] shrink-0" : "w-full"
+                        "flex flex-col rounded-xl min-h-0 min-w-0",
+                        filtroColuna === "__TODAS__"
+                          ? ""
+                          : "w-full"
                       )}
                       style={{ backgroundColor: `${coluna.cor}15` }}
                     >
