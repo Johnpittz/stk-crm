@@ -9,45 +9,37 @@ import {
   Trophy,
   Activity,
   Star,
+  Users,
   ArrowDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 
-// ─── Funil (mesmas colunas do Kanban) ───
+// ─── Colunas do Funil ───
 const colunas = [
-  { id: "recebeu_conta", titulo: "Recebeu a Conta", cor: "#5b9bd5", corDark: "#1e3a5f", icone: "📥" },
-  { id: "proposta_feita", titulo: "Proposta a Ser Feita", cor: "#6ba3d6", corDark: "#1e4d7a", icone: "📝" },
-  { id: "proposta_apresentada", titulo: "Proposta Apresentada", cor: "#7fb8e8", corDark: "#15317B", icone: "📋" },
-  { id: "apresentacao_realizada", titulo: "Apresentação Realizada", cor: "#8cc5f0", corDark: "#2556B3", icone: "🎤" },
-  { id: "contrato_enviado", titulo: "Contrato Enviado", cor: "#a3d4ff", corDark: "#3B64CF", icone: "📤" },
-  { id: "contrato_assinado", titulo: "Contrato Assinado", cor: "#34d399", corDark: "#065f46", icone: "✅" },
-  { id: "comissao_paga", titulo: "Comissão Paga", cor: "#4ade80", corDark: "#166534", icone: "💰" },
+  { id: "recebeu_conta", titulo: "Recebeu a Conta", cor: "#5b9bd5", icone: "📥" },
+  { id: "proposta_feita", titulo: "Proposta a Ser Feita", cor: "#6ba3d6", icone: "📝" },
+  { id: "proposta_apresentada", titulo: "Proposta Apresentada", cor: "#7fb8e8", icone: "📋" },
+  { id: "apresentacao_realizada", titulo: "Apresentação Realizada", cor: "#8cc5f0", icone: "🎤" },
+  { id: "contrato_enviado", titulo: "Contrato Enviado", cor: "#a3d4ff", icone: "📤" },
+  { id: "contrato_assinado", titulo: "Contrato Assinado", cor: "#34d399", icone: "✅" },
+  { id: "comissao_paga", titulo: "Comissão Paga", cor: "#4ade80", icone: "💰" },
 ];
 
 interface Tarefa {
   id: string;
   titulo: string;
-  status: string;
   coluna_kanban: string;
   valor_venda: number | null;
-  origem_lead: string | null;
   created_at: string;
-}
-
-interface DashboardStatsProps {
-  refreshTrigger?: number;
 }
 
 export default function DashboardPage() {
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
-  const [periodo, setPeriodo] = useState<"dia" | "mes" | "ano">("mes");
   const [loading, setLoading] = useState(true);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const supabase = createClient();
 
   const fetchTarefas = useCallback(async () => {
-    setLoading(true);
     try {
       const {
         data: { session },
@@ -57,11 +49,8 @@ export default function DashboardPage() {
       const res = await fetch("/api/tarefas", {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
-
       const data = await res.json();
-      if (res.ok) {
-        setTarefas(data.tarefas || []);
-      }
+      if (res.ok) setTarefas(data.tarefas || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -73,117 +62,109 @@ export default function DashboardPage() {
     fetchTarefas();
   }, [fetchTarefas]);
 
-  useEffect(() => {
-    if (refreshTrigger) fetchTarefas();
-  }, [refreshTrigger, fetchTarefas]);
-
-  // ─── Filtragem por período ───
-  const agora = new Date();
-  const filtrarPeriodo = (t: Tarefa) => {
-    const dt = new Date(t.created_at);
-    if (periodo === "dia") {
-      return dt.toDateString() === agora.toDateString();
-    }
-    if (periodo === "mes") {
-      return (
-        dt.getMonth() === agora.getMonth() && dt.getFullYear() === agora.getFullYear()
-      );
-    }
-    return dt.getFullYear() === agora.getFullYear();
-  };
-
-  const tarefasFiltradas = tarefas.filter(filtrarPeriodo);
-
   // ─── Métricas ───
-  const totalVendido = tarefasFiltradas.reduce(
-    (acc, t) => acc + (t.valor_venda || 0),
-    0
-  );
-  const totalVendas = tarefasFiltradas.length;
-  const ticketMedio = totalVendas > 0 ? totalVendido / totalVendas : 0;
-
-  const comissaoPaga = tarefasFiltradas.filter(
-    (t) => t.coluna_kanban === "comissao_paga"
-  ).length;
+  const totalVendas = tarefas.filter((t) => t.coluna_kanban === "comissao_paga").length;
+  const valorTotal = tarefas
+    .filter((t) => t.coluna_kanban === "comissao_paga")
+    .reduce((s, t) => s + (t.valor_venda || 0), 0);
+  const ticketMedio = totalVendas > 0 ? valorTotal / totalVendas : 0;
+  const totalOportunidades = tarefas.length;
   const taxaConversao =
-    totalVendas > 0 ? ((comissaoPaga / totalVendas) * 100).toFixed(1) : "0.0";
+    totalOportunidades > 0
+      ? ((totalVendas / totalOportunidades) * 100).toFixed(1)
+      : "0.0";
 
   // ─── Contagem por coluna ───
-  const contagemPorColuna = colunas.map((col) => ({
-    ...col,
-    total: tarefasFiltradas.filter((t) => t.coluna_kanban === col.id).length,
+  const contagemPorColuna = colunas.map((c) => ({
+    ...c,
+    total: tarefas.filter((t) => t.coluna_kanban === c.id).length,
   }));
 
-  // ─── Conversão entre etapas ───
-  const conversaoEtapas = contagemPorColuna.map((col, i) => {
-    const atual = col.total;
-    const proximo = contagemPorColuna[i + 1]?.total ?? null;
-    const taxa =
-      atual > 0 && proximo !== null
-        ? ((proximo / atual) * 100).toFixed(1)
-        : null;
-    return {
-      de: col,
-      para: contagemPorColuna[i + 1] ?? null,
-      taxa,
-      deTotal: atual,
-      paraTotal: proximo,
-    };
-  });
+  // ─── Valor por coluna (Pipeline) ───
+  const valorPorColuna = colunas.map((c) => ({
+    ...c,
+    valor: tarefas
+      .filter((t) => t.coluna_kanban === c.id)
+      .reduce((s, t) => s + (t.valor_venda || 0), 0),
+    total: tarefas.filter((t) => t.coluna_kanban === c.id).length,
+  }));
 
-  // ─── Conversão geral (topo → fundo) ───
-  const totalTopo = contagemPorColuna[0].total;
-  const totalFundo = contagemPorColuna[contagemPorColuna.length - 1].total;
+  const maxValorPipeline = Math.max(...valorPorColuna.map((c) => c.valor), 1);
+
+  // ─── Conversão geral ───
+  const totalTopo = tarefas.filter(
+    (t) => t.coluna_kanban === "recebeu_conta"
+  ).length;
+  const totalFundo = tarefas.filter(
+    (t) => t.coluna_kanban === "comissao_paga"
+  ).length;
   const conversaoGeral =
     totalTopo > 0 ? ((totalFundo / totalTopo) * 100).toFixed(1) : "0.0";
 
   // ─── Últimas atividades ───
-  const ultimasAtividades = [...tarefasFiltradas]
-    .sort(
-      (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    )
+  const ultimasAtividades = [...tarefas]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 5);
 
   // ─── Top oportunidades ───
-  const topOportunidades = [...tarefasFiltradas]
+  const topOportunidades = [...tarefas]
     .filter((t) => t.valor_venda && t.valor_venda > 0)
     .sort((a, b) => (b.valor_venda || 0) - (a.valor_venda || 0))
     .slice(0, 5);
 
-  const formatarMoeda = (valor: number) =>
-    valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  // ─── Formatadores ───
+  const formatarMoeda = (v: number) =>
+    v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-  const formatarData = (data: string) => {
-    const dt = new Date(data);
-    return `${dt.getDate().toString().padStart(2, "0")}/${(dt.getMonth() + 1).toString().padStart(2, "0")}`;
+  const formatarData = (d: string) => {
+    const dt = new Date(d);
+    return dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
   };
 
-  // ─── Largura das barras do funil (funil visual) ───
-  // Primeira etapa = 100%, última = ~35%, com interpolação suave
-  const funnelWidths = contagemPorColuna.map((_, i) => {
-    const progress = i / (contagemPorColuna.length - 1);
-    return 100 - progress * 55; // de 100% até 45%
+  // ─── Larguras do funil (baseado na contagem) ───
+  const funnelWidths = contagemPorColuna.map(
+    (_, i) => 100 - i * 5
+  );
+
+  // ─── Conversão entre etapas ───
+  const conversaoEtapas = colunas.slice(0, -1).map((c, i) => {
+    const deTotal = contagemPorColuna[i].total;
+    const paraTotal = contagemPorColuna[i + 1].total;
+    const taxa =
+      deTotal > 0 ? ((paraTotal / deTotal) * 100).toFixed(0) : null;
+    return { de: c, para: colunas[i + 1], deTotal, paraTotal, taxa };
   });
 
+  // ─── Valor total no pipeline ───
+  const valorPipelineTotal = tarefas.reduce(
+    (s, t) => s + (t.valor_venda || 0),
+    0
+  );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full text-slate-500">
+        Carregando dashboard...
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-4">
-      {/* ─── Topo: Métricas ─── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="space-y-4 p-1">
+      {/* ─── Topo: 4 Métricas ─── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {/* Total Vendido */}
         <Card className="border-[#1c2e4a] bg-[#14233c]">
           <CardContent className="p-3">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-blue-500/15 flex items-center justify-center shrink-0">
-                <DollarSign className="h-5 w-5 text-blue-400" />
+              <div className="h-10 w-10 rounded-lg bg-[#15317B]/20 flex items-center justify-center shrink-0">
+                <DollarSign className="h-5 w-5 text-[#3B64CF]" />
               </div>
               <div>
                 <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider">
                   Total Vendido
                 </p>
-                <p className="text-lg font-bold text-white">
-                  {formatarMoeda(totalVendido)}
-                </p>
+                <p className="text-lg font-bold text-white">{formatarMoeda(valorTotal)}</p>
               </div>
             </div>
           </CardContent>
@@ -200,9 +181,7 @@ export default function DashboardPage() {
                 <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider">
                   Ticket Médio
                 </p>
-                <p className="text-lg font-bold text-white">
-                  {formatarMoeda(ticketMedio)}
-                </p>
+                <p className="text-lg font-bold text-white">{formatarMoeda(ticketMedio)}</p>
               </div>
             </div>
           </CardContent>
@@ -243,7 +222,7 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* ─── Meio: Funil Visual + Conversão entre Etapas ─── */}
+      {/* ─── Meio: Funil Visual + Pipeline por Estágio ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Funil Visual - 55% */}
         <Card className="lg:col-span-7 border-[#1c2e4a] bg-[#14233c]">
@@ -257,8 +236,8 @@ export default function DashboardPage() {
               {contagemPorColuna.map((col, index) => {
                 const widthPercent = funnelWidths[index];
                 const porcentagemTotal =
-                  totalVendas > 0
-                    ? ((col.total / totalVendas) * 100).toFixed(1)
+                  totalOportunidades > 0
+                    ? ((col.total / totalOportunidades) * 100).toFixed(1)
                     : "0.0";
                 const hasData = col.total > 0;
 
@@ -267,7 +246,6 @@ export default function DashboardPage() {
                     key={col.id}
                     className="relative w-full flex justify-center"
                   >
-                    {/* Funnel bar */}
                     <div
                       className="relative h-11 rounded-lg flex items-center transition-all duration-500 shadow-md"
                       style={{
@@ -278,7 +256,6 @@ export default function DashboardPage() {
                           : "none",
                       }}
                     >
-                      {/* Left: icon + name */}
                       <div className="flex items-center gap-2 pl-3 min-w-0">
                         <span className="text-base shrink-0">{col.icone}</span>
                         <span
@@ -291,7 +268,6 @@ export default function DashboardPage() {
                         </span>
                       </div>
 
-                      {/* Center: count */}
                       <div className="absolute left-1/2 -translate-x-1/2">
                         <span
                           className={cn(
@@ -303,7 +279,6 @@ export default function DashboardPage() {
                         </span>
                       </div>
 
-                      {/* Right: percentage of total */}
                       <div className="absolute right-3">
                         <span
                           className={cn(
@@ -316,7 +291,6 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    {/* Connector arrow between stages */}
                     {index < contagemPorColuna.length - 1 && (
                       <div className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 z-10">
                         <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[5px] border-t-[#1c2e4a]" />
@@ -327,8 +301,7 @@ export default function DashboardPage() {
               })}
             </div>
 
-            {/* Overall conversion footer */}
-            {totalVendas > 0 && (
+            {totalOportunidades > 0 && (
               <div className="mt-5 pt-3 border-t border-[#1c2e4a]">
                 <div className="flex items-center justify-between text-[10px] text-slate-500">
                   <span>Conversão geral do funil:</span>
@@ -341,78 +314,64 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Conversão entre Etapas - 45% */}
+        {/* Pipeline por Estágio - 45% */}
         <Card className="lg:col-span-5 border-[#1c2e4a] bg-[#14233c]">
           <CardHeader className="pb-3 pt-4 px-5">
             <CardTitle className="text-sm font-semibold text-white flex items-center gap-2">
-              🔄 Conversão entre Etapas
+              💎 Pipeline por Estágio
             </CardTitle>
           </CardHeader>
           <CardContent className="px-5 pb-5">
-            {/* Summary at top */}
+            {/* Valor total do pipeline */}
             <div className="flex items-center justify-between p-3 rounded-lg bg-[#0c1426] border border-[#1c2e4a] mb-4">
               <div className="flex items-center gap-2">
-                <span className="text-base">📥</span>
-                <span className="text-xs text-slate-400">Topo</span>
-                <span className="text-xs font-bold text-white">{totalTopo}</span>
+                <DollarSign className="h-4 w-4 text-[#3B64CF]" />
+                <span className="text-xs text-slate-400">Valor Total</span>
               </div>
-              <ArrowDown className="h-4 w-4 text-slate-600" />
-              <div className="flex items-center gap-2">
-                <span className="text-base">💰</span>
-                <span className="text-xs text-slate-400">Fundo</span>
-                <span className="text-xs font-bold text-white">{totalFundo}</span>
-              </div>
-              <div className="ml-3 px-2.5 py-1 rounded-md bg-emerald-500/15 border border-emerald-500/20">
-                <span className="text-xs font-bold text-emerald-400">
-                  {conversaoGeral}%
-                </span>
-              </div>
+              <span className="text-sm font-bold text-white">
+                {formatarMoeda(valorPipelineTotal)}
+              </span>
             </div>
 
-            {/* Conversion rows */}
-            <div className="space-y-2">
-              {conversaoEtapas.map((conv, i) => {
-                if (!conv.para) return null;
-                const hasConversion = conv.taxa !== null && parseFloat(conv.taxa) > 0;
+            {/* Barras de valor por estágio */}
+            <div className="space-y-2.5">
+              {valorPorColuna.map((col) => {
+                const largura = col.valor > 0
+                  ? Math.max((col.valor / maxValorPipeline) * 100, 8)
+                  : 0;
+                const hasValue = col.valor > 0;
+
                 return (
-                  <div
-                    key={i}
-                    className="flex items-center gap-2 p-2.5 rounded-lg bg-[#0c1426]/50 border border-[#1c2e4a] hover:border-[#3B64CF]/30 transition-colors"
-                  >
-                    {/* From stage */}
-                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                      <span className="text-sm shrink-0">{conv.de.icone}</span>
-                      <span className="text-[11px] font-medium text-slate-300 truncate">
-                        {conv.de.titulo}
-                      </span>
+                  <div key={col.id} className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm">{col.icone}</span>
+                        <span className="text-[11px] font-medium text-slate-300">
+                          {col.titulo}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-500">
+                          {col.total} {col.total === 1 ? "oportunidade" : "oportunidades"}
+                        </span>
+                        <span
+                          className={cn(
+                            "text-xs font-bold",
+                            hasValue ? "text-white" : "text-slate-600"
+                          )}
+                        >
+                          {formatarMoeda(col.valor)}
+                        </span>
+                      </div>
                     </div>
-
-                    {/* Arrow */}
-                    <ArrowDown
-                      className="h-3.5 w-3.5 shrink-0 rotate-[-90deg]"
-                      style={{ color: conv.de.cor }}
-                    />
-
-                    {/* To stage */}
-                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                      <span className="text-sm shrink-0">{conv.para.icone}</span>
-                      <span className="text-[11px] font-medium text-slate-300 truncate">
-                        {conv.para.titulo}
-                      </span>
-                    </div>
-
-                    {/* Conversion rate */}
-                    <div
-                      className={cn(
-                        "px-2 py-0.5 rounded text-[11px] font-bold shrink-0",
-                        hasConversion
-                          ? "bg-emerald-500/15 text-emerald-400"
-                          : conv.deTotal === 0
-                            ? "bg-slate-500/10 text-slate-600"
-                            : "bg-red-500/15 text-red-400"
-                      )}
-                    >
-                      {conv.taxa !== null ? `${conv.taxa}%` : "—"}
+                    <div className="h-2 rounded-full bg-[#0c1426] overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${largura}%`,
+                          backgroundColor: col.cor,
+                        }}
+                      />
                     </div>
                   </div>
                 );
@@ -422,7 +381,7 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* ─── Baixo: Atividades + Top Oportunidades ─── */}
+      {/* ─── Baixo: Últimas Atividades + Top Oportunidades ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Últimas Atividades */}
         <Card className="border-[#1c2e4a] bg-[#14233c]">
@@ -441,9 +400,7 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-2">
                 {ultimasAtividades.map((t) => {
-                  const coluna = colunas.find(
-                    (c) => c.id === t.coluna_kanban
-                  );
+                  const coluna = colunas.find((c) => c.id === t.coluna_kanban);
                   return (
                     <div
                       key={t.id}
@@ -488,9 +445,7 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-2">
                 {topOportunidades.map((t, i) => {
-                  const coluna = colunas.find(
-                    (c) => c.id === t.coluna_kanban
-                  );
+                  const coluna = colunas.find((c) => c.id === t.coluna_kanban);
                   return (
                     <div
                       key={t.id}
