@@ -10,28 +10,28 @@
     --roma-accent: #2556B3;
     --roma-light: #E8F0FF;
     
-    /* Cores do Sistema - Tema Escuro */
-    --background: 224 60% 8%;
-    --foreground: 210 40% 98%;
-    --card: 224 50% 11%;
-    --card-foreground: 210 40% 98%;
-    --popover: 224 50% 11%;
-    --popover-foreground: 210 40% 98%;
+    /* Cores do Sistema - Tema Escuro Azulado */
+    --background: 220 40% 7%;
+    --foreground: 210 40% 96%;
+    --card: 217 45% 12%;
+    --card-foreground: 210 40% 96%;
+    --popover: 217 45% 12%;
+    --popover-foreground: 210 40% 96%;
     
     /* Primary - Usando o azul da marca */
     --primary: 224 71% 28%;
-    --primary-foreground: 210 40% 98%;
+    --primary-foreground: 210 40% 96%;
     
-    --secondary: 224 40% 16%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 224 40% 16%;
-    --muted-foreground: 210 20% 65%;
-    --accent: 224 50% 13%;
-    --accent-foreground: 210 40% 98%;
+    --secondary: 215 35% 15%;
+    --secondary-foreground: 210 40% 96%;
+    --muted: 215 35% 15%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 215 40% 13%;
+    --accent-foreground: 210 40% 96%;
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 224 40% 19%;
-    --input: 224 40% 19%;
+    --destructive-foreground: 210 40% 96%;
+    --border: 214 32% 17%;
+    --input: 214 32% 17%;
     --ring: 224 71% 28%;
     --radius: 0.5rem;
   }
@@ -130,7 +130,7 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #0c1425;
+  background: #0b1426;
 }
 
 ::-webkit-scrollbar-thumb {
