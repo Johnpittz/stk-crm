@@ -25,13 +25,13 @@ import { ModalDetalhesTarefa } from "./modal-detalhes-tarefa";
 
 // ─── Colunas do Funil de Vendas ───
 const colunas = [
-  { id: "recebeu_conta", titulo: "Recebeu a Conta", cor: "#1e3a5f", icone: "📥" },
-  { id: "proposta_feita", titulo: "Proposta a Ser Feita", cor: "#1e4d7a", icone: "📝" },
-  { id: "proposta_apresentada", titulo: "Proposta Apresentada", cor: "#15317B", icone: "📋" },
-  { id: "apresentacao_realizada", titulo: "Apresentação Realizada", cor: "#2556B3", icone: "🎤" },
-  { id: "contrato_enviado", titulo: "Contrato Enviado", cor: "#3B64CF", icone: "📤" },
-  { id: "contrato_assinado", titulo: "Contrato Assinado", cor: "#10B981", icone: "✅" },
-  { id: "comissao_paga", titulo: "Comissão Paga", cor: "#22c55e", icone: "💰" },
+  { id: "recebeu_conta", titulo: "Recebeu a Conta", cor: "#5b9bd5", icone: "📥" },
+  { id: "proposta_feita", titulo: "Proposta a Ser Feita", cor: "#6ba3d6", icone: "📝" },
+  { id: "proposta_apresentada", titulo: "Proposta Apresentada", cor: "#7fb8e8", icone: "📋" },
+  { id: "apresentacao_realizada", titulo: "Apresentação Realizada", cor: "#8cc5f0", icone: "🎤" },
+  { id: "contrato_enviado", titulo: "Contrato Enviado", cor: "#a3d4ff", icone: "📤" },
+  { id: "contrato_assinado", titulo: "Contrato Assinado", cor: "#34d399", icone: "✅" },
+  { id: "comissao_paga", titulo: "Comissão Paga", cor: "#4ade80", icone: "💰" },
 ];
 
 const coresPrioridade: Record<string, string> = {
@@ -327,14 +327,14 @@ export function KanbanTarefas({
                         <div className="flex items-center gap-1.5">
                           <span className="text-xs">{coluna.icone}</span>
                           <h3
-                            className="font-semibold text-[11px] uppercase tracking-wider"
+                            className="font-bold text-xs uppercase tracking-wider"
                             style={{ color: coluna.cor }}
                           >
                             {coluna.titulo}
                           </h3>
                         </div>
                         <span
-                          className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                          className="text-xs font-bold px-2 py-0.5 rounded-full"
                           style={{
                             backgroundColor: `${coluna.cor}25`,
                             color: coluna.cor,
@@ -461,7 +461,7 @@ export function KanbanTarefas({
                             {tarefasColuna.length === 0 && (
                               <div className="flex flex-col items-center justify-center py-8 text-slate-500">
                                 <span className="text-2xl mb-2">{coluna.icone}</span>
-                                <span className="text-[11px]">Arraste para aqui</span>
+                                <span className="text-xs font-medium">Arraste para aqui</span>
                               </div>
                             )}
                           </div>
