@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Select,
   SelectContent,
@@ -14,51 +14,39 @@ import {
   Draggable,
   DropResult,
 } from "@hello-pangea/dnd";
-import { MoreHorizontal, Clock, AlertCircle, Trash2, MessageCircle } from "lucide-react";
+import { Clock, AlertCircle, Trash2, MoreHorizontal } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { NovaTarefaModal } from "./nova-tarefa-modal";
 import { ModalDetalhesTarefa } from "./modal-detalhes-tarefa";
-import { CardAtendimentoKanban } from "./card-atendimento-kanban";
 
+// ─── Colunas do Funil de Vendas ───
 const colunas = [
-  { id: "a_fazer", titulo: "A Fazer", cor: "bg-slate-100" },
-  { id: "em_andamento", titulo: "Andamento", cor: "bg-blue-50" },
-  { id: "concluida", titulo: "Concluído", cor: "bg-emerald-50" },
+  { id: "recebeu_conta", titulo: "Recebeu a Conta", cor: "#1e3a5f", icone: "📥" },
+  { id: "proposta_feita", titulo: "Proposta a Ser Feita", cor: "#1e4d7a", icone: "📝" },
+  { id: "proposta_apresentada", titulo: "Proposta Apresentada", cor: "#15317B", icone: "📋" },
+  { id: "apresentacao_realizada", titulo: "Apresentação Realizada", cor: "#2556B3", icone: "🎤" },
+  { id: "contrato_enviado", titulo: "Contrato Enviado", cor: "#3B64CF", icone: "📤" },
+  { id: "contrato_assinado", titulo: "Contrato Assinado", cor: "#10B981", icone: "✅" },
+  { id: "comissao_paga", titulo: "Comissão Paga", cor: "#22c55e", icone: "💰" },
 ];
 
-const iconesTarefa: Record<string, string> = {
-  visita: "🏢",
-  ligacao: "📞",
-  whatsapp: "💬",
-  email: "📧",
-  reuniao: "🤝",
-  follow_up: "🔄",
-  prospeccao: "🔍",
-  outro: "📋",
-};
-
 const coresPrioridade: Record<string, string> = {
-  baixa: "bg-slate-100 text-slate-700",
-  media: "bg-blue-100 text-blue-700",
-  alta: "bg-orange-100 text-orange-700",
-  urgente: "bg-red-100 text-red-700",
+  baixa: "bg-slate-500/20 text-slate-400 border-slate-500/30",
+  media: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  alta: "bg-orange-500/20 text-orange-400 border-orange-500/30",
+  urgente: "bg-red-500/20 text-red-400 border-red-500/30",
 };
 
 const origemConfig: Record<string, { icone: string; nome: string; cor: string }> = {
-  prospeccao_b2b: { icone: "🔍", nome: "Prospecção", cor: "bg-emerald-100 text-emerald-700" },
-  whatsapp: { icone: "💬", nome: "WhatsApp", cor: "bg-green-100 text-green-700" },
-  indicacao: { icone: "🤝", nome: "Indicação", cor: "bg-purple-100 text-purple-700" },
-  site: { icone: "🌐", nome: "Site", cor: "bg-blue-100 text-blue-700" },
-  pixel: { icone: "📊", nome: "Pixel", cor: "bg-orange-100 text-orange-700" },
-  api: { icone: "🔗", nome: "API", cor: "bg-cyan-100 text-cyan-700" },
-  importacao: { icone: "📁", nome: "Importação", cor: "bg-slate-100 text-slate-700" },
-  manual: { icone: "✋", nome: "Manual", cor: "bg-slate-100 text-slate-500" },
-  evento: { icone: "🎪", nome: "Evento", cor: "bg-amber-100 text-amber-700" },
+  prospeccao_b2b: { icone: "🔍", nome: "Prospecção", cor: "bg-emerald-500/15 text-emerald-400" },
+  whatsapp: { icone: "💬", nome: "WhatsApp", cor: "bg-green-500/15 text-green-400" },
+  indicacao: { icone: "🤝", nome: "Indicação", cor: "bg-purple-500/15 text-purple-400" },
+  site: { icone: "🌐", nome: "Site", cor: "bg-blue-500/15 text-blue-400" },
+  manual: { icone: "✋", nome: "Manual", cor: "bg-slate-500/15 text-slate-400" },
 };
 
 interface Tarefa {
@@ -109,7 +97,15 @@ interface KanbanTarefasProps {
   dataFim?: string;
 }
 
-export function KanbanTarefas({ atendimentos, onAbrirChat, onRefresh, onTarefaAtualizada, busca = "", dataInicio = "", dataFim = "" }: KanbanTarefasProps) {
+export function KanbanTarefas({
+  atendimentos,
+  onAbrirChat,
+  onRefresh,
+  onTarefaAtualizada,
+  busca = "",
+  dataInicio = "",
+  dataFim = "",
+}: KanbanTarefasProps) {
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [loading, setLoading] = useState(true);
   const [tarefaSelecionada, setTarefaSelecionada] = useState<Tarefa | null>(null);
@@ -121,7 +117,9 @@ export function KanbanTarefas({ atendimentos, onAbrirChat, onRefresh, onTarefaAt
   const fetchTarefas = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) return;
 
       const res = await fetch("/api/tarefas", {
@@ -143,7 +141,6 @@ export function KanbanTarefas({ atendimentos, onAbrirChat, onRefresh, onTarefaAt
     fetchTarefas();
   }, [fetchTarefas]);
 
-  // Recarrega tarefas quando atendimentos mudam externamente
   useEffect(() => {
     if (onRefresh) fetchTarefas();
   }, [atendimentos, onRefresh, fetchTarefas]);
@@ -152,19 +149,17 @@ export function KanbanTarefas({ atendimentos, onAbrirChat, onRefresh, onTarefaAt
     if (!result.destination) return;
 
     const { source, destination, draggableId } = result;
-
     if (source.droppableId === destination.droppableId) return;
 
     const novaColuna = destination.droppableId;
 
-    // Se arrastou para "Concluído", abre o modal para preencher resultado
-    if (novaColuna === "concluida") {
+    // Última coluna = comissão paga → abre modal de conclusão
+    if (novaColuna === "comissao_paga") {
       const tarefaArrastada = tarefas.find((t) => t.id === draggableId);
       if (tarefaArrastada) {
         setTarefaSelecionada(tarefaArrastada);
         setModalConcluindo(true);
         setModalAberto(true);
-        // Não move ainda — o modal vai cuidar da conclusão
         return;
       }
     }
@@ -172,7 +167,6 @@ export function KanbanTarefas({ atendimentos, onAbrirChat, onRefresh, onTarefaAt
     const tarefasNaColunaDestino = tarefas.filter((t) => t.coluna_kanban === novaColuna);
     const novaOrdem = tarefasNaColunaDestino.length;
 
-    // Atualiza otimisticamente no UI
     setTarefas((prev) =>
       prev.map((t) =>
         t.id === draggableId
@@ -181,9 +175,10 @@ export function KanbanTarefas({ atendimentos, onAbrirChat, onRefresh, onTarefaAt
       )
     );
 
-    // Chama API para persistir
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) return;
 
       await fetch("/api/tarefas", {
@@ -200,7 +195,6 @@ export function KanbanTarefas({ atendimentos, onAbrirChat, onRefresh, onTarefaAt
       });
     } catch (err) {
       console.error(err);
-      // Reverte se erro
       fetchTarefas();
     }
   };
@@ -209,7 +203,9 @@ export function KanbanTarefas({ atendimentos, onAbrirChat, onRefresh, onTarefaAt
     if (!confirm("Excluir esta tarefa?")) return;
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) return;
 
       const res = await fetch(`/api/tarefas?id=${id}`, {
@@ -238,7 +234,6 @@ export function KanbanTarefas({ atendimentos, onAbrirChat, onRefresh, onTarefaAt
     if (temFiltroData) {
       const dtInicio = dataInicio ? new Date(dataInicio + "T00:00:00") : null;
       const dtFim = dataFim ? new Date(dataFim + "T23:59:59") : null;
-      // Verifica se QUALQUER data da tarefa (criação, início ou fim) está no período
       const datas = [t.created_at, t.data_inicio, t.data_fim].filter(Boolean);
       if (datas.length > 0) {
         const dentroDoPeriodo = datas.some((d) => {
@@ -249,7 +244,6 @@ export function KanbanTarefas({ atendimentos, onAbrirChat, onRefresh, onTarefaAt
         });
         if (!dentroDoPeriodo) matchData = false;
       }
-      // Tarefa SEM nenhuma data → sempre aparece
     }
 
     return matchBusca && matchData;
@@ -260,190 +254,220 @@ export function KanbanTarefas({ atendimentos, onAbrirChat, onRefresh, onTarefaAt
       .filter((t) => t.coluna_kanban === colunaId)
       .sort((a, b) => a.ordem - b.ordem);
 
-  const getAtendimentosPorColuna = (colunaId: string) => {
-    const emAndamento = (a: Atendimento) =>
-      a.vendedor_interagiu === true || a.ultima_mensagem_remetente === "vendedor";
-
-    if (colunaId === "a_fazer") {
-      return atendimentos.filter((a) => a.status === "aberto" && !emAndamento(a));
-    }
-    if (colunaId === "em_andamento") {
-      return atendimentos.filter((a) => a.status === "aberto" && emAndamento(a));
-    }
-    if (colunaId === "concluida") {
-      const seteDiasAtras = new Date();
-      seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
-      return atendimentos.filter(
-        (a) =>
-          a.status === "fechado" &&
-          new Date(a.data_fechamento || a.ultima_mensagem_data || 0) > seteDiasAtras
-      );
-    }
-    return [];
-  };
-
   const formatHora = (hora: string | null) => {
     if (!hora) return "";
     return hora.substring(0, 5);
   };
 
   return (
-    <Card className="h-full flex flex-col">
-      <CardHeader className="pb-2 py-3">
+    <Card className="h-full flex flex-col border-[#1c2e4a] bg-[#0c1426]">
+      <CardHeader className="pb-2 pt-3 px-4">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-base">
-            📋 Kanban de Tarefas
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold text-white">
+            <span className="text-base">🗂️</span>
+            Funil de Vendas
           </CardTitle>
           <div className="flex items-center gap-2">
             <Select value={filtroColuna} onValueChange={setFiltroColuna}>
-              <SelectTrigger className="w-[130px] h-7 text-[11px]">
+              <SelectTrigger className="w-[140px] h-7 text-[11px] bg-[#14233c] border-[#1c2e4a] text-slate-300">
                 <SelectValue placeholder="Todas" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__TODAS__">Todas</SelectItem>
-                <SelectItem value="a_fazer">A Fazer</SelectItem>
-                <SelectItem value="em_andamento">Andamento</SelectItem>
-                <SelectItem value="concluida">Concluído</SelectItem>
+              <SelectContent className="bg-[#14233c] border-[#1c2e4a]">
+                <SelectItem value="__TODAS__">Todas as etapas</SelectItem>
+                {colunas.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.icone} {c.titulo}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <NovaTarefaModal onSuccess={fetchTarefas} />
           </div>
         </div>
       </CardHeader>
-      <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
+
+      <CardContent className="p-2 flex-1 min-h-0 overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center h-full text-slate-400 text-sm">
-            Carregando tarefas...
+          <div className="flex items-center justify-center h-full text-slate-500 text-sm">
+            Carregando...
           </div>
         ) : (
           <DragDropContext onDragEnd={onDragEnd}>
-            <div className={cn(
-              "gap-3 px-3 pb-3 h-full overflow-hidden",
-              filtroColuna === "__TODAS__" ? "grid grid-cols-3" : "grid grid-cols-1"
-            )}>
+            <div
+              className={cn(
+                "gap-2 h-full overflow-hidden",
+                filtroColuna === "__TODAS__"
+                  ? "flex overflow-x-auto pb-2"
+                  : "grid grid-cols-1"
+              )}
+              style={filtroColuna === "__TODAS__" ? { minWidth: "max-content" } : undefined}
+            >
               {colunas
                 .filter((coluna) => filtroColuna === "__TODAS__" || coluna.id === filtroColuna)
                 .map((coluna) => {
-                const tarefasColuna = getTarefasPorColuna(coluna.id);
-                const totalItems = tarefasColuna.length;
+                  const tarefasColuna = getTarefasPorColuna(coluna.id);
+                  const totalItems = tarefasColuna.length;
 
-                return (
-                <div
-                  key={coluna.id}
-                  className={cn("flex flex-col rounded-lg h-full min-h-0", coluna.cor)}
-                >
-                  {/* Header da Coluna */}
-                  <div className="flex items-center justify-between p-2 border-b border-slate-200/50">
-                    <h3 className="font-semibold text-sm text-slate-700">{coluna.titulo}</h3>
-                    <Badge variant="secondary" className="bg-white/80">
-                      {totalItems}
-                    </Badge>
-                  </div>
-
-                  {/* Lista de Tarefas */}
-                  <Droppable droppableId={coluna.id}>
-                    {(provided, snapshot) => (
+                  return (
+                    <div
+                      key={coluna.id}
+                      className={cn(
+                        "flex flex-col rounded-xl min-h-0",
+                        filtroColuna === "__TODAS__" ? "w-[200px] shrink-0" : "w-full"
+                      )}
+                      style={{ backgroundColor: `${coluna.cor}15` }}
+                    >
+                      {/* Header da Coluna */}
                       <div
-                        ref={provided.innerRef}
-                        {...provided.droppableProps}
-                        className={cn(
-                          "flex-1 overflow-y-auto px-2 pb-10 min-h-0 space-y-2",
-                          snapshot.isDraggingOver && "bg-slate-200/50 rounded-lg"
-                        )}
+                        className="flex items-center justify-between px-3 py-2 border-b"
+                        style={{ borderColor: `${coluna.cor}30` }}
                       >
-                          {tarefasColuna.map((tarefa, index) => (
-                            <Draggable
-                              key={tarefa.id}
-                              draggableId={tarefa.id}
-                              index={index}
-                            >
-                              {(provided, snapshot) => (
-                                <div
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  {...provided.dragHandleProps}
-                                  onClick={() => {
-                                    setTarefaSelecionada(tarefa);
-                                    setModalAberto(true);
-                                  }}
-                                  className={cn(
-                                    "bg-white rounded-lg p-2 shadow-sm border border-slate-200 cursor-grab active:cursor-grabbing group hover:shadow-md hover:border-blue-300 transition-all",
-                                    snapshot.isDragging && "shadow-lg ring-2 ring-blue-500 rotate-2"
-                                  )}
-                                >
-                                  <div className="flex items-start justify-between mb-1">
-                                    <Badge
-                                      variant="secondary"
-                                      className={cn(
-                                        "text-[10px] px-1.5 py-0.5",
-                                        coresPrioridade[tarefa.prioridade] || coresPrioridade.media
-                                      )}
-                                    >
-                                      {tarefa.prioridade === "urgente" && (
-                                        <AlertCircle className="h-3 w-3 mr-1" />
-                                      )}
-                                      {tarefa.prioridade}
-                                    </Badge>
-                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-6 w-6 text-slate-400 hover:text-red-500"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleDelete(tarefa.id);
-                                        }}
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs">{coluna.icone}</span>
+                          <h3
+                            className="font-semibold text-[11px] uppercase tracking-wider"
+                            style={{ color: coluna.cor }}
+                          >
+                            {coluna.titulo}
+                          </h3>
+                        </div>
+                        <span
+                          className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                          style={{
+                            backgroundColor: `${coluna.cor}25`,
+                            color: coluna.cor,
+                          }}
+                        >
+                          {totalItems}
+                        </span>
+                      </div>
+
+                      {/* Lista de Tarefas */}
+                      <Droppable droppableId={coluna.id}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className={cn(
+                              "flex-1 overflow-y-auto px-2 py-2 min-h-0 space-y-1.5",
+                              snapshot.isDraggingOver && "bg-white/5 rounded-lg"
+                            )}
+                          >
+                            {tarefasColuna.map((tarefa, index) => (
+                              <Draggable
+                                key={tarefa.id}
+                                draggableId={tarefa.id}
+                                index={index}
+                              >
+                                {(provided, snapshot) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
+                                    onClick={() => {
+                                      setTarefaSelecionada(tarefa);
+                                      setModalAberto(true);
+                                    }}
+                                    className={cn(
+                                      "rounded-lg p-2.5 cursor-grab active:cursor-grabbing group transition-all border",
+                                      "bg-[#14233c] border-[#1c2e4a] hover:border-[#3B64CF]/50 hover:bg-[#1a2d47]",
+                                      snapshot.isDragging &&
+                                        "shadow-lg shadow-black/30 ring-1 ring-[#3B64CF]/50 rotate-1"
+                                    )}
+                                  >
+                                    {/* Prioridade + Ações */}
+                                    <div className="flex items-center justify-between mb-1.5">
+                                      <Badge
+                                        variant="secondary"
+                                        className={cn(
+                                          "text-[9px] px-1.5 py-0 border font-medium",
+                                          coresPrioridade[tarefa.prioridade] || coresPrioridade.media
+                                        )}
                                       >
-                                        <Trash2 className="h-3 w-3" />
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-6 w-6"
-                                      >
-                                        <MoreHorizontal className="h-4 w-4 text-slate-400" />
-                                      </Button>
+                                        {tarefa.prioridade === "urgente" && (
+                                          <AlertCircle className="h-2.5 w-2.5 mr-0.5" />
+                                        )}
+                                        {tarefa.prioridade}
+                                      </Badge>
+                                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-5 w-5 text-slate-500 hover:text-red-400"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDelete(tarefa.id);
+                                          }}
+                                        >
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                      </div>
                                     </div>
-                                  </div>
 
-<div className="flex items-center gap-1.5 mb-1 flex-wrap">
-  <p className="font-medium text-slate-900 text-xs truncate">
-    {iconesTarefa[tarefa.tipo] || "📋"} {tarefa.titulo}
-  </p>
-  {tarefa.origem_lead && origemConfig[tarefa.origem_lead] && (
-    <Badge
-      variant="secondary"
-      className={cn(
-        "text-[9px] px-1.5 py-0 flex-shrink-0",
-        origemConfig[tarefa.origem_lead].cor
-      )}
-    >
-      {origemConfig[tarefa.origem_lead].icone} {origemConfig[tarefa.origem_lead].nome}
-    </Badge>
-  )}
-</div>
+                                    {/* Título */}
+                                    <p className="font-medium text-white text-[11px] leading-tight mb-1.5 line-clamp-2">
+                                      {tarefa.titulo}
+                                    </p>
 
-                                  <div className="flex items-center justify-between text-xs text-slate-500">
-                                    <span className="truncate max-w-[100px]">
-                                      {tarefa.clientes?.nome_razao_social || tarefa.cliente_nome || "—"}
-                                    </span>
-                                    {tarefa.hora_inicio && (
-                                      <span className="flex items-center gap-1">
-                                        <Clock className="h-3 w-3" />
-                                        {formatHora(tarefa.hora_inicio)}
+                                    {/* Origem */}
+                                    {tarefa.origem_lead && origemConfig[tarefa.origem_lead] && (
+                                      <Badge
+                                        variant="secondary"
+                                        className={cn(
+                                          "text-[8px] px-1 py-0 mb-1.5 border-0",
+                                          origemConfig[tarefa.origem_lead].cor
+                                        )}
+                                      >
+                                        {origemConfig[tarefa.origem_lead].icone}{" "}
+                                        {origemConfig[tarefa.origem_lead].nome}
+                                      </Badge>
+                                    )}
+
+                                    {/* Footer */}
+                                    <div className="flex items-center justify-between text-[10px] text-slate-500">
+                                      <span className="truncate max-w-[100px]">
+                                        {tarefa.clientes?.nome_razao_social ||
+                                          tarefa.cliente_nome ||
+                                          "—"}
                                       </span>
+                                      {tarefa.hora_inicio && (
+                                        <span className="flex items-center gap-0.5 shrink-0">
+                                          <Clock className="h-2.5 w-2.5" />
+                                          {formatHora(tarefa.hora_inicio)}
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* Valor da venda */}
+                                    {tarefa.valor_venda && tarefa.valor_venda > 0 && (
+                                      <div className="mt-1.5 pt-1.5 border-t border-[#1c2e4a]">
+                                        <span className="text-[10px] font-semibold text-[#3B64CF]">
+                                          R${" "}
+                                          {tarefa.valor_venda.toLocaleString("pt-BR", {
+                                            minimumFractionDigits: 2,
+                                          })}
+                                        </span>
+                                      </div>
                                     )}
                                   </div>
-                                </div>
-                              )}
-                            </Draggable>
-                          ))}
-                          {provided.placeholder}
-                        </div>
-                    )}
-                  </Droppable>
-                </div>
-              )})}
+                                )}
+                              </Draggable>
+                            ))}
+                            {provided.placeholder}
+
+                            {/* Empty state */}
+                            {tarefasColuna.length === 0 && (
+                              <div className="flex flex-col items-center justify-center py-6 text-slate-600">
+                                <span className="text-lg mb-1">{coluna.icone}</span>
+                                <span className="text-[10px]">Arraste para aqui</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </Droppable>
+                    </div>
+                  );
+                })}
             </div>
           </DragDropContext>
         )}

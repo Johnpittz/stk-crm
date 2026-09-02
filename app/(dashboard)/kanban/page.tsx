@@ -3,11 +3,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, X, Download, Loader2 } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { KanbanTarefas } from "@/components/features/atendimento/kanban-tarefas";
 import { PerformanceKanban } from "@/components/features/atendimento/performance-kanban";
 import { createClient } from "@/lib/supabase/client";
-import { cn } from "@/lib/utils";
 
 interface Atendimento {
   id: string;
@@ -31,7 +30,6 @@ export default function KanbanPage() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const supabase = createClient();
 
-  // Filtros
   const [busca, setBusca] = useState("");
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
@@ -64,7 +62,9 @@ export default function KanbanPage() {
   const fetchAtendimentos = useCallback(async () => {
     setLoadingAtendimentos(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) return;
 
       const res = await fetch("/api/atendimentos", {
@@ -86,27 +86,22 @@ export default function KanbanPage() {
     fetchAtendimentos();
   }, [fetchAtendimentos]);
 
-  const handleAbrirChat = () => {
-    // No Kanban, não precisamos abrir chat (poderíamos redirecionar para /atendimento no futuro)
-  };
-
   return (
     <div className="h-[calc(100vh-9rem)] flex flex-col overflow-hidden">
-      
-      {/* HEADER - Performance Kanban */}
+      {/* Métricas */}
       <div className="shrink-0">
         <PerformanceKanban refreshTrigger={refreshTrigger} />
       </div>
 
-      {/* FILTROS */}
-      <div className="shrink-0 flex items-center gap-2 flex-wrap mt-2">
+      {/* Filtros */}
+      <div className="shrink-0 flex items-center gap-2 flex-wrap mt-3">
         <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
           <Input
-            placeholder="Buscar tarefa, cliente..."
+            placeholder="Buscar cliente, tarefa..."
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            className="w-[220px] h-8 text-xs pl-7"
+            className="w-[220px] h-8 text-xs pl-7 bg-[#14233c] border-[#1c2e4a] text-white placeholder:text-slate-500"
           />
         </div>
         <div className="flex items-center gap-1">
@@ -114,21 +109,21 @@ export default function KanbanPage() {
             type="date"
             value={dataInicio}
             onChange={(e) => setDataInicio(e.target.value)}
-            className="w-[130px] h-8 text-xs"
+            className="w-[130px] h-8 text-xs bg-[#14233c] border-[#1c2e4a] text-white"
           />
-          <span className="text-slate-400 text-xs">→</span>
+          <span className="text-slate-500 text-xs">→</span>
           <Input
             type="date"
             value={dataFim}
             onChange={(e) => setDataFim(e.target.value)}
-            className="w-[130px] h-8 text-xs"
+            className="w-[130px] h-8 text-xs bg-[#14233c] border-[#1c2e4a] text-white"
           />
         </div>
         {(busca || dataInicio || dataFim) && (
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 text-xs gap-1"
+            className="h-8 text-xs gap-1 text-slate-400 hover:text-white hover:bg-white/5"
             onClick={() => {
               setBusca("");
               setDataInicio("");
@@ -141,11 +136,11 @@ export default function KanbanPage() {
         )}
       </div>
 
-      {/* KANBAN - Tela cheia */}
-      <div className="flex-1 min-h-0 mt-2 overflow-hidden">
+      {/* Kanban */}
+      <div className="flex-1 min-h-0 mt-3 overflow-hidden">
         <KanbanTarefas
           atendimentos={atendimentosFiltrados}
-          onAbrirChat={handleAbrirChat}
+          onAbrirChat={() => {}}
           onRefresh={fetchAtendimentos}
           onTarefaAtualizada={() => setRefreshTrigger((t) => t + 1)}
           busca={busca}
