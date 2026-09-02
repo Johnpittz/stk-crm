@@ -295,10 +295,10 @@ export function KanbanTarefas({
           <DragDropContext onDragEnd={onDragEnd}>
             <div
               className={cn(
-                "gap-2 h-full overflow-hidden",
+                "h-full overflow-hidden",
                 filtroColuna === "__TODAS__"
-                  ? "flex overflow-x-auto pb-2"
-                  : "grid grid-cols-1"
+                  ? "flex gap-4 overflow-x-auto pb-2 px-2"
+                  : "grid grid-cols-1 gap-4"
               )}
               style={filtroColuna === "__TODAS__" ? { minWidth: "max-content" } : undefined}
             >
@@ -313,7 +313,7 @@ export function KanbanTarefas({
                       key={coluna.id}
                       className={cn(
                         "flex flex-col rounded-xl min-h-0",
-                        filtroColuna === "__TODAS__" ? "w-[200px] shrink-0" : "w-full"
+                        filtroColuna === "__TODAS__" ? "w-[240px] shrink-0" : "w-full"
                       )}
                       style={{ backgroundColor: `${coluna.cor}15` }}
                     >
@@ -349,7 +349,7 @@ export function KanbanTarefas({
                             ref={provided.innerRef}
                             {...provided.droppableProps}
                             className={cn(
-                              "flex-1 overflow-y-auto px-2 py-2 min-h-0 space-y-1.5",
+                              "flex-1 overflow-y-auto px-3 py-3 min-h-0 space-y-2",
                               snapshot.isDraggingOver && "bg-white/5 rounded-lg"
                             )}
                           >
@@ -457,9 +457,9 @@ export function KanbanTarefas({
 
                             {/* Empty state */}
                             {tarefasColuna.length === 0 && (
-                              <div className="flex flex-col items-center justify-center py-6 text-slate-600">
-                                <span className="text-lg mb-1">{coluna.icone}</span>
-                                <span className="text-[10px]">Arraste para aqui</span>
+                              <div className="flex flex-col items-center justify-center py-8 text-slate-500">
+                                <span className="text-2xl mb-2">{coluna.icone}</span>
+                                <span className="text-[11px]">Arraste para aqui</span>
                               </div>
                             )}
                           </div>
