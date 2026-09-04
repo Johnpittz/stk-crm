@@ -493,7 +493,7 @@ async function processarRespostaExistente(
   
   // Se tem opções, salvar objeto completo (chave + texto + pontos)
   if (etapaAtual.opcoes) {
-    const opcaoEscolhida = etapaAtual.opcoes.find(o => o.chave === chaveResposta);
+    const opcaoEscolhida = etapaAtual.opcoes.find((o: any) => o.chave === chaveResposta);
     novasRespostas[etapaAtual.chave] = {
       chave: chaveResposta,
       texto: opcaoEscolhida?.texto || chaveResposta,
