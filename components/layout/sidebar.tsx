@@ -24,6 +24,7 @@ import {
   MessageSquare,
   Star,
   Truck,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -58,6 +59,12 @@ const navItemsPorPerfil: Record<PerfilAtivo, Array<{
       icon: Headset,
       description: "Conversas WhatsApp",
       badge: "Ativo",
+    },
+    {
+      href: "/chatbot",
+      label: "Chatbot",
+      icon: Bot,
+      description: "Fluxos automáticos",
     },
     {
       href: "/kanban",

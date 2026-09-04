@@ -17,6 +17,7 @@ import { telefoneParaDigitos, enviarMensagemWhatsApp } from "@/lib/evolution-api
 import { buscarVendedorPadrao } from "@/lib/roteamento";
 import { uploadMediaToStorage } from "@/lib/media-storage";
 import { gerarRespostaIA, verificarIAAtivada } from "@/lib/ai-assistant";
+import { processarMensagemChatbot } from "@/lib/chatbot/engine";
 
 export const dynamic = "force-dynamic";
 
@@ -171,6 +172,77 @@ export async function POST(request: NextRequest) {
       });
 
       console.log(`[Webhook WhatsApp] Mensagem adicionada ao atendimento ${atendimentoExistente.id}`);
+
+      // ===== INTEGRAÇÃO CHATBOT =====
+      // Se a mensagem é do cliente, verificar se há fluxo de chatbot ativo
+      if (!dados.fromMe && mensagem) {
+        try {
+          // Verificar se há sessão ativa do chatbot para este telefone
+          const { data: sessaoChatbot } = await getSupabase()
+            .from('chatbot_sessions')
+            .select('*')
+            .eq('telefone', telefoneLimpo)
+            .eq('status', 'ativa')
+            .single();
+
+          if (sessaoChatbot) {
+            // Processar via chatbot
+            console.log(`[Webhook WhatsApp] Chatbot detectado para ${telefoneLimpo}`);
+            const resultadoChatbot = await processarMensagemChatbot(
+              telefoneLimpo,
+              mensagem,
+              dados.instance || 'STK',
+              nomeCliente || undefined
+            );
+            
+            if (resultadoChatbot.action === 'bot_responde' && resultadoChatbot.mensagem) {
+              // Salvar resposta do bot no chat
+              await getSupabase().from('atendimento_mensagens').insert({
+                atendimento_id: atendimentoExistente.id,
+                remetente: 'vendedor',
+                conteudo: resultadoChatbot.mensagem,
+                enviada_por: null,
+              });
+            }
+            
+            return NextResponse.json({ success: true, atendimento_id: atendimentoExistente.id, action: "chatbot" });
+          }
+
+          // Verificar se há fluxo de chatbot para esta instância
+          const { data: fluxoChatbot } = await getSupabase()
+            .from('chatbot_flows')
+            .select('*')
+            .eq('instancia', dados.instance)
+            .eq('ativo', true)
+            .single();
+
+          if (fluxoChatbot) {
+            // Iniciar novo fluxo de chatbot
+            console.log(`[Webhook WhatsApp] Novo fluxo chatbot para ${telefoneLimpo}`);
+            const resultadoChatbot = await processarMensagemChatbot(
+              telefoneLimpo,
+              mensagem,
+              dados.instance || 'STK',
+              nomeCliente || undefined
+            );
+            
+            if (resultadoChatbot.action === 'bot_responde' && resultadoChatbot.mensagem) {
+              await getSupabase().from('atendimento_mensagens').insert({
+                atendimento_id: atendimentoExistente.id,
+                remetente: 'vendedor',
+                conteudo: resultadoChatbot.mensagem,
+                enviada_por: null,
+              });
+            }
+            
+            return NextResponse.json({ success: true, atendimento_id: atendimentoExistente.id, action: "chatbot_started" });
+          }
+        } catch (err: any) {
+          console.error('[Webhook WhatsApp] Erro no chatbot:', err.message);
+          // Continua para IA normal se chatbot falhar
+        }
+      }
+      // ===== FIM INTEGRAÇÃO CHATBOT =====
 
       // ===== INTEGRAÇÃO IA =====
       // Se a IA está ativada e a mensagem é do cliente, gera e envia resposta automática
