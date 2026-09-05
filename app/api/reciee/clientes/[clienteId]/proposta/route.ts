@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import fs from "fs";
-import path from "path";
+import * as fs from "fs";
+import * as path from "path";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -170,7 +170,7 @@ export async function POST(
       });
 
       // Draw new client name
-      page2.drawText(clientName.toUpperCase() + ".", {
+      page2.drawText(clienteName.toUpperCase() + ".", {
         x: 168,
         y: pageHeight - oldNameY - 28,
         size: 32,
