@@ -1,25 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// Polyfill DOMMatrix for pdfjs-dist in Node.js environments
-if (typeof globalThis.DOMMatrix === "undefined") {
-  (globalThis as any).DOMMatrix = class DOMMatrix {
-    constructor() {}
-  };
-}
-
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Lazy-load pdf-parse to avoid cold-start issues
-async function parsePdf(buffer: Buffer): Promise<string> {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const pdfParse = require("pdf-parse");
-  const PDFParse = pdfParse.PDFParse || pdfParse.default || pdfParse;
-  const data = await PDFParse(buffer);
-  return data.text || "";
+// Parse PDF using pdf2json (pure Node.js, no browser dependencies)
+function parsePdf(buffer: Buffer): Promise<string> {
+  return new Promise((resolve, reject) => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const PDFParser = require("pdf2json");
+    const pdfParser = new PDFParser();
+
+    pdfParser.on("pdfParser_dataError", (err: any) => {
+      reject(new Error(err?.parserError?.message || "Erro ao parsear PDF"));
+    });
+
+    pdfParser.on("pdfParser_dataReady", (data: any) => {
+      let text = "";
+      const pages = data.Pages || [];
+      for (const page of pages) {
+        const texts = page.Texts || [];
+        for (const t of texts) {
+          const runs = t.R || [];
+          for (const run of runs) {
+            text += decodeURIComponent(run.T || "") + " ";
+          }
+          text += "\n";
+        }
+      }
+      resolve(text);
+    });
+
+    pdfParser.parseBuffer(buffer);
+  });
 }
 
 // ==================== FUNÇÕES DE EXTRAÇÃO ====================
