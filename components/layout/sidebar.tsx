@@ -149,6 +149,50 @@ const navItemsPorPerfil: Record<PerfilAtivo, Array<{
       description: "Entregas e logística",
     },
   ],
+  admin: [
+    {
+      href: "/atendimento",
+      label: "Atendimento",
+      icon: Headset,
+      description: "Conversas WhatsApp",
+    },
+    {
+      href: "/kanban",
+      label: "Kanban",
+      icon: ClipboardList,
+      description: "Tarefas e acompanhamento",
+    },
+    {
+      href: "/dashboard",
+      label: "Dashboard",
+      icon: LayoutDashboard,
+      description: "Visão gerencial",
+    },
+    {
+      href: "/clientes",
+      label: "Clientes",
+      icon: Users,
+      description: "Gestão de clientes",
+    },
+    {
+      href: "/marketing/dashboard",
+      label: "Marketing",
+      icon: Megaphone,
+      description: "Campanhas e leads",
+    },
+    {
+      href: "/pos-vendas/dashboard",
+      label: "Pós-Vendas",
+      icon: HeadphonesIcon,
+      description: "Follow-up e suporte",
+    },
+    {
+      href: "/reciee",
+      label: "RECIEE",
+      icon: Zap,
+      description: "Recuperação de energia",
+    },
+  ],
 };
 
 // Itens do rodapé (sempre visíveis)

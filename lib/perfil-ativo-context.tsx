@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 
-export type PerfilAtivo = "crm" | "marketing" | "pos_vendas";
+export type PerfilAtivo = "crm" | "marketing" | "pos_vendas" | "admin";
 
 interface PerfilAtivoContextType {
   perfilAtivo: PerfilAtivo;
@@ -27,9 +27,9 @@ const cargoParaPerfil: Record<string, PerfilAtivo> = {
   pos_vendas: "pos_vendas",
   supervisor_pos: "pos_vendas",
   
-  // Admin vê tudo (padrão: CRM)
-  admin: "crm",
-  diretor: "crm",
+  // Admin vê tudo (inclui RECIEE)
+  admin: "admin",
+  diretor: "admin",
 };
 
 // Cargos que podem trocar de perfil
@@ -49,7 +49,7 @@ export function PerfilAtivoProvider({
   const [perfilAtivo, setPerfilAtivoState] = useState<PerfilAtivo>(() => {
     if (typeof window !== "undefined" && podeTrocar) {
       const salvo = localStorage.getItem("stk_perfil_ativo") as PerfilAtivo;
-      if (salvo && ["crm", "marketing", "pos_vendas"].includes(salvo)) {
+      if (salvo && ["crm", "marketing", "pos_vendas", "admin"].includes(salvo)) {
         return salvo;
       }
     }

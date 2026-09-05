@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { usePerfilAtivo, type PerfilAtivo } from "@/lib/perfil-ativo-context";
-import { Briefcase, Megaphone, HeadphonesIcon, ChevronDown, Check } from "lucide-react";
+import { Briefcase, Megaphone, HeadphonesIcon, ChevronDown, Check, Shield } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 const perfis = [
@@ -26,6 +26,13 @@ const perfis = [
     description: "Follow-up e suporte",
     icon: Briefcase,
     color: "bg-amber-600",
+  },
+  {
+    id: "admin" as PerfilAtivo,
+    label: "Admin",
+    description: "Acesso total + RECIEE",
+    icon: Shield,
+    color: "bg-red-600",
   },
 ];
 
