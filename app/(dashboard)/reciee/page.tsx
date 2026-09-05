@@ -537,7 +537,12 @@ export default function RecieePage() {
                           <Users className="h-5 w-5 text-[#3B64CF]" />
                         </div>
                         <div>
-                          <p className="text-white font-medium">{cliente.nome}</p>
+                          <p
+                            className="text-white font-medium hover:text-[#3B64CF] cursor-pointer transition-colors"
+                            onClick={() => router.push(`/reciee/${cliente.id}`)}
+                          >
+                            {cliente.nome}
+                          </p>
                           <p className="text-sm text-white/60">
                             {cliente.cpf_cnpj} • UC: {cliente.uc}
                           </p>
@@ -597,7 +602,12 @@ export default function RecieePage() {
                           key={cliente.id}
                           className="border-b border-[#3B64CF]/10 hover:bg-[#1a2744] cursor-pointer"
                         >
-                          <td className="p-3 text-white">{cliente.nome}</td>
+                          <td
+                            className="p-3 text-white hover:text-[#3B64CF] cursor-pointer transition-colors"
+                            onClick={() => router.push(`/reciee/${cliente.id}`)}
+                          >
+                            {cliente.nome}
+                          </td>
                           <td className="p-3 text-white/80">{cliente.cpf_cnpj}</td>
                           <td className="p-3 text-white/80">{cliente.uc}</td>
                           <td className="p-3">

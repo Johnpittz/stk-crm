@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -6,12 +6,21 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const { data: faturas, error } = await supabase
+    const { searchParams } = new URL(request.url);
+    const clienteId = searchParams.get("cliente_id");
+
+    let query = supabase
       .from("faturas_reciee")
       .select("*")
       .order("competencia", { ascending: false });
+
+    if (clienteId) {
+      query = query.eq("cliente_id", clienteId);
+    }
+
+    const { data: faturas, error } = await query;
 
     if (error) {
       console.error("Erro ao buscar faturas:", error);
@@ -25,7 +34,7 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const {
