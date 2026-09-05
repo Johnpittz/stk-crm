@@ -24,43 +24,50 @@ function generatePropostaNumber(): string {
   const h = String(now.getHours()).padStart(2, "0");
   const min = String(now.getMinutes()).padStart(2, "0");
   const s = String(now.getSeconds()).padStart(2, "0");
-  // Random 5 digits
   const rand = Math.floor(10000 + Math.random() * 90000);
   return `${y}${m}${d}${h}${min}${s}${rand}`;
 }
 
-// Helper: draw white rect + new text to replace existing text on a page
-function replaceTextOnPage(
+/**
+ * Covers old text with a white rectangle and draws new text.
+ * fitzY = top-down Y from fitz (y=0 at top of page)
+ * fitzHeight = height of the text bounding box
+ * pdfLibY = bottom-up Y for pdf-lib (y=0 at bottom of page)
+ */
+function coverAndDraw(
   page: any,
-  oldX: number,
-  oldY: number,
-  oldWidth: number,
-  oldHeight: number,
-  newText: string,
+  x: number,
+  fitzY: number,
+  fitzH: number,
+  text: string,
   font: any,
   fontSize: number,
-  color: [number, number, number] = [0, 0, 0]
+  pageHeight: number,
+  textX?: number,
+  color?: [number, number, number]
 ) {
-  // Draw white rectangle over old text (PDF y is bottom-up, so we need to convert)
-  const pageHeight = page.getHeight();
-  const rectY = pageHeight - oldY - oldHeight;
+  const pad = 6;
+  // Convert fitz top-down coords to pdf-lib bottom-up coords
+  const rectBottom = pageHeight - fitzY - fitzH - pad;
+  const rectTop = pageHeight - fitzY + pad;
 
+  // White rectangle to cover old text
   page.drawRectangle({
-    x: oldX,
-    y: rectY,
-    width: oldWidth,
-    height: oldHeight + 4,
+    x: x - 2,
+    y: rectBottom,
+    width: 600,
+    height: rectTop - rectBottom,
     color: rgb(1, 1, 1),
   });
 
-  // Draw new text
-  const textY = pageHeight - oldY - fontSize;
-  page.drawText(newText, {
-    x: oldX,
-    y: textY,
+  // New text baseline: fitzY is top of text, baseline is ~80% down
+  const baselineY = pageHeight - fitzY - fontSize * 0.75;
+  page.drawText(text, {
+    x: textX ?? x,
+    y: baselineY,
     size: fontSize,
     font,
-    color: rgb(...color),
+    color: color ? rgb(...color) : rgb(0, 0, 0),
   });
 }
 
@@ -144,220 +151,124 @@ export async function POST(
     // Embed fonts
     const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-    const calibriFont = await pdfDoc.embedFont(StandardFonts.Helvetica); // Using Helvetica as Calibri substitute
 
     const pages = pdfDoc.getPages();
 
     // ===== PÁGINA 2 (index 1): Carta de apresentação =====
-    // Replace client name in the introduction letter
     if (pages.length > 1) {
       const page2 = pages[1];
-      const pageHeight = page2.getHeight();
+      const ph = page2.getHeight();
 
-      // Old client name: "AGROCENTRAL INDÚSTRIA E COMÉRCIO-NUTRIRAÇÃO."
-      // Position: [168, 151] size=32 BoldItalic
-      // We need to cover it and write new name
-      const oldNameY = 151;
-      const oldNameHeight = 35;
-
-      // Draw white rectangle over old name
-      page2.drawRectangle({
-        x: 168,
-        y: pageHeight - oldNameY - oldNameHeight,
-        width: 800,
-        height: oldNameHeight + 4,
-        color: rgb(1, 1, 1),
-      });
-
-      // Draw new client name
-      page2.drawText(clienteName.toUpperCase() + ".", {
-        x: 168,
-        y: pageHeight - oldNameY - 28,
-        size: 32,
-        font: calibriFont,
-        color: rgb(0.1, 0.1, 0.1),
-      });
+      // fitz: x=168, y=151, h=35, text="AGROCENTRAL INDÚSTRIA E COMÉRCIO-NUTRIRAÇÃO."
+      coverAndDraw(
+        page2, 168, 151, 35,
+        clienteName.toUpperCase() + ".",
+        helveticaFont, 32, ph,
+        168, [0.1, 0.1, 0.1]
+      );
     }
 
     // ===== PÁGINA 8 (index 7): Proposta RECIEE =====
     if (pages.length > 7) {
       const page8 = pages[7];
-      const pageHeight = page8.getHeight();
+      const ph = page8.getHeight();
 
-      // --- Client section (bottom right, the actual client data) ---
-      // "Cliente: JOAOPEDROLG" at [886, 107] size=17 Helvetica-Bold
-      const clienteLabelY = 107;
-      page8.drawRectangle({
-        x: 886,
-        y: pageHeight - clienteLabelY - 20,
-        width: 550,
-        height: 24,
-        color: rgb(1, 1, 1),
-      });
-      page8.drawText(`Cliente: ${clienteName.toUpperCase()}`, {
-        x: 886,
-        y: pageHeight - clienteLabelY - 14,
-        size: 17,
-        font: helveticaBold,
-        color: rgb(0, 0, 0),
-      });
+      // Proposta nº - fitz: x=886, y=78, h=23
+      coverAndDraw(
+        page8, 886, 78, 23,
+        `Proposta nº: ${propostaNumber}`,
+        helveticaBold, 17, ph,
+        886
+      );
 
-      // "Valor atual da Conta:" + value at [887, 155] / [1180, 154]
-      const valorContaY = 155;
+      // Cliente - fitz: x=886, y=107, h=23
+      coverAndDraw(
+        page8, 886, 107, 23,
+        `Cliente: ${clienteName.toUpperCase()}`,
+        helveticaBold, 17, ph,
+        886
+      );
+
+      // Valor atual da Conta label - fitz: x=887, y=155, h=21
+      coverAndDraw(
+        page8, 887, 155, 21,
+        "Valor atual da Conta:",
+        helveticaFont, 15, ph,
+        887
+      );
+      // Valor atual da Conta value - fitz: x=1180, y=154, h=16
       const valorContaStr = formatCurrency(valorAtualConta);
-      page8.drawRectangle({
-        x: 887,
-        y: pageHeight - valorContaY - 20,
-        width: 550,
-        height: 24,
-        color: rgb(1, 1, 1),
-      });
-      page8.drawText("Valor atual da Conta:", {
-        x: 887,
-        y: pageHeight - valorContaY - 14,
-        size: 15,
-        font: helveticaFont,
-        color: rgb(0, 0, 0),
-      });
-      page8.drawText(valorContaStr, {
-        x: 1180,
-        y: pageHeight - valorContaY - 14,
-        size: 16,
-        font: helveticaBold,
-        color: rgb(0, 0, 0),
-      });
+      coverAndDraw(
+        page8, 1180, 154, 16,
+        valorContaStr,
+        helveticaBold, 16, ph,
+        1180
+      );
 
-      // "Estimativa de recuperação (RECIEE):" + value at [887, 184] / [1260, 183]
-      const recupY = 184;
+      // Estimativa RECIEE label - fitz: x=887, y=184, h=21
+      coverAndDraw(
+        page8, 887, 184, 21,
+        "Estimativa de recuperação (RECIEE):",
+        helveticaFont, 15, ph,
+        887
+      );
+      // Estimativa RECIEE value - fitz: x=1260, y=183, h=16
       const recupStr = formatCurrency(totalRecuperacao);
-      page8.drawRectangle({
-        x: 887,
-        y: pageHeight - recupY - 20,
-        width: 550,
-        height: 24,
-        color: rgb(1, 1, 1),
-      });
-      page8.drawText("Estimativa de recuperação (RECIEE):", {
-        x: 887,
-        y: pageHeight - recupY - 14,
-        size: 15,
-        font: helveticaFont,
-        color: rgb(0, 0, 0),
-      });
-      page8.drawText(recupStr, {
-        x: 1260,
-        y: pageHeight - recupY - 14,
-        size: 16,
-        font: helveticaBold,
-        color: rgb(0, 0, 0),
-      });
+      coverAndDraw(
+        page8, 1260, 183, 16,
+        recupStr,
+        helveticaBold, 16, ph,
+        1260
+      );
 
-      // "Ajuste contratual (GFAT):" + value at [887, 213] / [1160, 212]
-      const gfatY = 213;
+      // Ajuste GFAT label - fitz: x=887, y=213, h=21
+      coverAndDraw(
+        page8, 887, 213, 21,
+        "Ajuste contratual (GFAT):",
+        helveticaFont, 15, ph,
+        887
+      );
+      // Ajuste GFAT value - fitz: x=1160, y=212, h=16
       const gfatStr = formatCurrency(gfatEstimativa);
-      page8.drawRectangle({
-        x: 887,
-        y: pageHeight - gfatY - 20,
-        width: 550,
-        height: 24,
-        color: rgb(1, 1, 1),
-      });
-      page8.drawText("Ajuste contratual (GFAT):", {
-        x: 887,
-        y: pageHeight - gfatY - 14,
-        size: 15,
-        font: helveticaFont,
-        color: rgb(0, 0, 0),
-      });
-      page8.drawText(`${gfatStr}*`, {
-        x: 1160,
-        y: pageHeight - gfatY - 14,
-        size: 16,
-        font: helveticaBold,
-        color: rgb(0, 0, 0),
-      });
-
-      // "Proposta nº:" at [886, 78] size=17
-      const propNumY = 78;
-      page8.drawRectangle({
-        x: 886,
-        y: pageHeight - propNumY - 20,
-        width: 300,
-        height: 24,
-        color: rgb(1, 1, 1),
-      });
-      page8.drawText(`Proposta nº: ${propostaNumber}`, {
-        x: 886,
-        y: pageHeight - propNumY - 14,
-        size: 17,
-        font: helveticaBold,
-        color: rgb(0, 0, 0),
-      });
+      coverAndDraw(
+        page8, 1160, 212, 16,
+        `${gfatStr}*`,
+        helveticaBold, 16, ph,
+        1160
+      );
     }
 
     // ===== PÁGINA 9 (index 8): Estimativas financeiras =====
     if (pages.length > 8) {
       const page9 = pages[8];
-      const pageHeight = page9.getHeight();
+      const ph = page9.getHeight();
 
-      // RECIEE value at [468, 342] size=20 Helvetica-Bold
-      const recieeY = 342;
+      // RECIEE value - fitz: x=468, y=342, h=16
       const recieeStr = formatCurrency(totalRecuperacao);
-      page9.drawRectangle({
-        x: 468,
-        y: pageHeight - recieeY - 24,
-        width: 250,
-        height: 28,
-        color: rgb(1, 1, 1),
-      });
-      page9.drawText(recieeStr, {
-        x: 468,
-        y: pageHeight - recieeY - 18,
-        size: 20,
-        font: helveticaBold,
-        color: rgb(0, 0, 0),
-      });
+      coverAndDraw(
+        page9, 468, 342, 16,
+        recieeStr,
+        helveticaBold, 20, ph,
+        468
+      );
 
-      // GFAT value at [803, 426] size=20 Helvetica-Bold
-      const gfatTableY = 426;
+      // GFAT value - fitz: x=803, y=426, h=16
       const gfatTableStr = formatCurrency(gfatEstimativa);
-      page9.drawRectangle({
-        x: 803,
-        y: pageHeight - gfatTableY - 24,
-        width: 250,
-        height: 28,
-        color: rgb(1, 1, 1),
-      });
-      page9.drawText(gfatTableStr, {
-        x: 803,
-        y: pageHeight - gfatTableY - 18,
-        size: 20,
-        font: helveticaBold,
-        color: rgb(0, 0, 0),
-      });
+      coverAndDraw(
+        page9, 803, 426, 16,
+        gfatTableStr,
+        helveticaBold, 20, ph,
+        803
+      );
 
-      // TOTAL GERAL values
+      // TOTAL GERAL - fitz: x=508, y=675, h=32
       const totalBruto = totalRecuperacao + gfatEstimativa;
-      const totalLiquido = totalBruto * 0.625; // After 37.5% deduction (simplified)
-
-      // TOTAL BRUTO line at [508, 675]
-      const totalY = 675;
-      page9.drawRectangle({
-        x: 508,
-        y: pageHeight - totalY - 24,
-        width: 700,
-        height: 28,
-        color: rgb(1, 1, 1),
-      });
-      page9.drawText(
+      const totalLiquido = totalBruto * 0.625;
+      coverAndDraw(
+        page9, 508, 675, 32,
         `TOTAL BRUTO: ${formatCurrency(totalBruto)} TOTAL LÍQUIDO: ${formatCurrency(totalLiquido)}`,
-        {
-          x: 508,
-          y: pageHeight - totalY - 18,
-          size: 32,
-          font: calibriFont,
-          color: rgb(0, 0, 0),
-        }
+        helveticaFont, 20, ph,
+        508
       );
     }
 
