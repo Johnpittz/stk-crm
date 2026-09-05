@@ -24,34 +24,33 @@ function generatePropostaNumber(): string {
 }
 
 /**
- * Erase a fitz-coordinate region with a white rectangle, then draw text.
- * Uses the exact fitz bbox coordinates for precise replacement.
+ * Erase ONLY a specific text span's bounding box and draw new text.
+ * Uses exact fitz bbox coordinates (x0, y0 top-left, w, h).
  */
-function eraseAndDraw(
+function replaceSpan(
   page: any,
-  fitzX: number, fitzY: number, fitzW: number, fitzH: number,
-  text: string, font: any, fontSize: number, pageHeight: number,
-  opts?: { textX?: number; color?: [number, number, number] }
+  x0: number, y0: number, w: number, h: number,
+  newText: string, font: any, fontSize: number, pageHeight: number,
+  newTextX?: number
 ) {
-  const pad = 8;
-  // White rectangle covering the old text area
+  const pad = 4;
+  // White rectangle: only covers the exact text bbox
   page.drawRectangle({
-    x: fitzX - pad,
-    y: pageHeight - fitzY - fitzH - pad,
-    width: fitzW + pad * 3,
-    height: fitzH + pad * 2,
+    x: x0 - pad,
+    y: pageHeight - y0 - h - pad,
+    width: w + pad * 2,
+    height: h + pad * 2,
     color: rgb(1, 1, 1),
   });
 
-  // New text: baseline = pageHeight - fitzY - fontSize * capHeightRatio
-  // capHeightRatio ≈ 0.28 for Helvetica (cap height is ~72% of font size)
-  const baselineY = pageHeight - fitzY - fontSize * 0.28;
-  page.drawText(text, {
-    x: opts?.textX ?? fitzX,
+  // Text baseline: y0 is top of text box, baseline ≈ top + fontSize * 0.22
+  const baselineY = pageHeight - y0 - fontSize * 0.22;
+  page.drawText(newText, {
+    x: newTextX ?? x0,
     y: baselineY,
     size: fontSize,
     font,
-    color: opts?.color ? rgb(...opts.color) : rgb(0, 0, 0),
+    color: rgb(0, 0, 0),
   });
 }
 
@@ -98,70 +97,65 @@ export async function POST(
     const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     const pages = pdfDoc.getPages();
 
-    // ===== PÁGINA 2 (index 1): Carta de apresentação =====
+    // ===== PÁGINA 2 (index 1) =====
     if (pages.length > 1) {
       const p = pages[1];
       const H = p.getHeight();
-      // fitz: "AGROCENTRAL INDÚSTRIA E COMÉRCIO-NUTRIRAÇÃO." x=168 y=151 w=650 h=35
-      eraseAndDraw(p, 168, 151, 650, 35,
-        clienteName.toUpperCase() + ".", font, 32, H,
-        { textX: 168, color: [0.1, 0.1, 0.1] });
+      // "AGROCENTRAL INDÚSTRIA E COMÉRCIO-NUTRIRAÇÃO." x=168 y=151 w=650 h=35
+      replaceSpan(p, 168, 151, 650, 35,
+        clienteName.toUpperCase() + ".", font, 32, H, 168);
     }
 
-    // ===== PÁGINA 8 (index 7): Proposta RECIEE =====
+    // ===== PÁGINA 8 (index 7) =====
     if (pages.length > 7) {
       const p = pages[7];
       const H = p.getHeight();
 
-      // Proposta nº: fitz x=886 y=77.8 w=247 h=23.4
-      eraseAndDraw(p, 886, 77.8, 350, 24,
-        `Proposta nº: ${propostaNumber}`, bold, 17, H, { textX: 886 });
+      // --- Proposta nº: x=886 y=77.8 w=247 h=23.4 (size 17) ---
+      replaceSpan(p, 886, 77.8, 247, 23.4,
+        `Proposta nº: ${propostaNumber}`, bold, 17, H, 886);
 
-      // Cliente: fitz x=886 y=106.8 w=500 h=23.4
-      eraseAndDraw(p, 886, 106.8, 500, 24,
-        `Cliente: ${clienteName.toUpperCase()}`, bold, 17, H, { textX: 886 });
+      // --- Cliente: x=886 y=106.8 w=199 h=23.4 (size 17) ---
+      replaceSpan(p, 886, 106.8, 199, 23.4,
+        `Cliente: ${clienteName.toUpperCase()}`, bold, 17, H, 886);
 
-      // Valor label: fitz x=887 y=154.9 w=141 h=20.6
-      eraseAndDraw(p, 887, 154.9, 141, 21,
-        "Valor atual da Conta:", font, 15, H, { textX: 887 });
-      // Valor value: fitz x=1180 y=153.9 w=87 h=22
-      eraseAndDraw(p, 1180, 153.9, 120, 22,
-        formatCurrency(valorAtualConta), bold, 16, H, { textX: 1180 });
+      // --- Valor atual: LABEL at x=887 y=154.9 w=141 h=20.6 + VALUE at x=1180 y=153.9 w=87 h=22 ---
+      // Don't erase the label, only erase and replace the VALUE
+      replaceSpan(p, 1180, 153.9, 87, 22,
+        formatCurrency(valorAtualConta), bold, 16, H, 1180);
 
-      // Estimativa label: fitz x=887 y=183.9 w=252 h=20.6
-      eraseAndDraw(p, 887, 183.9, 252, 21,
-        "Estimativa de recuperação (RECIEE):", font, 15, H, { textX: 887 });
-      // Estimativa value: fitz x=1260 y=182.9 w=87 h=22
-      eraseAndDraw(p, 1260, 182.9, 120, 22,
-        formatCurrency(totalRecuperacao), bold, 16, H, { textX: 1260 });
+      // --- Estimativa: LABEL at x=887 y=183.9 + VALUE at x=1260 y=182.9 w=87 h=22 ---
+      replaceSpan(p, 1260, 182.9, 87, 22,
+        formatCurrency(totalRecuperacao), bold, 16, H, 1260);
 
-      // GFAT label: fitz x=887 y=212.9 w=170 h=20.6
-      eraseAndDraw(p, 887, 212.9, 170, 21,
-        "Ajuste contratual (GFAT):", font, 15, H, { textX: 887 });
-      // GFAT value: fitz x=1160 y=211.9 w=87 h=22
-      eraseAndDraw(p, 1160, 211.9, 130, 22,
-        `${formatCurrency(gfatEstimativa)}*`, bold, 16, H, { textX: 1160 });
+      // --- GFAT: LABEL at x=887 y=212.9 + VALUE at x=1160 y=211.9 w=87 h=22 ---
+      replaceSpan(p, 1160, 211.9, 87, 22,
+        `${formatCurrency(gfatEstimativa)}*`, bold, 16, H, 1160);
     }
 
-    // ===== PÁGINA 9 (index 8): Estimativas financeiras =====
+    // ===== PÁGINA 9 (index 8) =====
     if (pages.length > 8) {
       const p = pages[8];
       const H = p.getHeight();
 
-      // RECIEE value: fitz x=468 y=342 w=150 h=20
-      eraseAndDraw(p, 468, 342, 200, 20,
-        formatCurrency(totalRecuperacao), bold, 20, H, { textX: 468 });
+      // RECIEE value: TWO spans to replace:
+      //   Size 32: x=467 y=339.3 w=171 h=32
+      //   Size 20: x=468 y=341.6 w=109 h=28
+      replaceSpan(p, 467, 339.3, 171, 32,
+        formatCurrency(totalRecuperacao), bold, 32, H, 467);
 
-      // GFAT value: fitz x=803 y=426 w=150 h=20
-      eraseAndDraw(p, 803, 426, 200, 20,
-        formatCurrency(gfatEstimativa), bold, 20, H, { textX: 803 });
+      // GFAT value: TWO spans:
+      //   Size 32: x=802.7 y=423.3 w=170 h=32
+      //   Size 20: x=803 y=425.6 w=109 h=28
+      replaceSpan(p, 802.7, 423.3, 170, 32,
+        formatCurrency(gfatEstimativa), bold, 32, H, 803);
 
+      // TOTAL GERAL line: x=508.3 y=675.3 w=759 h=32 (size 32)
       const totalBruto = totalRecuperacao + gfatEstimativa;
       const totalLiquido = totalBruto * 0.625;
-      // TOTAL BRUTO: fitz x=508 y=675 w=700 h=32
-      eraseAndDraw(p, 508, 675, 750, 35,
+      replaceSpan(p, 508.3, 675.3, 759, 32,
         `TOTAL BRUTO: ${formatCurrency(totalBruto)} TOTAL LÍQUIDO: ${formatCurrency(totalLiquido)}`,
-        font, 20, H, { textX: 508 });
+        font, 22, H, 508.3);
     }
 
     const pdfBytes = await pdfDoc.save();
