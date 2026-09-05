@@ -24,29 +24,34 @@ function generatePropostaNumber(): string {
 }
 
 /**
- * Erase ONLY a specific text span's bounding box and draw new text.
- * Uses exact fitz bbox coordinates (x0, y0 top-left, w, h).
+ * Replace text at exact fitz coordinates.
+ * fitzX, fitzY = top-left of text bbox (fitz coords, y=0 at top)
+ * fitzW, fitzH = text bbox dimensions
+ * New text is drawn at the SAME position as the old text.
  */
-function replaceSpan(
+function replaceText(
   page: any,
-  x0: number, y0: number, w: number, h: number,
+  fitzX: number, fitzY: number, fitzW: number, fitzH: number,
   newText: string, font: any, fontSize: number, pageHeight: number,
   newTextX?: number
 ) {
-  const pad = 4;
-  // White rectangle: only covers the exact text bbox
+  const pad = 3;
+  // White rectangle covering exact bbox
   page.drawRectangle({
-    x: x0 - pad,
-    y: pageHeight - y0 - h - pad,
-    width: w + pad * 2,
-    height: h + pad * 2,
+    x: fitzX - pad,
+    y: pageHeight - fitzY - fitzH - pad,
+    width: fitzW + pad * 2,
+    height: fitzH + pad * 2,
     color: rgb(1, 1, 1),
   });
 
-  // Text baseline: y0 is top of text box, baseline ≈ top + fontSize * 0.22
-  const baselineY = pageHeight - y0 - fontSize * 0.22;
+  // Baseline calculation for Helvetica:
+  // fitzH ≈ fontSize * 1.375 (bbox height ratio)
+  // Cap height ≈ fontSize * 0.714
+  // Baseline offset from top = fitzH - capHeight = fontSize * (1.375 - 0.714) = fontSize * 0.661
+  const baselineY = pageHeight - fitzY - fontSize * 0.661;
   page.drawText(newText, {
-    x: newTextX ?? x0,
+    x: newTextX ?? fitzX,
     y: baselineY,
     size: fontSize,
     font,
@@ -101,8 +106,8 @@ export async function POST(
     if (pages.length > 1) {
       const p = pages[1];
       const H = p.getHeight();
-      // "AGROCENTRAL INDÚSTRIA E COMÉRCIO-NUTRIRAÇÃO." x=168 y=151 w=650 h=35
-      replaceSpan(p, 168, 151, 650, 35,
+      // fitz bbox: x=168, y=151, w=650, h=35 (size=32)
+      replaceText(p, 168, 151, 650, 35,
         clienteName.toUpperCase() + ".", font, 32, H, 168);
     }
 
@@ -111,25 +116,24 @@ export async function POST(
       const p = pages[7];
       const H = p.getHeight();
 
-      // --- Proposta nº: x=886 y=77.8 w=247 h=23.4 (size 17) ---
-      replaceSpan(p, 886, 77.8, 247, 23.4,
+      // Proposta nº: fitz bbox x=886, y=77.8, w=247, h=23.4 (size=17)
+      replaceText(p, 886, 77.8, 247, 23.4,
         `Proposta nº: ${propostaNumber}`, bold, 17, H, 886);
 
-      // --- Cliente: x=886 y=106.8 w=199 h=23.4 (size 17) ---
-      replaceSpan(p, 886, 106.8, 199, 23.4,
+      // Cliente: fitz bbox x=886, y=106.8, w=199, h=23.4 (size=17)
+      replaceText(p, 886, 106.8, 199, 23.4,
         `Cliente: ${clienteName.toUpperCase()}`, bold, 17, H, 886);
 
-      // --- Valor atual: LABEL at x=887 y=154.9 w=141 h=20.6 + VALUE at x=1180 y=153.9 w=87 h=22 ---
-      // Don't erase the label, only erase and replace the VALUE
-      replaceSpan(p, 1180, 153.9, 87, 22,
+      // Valor value ONLY: fitz bbox x=1180, y=153.9, w=87, h=22 (size=16)
+      replaceText(p, 1180, 153.9, 87, 22,
         formatCurrency(valorAtualConta), bold, 16, H, 1180);
 
-      // --- Estimativa: LABEL at x=887 y=183.9 + VALUE at x=1260 y=182.9 w=87 h=22 ---
-      replaceSpan(p, 1260, 182.9, 87, 22,
+      // Estimativa value ONLY: fitz bbox x=1260, y=182.9, w=87, h=22 (size=16)
+      replaceText(p, 1260, 182.9, 87, 22,
         formatCurrency(totalRecuperacao), bold, 16, H, 1260);
 
-      // --- GFAT: LABEL at x=887 y=212.9 + VALUE at x=1160 y=211.9 w=87 h=22 ---
-      replaceSpan(p, 1160, 211.9, 87, 22,
+      // GFAT value ONLY: fitz bbox x=1160, y=211.9, w=87, h=22 (size=16)
+      replaceText(p, 1160, 211.9, 87, 22,
         `${formatCurrency(gfatEstimativa)}*`, bold, 16, H, 1160);
     }
 
@@ -138,24 +142,20 @@ export async function POST(
       const p = pages[8];
       const H = p.getHeight();
 
-      // RECIEE value: TWO spans to replace:
-      //   Size 32: x=467 y=339.3 w=171 h=32
-      //   Size 20: x=468 y=341.6 w=109 h=28
-      replaceSpan(p, 467, 339.3, 171, 32,
-        formatCurrency(totalRecuperacao), bold, 32, H, 467);
+      // RECIEE value: fitz bbox x=468, y=341.6, w=109, h=28 (size=20)
+      replaceText(p, 468, 341.6, 109, 28,
+        formatCurrency(totalRecuperacao), bold, 20, H, 468);
 
-      // GFAT value: TWO spans:
-      //   Size 32: x=802.7 y=423.3 w=170 h=32
-      //   Size 20: x=803 y=425.6 w=109 h=28
-      replaceSpan(p, 802.7, 423.3, 170, 32,
-        formatCurrency(gfatEstimativa), bold, 32, H, 803);
+      // GFAT value: fitz bbox x=803, y=425.6, w=109, h=28 (size=20)
+      replaceText(p, 803, 425.6, 109, 28,
+        formatCurrency(gfatEstimativa), bold, 20, H, 803);
 
-      // TOTAL GERAL line: x=508.3 y=675.3 w=759 h=32 (size 32)
+      // TOTAL BRUTO/LÍQUIDO: fitz bbox x=508, y=677.5, w=670, h=28 (size=20)
       const totalBruto = totalRecuperacao + gfatEstimativa;
       const totalLiquido = totalBruto * 0.625;
-      replaceSpan(p, 508.3, 675.3, 759, 32,
+      replaceText(p, 508, 677.5, 670, 28,
         `TOTAL BRUTO: ${formatCurrency(totalBruto)} TOTAL LÍQUIDO: ${formatCurrency(totalLiquido)}`,
-        font, 22, H, 508.3);
+        font, 20, H, 508);
     }
 
     const pdfBytes = await pdfDoc.save();
