@@ -68,9 +68,9 @@ export async function POST(
     if (pages.length > 7) {
       const p = pages[7];
 
-      // Erase only the right-side proposal box (x >= 870, y from ~60 to ~290)
-      // Don't overlap with header at y=PH-55
-      p.drawRectangle({ x: 870, y: PH - 290, width: PW - 860, height: 245, color: WHITE });
+      // Erase only the right-side proposal box (x >= 870, y from ~80 to ~280)
+      // Start below the header to preserve title
+      p.drawRectangle({ x: 870, y: PH - 310, width: PW - 860, height: 250, color: WHITE });
 
       // Draw right column content with proper alignment
       const rx = 890;
@@ -137,15 +137,15 @@ export async function POST(
       const col2 = mx + tblW * 0.38;
       const col3 = mx + tblW * 0.68;
 
-      let ty = PH - 140;
+      let ty = PH - 130;
 
       // Table header row (dark blue)
-      p.drawRectangle({ x: mx, y: ty - 40, width: tblW, height: 40, color: DARK });
-      p.drawText("SERVIÇO", { x: col1, y: ty - 28, size: 13, font: hb, color: WHITE });
-      p.drawText("ESTIMATIVA DE RECUPERAÇÃO", { x: col2, y: ty - 28, size: 13, font: hb, color: WHITE });
-      p.drawText("ESTIMATIVA DE ECONOMIA", { x: col3, y: ty - 28, size: 13, font: hb, color: WHITE });
+      p.drawRectangle({ x: mx, y: ty - 45, width: tblW, height: 45, color: DARK });
+      p.drawText("SERVIÇO", { x: col1, y: ty - 30, size: 14, font: hb, color: WHITE });
+      p.drawText("ESTIMATIVA DE RECUPERAÇÃO", { x: col2, y: ty - 30, size: 14, font: hb, color: WHITE });
+      p.drawText("ESTIMATIVA DE ECONOMIA", { x: col3, y: ty - 30, size: 14, font: hb, color: WHITE });
 
-      ty -= 40;
+      ty -= 45;
 
       // Table rows
       const rows = [
@@ -157,7 +157,7 @@ export async function POST(
 
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
-        const rowH = 65;
+        const rowH = 80;
         const bgColor = i % 2 === 0 ? WHITE : LTGRAY;
 
         p.drawRectangle({ x: mx, y: ty - rowH, width: tblW, height: rowH, color: bgColor });
