@@ -68,13 +68,13 @@ export async function POST(
     if (pages.length > 7) {
       const p = pages[7];
 
-      // Erase only the right-side proposal box (x >= 870, y from ~80 to ~280)
-      // Start below the header to preserve title
-      p.drawRectangle({ x: 870, y: PH - 310, width: PW - 860, height: 250, color: WHITE });
+      // Erase only the right-side proposal box
+      // Start at x=880 to avoid covering labels, below header
+      p.drawRectangle({ x: 880, y: PH - 310, width: PW - 870, height: 250, color: WHITE });
 
       // Draw right column content with proper alignment
       const rx = 890;
-      let ry = PH - 68;
+      let ry = PH - 80;
 
       // Proposta nº
       p.drawText(`Proposta nº: ${propNum}`, { x: rx, y: ry, size: 16, font: hb, color: BLACK });
