@@ -68,12 +68,13 @@ export async function POST(
     if (pages.length > 7) {
       const p = pages[7];
 
-      // Erase only the right-side proposal box (x >= 870, y from ~60 to ~310)
-      p.drawRectangle({ x: 870, y: PH - 320, width: PW - 860, height: 275, color: WHITE });
+      // Erase only the right-side proposal box (x >= 870, y from ~60 to ~290)
+      // Don't overlap with header at y=PH-55
+      p.drawRectangle({ x: 870, y: PH - 290, width: PW - 860, height: 245, color: WHITE });
 
       // Draw right column content with proper alignment
       const rx = 890;
-      let ry = PH - 72;
+      let ry = PH - 68;
 
       // Proposta nº
       p.drawText(`Proposta nº: ${propNum}`, { x: rx, y: ry, size: 16, font: hb, color: BLACK });
@@ -156,7 +157,7 @@ export async function POST(
 
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
-        const rowH = 50;
+        const rowH = 65;
         const bgColor = i % 2 === 0 ? WHITE : LTGRAY;
 
         p.drawRectangle({ x: mx, y: ty - rowH, width: tblW, height: rowH, color: bgColor });
@@ -172,7 +173,7 @@ export async function POST(
       // Total row (dark blue background)
       const totalBruto = totalRec + gfat;
       const totalLiq = totalBruto * 0.625;
-      const totalRowH = 50;
+      const totalRowH = 65;
       p.drawRectangle({ x: mx, y: ty - totalRowH, width: tblW, height: totalRowH, color: DARK });
 
       p.drawText("TOTAL GERAL", { x: col1, y: ty - 32, size: 14, font: hb, color: WHITE });
