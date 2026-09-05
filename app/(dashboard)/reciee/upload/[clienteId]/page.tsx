@@ -94,39 +94,50 @@ export default function UploadFaturasPage() {
     setFiles((prev) => prev.filter((_, i) => i !== index));
   }
 
-  // Upload e processamento
+  // Upload e processamento — envia um arquivo por vez para não estourar limite do Vercel
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
+
   async function handleUpload() {
     if (files.length === 0 || !cliente) return;
 
     setUploading(true);
     setResult(null);
+    setUploadProgress({ current: 0, total: files.length });
+
+    let totalFaturas = 0;
+    let totalAnalises = 0;
+    const allErros: string[] = [];
 
     try {
-      const formData = new FormData();
-      files.forEach((file) => {
-        formData.append("faturas", file);
-      });
+      for (let i = 0; i < files.length; i++) {
+        setUploadProgress({ current: i + 1, total: files.length });
 
-      const res = await fetch(`/api/reciee/upload/${clienteId}`, {
-        method: "POST",
-        body: formData,
-      });
+        const formData = new FormData();
+        formData.append("faturas", files[i]);
 
-      const data = await res.json();
-
-      if (res.ok) {
-        setResult({
-          success: true,
-          faturas_extraidas: data.faturas_extraidas,
-          analises_geradas: data.analises_geradas,
-          erros: data.erros,
+        const res = await fetch(`/api/reciee/upload/${clienteId}`, {
+          method: "POST",
+          body: formData,
         });
-      } else {
-        setResult({
-          success: false,
-          erros: data.erros || [data.error || "Erro desconhecido"],
-        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          totalFaturas += data.faturas_extraidas || 0;
+          totalAnalises += data.analises_geradas || 0;
+          if (data.erros?.length) allErros.push(...data.erros);
+        } else {
+          allErros.push(`${files[i].name}: ${data.error || "Erro desconhecido"}`);
+          if (data.erros?.length) allErros.push(...data.erros);
+        }
       }
+
+      setResult({
+        success: totalFaturas > 0,
+        faturas_extraidas: totalFaturas,
+        analises_geradas: totalAnalises,
+        erros: allErros.length > 0 ? allErros : undefined,
+      });
     } catch (error: any) {
       setResult({
         success: false,
@@ -320,7 +331,9 @@ export default function UploadFaturasPage() {
               ) : (
                 <Upload className="h-4 w-4 mr-2" />
               )}
-              {uploading ? "Processando..." : "Processar Faturas"}
+              {uploading
+                ? `Processando ${uploadProgress.current}/${uploadProgress.total}...`
+                : "Processar Faturas"}
             </Button>
             <Button
               variant="outline"
@@ -330,6 +343,16 @@ export default function UploadFaturasPage() {
               Cancelar
             </Button>
           </div>
+
+          {/* Barra de progresso */}
+          {uploading && uploadProgress.total > 0 && (
+            <div className="w-full bg-[#1a2744] rounded-full h-2 mt-2">
+              <div
+                className="bg-[#3B64CF] h-2 rounded-full transition-all duration-300"
+                style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+              ></div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
