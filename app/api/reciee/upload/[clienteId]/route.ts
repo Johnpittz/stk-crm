@@ -1,12 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-// @ts-ignore
-import pdf from "pdf-parse";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+// Lazy-load pdf-parse to avoid cold-start issues
+async function parsePdf(buffer: Buffer): Promise<string> {
+  // Use require for CJS module
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const pdfParse = require("pdf-parse");
+  const PDFParse = pdfParse.PDFParse || pdfParse.default || pdfParse;
+  const data = await PDFParse(buffer);
+  return data.text || "";
+}
 
 // ==================== FUNÇÕES DE EXTRAÇÃO ====================
 
@@ -222,8 +230,7 @@ export async function POST(
       try {
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
-        const data = await pdf(buffer);
-        const text = data.text || "";
+        const text = await parsePdf(buffer);
 
         if (!text.trim()) {
           erros.push(`${file.name}: PDF sem texto extraível`);
