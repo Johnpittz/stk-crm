@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+// Increase function timeout (Vercel Pro: 300s max, Hobby: 60s max)
+export const maxDuration = 60;
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -13,11 +16,17 @@ function parsePdf(buffer: Buffer): Promise<string> {
     const PDFParser = require("pdf2json");
     const pdfParser = new PDFParser();
 
+    const timeout = setTimeout(() => {
+      reject(new Error("Timeout ao processar PDF (30s)"));
+    }, 30000);
+
     pdfParser.on("pdfParser_dataError", (err: any) => {
+      clearTimeout(timeout);
       reject(new Error(err?.parserError?.message || "Erro ao parsear PDF"));
     });
 
     pdfParser.on("pdfParser_dataReady", (data: any) => {
+      clearTimeout(timeout);
       let text = "";
       const pages = data.Pages || [];
       for (const page of pages) {
@@ -25,7 +34,11 @@ function parsePdf(buffer: Buffer): Promise<string> {
         for (const t of texts) {
           const runs = t.R || [];
           for (const run of runs) {
-            text += decodeURIComponent(run.T || "") + " ";
+            try {
+              text += decodeURIComponent(run.T || "") + " ";
+            } catch {
+              text += (run.T || "") + " ";
+            }
           }
           text += "\n";
         }
