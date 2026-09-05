@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -78,6 +79,7 @@ interface AnaliseReciee {
 }
 
 export default function RecieePage() {
+  const router = useRouter();
   const [clientes, setClientes] = useState<ClienteReciee[]>([]);
   const [faturas, setFaturas] = useState<FaturaReciee[]>([]);
   const [analises, setAnalises] = useState<AnaliseReciee[]>([]);
@@ -86,7 +88,8 @@ export default function RecieePage() {
 
   // Modal states
   const [novoClienteOpen, setNovoClienteOpen] = useState(false);
-  const [uploadFaturaOpen, setUploadFaturaOpen] = useState(false);
+  const [uploadSelectOpen, setUploadSelectOpen] = useState(false);
+  const [selectedClienteId, setSelectedClienteId] = useState("");
   const [saving, setSaving] = useState(false);
 
   // Novo Cliente form
@@ -105,21 +108,14 @@ export default function RecieePage() {
     grupo: "B" as "A" | "B",
   });
 
-  // Upload Fatura form
-  const [formFatura, setFormFatura] = useState({
-    cliente_id: "",
-    competencia: "",
-    consumo_kwh: "",
-    tarifa_aplicada: "",
-    valor_consumo: "",
-    icms_valor: "",
-    icms_aliquota: "",
-    pis_valor: "",
-    cofins_valor: "",
-    bandeira: "Verde",
-    cip: "",
-    valor_total: "",
-  });
+  // Upload Fatura form - redireciona para página de upload
+  function handleUploadFatura() {
+    if (!selectedClienteId) {
+      alert("Selecione um cliente");
+      return;
+    }
+    router.push(`/reciee/upload/${selectedClienteId}`);
+  }
 
   // Carregar dados
   useEffect(() => {
@@ -188,58 +184,7 @@ export default function RecieePage() {
     }
   }
 
-  // Criar fatura
-  async function handleCriarFatura() {
-    if (!formFatura.cliente_id || !formFatura.competencia || !formFatura.valor_total) {
-      alert("Selecione cliente, competência e valor total");
-      return;
-    }
-    setSaving(true);
-    try {
-      const body = {
-        ...formFatura,
-        consumo_kwh: parseFloat(formFatura.consumo_kwh) || 0,
-        tarifa_aplicada: parseFloat(formFatura.tarifa_aplicada) || 0,
-        valor_consumo: parseFloat(formFatura.valor_consumo) || 0,
-        icms_valor: parseFloat(formFatura.icms_valor) || 0,
-        icms_aliquota: parseFloat(formFatura.icms_aliquota) || 0,
-        pis_valor: parseFloat(formFatura.pis_valor) || 0,
-        cofins_valor: parseFloat(formFatura.cofins_valor) || 0,
-        cip: parseFloat(formFatura.cip) || 0,
-        valor_total: parseFloat(formFatura.valor_total) || 0,
-      };
-      const res = await fetch("/api/reciee/faturas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (data.error) {
-        alert("Erro: " + data.error);
-        return;
-      }
-      setFaturas([data.fatura, ...faturas]);
-      setUploadFaturaOpen(false);
-      setFormFatura({
-        cliente_id: "",
-        competencia: "",
-        consumo_kwh: "",
-        tarifa_aplicada: "",
-        valor_consumo: "",
-        icms_valor: "",
-        icms_aliquota: "",
-        pis_valor: "",
-        cofins_valor: "",
-        bandeira: "Verde",
-        cip: "",
-        valor_total: "",
-      });
-    } catch (error) {
-      alert("Erro ao criar fatura");
-    } finally {
-      setSaving(false);
-    }
-  }
+  // Criar fatura - agora redireciona para upload de PDF
 
   // Calcular estatísticas
   const totalClientes = clientes.length;
@@ -271,28 +216,28 @@ export default function RecieePage() {
           <p className="text-white/60">Recuperação de Cobranças Indevidas de Energia Elétrica</p>
         </div>
         <div className="flex gap-2">
-          {/* Botão Upload Faturas */}
-          <Dialog open={uploadFaturaOpen} onOpenChange={setUploadFaturaOpen}>
+          {/* Botão Upload Faturas - Seleciona cliente e vai para upload */}
+          <Dialog open={uploadSelectOpen} onOpenChange={setUploadSelectOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" className="border-[#3B64CF]/30 text-white hover:bg-[#3B64CF]/20">
                 <Upload className="h-4 w-4 mr-2" />
                 Upload Faturas
               </Button>
             </DialogTrigger>
-            <DialogContent className="bg-[#0f1d32] border-[#3B64CF]/30 text-white max-w-lg">
+            <DialogContent className="bg-[#0f1d32] border-[#3B64CF]/30 text-white max-w-md">
               <DialogHeader>
-                <DialogTitle>Nova Fatura</DialogTitle>
+                <DialogTitle>Upload de Faturas</DialogTitle>
                 <DialogDescription className="text-white/60">
-                  Preencha os dados da fatura de energia.
+                  Selecione o cliente para fazer upload das faturas PDF.
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+              <div className="space-y-4">
                 <div>
                   <Label className="text-white/80">Cliente *</Label>
                   <select
                     className="w-full bg-[#1a2744] border border-[#3B64CF]/30 rounded-md px-3 py-2 text-white mt-1"
-                    value={formFatura.cliente_id}
-                    onChange={(e) => setFormFatura({ ...formFatura, cliente_id: e.target.value })}
+                    value={selectedClienteId}
+                    onChange={(e) => setSelectedClienteId(e.target.value)}
                   >
                     <option value="">Selecione o cliente</option>
                     {clientes.map((c) => (
@@ -302,151 +247,27 @@ export default function RecieePage() {
                     ))}
                   </select>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-white/80">Competência *</Label>
-                    <Input
-                      placeholder="MM/AAAA"
-                      className="bg-[#1a2744] border-[#3B64CF]/30 text-white mt-1"
-                      value={formFatura.competencia}
-                      onChange={(e) => setFormFatura({ ...formFatura, competencia: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-white/80">Bandeira</Label>
-                    <select
-                      className="w-full bg-[#1a2744] border border-[#3B64CF]/30 rounded-md px-3 py-2 text-white mt-1"
-                      value={formFatura.bandeira}
-                      onChange={(e) => setFormFatura({ ...formFatura, bandeira: e.target.value })}
-                    >
-                      <option value="Verde">🟢 Verde</option>
-                      <option value="Amarela">🟡 Amarela</option>
-                      <option value="Vermelha">🔴 Vermelha</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-white/80">Consumo (kWh)</Label>
-                    <Input
-                      type="number"
-                      placeholder="0"
-                      className="bg-[#1a2744] border-[#3B64CF]/30 text-white mt-1"
-                      value={formFatura.consumo_kwh}
-                      onChange={(e) => setFormFatura({ ...formFatura, consumo_kwh: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-white/80">Tarifa (R$/kWh)</Label>
-                    <Input
-                      type="number"
-                      step="0.0001"
-                      placeholder="0.0000"
-                      className="bg-[#1a2744] border-[#3B64CF]/30 text-white mt-1"
-                      value={formFatura.tarifa_aplicada}
-                      onChange={(e) => setFormFatura({ ...formFatura, tarifa_aplicada: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-white/80">Valor Consumo (R$)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      className="bg-[#1a2744] border-[#3B64CF]/30 text-white mt-1"
-                      value={formFatura.valor_consumo}
-                      onChange={(e) => setFormFatura({ ...formFatura, valor_consumo: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-white/80">Valor Total (R$) *</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      className="bg-[#1a2744] border-[#3B64CF]/30 text-white mt-1"
-                      value={formFatura.valor_total}
-                      onChange={(e) => setFormFatura({ ...formFatura, valor_total: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Label className="text-white/80">ICMS (R$)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      className="bg-[#1a2744] border-[#3B64CF]/30 text-white mt-1"
-                      value={formFatura.icms_valor}
-                      onChange={(e) => setFormFatura({ ...formFatura, icms_valor: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-white/80">ICMS (%)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      className="bg-[#1a2744] border-[#3B64CF]/30 text-white mt-1"
-                      value={formFatura.icms_aliquota}
-                      onChange={(e) => setFormFatura({ ...formFatura, icms_aliquota: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-white/80">CIP (R$)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      className="bg-[#1a2744] border-[#3B64CF]/30 text-white mt-1"
-                      value={formFatura.cip}
-                      onChange={(e) => setFormFatura({ ...formFatura, cip: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-white/80">PIS (R$)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      className="bg-[#1a2744] border-[#3B64CF]/30 text-white mt-1"
-                      value={formFatura.pis_valor}
-                      onChange={(e) => setFormFatura({ ...formFatura, pis_valor: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-white/80">COFINS (R$)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      className="bg-[#1a2744] border-[#3B64CF]/30 text-white mt-1"
-                      value={formFatura.cofins_valor}
-                      onChange={(e) => setFormFatura({ ...formFatura, cofins_valor: e.target.value })}
-                    />
-                  </div>
-                </div>
+                {clientes.length === 0 && (
+                  <p className="text-white/40 text-sm text-center py-4">
+                    Nenhum cliente cadastrado. Crie um cliente primeiro.
+                  </p>
+                )}
               </div>
               <DialogFooter>
                 <Button
                   variant="outline"
-                  onClick={() => setUploadFaturaOpen(false)}
+                  onClick={() => setUploadSelectOpen(false)}
                   className="border-white/20 text-white"
                 >
                   Cancelar
                 </Button>
                 <Button
-                  onClick={handleCriarFatura}
-                  disabled={saving}
+                  onClick={handleUploadFatura}
+                  disabled={!selectedClienteId}
                   className="bg-[#3B64CF] hover:bg-[#2a4fa8]"
                 >
-                  {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
-                  {saving ? "Salvando..." : "Salvar Fatura"}
+                  <Upload className="h-4 w-4 mr-2" />
+                  Ir para Upload
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -811,7 +632,7 @@ export default function RecieePage() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-white">Faturas Processadas</CardTitle>
                 <Button
-                  onClick={() => setUploadFaturaOpen(true)}
+                  onClick={() => setUploadSelectOpen(true)}
                   className="bg-[#3B64CF] hover:bg-[#2a4fa8]"
                 >
                   <Plus className="h-4 w-4 mr-2" />
