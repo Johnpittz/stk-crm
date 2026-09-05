@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+// Polyfill DOMMatrix for pdfjs-dist in Node.js environments
+if (typeof globalThis.DOMMatrix === "undefined") {
+  (globalThis as any).DOMMatrix = class DOMMatrix {
+    constructor() {}
+  };
+}
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -8,7 +15,6 @@ const supabase = createClient(
 
 // Lazy-load pdf-parse to avoid cold-start issues
 async function parsePdf(buffer: Buffer): Promise<string> {
-  // Use require for CJS module
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const pdfParse = require("pdf-parse");
   const PDFParse = pdfParse.PDFParse || pdfParse.default || pdfParse;
