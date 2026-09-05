@@ -5,20 +5,29 @@ import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   ArrowLeft,
-  Zap,
-  FileText,
-  Upload,
   Users,
   TrendingUp,
   AlertTriangle,
-  CheckCircle,
-  Clock,
-  DollarSign,
+  FileText,
+  Upload,
   BarChart3,
+  DollarSign,
   Loader2,
+  Pencil,
+  RefreshCw,
+  FileSpreadsheet,
+  FileDown,
 } from "lucide-react";
 
 interface ClienteReciee {
@@ -35,6 +44,9 @@ interface ClienteReciee {
   regime_tributario: string;
   gd: boolean;
   grupo: "A" | "B";
+  telefone?: string;
+  endereco?: string;
+  cidade?: string;
   created_at: string;
 }
 
@@ -64,6 +76,7 @@ interface AnaliseReciee {
   descricao: string;
   severidade: "critico" | "alerta" | "ok" | "info";
   valor_estimado: number;
+  periodo?: string;
   created_at: string;
 }
 
@@ -76,7 +89,16 @@ export default function ClienteDetalhePage() {
   const [faturas, setFaturas] = useState<FaturaReciee[]>([]);
   const [analises, setAnalises] = useState<AnaliseReciee[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("faturas");
+
+  // Edit dialog state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState<Partial<ClienteReciee>>({});
+  const [saving, setSaving] = useState(false);
+
+  // Action loading states
+  const [reAnalisando, setReAnalisando] = useState(false);
+  const [gerandoExcel, setGerandoExcel] = useState(false);
+  const [gerandoProposta, setGerandoProposta] = useState(false);
 
   useEffect(() => {
     carregarDados();
@@ -85,19 +107,22 @@ export default function ClienteDetalhePage() {
   async function carregarDados() {
     setLoading(true);
     try {
-      // Buscar cliente
       const resClientes = await fetch("/api/reciee/clientes");
       const dataClientes = await resClientes.json();
-      const c = dataClientes.clientes?.find((cl: ClienteReciee) => cl.id === clienteId);
+      const c = dataClientes.clientes?.find(
+        (cl: ClienteReciee) => cl.id === clienteId
+      );
       setCliente(c || null);
 
-      // Buscar faturas do cliente
-      const resFaturas = await fetch(`/api/reciee/faturas?cliente_id=${clienteId}`);
+      const resFaturas = await fetch(
+        `/api/reciee/faturas?cliente_id=${clienteId}`
+      );
       const dataFaturas = await resFaturas.json();
       setFaturas(dataFaturas.faturas || []);
 
-      // Buscar análises do cliente
-      const resAnalises = await fetch(`/api/reciee/analises?cliente_id=${clienteId}`);
+      const resAnalises = await fetch(
+        `/api/reciee/analises?cliente_id=${clienteId}`
+      );
       const dataAnalises = await resAnalises.json();
       setAnalises(dataAnalises.analises || []);
     } catch (error) {
@@ -107,14 +132,137 @@ export default function ClienteDetalhePage() {
     }
   }
 
-  // Calcular estatísticas do cliente
+  // --- Stats ---
   const totalFaturas = faturas.length;
-  const totalConsumo = faturas.reduce((acc, f) => acc + (f.consumo_kwh || 0), 0);
-  const totalGasto = faturas.reduce((acc, f) => acc + (f.valor_total || 0), 0);
   const criticos = analises.filter((a) => a.severidade === "critico").length;
   const alertas = analises.filter((a) => a.severidade === "alerta").length;
-  const estimativaRecuperacao = analises.reduce((acc, a) => acc + (a.valor_estimado || 0), 0);
+  const infoCount = analises.filter(
+    (a) => a.severidade === "info" || a.severidade === "ok"
+  ).length;
+  const estimativaRecuperacao = analises.reduce(
+    (acc, a) => acc + (a.valor_estimado || 0),
+    0
+  );
 
+  // --- Edit handlers ---
+  function openEditDialog() {
+    setEditForm({
+      nome: cliente?.nome || "",
+      cpf_cnpj: cliente?.cpf_cnpj || "",
+      telefone: cliente?.telefone || "",
+      uc: cliente?.uc || "",
+      estado: cliente?.estado || "",
+      distribuidora: cliente?.distribuidora || "",
+      endereco: cliente?.endereco || "",
+      cidade: cliente?.cidade || "",
+      subgrupo: cliente?.subgrupo || "",
+      grupo: cliente?.grupo || "A",
+      regime_tributario: cliente?.regime_tributario || "",
+      gd: cliente?.gd || false,
+      modalidade: cliente?.modalidade || "",
+      classe: cliente?.classe || "",
+      tensao: cliente?.tensao || "",
+    });
+    setEditOpen(true);
+  }
+
+  async function saveEdit() {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/reciee/clientes`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: clienteId, ...editForm }),
+      });
+      if (res.ok) {
+        setEditOpen(false);
+        await carregarDados();
+      } else {
+        alert("Erro ao salvar cliente");
+      }
+    } catch (error) {
+      console.error("Erro ao salvar:", error);
+      alert("Erro ao salvar cliente");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // --- Action handlers ---
+  async function handleReAnalisar() {
+    setReAnalisando(true);
+    try {
+      const res = await fetch(
+        `/api/reciee/clientes/${clienteId}/re-analisar`,
+        { method: "POST" }
+      );
+      if (res.ok) {
+        await carregarDados();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Erro ao re-analisar");
+      }
+    } catch (error) {
+      console.error("Erro ao re-analisar:", error);
+      alert("Erro ao re-analisar");
+    } finally {
+      setReAnalisando(false);
+    }
+  }
+
+  async function handleGerarExcel() {
+    setGerandoExcel(true);
+    try {
+      const res = await fetch(
+        `/api/reciee/clientes/${clienteId}/relatorio`,
+        { method: "POST" }
+      );
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `relatorio_${cliente?.nome || clienteId}.xlsx`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        alert("Erro ao gerar relatório");
+      }
+    } catch (error) {
+      console.error("Erro ao gerar Excel:", error);
+      alert("Erro ao gerar relatório");
+    } finally {
+      setGerandoExcel(false);
+    }
+  }
+
+  async function handleGerarProposta() {
+    setGerandoProposta(true);
+    try {
+      const res = await fetch(
+        `/api/reciee/clientes/${clienteId}/proposta`,
+        { method: "POST" }
+      );
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `proposta_${cliente?.nome || clienteId}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        alert("Erro ao gerar proposta");
+      }
+    } catch (error) {
+      console.error("Erro ao gerar proposta:", error);
+      alert("Erro ao gerar proposta");
+    } finally {
+      setGerandoProposta(false);
+    }
+  }
+
+  // --- Loading ---
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -130,17 +278,35 @@ export default function ClienteDetalhePage() {
     return (
       <div className="text-center py-12">
         <p className="text-white/60">Cliente não encontrado</p>
-        <Button onClick={() => router.push("/reciee")} className="mt-4">
+        <Button
+          onClick={() => router.push("/reciee")}
+          className="mt-4 bg-[#3B64CF] hover:bg-[#2a4fa8]"
+        >
           Voltar ao RECIEE
         </Button>
       </div>
     );
   }
 
+  // --- Client detail grid fields ---
+  const clientFields = [
+    { label: "CPF/CNPJ", value: cliente.cpf_cnpj },
+    { label: "Telefone", value: cliente.telefone || "—" },
+    { label: "UC", value: cliente.uc },
+    { label: "Estado", value: cliente.estado },
+    { label: "Distribuidora", value: cliente.distribuidora },
+    { label: "Endereço", value: cliente.endereco || "—" },
+    { label: "Cidade", value: cliente.cidade || "—" },
+    { label: "Subgrupo", value: cliente.subgrupo },
+    { label: "Grupo", value: cliente.grupo === "A" ? "Grupo A" : "Grupo B" },
+    { label: "Regime", value: cliente.regime_tributario },
+    { label: "GD", value: cliente.gd ? "Sim" : "Não" },
+  ];
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 bg-[#0f1d32] min-h-screen p-6">
+      {/* ── Header ── */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
@@ -160,54 +326,70 @@ export default function ClienteDetalhePage() {
             </p>
           </div>
         </div>
-        <Button
-          onClick={() => router.push(`/reciee/upload/${clienteId}`)}
-          className="bg-[#3B64CF] hover:bg-[#2a4fa8]"
-        >
-          <Upload className="h-4 w-4 mr-2" />
-          Upload Faturas
-        </Button>
+
+        {/* Action Buttons */}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={openEditDialog}
+            className="border-[#3B64CF]/40 text-white hover:bg-[#3B64CF]/20"
+          >
+            <Pencil className="h-4 w-4 mr-1" />
+            Editar
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => router.push(`/reciee/upload/${clienteId}`)}
+            className="border-[#3B64CF]/40 text-white hover:bg-[#3B64CF]/20"
+          >
+            <Upload className="h-4 w-4 mr-1" />
+            Upload Faturas
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleReAnalisar}
+            disabled={reAnalisando}
+            className="border-[#3B64CF]/40 text-white hover:bg-[#3B64CF]/20"
+          >
+            {reAnalisando ? (
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-1" />
+            )}
+            Re-Analisar
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleGerarExcel}
+            disabled={gerandoExcel}
+            className="border-[#3B64CF]/40 text-white hover:bg-[#3B64CF]/20"
+          >
+            {gerandoExcel ? (
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="h-4 w-4 mr-1" />
+            )}
+            Gerar Excel
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleGerarProposta}
+            disabled={gerandoProposta}
+            className="border-[#3B64CF]/40 text-white hover:bg-[#3B64CF]/20"
+          >
+            {gerandoProposta ? (
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : (
+              <FileDown className="h-4 w-4 mr-1" />
+            )}
+            Gerar Proposta
+          </Button>
+        </div>
       </div>
 
-      {/* Info do Cliente */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="bg-[#0f1d32] border-[#3B64CF]/20">
-          <CardContent className="p-4">
-            <p className="text-sm text-white/60">Distribuidora</p>
-            <p className="text-white font-medium">{cliente.distribuidora || "—"}</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-[#0f1d32] border-[#3B64CF]/20">
-          <CardContent className="p-4">
-            <p className="text-sm text-white/60">Grupo</p>
-            <Badge
-              variant="outline"
-              className={
-                cliente.grupo === "A"
-                  ? "border-blue-500/30 text-blue-400"
-                  : "border-green-500/30 text-green-400"
-              }
-            >
-              {cliente.grupo === "A" ? "Grupo A" : "Grupo B"}
-            </Badge>
-          </CardContent>
-        </Card>
-        <Card className="bg-[#0f1d32] border-[#3B64CF]/20">
-          <CardContent className="p-4">
-            <p className="text-sm text-white/60">Subgrupo</p>
-            <p className="text-white font-medium">{cliente.subgrupo || "—"}</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-[#0f1d32] border-[#3B64CF]/20">
-          <CardContent className="p-4">
-            <p className="text-sm text-white/60">Modalidade</p>
-            <p className="text-white font-medium">{cliente.modalidade || "—"}</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Cards de Estatísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      {/* ── Stats Cards ── */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        {/* Faturas */}
         <Card className="bg-[#0f1d32] border-[#3B64CF]/20">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -219,30 +401,8 @@ export default function ClienteDetalhePage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-[#0f1d32] border-[#3B64CF]/20">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-white/60">Consumo Total</p>
-                <p className="text-2xl font-bold text-white">{totalConsumo.toLocaleString("pt-BR")} kWh</p>
-              </div>
-              <BarChart3 className="h-8 w-8 text-[#3B64CF]" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-[#0f1d32] border-[#3B64CF]/20">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-white/60">Gasto Total</p>
-                <p className="text-2xl font-bold text-white">
-                  R$ {totalGasto.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                </p>
-              </div>
-              <DollarSign className="h-8 w-8 text-[#3B64CF]" />
-            </div>
-          </CardContent>
-        </Card>
+
+        {/* Críticos (red) */}
         <Card className="bg-[#0f1d32] border-red-500/20">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -254,13 +414,44 @@ export default function ClienteDetalhePage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Alertas (yellow) */}
+        <Card className="bg-[#0f1d32] border-yellow-500/20">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-white/60">Alertas</p>
+                <p className="text-2xl font-bold text-yellow-400">{alertas}</p>
+              </div>
+              <AlertTriangle className="h-8 w-8 text-yellow-400" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Info (blue) */}
+        <Card className="bg-[#0f1d32] border-blue-500/20">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-white/60">Info</p>
+                <p className="text-2xl font-bold text-blue-400">{infoCount}</p>
+              </div>
+              <BarChart3 className="h-8 w-8 text-blue-400" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Estimativa de Recuperação (green) */}
         <Card className="bg-[#0f1d32] border-green-500/20">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-white/60">Est. Recuperação</p>
                 <p className="text-2xl font-bold text-green-400">
-                  R$ {estimativaRecuperacao.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  R${" "}
+                  {estimativaRecuperacao.toLocaleString("pt-BR", {
+                    minimumFractionDigits: 2,
+                  })}
                 </p>
               </div>
               <TrendingUp className="h-8 w-8 text-green-400" />
@@ -269,122 +460,78 @@ export default function ClienteDetalhePage() {
         </Card>
       </div>
 
-      {/* Tabs: Faturas e Análises */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-[#0f1d32] border border-[#3B64CF]/20">
-          <TabsTrigger value="faturas" className="data-[state=active]:bg-[#3B64CF]">
-            <FileText className="h-4 w-4 mr-2" />
-            Faturas ({totalFaturas})
-          </TabsTrigger>
-          <TabsTrigger value="analises" className="data-[state=active]:bg-[#3B64CF]">
-            <TrendingUp className="h-4 w-4 mr-2" />
-            Análises ({analises.length})
-          </TabsTrigger>
-        </TabsList>
+      {/* ── Dados do Cliente ── */}
+      <Card className="bg-[#0f1d32] border-[#3B64CF]/20">
+        <CardHeader>
+          <CardTitle className="text-white flex items-center gap-2">
+            <Users className="h-5 w-5 text-[#3B64CF]" />
+            Dados do Cliente
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {clientFields.map((field) => (
+              <div key={field.label}>
+                <p className="text-sm text-white/50">{field.label}</p>
+                <p className="text-white font-medium">{field.value}</p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Tab Faturas */}
-        <TabsContent value="faturas" className="space-y-4">
-          {faturas.length === 0 ? (
-            <Card className="bg-[#0f1d32] border-[#3B64CF]/20">
-              <CardContent className="p-8 text-center">
-                <FileText className="h-12 w-12 text-white/20 mx-auto mb-4" />
-                <p className="text-white/60">Nenhuma fatura processada para este cliente.</p>
-                <Button
-                  onClick={() => router.push(`/reciee/upload/${clienteId}`)}
-                  className="mt-4 bg-[#3B64CF] hover:bg-[#2a4fa8]"
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  Fazer Upload de Faturas
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-[#3B64CF]/20">
-                    <th className="text-left p-3 text-white/60 font-medium">Competência</th>
-                    <th className="text-right p-3 text-white/60 font-medium">Consumo</th>
-                    <th className="text-right p-3 text-white/60 font-medium">Tarifa</th>
-                    <th className="text-right p-3 text-white/60 font-medium">ICMS</th>
-                    <th className="text-right p-3 text-white/60 font-medium">PIS/COFINS</th>
-                    <th className="text-center p-3 text-white/60 font-medium">Bandeira</th>
-                    <th className="text-right p-3 text-white/60 font-medium">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {faturas.map((fatura) => (
-                    <tr
-                      key={fatura.id}
-                      className="border-b border-[#3B64CF]/10 hover:bg-[#1a2744] transition-colors"
-                    >
-                      <td className="p-3 text-white font-medium">{fatura.competencia || "—"}</td>
-                      <td className="p-3 text-white/80 text-right">{fatura.consumo_kwh?.toLocaleString("pt-BR")} kWh</td>
-                      <td className="p-3 text-white/80 text-right">
-                        R$ {fatura.tarifa_aplicada?.toFixed(6)}/kWh
-                      </td>
-                      <td className="p-3 text-white/80 text-right">
-                        {fatura.icms_aliquota}% (R$ {fatura.icms_valor?.toFixed(2)})
-                      </td>
-                      <td className="p-3 text-white/80 text-right">
-                        R$ {((fatura.pis_valor || 0) + (fatura.cofins_valor || 0)).toFixed(2)}
-                      </td>
-                      <td className="p-3 text-center">
-                        <Badge
-                          variant="outline"
-                          className={
-                            fatura.bandeira === "Verde"
-                              ? "border-green-500/30 text-green-400"
-                              : fatura.bandeira === "Amarela"
-                              ? "border-yellow-500/30 text-yellow-400"
-                              : "border-red-500/30 text-red-400"
-                          }
-                        >
-                          {fatura.bandeira === "Verde" ? "🟢" : fatura.bandeira === "Amarela" ? "🟡" : "🔴"}{" "}
-                          {fatura.bandeira}
-                        </Badge>
-                      </td>
-                      <td className="p-3 text-white font-medium text-right">
-                        R$ {fatura.valor_total?.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </TabsContent>
-
-        {/* Tab Análises */}
-        <TabsContent value="analises" className="space-y-4">
+      {/* ── Análises Encontradas ── */}
+      <Card className="bg-[#0f1d32] border-[#3B64CF]/20">
+        <CardHeader>
+          <CardTitle className="text-white flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-[#3B64CF]" />
+            Análises Encontradas ({analises.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
           {analises.length === 0 ? (
-            <Card className="bg-[#0f1d32] border-[#3B64CF]/20">
-              <CardContent className="p-8 text-center">
-                <TrendingUp className="h-12 w-12 text-white/20 mx-auto mb-4" />
-                <p className="text-white/60">Nenhuma análise realizada para este cliente.</p>
-              </CardContent>
-            </Card>
+            <div className="text-center py-8">
+              <TrendingUp className="h-12 w-12 text-white/20 mx-auto mb-4" />
+              <p className="text-white/60">
+                Nenhuma análise realizada para este cliente.
+              </p>
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-[#3B64CF]/20">
-                    <th className="text-left p-3 text-white/60 font-medium">Código</th>
-                    <th className="text-left p-3 text-white/60 font-medium">Descrição</th>
-                    <th className="text-center p-3 text-white/60 font-medium">Severidade</th>
-                    <th className="text-right p-3 text-white/60 font-medium">Valor Estimado</th>
-                    <th className="text-left p-3 text-white/60 font-medium">Macro-Índice</th>
+                    <th className="text-left p-3 text-white/60 font-medium">
+                      Severidade
+                    </th>
+                    <th className="text-left p-3 text-white/60 font-medium">
+                      Macro-Índice
+                    </th>
+                    <th className="text-left p-3 text-white/60 font-medium">
+                      Código
+                    </th>
+                    <th className="text-left p-3 text-white/60 font-medium">
+                      Descrição
+                    </th>
+                    <th className="text-left p-3 text-white/60 font-medium">
+                      Período
+                    </th>
+                    <th className="text-right p-3 text-white/60 font-medium">
+                      Valor Estimado
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {analises.map((analise) => (
                     <tr
                       key={analise.id}
-                      className="border-b border-[#3B64CF]/10 hover:bg-[#1a2744] transition-colors"
+                      className={`border-b border-[#3B64CF]/10 hover:bg-[#1a2744] transition-colors ${
+                        analise.severidade === "critico"
+                          ? "border-l-4 border-l-red-500"
+                          : ""
+                      }`}
                     >
-                      <td className="p-3 text-white font-mono">{analise.codigo}</td>
-                      <td className="p-3 text-white/80">{analise.descricao}</td>
-                      <td className="p-3 text-center">
+                      <td className="p-3">
                         <Badge
                           variant="outline"
                           className={
@@ -406,18 +553,104 @@ export default function ClienteDetalhePage() {
                             : "🔵 Info"}
                         </Badge>
                       </td>
-                      <td className="p-3 text-white font-medium text-right">
-                        R$ {analise.valor_estimado?.toFixed(2)}
+                      <td className="p-3 text-white/80">
+                        {analise.macro_indice}
                       </td>
-                      <td className="p-3 text-white/80">{analise.macro_indice}</td>
+                      <td className="p-3 text-white font-mono">
+                        {analise.codigo}
+                      </td>
+                      <td className="p-3 text-white/80">{analise.descricao}</td>
+                      <td className="p-3 text-white/60">
+                        {analise.periodo || "—"}
+                      </td>
+                      <td className="p-3 text-white font-medium text-right">
+                        R${" "}
+                        {(analise.valor_estimado || 0).toLocaleString("pt-BR", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
-        </TabsContent>
-      </Tabs>
+        </CardContent>
+      </Card>
+
+      {/* ── Edit Dialog ── */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="bg-[#0f1d32] border-[#3B64CF]/20 text-white max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-white">
+              Editar Cliente — {cliente.nome}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-2">
+            {[
+              { key: "nome", label: "Nome", type: "text" },
+              { key: "cpf_cnpj", label: "CPF/CNPJ", type: "text" },
+              { key: "telefone", label: "Telefone", type: "text" },
+              { key: "uc", label: "UC", type: "text" },
+              { key: "estado", label: "Estado", type: "text" },
+              { key: "distribuidora", label: "Distribuidora", type: "text" },
+              { key: "endereco", label: "Endereço", type: "text" },
+              { key: "cidade", label: "Cidade", type: "text" },
+              { key: "subgrupo", label: "Subgrupo", type: "text" },
+              { key: "grupo", label: "Grupo", type: "text" },
+              { key: "regime_tributario", label: "Regime Tributário", type: "text" },
+              { key: "modalidade", label: "Modalidade", type: "text" },
+              { key: "classe", label: "Classe", type: "text" },
+              { key: "tensao", label: "Tensão", type: "text" },
+            ].map((field) => (
+              <div key={field.key}>
+                <Label className="text-white/70">{field.label}</Label>
+                <Input
+                  type={field.type}
+                  value={(editForm as any)[field.key] || ""}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, [field.key]: e.target.value })
+                  }
+                  className="bg-[#1a2744] border-[#3B64CF]/30 text-white mt-1"
+                />
+              </div>
+            ))}
+            <div className="flex items-center gap-2">
+              <Label className="text-white/70">GD</Label>
+              <input
+                type="checkbox"
+                checked={editForm.gd || false}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, gd: e.target.checked })
+                }
+                className="h-4 w-4 accent-[#3B64CF]"
+              />
+              <span className="text-white/60 text-sm">
+                {editForm.gd ? "Sim" : "Não"}
+              </span>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-4">
+            <Button
+              variant="ghost"
+              onClick={() => setEditOpen(false)}
+              className="text-white/60 hover:text-white"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={saveEdit}
+              disabled={saving}
+              className="bg-[#3B64CF] hover:bg-[#2a4fa8]"
+            >
+              {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
