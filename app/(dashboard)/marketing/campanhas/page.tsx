@@ -276,10 +276,14 @@ export default function CampanhasPage() {
         : [];
 
       const contatosFinais = tipoEnvio === 'massa' ? contatosImportados : contatosAvulso;
+      // Salvar instância junto com os números (formato: ["INSTANCIA", "numero1", "numero2"])
+      const numbersWithInstance = novoDisparo.instanceName
+        ? [novoDisparo.instanceName, ...contatosFinais.map(c => c.telefone || c)]
+        : contatosFinais.map(c => c.telefone || c);
       const { error } = await supabase.from('bulk_campaigns').insert([{
         name: novoDisparo.nome,
         message: mensagemFinal,
-        numbers: contatosFinais.map(c => c.telefone || c),
+        numbers: numbersWithInstance,
         status: 'rascunho',
         sent: 0,
         failed: 0,

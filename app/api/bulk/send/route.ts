@@ -64,14 +64,26 @@ export async function POST(request: NextRequest) {
 }
 
 async function enviarCampanha(supabase: any, campaign: any) {
-  const numbers = campaign.numbers || [];
-  const instanceName = campaign.instancia || "minha-conexao";
+  const rawNumbers = campaign.numbers || [];
+  // Se o primeiro elemento não for numérico, é a instância
+  let instanceName = "minha-conexao";
+  let numbers = rawNumbers;
+  if (rawNumbers.length > 0 && !/^\d/.test(String(rawNumbers[0]))) {
+    instanceName = rawNumbers[0];
+    numbers = rawNumbers.slice(1);
+  }
   const delayMin = (campaign.delay_min || 3) * 1000;
   const delayMax = (campaign.delay_max || 8) * 1000;
   let sent = 0;
   let failed = 0;
 
   console.log(`[Bulk Send] Iniciando campanha "${campaign.name}" - ${numbers.length} números - instância: ${instanceName} - delay: ${delayMin/1000}-${delayMax/1000}s`);
+
+  if (numbers.length === 0) {
+    console.error(`[Bulk Send] Nenhum número encontrado! numbers原始:`, rawNumbers);
+    await supabase.from("bulk_campaigns").update({ status: "completed", failed: 0 }).eq("id", campaign.id);
+    return;
+  }
 
   for (const number of numbers) {
     try {
