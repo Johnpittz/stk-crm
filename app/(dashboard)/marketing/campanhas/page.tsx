@@ -97,8 +97,7 @@ export default function CampanhasPage() {
         (campanhasData || []).map(async (campanha: any) => {
           const { data: disparos } = await supabase
             .from('bulk_campaigns')
-            .select('*, promocao:promocoes_marketing(id, nome, desconto, cupom)')
-            .eq('campanha_id', campanha.id)
+            .select('*')
             .order('created_at', { ascending: false });
           return { ...campanha, disparos: disparos || [] };
         })
@@ -283,18 +282,14 @@ export default function CampanhasPage() {
             .map(n => ({ nome: '', telefone: n }))
         : [];
 
+      const contatosFinais = tipoEnvio === 'massa' ? contatosImportados : contatosAvulso;
       const { error } = await supabase.from('bulk_campaigns').insert([{
-        nome: novoDisparo.nome,
-        instanceName: novoDisparo.instanceName,
-        phone_from: novoDisparo.phone_from || null,
-        delay_min: novoDisparo.delay_min || 5,
-        delay_max: novoDisparo.delay_max || 30,
+        name: novoDisparo.nome,
+        message: mensagemFinal,
+        numbers: contatosFinais.map(c => c.telefone || c),
         status: 'rascunho',
-        mensagem: mensagemFinal,
-        campanha_id: campanhaSelecionada.id,
-        promocao_id: novoDisparo.promocao_id || null,
-        tipo_envio: tipoEnvio,
-        contatos: tipoEnvio === 'massa' ? contatosImportados : contatosAvulso,
+        sent: 0,
+        failed: 0,
       }]);
 
       if (error) throw error;
@@ -526,15 +521,9 @@ export default function CampanhasPage() {
                           <TableBody>
                             {campanha.disparos.map((disparo) => (
                               <TableRow key={disparo.id} className="border-gray-700">
-                                <TableCell className="text-white font-medium">{disparo.nome}</TableCell>
-                                <TableCell>
-                                  <Badge className={disparo.tipo_envio === 'massa' ? 'bg-blue-600 text-blue-100' : 'bg-purple-600 text-purple-100'}>
-                                    {disparo.tipo_envio === 'massa' ? 'Em Massa' : 'Avulso'}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-gray-300">{disparo.instanceName}</TableCell>
+                                <TableCell className="text-white font-medium">{disparo.name}</TableCell>
                                 <TableCell className="text-gray-300">
-                                  {disparo.tipo_envio === 'massa' && disparo.contatos ? disparo.contatos.length : 1}
+                                  {Array.isArray(disparo.numbers) ? disparo.numbers.length : 1} contato(s)
                                 </TableCell>
                                 <TableCell className="text-gray-300">{disparo.sent || 0}</TableCell>
                                 <TableCell>{getStatusBadge(disparo.status)}</TableCell>
