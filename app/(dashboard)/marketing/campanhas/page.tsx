@@ -31,21 +31,14 @@ interface Campanha {
 
 interface Disparo {
   id: string;
-  nome: string;
-  mensagem: string;
-  instanceName: string;
-  phone_from: string;
+  name: string;
+  message: string;
+  numbers: string[];
   status: string;
   sent: number;
-  delivered: number;
-  read: number;
   failed: number;
-  delay_min: number;
-  delay_max: number;
   created_at: string;
-  tipo_envio?: string;
-  contatos?: any[];
-  promocao?: { id: string; nome: string; desconto: number; cupom: string };
+  updated_at?: string;
 }
 
 interface CampanhaStats {
