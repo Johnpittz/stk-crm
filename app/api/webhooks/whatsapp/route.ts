@@ -175,15 +175,18 @@ export async function POST(request: NextRequest) {
 
       // ===== INTEGRAÇÃO CHATBOT =====
       // Se a mensagem é do cliente, verificar se há fluxo de chatbot ativo
+      console.log(`[Chatbot Debug] fromMe=${dados.fromMe}, instance=${dados.instance}, telefone=${telefoneLimpo}, temMensagem=${!!mensagem}`);
       if (!dados.fromMe && mensagem) {
         try {
           // Verificar se há sessão ativa do chatbot para este telefone
-          const { data: sessaoChatbot } = await getSupabase()
+          const { data: sessaoChatbot, error: errSession } = await getSupabase()
             .from('chatbot_sessions')
             .select('*')
             .eq('telefone', telefoneLimpo)
             .eq('status', 'ativa')
             .single();
+
+          console.log(`[Chatbot Debug] Sessão ativa: ${sessaoChatbot ? 'SIM' : 'NÃO'}${errSession ? ' erro: ' + errSession.message : ''}`);
 
           if (sessaoChatbot) {
             // Processar via chatbot
@@ -209,12 +212,15 @@ export async function POST(request: NextRequest) {
           }
 
           // Verificar se há fluxo de chatbot para esta instância
-          const { data: fluxoChatbot } = await getSupabase()
+          console.log(`[Chatbot Debug] Buscando fluxo para instancia: "${dados.instance}"`);
+          const { data: fluxoChatbot, error: errFlow } = await getSupabase()
             .from('chatbot_flows')
             .select('*')
             .eq('instancia', dados.instance)
             .eq('ativo', true)
             .single();
+
+          console.log(`[Chatbot Debug] Fluxo encontrado: ${fluxoChatbot ? fluxoChatbot.nome : 'NÃO'}${errFlow ? ' erro: ' + errFlow.message : ''}`);
 
           if (fluxoChatbot) {
             // Iniciar novo fluxo de chatbot
@@ -237,8 +243,9 @@ export async function POST(request: NextRequest) {
             
             return NextResponse.json({ success: true, atendimento_id: atendimentoExistente.id, action: "chatbot_started" });
           }
+          console.log(`[Chatbot Debug] Nenhum fluxo encontrado para instancia "${dados.instance}" — pulando para IA`);
         } catch (err: any) {
-          console.error('[Webhook WhatsApp] Erro no chatbot:', err.message);
+          console.error('[Webhook WhatsApp] Erro no chatbot:', err.message, err.stack);
           // Continua para IA normal se chatbot falhar
         }
       }
