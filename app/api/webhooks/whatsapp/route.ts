@@ -356,6 +356,44 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Webhook WhatsApp] Novo atendimento criado: ${novoAtendimento.id}`);
 
+    // ===== INTEGRAÇÃO CHATBOT (novo atendimento) =====
+    if (!dados.fromMe && mensagem) {
+      try {
+        // Verificar se há fluxo de chatbot para esta instância
+        const { data: fluxoChatbotNovo } = await getSupabase()
+          .from('chatbot_flows')
+          .select('*')
+          .eq('instancia', dados.instance)
+          .eq('ativo', true)
+          .single();
+
+        if (fluxoChatbotNovo) {
+          console.log(`[Webhook WhatsApp] Novo fluxo chatbot (novo atendimento) para ${telefoneLimpo}`);
+          const resultadoChatbot = await processarMensagemChatbot(
+            telefoneLimpo,
+            mensagem,
+            dados.instance || 'STK',
+            nomeCliente || undefined
+          );
+
+          if (resultadoChatbot.action === 'bot_responde' && resultadoChatbot.mensagem) {
+            await getSupabase().from('atendimento_mensagens').insert({
+              atendimento_id: novoAtendimento.id,
+              remetente: 'vendedor',
+              conteudo: resultadoChatbot.mensagem,
+              enviada_por: null,
+            });
+          }
+
+          return NextResponse.json({ success: true, atendimento_id: novoAtendimento.id, action: "chatbot_started" });
+        }
+      } catch (err: any) {
+        console.error('[Webhook WhatsApp] Erro no chatbot (novo atendimento):', err.message);
+        // Continua para IA normal se chatbot falhar
+      }
+    }
+    // ===== FIM INTEGRAÇÃO CHATBOT (novo atendimento) =====
+
     // ===== INTEGRAÇÃO IA (novo atendimento) =====
     if (!dados.fromMe && mensagem) {
       const iaAtivada = await verificarIAAtivada(getSupabase());
