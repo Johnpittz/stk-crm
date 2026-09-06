@@ -13,8 +13,8 @@ O STK CRM é um sistema de gestão de relacionamento com cliente composto por **
 
 | Perfil | Descrição | Rotas |
 |--------|-----------|-------|
-| **CRM** | Atendimento, Kanban, Dashboard, Clientes, Chatbot | `/`, `/kanban`, `/dashboard`, `/clientes`, `/chatbot` |
-| **Marketing** | Campanhas, Disparos, Leads, Relatórios, Promoções | `/marketing/*` |
+| **CRM** | Atendimento, Kanban, Dashboard, Clientes | `/`, `/kanban`, `/dashboard`, `/clientes` |
+| **Marketing** | Chatbot, Campanhas, Disparos, Leads, Relatórios, Promoções | `/chatbot`, `/marketing/*` |
 | **Pós-Vendas** | Follow-up, Satisfação, Suporte, Acompanhamento | `/pos-vendas/*` |
 | **Admin** | Visão completa + RECIEE (análise energética) | Todos + `/reciee` |
 
@@ -104,6 +104,16 @@ O STK CRM é um sistema de gestão de relacionamento com cliente composto por **
 - [x] Gerar relatório Excel (4 abas: Dados, Faturas, Análises, Resumo)
 - [x] Gerar proposta comercial PDF (template com dados dinâmicos)
 - [x] Sidebar-only para perfil Admin (seção ⚡ RECIEE)
+
+### Fase 10 - Correções e Realinhamento
+- [x] Chatbot movido do perfil CRM para Marketing na sidebar
+- [x] Tabela `bulk_campaigns` — insert alinhado com schema real (`name`, `message`, `numbers`)
+- [x] Interface `Disparo` atualizada para colunas reais da tabela
+- [x] Instância do WhatsApp salva no array `numbers` (formato: `["INSTANCIA", "numero1", "numero2"]`)
+- [x] Bulk send extrai instância do array antes de enviar
+- [x] Status do disparo traduzido para português (completed→Concluído, running→Enviando, failed→Falhou)
+- [x] Auto-refresh a cada 5s quando disparo está "Enviando"
+- [x] Tabelas `bulk_campanhas_contatos` — SQL pronto (enviado via .txt para executar no Supabase)
 
 ---
 
@@ -305,7 +315,7 @@ WhatsApp → Evolution API (webhook) → /api/webhooks/whatsapp
 - **SelectItem value vazio:** shadcn não aceita `value=""` - removido item "Nenhuma"
 - **LoadInstances retornando vazio:** API retorna `instancias` não `instances`
 - **Planilha não reconhecia contatos:** Detecção automática de header com linhas de título
-- **bulk_campaigns tabela incompatível:** Tabela criada com schema diferente do frontend (migration 069 vs código). Tabela `bulk_campanhas_contatos` precisa ser criada manualmente no Supabase.
+- **bulk_campaigns tabela incompatível:** ✅ Corrigido — insert alinhado com schema real, interface atualizada, instância salva no array numbers.
 
 ---
 
