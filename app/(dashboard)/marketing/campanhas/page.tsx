@@ -137,8 +137,8 @@ export default function CampanhasPage() {
     return {
       totalDisparos: disparos.length,
       totalEnviados: disparos.reduce((sum, d) => sum + (d.sent || 0), 0),
-      totalEntregues: disparos.reduce((sum, d) => sum + (d.delivered || 0), 0),
-      totalLidos: disparos.reduce((sum, d) => sum + (d.read || 0), 0),
+      totalEntregues: 0,
+      totalLidos: 0,
       totalFalhas: disparos.reduce((sum, d) => sum + (d.failed || 0), 0)
     };
   };
