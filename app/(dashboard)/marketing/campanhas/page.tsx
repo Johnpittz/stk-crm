@@ -132,6 +132,18 @@ export default function CampanhasPage() {
     loadPromocoes();
   }, [loadCampanhas, loadInstances, loadPromocoes]);
 
+  // Auto-refresh quando há disparos rodando
+  useEffect(() => {
+    const hasRunning = campanhas.some(c =>
+      (c.disparos || []).some((d: any) => d.status === 'running')
+    );
+    if (!hasRunning) return;
+    const interval = setInterval(() => {
+      loadCampanhas();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [campanhas, loadCampanhas]);
+
   const getCampanhaStats = (campanha: Campanha): CampanhaStats => {
     const disparos = campanha.disparos || [];
     return {
@@ -360,14 +372,21 @@ export default function CampanhasPage() {
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
       rascunho: 'bg-gray-600 text-gray-100', agendado: 'bg-blue-600 text-blue-100',
-      em_andamento: 'bg-yellow-600 text-yellow-100', concluido: 'bg-green-600 text-green-100',
+      running: 'bg-yellow-600 text-yellow-100', em_andamento: 'bg-yellow-600 text-yellow-100',
+      completed: 'bg-green-600 text-green-100', concluido: 'bg-green-600 text-green-100',
       pausado: 'bg-orange-600 text-orange-100', enviado: 'bg-green-600 text-green-100',
-      processando: 'bg-blue-600 text-blue-100', erro: 'bg-red-600 text-red-100'
+      processando: 'bg-blue-600 text-blue-100', erro: 'bg-red-600 text-red-100',
+      pendente: 'bg-gray-600 text-gray-100', pending: 'bg-gray-600 text-gray-100',
+      failed: 'bg-red-600 text-red-100'
     };
     const labels: Record<string, string> = {
-      rascunho: 'Rascunho', agendado: 'Agendado', em_andamento: 'Em Andamento',
-      concluido: 'Concluído', pausado: 'Pausado', enviado: 'Enviado',
-      processando: 'Processando', erro: 'Erro'
+      rascunho: 'Rascunho', agendado: 'Agendado',
+      running: 'Enviando', em_andamento: 'Em Andamento',
+      completed: 'Concluído', concluido: 'Concluído',
+      pausado: 'Pausado', enviado: 'Enviado',
+      processando: 'Processando', erro: 'Erro',
+      pendente: 'Pendente', pending: 'Pendente',
+      failed: 'Falhou'
     };
     return <Badge className={styles[status] || 'bg-gray-600'}>{labels[status] || status}</Badge>;
   };
