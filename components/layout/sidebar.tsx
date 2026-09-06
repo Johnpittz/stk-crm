@@ -61,12 +61,6 @@ const navItemsPorPerfil: Record<PerfilAtivo, Array<{
       badge: "Ativo",
     },
     {
-      href: "/chatbot",
-      label: "Chatbot",
-      icon: Bot,
-      description: "Fluxos automáticos",
-    },
-    {
       href: "/kanban",
       label: "Kanban",
       icon: ClipboardList,
@@ -91,6 +85,12 @@ const navItemsPorPerfil: Record<PerfilAtivo, Array<{
       label: "Dashboard",
       icon: BarChart3,
       description: "Métricas de marketing",
+    },
+    {
+      href: "/chatbot",
+      label: "Chatbot",
+      icon: Bot,
+      description: "Fluxos automáticos de qualificação",
     },
     {
       href: "/marketing/campanhas",
