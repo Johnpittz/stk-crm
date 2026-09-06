@@ -248,13 +248,21 @@ async function enviarMensagem(
   const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL;
   const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY;
 
+  console.log(`[Chatbot Engine] Enviando mensagem para ${telefone} via instância ${instancia}`);
+  console.log(`[Chatbot Engine] EVOLUTION_API_URL: ${EVOLUTION_API_URL ? 'CONFIGURADA' : 'NÃO CONFIGURADA'}`);
+  console.log(`[Chatbot Engine] EVOLUTION_API_KEY: ${EVOLUTION_API_KEY ? 'CONFIGURADA' : 'NÃO CONFIGURADA'}`);
+
   if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
+    console.error('[Chatbot Engine] Evolution API não configurada nas env vars');
     return { success: false, error: 'Evolution API não configurada' };
   }
 
   try {
+    const url = `${EVOLUTION_API_URL}/message/sendText/${instancia}`;
+    console.log(`[Chatbot Engine] POST ${url}`);
+
     const response = await fetch(
-      `${EVOLUTION_API_URL}/message/sendText/${instancia}`,
+      url,
       {
         method: 'POST',
         headers: {
@@ -271,11 +279,14 @@ async function enviarMensagem(
     const data = await response.json();
     
     if (response.ok) {
+      console.log(`[Chatbot Engine] ✅ Mensagem enviada com sucesso: ${data.key?.id || data.id}`);
       return { success: true, message_id: data.key?.id || data.id };
     } else {
-      return { success: false, error: data.message || 'Erro ao enviar' };
+      console.error(`[Chatbot Engine] ❌ Erro HTTP ${response.status}:`, JSON.stringify(data));
+      return { success: false, error: data.message || `Erro HTTP ${response.status}` };
     }
   } catch (err: any) {
+    console.error(`[Chatbot Engine] ❌ Erro de conexão:`, err.message);
     return { success: false, error: err.message };
   }
 }
