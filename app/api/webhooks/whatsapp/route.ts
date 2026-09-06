@@ -213,14 +213,29 @@ export async function POST(request: NextRequest) {
 
           // Verificar se há fluxo de chatbot para esta instância
           console.log(`[Chatbot Debug] Buscando fluxo para instancia: "${dados.instance}"`);
-          const { data: fluxoChatbot, error: errFlow } = await getSupabase()
-            .from('chatbot_flows')
-            .select('*')
-            .eq('instancia', dados.instance)
-            .eq('ativo', true)
-            .single();
+          let fluxoChatbot = null;
+          if (dados.instance) {
+            const result = await getSupabase()
+              .from('chatbot_flows')
+              .select('*')
+              .eq('instancia', dados.instance)
+              .eq('ativo', true)
+              .single();
+            fluxoChatbot = result.data;
+            if (result.error) console.log(`[Chatbot Debug] Erro query fluxo: ${result.error.message}`);
+          } else {
+            const result = await getSupabase()
+              .from('chatbot_flows')
+              .select('*')
+              .eq('ativo', true)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .single();
+            fluxoChatbot = result.data;
+            if (result.error) console.log(`[Chatbot Debug] Erro query fluxo (fallback): ${result.error.message}`);
+          }
 
-          console.log(`[Chatbot Debug] Fluxo encontrado: ${fluxoChatbot ? fluxoChatbot.nome : 'NÃO'}${errFlow ? ' erro: ' + errFlow.message : ''}`);
+          console.log(`[Chatbot Debug] Fluxo encontrado: ${fluxoChatbot ? fluxoChatbot.nome : 'NÃO'}`);
 
           if (fluxoChatbot) {
             // Iniciar novo fluxo de chatbot
@@ -364,24 +379,42 @@ export async function POST(request: NextRequest) {
     console.log(`[Webhook WhatsApp] Novo atendimento criado: ${novoAtendimento.id}`);
 
     // ===== INTEGRAÇÃO CHATBOT (novo atendimento) =====
+    console.log(`[Chatbot Debug NOVO] fromMe=${dados.fromMe}, instance="${dados.instance}", telefone=${telefoneLimpo}`);
     if (!dados.fromMe && mensagem) {
       try {
-        // Verificar se há fluxo de chatbot para esta instância
-        const { data: fluxoChatbotNovo } = await getSupabase()
-          .from('chatbot_flows')
-          .select('*')
-          .eq('instancia', dados.instance)
-          .eq('ativo', true)
-          .single();
+        // Buscar fluxo: se instance é null, busca qualquer fluxo ativo
+        let fluxoChatbotNovo = null;
+        if (dados.instance) {
+          const { data } = await getSupabase()
+            .from('chatbot_flows')
+            .select('*')
+            .eq('instancia', dados.instance)
+            .eq('ativo', true)
+            .single();
+          fluxoChatbotNovo = data;
+        } else {
+          const { data } = await getSupabase()
+            .from('chatbot_flows')
+            .select('*')
+            .eq('ativo', true)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+          fluxoChatbotNovo = data;
+        }
+
+        console.log(`[Chatbot Debug NOVO] Fluxo encontrado: ${fluxoChatbotNovo ? fluxoChatbotNovo.nome : 'NÃO'}`);
 
         if (fluxoChatbotNovo) {
           console.log(`[Webhook WhatsApp] Novo fluxo chatbot (novo atendimento) para ${telefoneLimpo}`);
           const resultadoChatbot = await processarMensagemChatbot(
             telefoneLimpo,
             mensagem,
-            dados.instance || 'STK',
+            dados.instance || fluxoChatbotNovo.instancia || 'STK',
             nomeCliente || undefined
           );
+          
+          console.log(`[Chatbot Debug NOVO] Resultado: action=${resultadoChatbot.action}`);
 
           if (resultadoChatbot.action === 'bot_responde' && resultadoChatbot.mensagem) {
             await getSupabase().from('atendimento_mensagens').insert({
@@ -395,8 +428,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ success: true, atendimento_id: novoAtendimento.id, action: "chatbot_started" });
         }
       } catch (err: any) {
-        console.error('[Webhook WhatsApp] Erro no chatbot (novo atendimento):', err.message);
-        // Continua para IA normal se chatbot falhar
+        console.error('[Webhook WhatsApp] Erro no chatbot (novo atendimento):', err.message, err.stack);
       }
     }
     // ===== FIM INTEGRAÇÃO CHATBOT (novo atendimento) =====
