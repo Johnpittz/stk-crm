@@ -510,8 +510,6 @@ export default function CampanhasPage() {
                           <TableHeader>
                             <TableRow className="border-gray-700">
                               <TableHead className="text-gray-300">Nome</TableHead>
-                              <TableHead className="text-gray-300">Tipo</TableHead>
-                              <TableHead className="text-gray-300">Instância</TableHead>
                               <TableHead className="text-gray-300">Contatos</TableHead>
                               <TableHead className="text-gray-300">Enviados</TableHead>
                               <TableHead className="text-gray-300">Status</TableHead>
