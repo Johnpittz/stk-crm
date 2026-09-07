@@ -1,6 +1,6 @@
 # 📋 PROGRESSO - STK CRM
 
-> Última atualização: 10/06/2026
+> Última atualização: 06/09/2026
 > Repositório: github.com/Johnpittz/stk-crm
 > Deploy: stk-crm-amber.vercel.app
 > Stack: Next.js 14 + Supabase + Vercel (free tier)
@@ -475,6 +475,42 @@ stk-crm/
 | Evolution API | VPS:8082 | API Key no `.env` |
 | GitHub | Token configurado | Repo `Johnpittz/stk-crm` |
 | Gemini | API Key | AI para chatbot + auto-respostas |
+
+---
+
+## 🤖 Chatbot — Correções e Gatilho (06/09/2026)
+
+### Fase 11 - Chatbot Funcional + Gatilho Disparo
+
+#### Bugs Corrigidos
+- **Chatbot não disparava em novos atendimentos:** O webhook só verificava chatbot em atendimentos existentes. Adicionada verificação para atendimentos novos.
+- **`.single()` crashava o engine:** Supabase `.single()` lança PGRST116 quando não encontra registro. Trocado por `.maybeSingle()` em todas as queries críticas (webhook + engine).
+- **Match por instância falhava:** Fluxo configurado com `instancia: 'STK'` mas Evolution API enviava `ROMA_1`. Removido filtro por instância — busca qualquer fluxo ativo.
+
+#### Sistema de Gatilho (Opção 1)
+- Campo `gatilho` no `chatbot_flows`: `'todos' | 'disparo'`
+  - **todos** → qualquer mensagem ativa o bot (comportamento antigo)
+  - **disparo** → só ativa se o número está em `chatbot_gatilho_numeros`
+- Tabela `chatbot_gatilho_numeros` (flow_id, telefone, created_at)
+- Migration `074_chatbot_whitelist.sql`
+- Bulk send salva números na tabela ao enviar
+- Webhook verifica gatilho antes de ativar chatbot
+
+#### Parada do Chatbot
+- **Por texto:** Palavras de parada detectadas: "parar", "para", "cancelar", "sai", "obrigad", "chega", "não quero mais", "para de perguntar", etc.
+- **Por botão:** "Encerrar" no painel de contato + "Deletar" na dashboard
+- **Bloqueio 24h:** Após encerrar/deletar, chatbot não reativa por 24h
+- **Bloqueio permanente:** Se sessão está `concluida` ou `encaminhada`, não reativa (precisa deletar pra testar)
+
+#### Dashboard Admin
+- Botão "Deletar" nas sessões (remove sessão + mensagens)
+- Sessões bloqueadas aparecem como "Bloqueado" no filtro
+
+#### Fluxo: Sustentalski - Geração Distribuída
+- 14 etapas de qualificação (perfil, objetivo, valor conta, localização, tipo negócio, situação atual, decisão compra, momento compra, nome, telefone, email, pergunta ouro, classificação, mensagem final)
+- Scoring: A≥80 (quente), B≥50 (qualificado), C≥25 (nutrição), D<25 (frio)
+- Branching condicional por perfil (empresa vs residencial)
+- Interpretação de respostas livres via Gemini
 
 ---
 
