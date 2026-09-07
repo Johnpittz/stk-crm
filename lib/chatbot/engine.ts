@@ -313,19 +313,20 @@ export async function processarMensagemChatbot(
     .select('*')
     .eq('telefone', telefone)
     .eq('status', 'ativa')
-    .single();
+    .maybeSingle();
 
   if (sessaoExistente) {
     return processarRespostaExistente(supabase, sessaoExistente, mensagemCliente);
   }
 
-  // 2. Buscar fluxo ativo para esta instância
+  // 2. Buscar qualquer fluxo ativo (sem filtrar por instância)
   const { data: fluxo } = await supabase
     .from('chatbot_flows')
     .select('*')
-    .eq('instancia', instancia)
     .eq('ativo', true)
-    .single();
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   if (!fluxo) {
     return { action: 'aguardando' }; // Sem fluxo, ignora
