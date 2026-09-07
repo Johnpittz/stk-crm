@@ -253,6 +253,7 @@ export default function ChatbotPage() {
             mensagens={mensagens}
             onSelecionar={setSessaoSelecionada}
             onEncerrar={encerrarSessao}
+            onDeletar={deletarSessao}
             filtroStatus={filtroStatus}
             onFiltroChange={setFiltroStatus}
           />
@@ -358,6 +359,7 @@ function SessoesTab({
   mensagens,
   onSelecionar,
   onEncerrar,
+  onDeletar,
   filtroStatus,
   onFiltroChange,
 }: {
@@ -366,6 +368,7 @@ function SessoesTab({
   mensagens: ChatMessage[];
   onSelecionar: (s: ChatSession | null) => void;
   onEncerrar: (id: string) => void;
+  onDeletar: (id: string) => void;
   filtroStatus: string;
   onFiltroChange: (v: string) => void;
 }) {
@@ -454,7 +457,7 @@ function SessoesTab({
             sessao={sessaoSelecionada}
             mensagens={mensagens}
             onEncerrar={onEncerrar}
-            onDeletar={deletarSessao}
+            onDeletar={onDeletar}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center text-slate-500">
