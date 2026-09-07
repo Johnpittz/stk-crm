@@ -259,9 +259,10 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
                     const semCompra = diasSemCompra(cliente.data_ultima_compra);
 
                     return (
-                      <div
+                      <Link
                         key={cliente.id}
-                        className="flex items-center gap-4 p-4 rounded-lg border hover:bg-slate-50 transition-colors"
+                        href={`/clientes/${cliente.id}`}
+                        className="flex items-center gap-4 p-4 rounded-lg border hover:bg-slate-50 transition-colors cursor-pointer"
                       >
                         <Avatar className="h-12 w-12">
                           <AvatarImage
@@ -327,7 +328,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </div>
-                      </div>
+                      </Link>
                     );
                   })
                 ) : (

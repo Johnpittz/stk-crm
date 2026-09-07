@@ -222,6 +222,19 @@ Mensagem WhatsApp
 - **Aba Sessões**: Lista com filtro por status, detalhe com histórico de mensagens
 - **Aba Stats**: Métricas de performance do chatbot
 
+### Fase 11 - Chatbot: Correções e Gatilho (06/09/2026)
+- [x] Bug fix: `.single()` → `.maybeSingle()` (crashava quando não encontrava sessão/fluxo)
+- [x] Bug fix: chatbot não disparava em novos atendimentos (só verificava atendimentos existentes)
+- [x] Bug fix: busca de fluxo sem filtro de instância (busca qualquer fluxo ativo)
+- [x] Campo `gatilho` no `chatbot_flows`: `'todos'` | `'disparo'`
+- [x] Tabela `chatbot_gatilho_numeros` — registra números que receberam disparo
+- [x] Bulk send salva números na tabela de gatilho ao enviar
+- [x] Webhook verifica gatilho antes de ativar chatbot
+- [x] Detecção de palavras de parada ("parar", "cancelar", "sai", etc)
+- [x] Bloqueio de reativação: sessão concluída/encaminhada não reativa por 24h
+- [x] Botão "Deletar" na aba Sessões do chatbot (remove sessão + mensagens)
+- [x] UI: toggle gatilho "Todos" / "Só Disparo" na aba Fluxos
+
 ---
 
 ## 📱 Integração WhatsApp (Evolution API)
