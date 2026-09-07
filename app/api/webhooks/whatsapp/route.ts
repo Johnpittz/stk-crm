@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
             .maybeSingle();
 
           if (sessaoChatbot) {
-            const resultadoChatbot = await processarMensagemChatbot(telefoneLimpo, mensagem, dados.instance || 'STK', nomeCliente || undefined);
+            await processarMensagemChatbot(telefoneLimpo, mensagem, dados.instance || 'STK', nomeCliente || undefined);
             return NextResponse.json({ success: true, atendimento_id: atendimentoExistente.id, action: "chatbot" });
           }
 
@@ -197,8 +197,22 @@ export async function POST(request: NextRequest) {
             .maybeSingle();
 
           if (fluxoChatbot) {
-            const resultadoChatbot = await processarMensagemChatbot(telefoneLimpo, mensagem, dados.instance || fluxoChatbot.instancia || 'STK', nomeCliente || undefined);
-            return NextResponse.json({ success: true, atendimento_id: atendimentoExistente.id, action: "chatbot_started" });
+            // Checar gatilho: se 'disparo', só ativa pra números na tabela
+            let podeAtivar = fluxoChatbot.gatilho === 'todos';
+            if (fluxoChatbot.gatilho === 'disparo') {
+              const { data: noGatilho } = await getSupabase()
+                .from('chatbot_gatilho_numeros')
+                .select('id')
+                .eq('flow_id', fluxoChatbot.id)
+                .eq('telefone', telefoneLimpo)
+                .maybeSingle();
+              podeAtivar = !!noGatilho;
+            }
+
+            if (podeAtivar) {
+              await processarMensagemChatbot(telefoneLimpo, mensagem, dados.instance || fluxoChatbot.instancia || 'STK', nomeCliente || undefined);
+              return NextResponse.json({ success: true, atendimento_id: atendimentoExistente.id, action: "chatbot_started" });
+            }
           }
         } catch (err: any) {
           console.error('[Chatbot] Erro:', err.message);
@@ -330,8 +344,20 @@ export async function POST(request: NextRequest) {
           .maybeSingle();
 
         if (fluxoChatbotNovo) {
-          const resultadoChatbot = await processarMensagemChatbot(telefoneLimpo, mensagem, dados.instance || fluxoChatbotNovo.instancia || 'STK', nomeCliente || undefined);
-          return NextResponse.json({ success: true, atendimento_id: novoAtendimento.id, action: "chatbot_started" });
+          let podeAtivar = fluxoChatbotNovo.gatilho === 'todos';
+          if (fluxoChatbotNovo.gatilho === 'disparo') {
+            const { data: noGatilho } = await getSupabase()
+              .from('chatbot_gatilho_numeros')
+              .select('id')
+              .eq('flow_id', fluxoChatbotNovo.id)
+              .eq('telefone', telefoneLimpo)
+              .maybeSingle();
+            podeAtivar = !!noGatilho;
+          }
+          if (podeAtivar) {
+            await processarMensagemChatbot(telefoneLimpo, mensagem, dados.instance || fluxoChatbotNovo.instancia || 'STK', nomeCliente || undefined);
+            return NextResponse.json({ success: true, atendimento_id: novoAtendimento.id, action: "chatbot_started" });
+          }
         }
       } catch (err: any) {
         console.error('[Chatbot] Erro (novo):', err.message);

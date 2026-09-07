@@ -79,6 +79,28 @@ async function enviarCampanha(supabase: any, campaign: any) {
 
   console.log(`[Bulk Send] Iniciando campanha "${campaign.name}" - ${numbers.length} números - instância: ${instanceName} - delay: ${delayMin/1000}-${delayMax/1000}s`);
 
+  // Salvar números no gatilho do chatbot (se houver fluxo ativo)
+  try {
+    const { data: fluxoAtivo } = await supabase
+      .from('chatbot_flows')
+      .select('id')
+      .eq('gatilho', 'disparo')
+      .eq('ativo', true)
+      .limit(1)
+      .maybeSingle();
+
+    if (fluxoAtivo) {
+      const gatilhoRecords = numbers.map((n: string) => {
+        const num = n.replace(/\D/g, "");
+        return { flow_id: fluxoAtivo.id, telefone: num.startsWith("55") ? num : "55" + num };
+      });
+      await supabase.from('chatbot_gatilho_numeros').upsert(gatilhoRecords, { onConflict: 'flow_id,telefone' });
+      console.log(`[Bulk Send] ${gatilhoRecords.length} números salvos no gatilho do chatbot`);
+    }
+  } catch (err: any) {
+    console.error('[Bulk Send] Erro ao salvar gatilho:', err.message);
+  }
+
   if (numbers.length === 0) {
     console.error(`[Bulk Send] Nenhum número encontrado! numbers原始:`, rawNumbers);
     await supabase.from("bulk_campaigns").update({ status: "completed", failed: 0 }).eq("id", campaign.id);
