@@ -176,6 +176,7 @@ export async function POST(request: NextRequest) {
       // ===== INTEGRAÇÃO CHATBOT =====
       if (!dados.fromMe && mensagem) {
         try {
+          // Verificar se há sessão ativa
           const { data: sessaoChatbot } = await getSupabase()
             .from('chatbot_sessions')
             .select('*')
@@ -186,6 +187,20 @@ export async function POST(request: NextRequest) {
           if (sessaoChatbot) {
             await processarMensagemChatbot(telefoneLimpo, mensagem, dados.instance || 'STK', nomeCliente || undefined);
             return NextResponse.json({ success: true, atendimento_id: atendimentoExistente.id, action: "chatbot" });
+          }
+
+          // Verificar se foi cancelada nas últimas 24h (não reativar)
+          const { data: sessaoCancelada } = await getSupabase()
+            .from('chatbot_sessions')
+            .select('id')
+            .eq('telefone', telefoneLimpo)
+            .eq('status', 'cancelada')
+            .gte('updated_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+            .limit(1)
+            .maybeSingle();
+
+          if (sessaoCancelada) {
+            return NextResponse.json({ success: true, action: "blocked_cancelled" });
           }
 
           const { data: fluxoChatbot } = await getSupabase()
@@ -335,6 +350,20 @@ export async function POST(request: NextRequest) {
     // ===== INTEGRAÇÃO CHATBOT (novo atendimento) =====
     if (!dados.fromMe && mensagem) {
       try {
+        // Verificar se foi cancelada nas últimas 24h
+        const { data: sessaoCanceladaNovo } = await getSupabase()
+          .from('chatbot_sessions')
+          .select('id')
+          .eq('telefone', telefoneLimpo)
+          .eq('status', 'cancelada')
+          .gte('updated_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+          .limit(1)
+          .maybeSingle();
+
+        if (sessaoCanceladaNovo) {
+          return NextResponse.json({ success: true, action: "blocked_cancelled" });
+        }
+
         const { data: fluxoChatbotNovo } = await getSupabase()
           .from('chatbot_flows')
           .select('*')

@@ -1,0 +1,9 @@
+-- Ativar gatilho "disparo" no fluxo chatbot
+-- Só ativa o bot pra números que receberam disparo
+
+UPDATE chatbot_flows
+SET gatilho = 'disparo'
+WHERE id = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+
+-- Para voltar ao comportamento antigo (bot pra qualquer um):
+-- UPDATE chatbot_flows SET gatilho = 'todos' WHERE id = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';

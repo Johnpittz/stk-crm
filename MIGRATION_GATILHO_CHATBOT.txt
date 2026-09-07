@@ -1,0 +1,21 @@
+-- Migration 074: Chatbot Gatilho (só ativa pra números de disparo)
+-- Execute no SQL Editor do Supabase
+
+-- 1. Campo gatilho no fluxo
+ALTER TABLE chatbot_flows ADD COLUMN IF NOT EXISTS gatilho TEXT DEFAULT 'todos';
+
+-- 2. Tabela de números habilitados
+CREATE TABLE IF NOT EXISTS chatbot_gatilho_numeros (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  flow_id UUID NOT NULL REFERENCES chatbot_flows(id) ON DELETE CASCADE,
+  telefone TEXT NOT NULL,
+  origem TEXT DEFAULT 'disparo',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(flow_id, telefone)
+);
+
+CREATE INDEX IF NOT EXISTS idx_gatilho_flow_telefone
+  ON chatbot_gatilho_numeros(flow_id, telefone);
+
+-- 3. Coluna para controlar reativação do chatbot
+ALTER TABLE chatbot_flows ADD COLUMN IF NOT EXISTS reativar_em_nova_mensagem BOOLEAN DEFAULT false;

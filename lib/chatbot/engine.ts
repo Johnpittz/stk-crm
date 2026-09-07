@@ -429,11 +429,25 @@ export async function processarMensagemChatbot(
 
 // ─── Processar Resposta em Sessão Existente ───
 
+const PALAVRAS_PARADA = ['parar', 'para', 'cancelar', 'sair', 'abortar', 'encerrar', 'não quero', 'nao quero', 'pare', 'stop', 'tchau', 'obrigad', 'acabou', 'chega', 'suficiente', 'não quero mais', 'nao quero mais', 'para de perguntar', 'para de'];
+
+function ehPedidoDeParada(texto: string): boolean {
+  const lower = texto.toLowerCase().trim();
+  return PALAVRAS_PARADA.some(p => lower.includes(p));
+}
+
 async function processarRespostaExistente(
   supabase: SupabaseClient,
   sessao: ChatSession,
   mensagemCliente: string
 ): Promise<ProcessMessageResult> {
+  // 0. Verificar se pediu pra parar
+  if (ehPedidoDeParada(mensagemCliente)) {
+    await supabase.from('chatbot_sessions').update({ status: 'cancelada' }).eq('id', sessao.id);
+    await enviarMensagem(sessao.telefone, 'Tudo bem! Encaminhando para um especialista. Obrigado pelo contato! 😊', sessao.instancia || 'STK');
+    return { action: 'sessao_concluida', session: sessao };
+  }
+
   // 1. Buscar etapa atual
   const { data: etapaAtual } = await supabase
     .from('chatbot_flow_steps')
