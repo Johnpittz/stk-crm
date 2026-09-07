@@ -1,0 +1,33 @@
+-- ============================================
+-- MIGRATION: CLIENT_INTERACTIONS
+-- Tabela para registrar todas as interações de um cliente
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS client_interactions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  cliente_id UUID NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
+  tipo TEXT NOT NULL CHECK (tipo IN ('reciee', 'gd', 'chatbot', 'atendimento', 'venda', 'suporte', 'nota')),
+  titulo TEXT NOT NULL,
+  descricao TEXT,
+  dados JSONB DEFAULT '{}'::jsonb,
+  status TEXT DEFAULT 'ativo' CHECK (status IN ('ativo', 'concluido', 'pendente', 'cancelado')),
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Índices
+CREATE INDEX IF NOT EXISTS idx_client_interactions_cliente ON client_interactions(cliente_id);
+CREATE INDEX IF NOT EXISTS idx_client_interactions_tipo ON client_interactions(tipo);
+CREATE INDEX IF NOT EXISTS idx_client_interactions_created ON client_interactions(created_at DESC);
+
+-- RLS
+ALTER TABLE client_interactions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Service role manage client_interactions" ON client_interactions
+  FOR ALL USING (true);
+
+CREATE POLICY "Authenticated read client_interactions" ON client_interactions
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+-- GRANT
+GRANT ALL ON client_interactions TO service_role;
+GRANT SELECT, INSERT, DELETE ON client_interactions TO authenticated;

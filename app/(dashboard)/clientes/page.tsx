@@ -1,348 +1,615 @@
-import Link from "next/link";
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Users,
   Search,
-  Filter,
-  MoreHorizontal,
+  Plus,
+  RefreshCw,
   Phone,
   Mail,
-  MapPin,
   Building2,
-  TrendingUp,
-  TrendingDown,
-  AlertTriangle,
-  LayoutGrid,
-  Plus,
+  Zap,
+  MessageSquare,
+  Bot,
+  FileText,
+  ChevronRight,
+  ExternalLink,
+  X,
+  Eye,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from "@/lib/utils/cn";
-import { createClient } from "@/lib/supabase/server";
-import { ModalNovoCliente } from "@/components/features/clientes/modal-novo-cliente";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+// ─── Types ───
 
-interface ClientesPageProps {
-  searchParams: { [key: string]: string | string[] | undefined };
+interface ClienteUnificado {
+  id: string;
+  nome: string;
+  telefone: string | null;
+  email: string | null;
+  cpf_cnpj: string | null;
+  cidade: string | null;
+  estado: string | null;
+  origem: "cadastro" | "reciee" | "chatbot" | "disparo";
+  tem_atendimento: boolean;
+  tem_chatbot: boolean;
+  tem_faturas_reciee: boolean;
+  ultima_interacao: string | null;
 }
 
-export default async function ClientesPage({ searchParams }: ClientesPageProps) {
+interface ChatSession {
+  id: string;
+  telefone: string;
+  nome_lead: string | null;
+  classificacao: string | null;
+  status: string;
+  instancia: string | null;
+  respostas: Record<string, any>;
+  created_at: string;
+}
+
+interface FaturaReciee {
+  id: string;
+  competencia: string | null;
+  consumo_kwh: number | null;
+  valor_total: number | null;
+  bandeira: string | null;
+  created_at: string;
+}
+
+// ─── Página Principal ───
+
+export default function ClientesPage() {
+  const [clientes, setClientes] = useState<ClienteUnificado[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busca, setBusca] = useState("");
+  const [filtroOrigem, setFiltroOrigem] = useState<string>("todos");
+  const [clienteSelecionado, setClienteSelecionado] = useState<ClienteUnificado | null>(null);
+  const [detalhesAberto, setDetalhesAberto] = useState(false);
+  const router = useRouter();
   const supabase = createClient();
-  const busca = typeof searchParams.q === "string" ? searchParams.q : "";
-  const filtroStatus = typeof searchParams.status === "string" ? searchParams.status : "todos";
-  const mostrarTodos = searchParams.mostrar === "todos";
-  const deveBuscar = busca || mostrarTodos;
 
-  // Estatísticas — queries HEAD (só count, sem dados) em paralelo
-  const [totalRes, ativosRes, churnRes, prospectsRes] = await Promise.all([
-    supabase.from("clientes").select("*", { count: "exact", head: true }),
-    supabase.from("clientes").select("*", { count: "exact", head: true }).eq("status", "ativo"),
-    supabase.from("clientes").select("*", { count: "exact", head: true }).eq("status", "churn"),
-    supabase.from("clientes").select("*", { count: "exact", head: true }).eq("status", "prospect"),
-  ]);
+  // ─── Carregar dados da view unificada ───
+  const carregarClientes = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("v_unified_clientes")
+        .select("*")
+        .order("nome");
 
+      if (error) {
+        console.error("Erro ao carregar clientes:", error.message);
+        // Fallback: buscar da tabela clientes
+        const { data: fallback } = await supabase
+          .from("clientes")
+          .select("*")
+          .order("nome_razao_social");
+
+        if (fallback) {
+          setClientes(
+            fallback.map((c: any) => ({
+              id: c.id,
+              nome: c.nome_razao_social || "Sem nome",
+              telefone: c.telefone || null,
+              email: c.email || null,
+              cpf_cnpj: c.cpf_cnpj || null,
+              cidade: c.cidade || null,
+              estado: c.estado || null,
+              origem: "cadastro" as const,
+              tem_atendimento: false,
+              tem_chatbot: false,
+              tem_faturas_reciee: false,
+              ultima_interacao: c.created_at || null,
+            }))
+          );
+        }
+      } else if (data) {
+        setClientes(data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [supabase]);
+
+  useEffect(() => {
+    carregarClientes();
+  }, [carregarClientes]);
+
+  // ─── Filtrar ───
+  const clientesFiltrados = clientes.filter((c) => {
+    const matchBusca =
+      !busca ||
+      c.nome.toLowerCase().includes(busca.toLowerCase()) ||
+      c.telefone?.includes(busca) ||
+      c.email?.toLowerCase().includes(busca.toLowerCase()) ||
+      c.cpf_cnpj?.includes(busca);
+
+    const matchOrigem = filtroOrigem === "todos" || c.origem === filtroOrigem;
+
+    return matchBusca && matchOrigem;
+  });
+
+  // ─── Estatísticas ───
   const stats = {
-    total: totalRes.count ?? 0,
-    ativos: ativosRes.count ?? 0,
-    churn: churnRes.count ?? 0,
-    prospects: prospectsRes.count ?? 0,
+    total: clientes.length,
+    gd: clientes.filter((c) => c.origem === "chatbot" || c.origem === "disparo").length,
+    reciee: clientes.filter((c) => c.origem === "reciee").length,
+    atendimentos: clientes.filter((c) => c.tem_atendimento).length,
   };
 
-  // Só busca clientes se houver busca ou "mostrar todos"
-  let clientes: any[] | null = null;
-  let count = 0;
-  let error: any = null;
-
-  if (deveBuscar) {
-    let query = supabase.from("clientes").select("*, grupo:grupos_economicos!grupo_economico_id(id, nome)", { count: "exact" });
-
-    if (busca) {
-      query = query.ilike("nome_razao_social", `%${busca}%`);
-    }
-
-    if (filtroStatus !== "todos") {
-      query = query.eq("status", filtroStatus);
-    }
-
-    const result = await query.order("nome_razao_social", { ascending: true }).limit(200);
-    clientes = result.data;
-    count = result.count ?? 0;
-    error = result.error;
-  }
-
-  const formatCurrency = (value: number | null) =>
-    new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value ?? 0);
-
-  const statusBadge = (status: string) => {
-    switch (status) {
-      case "ativo":
-        return "bg-emerald-100 text-emerald-700 hover:bg-emerald-100";
-      case "churn":
-        return "bg-red-100 text-red-700 hover:bg-red-100";
-      case "prospect":
-        return "bg-amber-100 text-amber-700 hover:bg-amber-100";
-      default:
-        return "bg-slate-100 text-slate-700";
-    }
-  };
-
-  const statusLabel = (status: string) => {
-    switch (status) {
-      case "ativo":
-        return "Ativo";
-      case "churn":
-        return "Churn";
-      case "prospect":
-        return "Prospect";
-      default:
-        return status;
-    }
-  };
-
-  const diasSemCompra = (dataUltimaCompra: string | null) => {
-    if (!dataUltimaCompra) return null;
-    const diff = Math.floor(
-      (new Date().getTime() - new Date(dataUltimaCompra).getTime()) / (1000 * 60 * 60 * 24)
-    );
-    return diff > 0 ? diff : 0;
+  // ─── Abrir detalhes ───
+  const abrirDetalhes = (cliente: ClienteUnificado) => {
+    setClienteSelecionado(cliente);
+    setDetalhesAberto(true);
   };
 
   return (
-    <div className="space-y-6">
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-500">Total de Clientes</p>
-                <p className="text-2xl font-bold">{stats.total}</p>
-              </div>
-              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                <Users className="h-5 w-5 text-blue-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-500">Clientes Ativos</p>
-                <p className="text-2xl font-bold text-emerald-600">{stats.ativos}</p>
-              </div>
-              <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                <TrendingUp className="h-5 w-5 text-emerald-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-500">Em Churn</p>
-                <p className="text-2xl font-bold text-red-600">{stats.churn}</p>
-              </div>
-              <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
-                <TrendingDown className="h-5 w-5 text-red-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-500">Prospects</p>
-                <p className="text-2xl font-bold text-amber-600">{stats.prospects}</p>
-              </div>
-              <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
-                <Building2 className="h-5 w-5 text-amber-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+    <div className="h-[calc(100vh-9rem)] flex flex-col overflow-hidden">
+      {/* Header */}
+      <div className="shrink-0 flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            <Users className="h-5 w-5 text-[#3B64CF]" />
+            Clientes
+          </h2>
+          <p className="text-xs text-slate-400">
+            {stats.total} clientes cadastrados · {stats.gd} GD · {stats.reciee} RECIEE
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs border-[#1c2e4a] text-slate-400"
+            onClick={carregarClientes}
+          >
+            <RefreshCw className="h-3 w-3 mr-1" />
+            Atualizar
+          </Button>
+        </div>
       </div>
 
-      {/* Conteúdo principal */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Lista de Clientes</CardTitle>
-              <CardDescription>
-                {deveBuscar
-                  ? `${count} cliente(s) encontrado(s)`
-                  : "Busque por nome ou CNPJ para encontrar clientes"}
-              </CardDescription>
-            </div>
-            <ModalNovoCliente />
+      {/* Filtros */}
+      <div className="shrink-0 flex gap-2 mb-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/30" />
+          <Input
+            placeholder="Buscar por nome, telefone, email ou CPF/CNPJ..."
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            className="h-8 text-xs pl-7 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#3B64CF]"
+          />
+        </div>
+        <div className="flex gap-1">
+          {[
+            { value: "todos", label: "Todos" },
+            { value: "cadastro", label: "Cadastro" },
+            { value: "reciee", label: "RECIEE" },
+            { value: "chatbot", label: "Chatbot" },
+            { value: "disparo", label: "Disparo" },
+          ].map((f) => (
+            <button
+              key={f.value}
+              onClick={() => setFiltroOrigem(f.value)}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-all ${
+                filtroOrigem === f.value
+                  ? "bg-[#3B64CF] text-white"
+                  : "bg-white/5 text-white/50 hover:bg-white/10"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Lista */}
+      <div className="flex-1 min-h-0 overflow-hidden">
+        {loading ? (
+          <div className="flex items-center justify-center h-full text-slate-500">
+            Carregando clientes...
           </div>
-        </CardHeader>
-        <CardContent>
-          {/* Barra de busca sempre visível */}
-          <form className="flex items-center gap-3 mb-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-              <Input
-                name="q"
-                defaultValue={busca}
-                placeholder="Digite o nome, CNPJ ou o que você procura..."
-                className="pl-10"
-              />
-            </div>
-            <div className="flex bg-slate-100 p-1 rounded-lg">
-              {["todos", "ativo", "churn", "prospect"].map((s) => (
-                <Link
-                  key={s}
-                  href={`/clientes?status=${s}${busca ? `&q=${busca}` : ""}${mostrarTodos ? "&mostrar=todos" : ""}`}
-                  className={cn(
-                    "px-3 py-1.5 text-sm font-medium rounded-md transition-colors capitalize",
-                    filtroStatus === s
-                      ? "bg-white text-slate-900 shadow-sm"
-                      : "text-slate-600 hover:text-slate-900"
-                  )}
+        ) : clientesFiltrados.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-slate-500">
+            <Users className="h-12 w-12 mb-4 text-slate-600" />
+            <p className="text-sm">Nenhum cliente encontrado</p>
+            <p className="text-xs text-slate-600 mt-1">
+              Clientes aparecem aqui quando criam atendimento, participam de chatbot ou são importados
+            </p>
+          </div>
+        ) : (
+          <ScrollArea className="h-full">
+            <div className="space-y-2">
+              {clientesFiltrados.map((cliente) => (
+                <Card
+                  key={cliente.id}
+                  className="border-[#1c2e4a] bg-[#14233c] cursor-pointer hover:border-[#3B64CF]/30 transition-colors"
+                  onClick={() => abrirDetalhes(cliente)}
                 >
-                  {s === "todos" ? "Todos" : s === "ativo" ? "Ativos" : s === "churn" ? "Churn" : "Prospects"}
-                </Link>
-              ))}
-            </div>
-            <Button variant="outline" size="icon" type="submit">
-              <Filter className="h-4 w-4" />
-            </Button>
-          </form>
-
-          {/* Ações abaixo da busca */}
-          {!deveBuscar && (
-            <div className="flex items-center justify-center gap-4 py-8 border-t border-dashed">
-              <Link href="/clientes?mostrar=todos">
-                <Button variant="outline" className="gap-2">
-                  <LayoutGrid className="h-4 w-4" />
-                  Mostrar grade
-                </Button>
-              </Link>
-              <span className="text-sm text-slate-400">ou</span>
-              <ModalNovoCliente />
-            </div>
-          )}
-
-          {/* Debug */}
-          {error && (
-            <div className="rounded-md bg-red-50 p-3 text-sm text-red-600 mb-4">
-              <strong>Erro na query:</strong> {error.message} (code: {error.code})
-            </div>
-          )}
-          {(totalRes.error || ativosRes.error || churnRes.error || prospectsRes.error) && (
-            <div className="rounded-md bg-red-50 p-3 text-sm text-red-600 mb-4">
-              <strong>Erro nas estatísticas:</strong> {(totalRes.error || ativosRes.error)?.message}
-            </div>
-          )}
-
-          {/* Lista de clientes */}
-          {deveBuscar && (
-            <ScrollArea className="h-[500px]">
-              <div className="space-y-2">
-                {clientes && clientes.length > 0 ? (
-                  clientes.map((cliente: any) => {
-                    const semCompra = diasSemCompra(cliente.data_ultima_compra);
-
-                    return (
-                      <Link
-                        key={cliente.id}
-                        href={`/clientes/${cliente.id}`}
-                        className="flex items-center gap-4 p-4 rounded-lg border hover:bg-slate-50 transition-colors cursor-pointer"
-                      >
-                        <Avatar className="h-12 w-12">
-                          <AvatarImage
-                            src={`https://api.dicebear.com/7.x/initials/svg?seed=${cliente.nome_razao_social}`}
-                          />
-                          <AvatarFallback className="bg-slate-200 text-slate-700">
-                            {cliente.nome_razao_social?.charAt(0) ?? "?"}
-                          </AvatarFallback>
-                        </Avatar>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-slate-900 truncate">
-                              {cliente.nome_razao_social}
-                            </h3>
-                             {cliente.grupo_economico_id && (
-                               <Badge variant="secondary" className="bg-purple-100 text-purple-700">
-                                 <Building2 className="h-3 w-3 mr-1" />
-                                 {cliente.grupo?.nome || "Grupo"}
-                               </Badge>
-                             )}
-                            {cliente.status === "churn" && semCompra != null && (
-                              <Badge variant="destructive" className="gap-1">
-                                <AlertTriangle className="h-3 w-3" />
-                                {semCompra} dias
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-4 text-sm text-slate-500 mt-1 flex-wrap">
-                            <span className="flex items-center gap-1">
-                              <Phone className="h-3 w-3" />
-                              {cliente.telefone ?? "—"}
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="text-sm font-semibold text-white truncate">
+                            {cliente.nome}
+                          </h3>
+                          <OrigemBadge origem={cliente.origem} />
+                          {cliente.cidade && (
+                            <span className="text-[10px] text-slate-500">
+                              {cliente.cidade}{cliente.estado ? `/${cliente.estado}` : ""}
                             </span>
-                            <span className="flex items-center gap-1">
-                              <Mail className="h-3 w-3" />
-                              {cliente.email ?? "—"}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {cliente.cidade && cliente.estado
-                                ? `${cliente.cidade}/${cliente.estado}`
-                                : "—"}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="text-right">
-                          <Badge className={cn(statusBadge(cliente.status))}>
-                            {statusLabel(cliente.status)}
-                          </Badge>
-                          {cliente.cpf_cnpj && (
-                            <p className="text-sm text-slate-500 mt-1">
-                              {cliente.cpf_cnpj}
-                            </p>
                           )}
                         </div>
-
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm">
-                            Ver
-                          </Button>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
+                        <div className="flex items-center gap-4 text-[10px] text-slate-500">
+                          {cliente.telefone && (
+                            <span className="flex items-center gap-1">
+                              <Phone className="h-3 w-3" />
+                              {cliente.telefone}
+                            </span>
+                          )}
+                          {cliente.email && (
+                            <span className="flex items-center gap-1">
+                              <Mail className="h-3 w-3" />
+                              {cliente.email}
+                            </span>
+                          )}
+                          {cliente.cpf_cnpj && (
+                            <span className="flex items-center gap-1">
+                              <Building2 className="h-3 w-3" />
+                              {cliente.cpf_cnpj}
+                            </span>
+                          )}
                         </div>
-                      </Link>
-                    );
-                  })
-                ) : (
-                  <div className="text-center py-12 text-slate-500">
-                    <Search className="h-12 w-12 mx-auto mb-4 text-slate-300" />
-                    <p className="text-lg font-medium">Nenhum cliente encontrado</p>
-                    <p className="text-sm">Tente ajustar a busca ou os filtros.</p>
-                  </div>
-                )}
+                        <div className="flex items-center gap-2 mt-1">
+                          {cliente.tem_atendimento && (
+                            <Badge variant="secondary" className="text-[9px] bg-blue-500/20 text-blue-400">
+                              <MessageSquare className="h-2.5 w-2.5 mr-0.5" />
+                              Atendimento
+                            </Badge>
+                          )}
+                          {cliente.tem_chatbot && (
+                            <Badge variant="secondary" className="text-[9px] bg-purple-500/20 text-purple-400">
+                              <Bot className="h-2.5 w-2.5 mr-0.5" />
+                              Chatbot
+                            </Badge>
+                          )}
+                          {cliente.tem_faturas_reciee && (
+                            <Badge variant="secondary" className="text-[9px] bg-yellow-500/20 text-yellow-400">
+                              <FileText className="h-2.5 w-2.5 mr-0.5" />
+                              RECIEE
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-slate-600 shrink-0" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </ScrollArea>
+        )}
+      </div>
+
+      {/* Modal de Detalhes */}
+      {clienteSelecionado && (
+        <DetalhesCliente
+          cliente={clienteSelecionado}
+          aberto={detalhesAberto}
+          onFechar={() => setDetalhesAberto(false)}
+          onNavegar={(rota) => {
+            setDetalhesAberto(false);
+            router.push(rota);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Badge de Origem ───
+
+function OrigemBadge({ origem }: { origem: string }) {
+  const config: Record<string, { label: string; color: string }> = {
+    cadastro: { label: "Cadastro", color: "bg-slate-500/20 text-slate-400" },
+    reciee: { label: "RECIEE", color: "bg-yellow-500/20 text-yellow-400" },
+    chatbot: { label: "GD", color: "bg-green-500/20 text-green-400" },
+    disparo: { label: "Disparo", color: "bg-orange-500/20 text-orange-400" },
+  };
+  const c = config[origem] || config.cadastro;
+  return (
+    <Badge variant="secondary" className={`text-[9px] ${c.color}`}>
+      {c.label}
+    </Badge>
+  );
+}
+
+// ─── Modal de Detalhes do Cliente ───
+
+function DetalhesCliente({
+  cliente,
+  aberto,
+  onFechar,
+  onNavegar,
+}: {
+  cliente: ClienteUnificado;
+  aberto: boolean;
+  onFechar: () => void;
+  onNavegar: (rota: string) => void;
+}) {
+  const [activeTab, setActiveTab] = useState<"geral" | "chatbot" | "reciee" | "atendimentos">("geral");
+  const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
+  const [faturas, setFaturas] = useState<FaturaReciee[]>([]);
+  const [atendimentos, setAtendimentos] = useState<any[]>([]);
+  const [loadingDetalhes, setLoadingDetalhes] = useState(false);
+  const supabase = createClient();
+
+  useEffect(() => {
+    if (!aberto || !cliente) return;
+
+    const carregarDetalhes = async () => {
+      setLoadingDetalhes(true);
+
+      // Buscar sessões de chatbot por telefone
+      if (cliente.telefone) {
+        const tel = cliente.telefone.replace(/\D/g, "");
+        const telComUltimos8 = tel.slice(-8);
+        const { data: sessions } = await supabase
+          .from("chatbot_sessions")
+          .select("*")
+          .or(`telefone.eq.${tel},telefone.like.%${telComUltimos8}%`)
+          .order("created_at", { ascending: false })
+          .limit(10);
+        setChatSessions(sessions || []);
+      }
+
+      // Buscar faturas RECIEE
+      if (cliente.cpf_cnpj) {
+        const { data: recieeClient } = await supabase
+          .from("clientes_reciee")
+          .select("id")
+          .or(`cpf_cnpj.eq.${cliente.cpf_cnpj},cnpj.eq.${cliente.cpf_cnpj}`)
+          .limit(1)
+          .single();
+
+        if (recieeClient) {
+          const { data: f } = await supabase
+            .from("faturas_reciee")
+            .select("*")
+            .eq("cliente_id", recieeClient.id)
+            .order("competencia", { ascending: false })
+            .limit(12);
+          setFaturas(f || []);
+        }
+      }
+
+      // Buscar atendimentos
+      if (cliente.telefone) {
+        const tel = cliente.telefone.replace(/\D/g, "");
+        const telComUltimos8 = tel.slice(-8);
+        const { data: atts } = await supabase
+          .from("atendimentos")
+          .select("id, telefone_cliente, nome_cliente, status, instancia, created_at, ultima_mensagem")
+          .or(`telefone_cliente.eq.${tel},telefone_cliente.like.%${telComUltimos8}%`)
+          .order("created_at", { ascending: false })
+          .limit(10);
+        setAtendimentos(atts || []);
+      }
+
+      setLoadingDetalhes(false);
+    };
+
+    carregarDetalhes();
+  }, [aberto, cliente, supabase]);
+
+  if (!aberto) return null;
+
+  return (
+    <Dialog open={aberto} onOpenChange={(open) => !open && onFechar()}>
+      <DialogContent className="bg-[#0f1d32] border-[#1c2e4a] max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogHeader className="shrink-0">
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-white text-base">
+              {cliente.nome}
+            </DialogTitle>
+            <div className="flex items-center gap-2">
+              {cliente.telefone && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[10px] border-[#1c2e4a] text-slate-400"
+                  onClick={() => onNavegar(`/atendimento?telefone=${cliente.telefone}`)}
+                >
+                  <MessageSquare className="h-3 w-3 mr-1" />
+                  Atendimento
+                </Button>
+              )}
+              {cliente.origem === "reciee" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[10px] border-[#1c2e4a] text-slate-400"
+                  onClick={() => onNavegar("/reciee")}
+                >
+                  <FileText className="h-3 w-3 mr-1" />
+                  RECIEE
+                </Button>
+              )}
+            </div>
+          </div>
+        </DialogHeader>
+
+        {/* Tabs */}
+        <div className="shrink-0 flex gap-1 mb-3">
+          {[
+            { key: "geral", label: "Geral" },
+            { key: "chatbot", label: `Chatbot (${chatSessions.length})` },
+            { key: "reciee", label: `RECIEE (${faturas.length})` },
+            { key: "atendimentos", label: `Atendimentos (${atendimentos.length})` },
+          ].map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setActiveTab(t.key as any)}
+              className={`px-2.5 py-1 rounded text-[11px] font-medium transition-all ${
+                activeTab === t.key
+                  ? "bg-[#3B64CF] text-white"
+                  : "bg-white/5 text-white/50 hover:bg-white/10"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Conteúdo */}
+        <ScrollArea className="flex-1 min-h-0">
+          {loadingDetalhes ? (
+            <div className="flex items-center justify-center h-32 text-slate-500 text-xs">
+              Carregando detalhes...
+            </div>
+          ) : activeTab === "geral" ? (
+            <div className="space-y-3">
+              <InfoItem icon={<Phone className="h-3.5 w-3.5" />} label="Telefone" value={cliente.telefone} />
+              <InfoItem icon={<Mail className="h-3.5 w-3.5" />} label="Email" value={cliente.email} />
+              <InfoItem icon={<Building2 className="h-3.5 w-3.5" />} label="CPF/CNPJ" value={cliente.cpf_cnpj} />
+              <InfoItem icon={<Users className="h-3.5 w-3.5" />} label="Cidade" value={cliente.cidade ? `${cliente.cidade}${cliente.estado ? `/${cliente.estado}` : ""}` : null} />
+              <div className="pt-2 border-t border-[#1c2e4a]">
+                <p className="text-[10px] text-slate-500 mb-2">Origem</p>
+                <OrigemBadge origem={cliente.origem} />
               </div>
-            </ScrollArea>
+            </div>
+          ) : activeTab === "chatbot" ? (
+            <div className="space-y-2">
+              {chatSessions.length === 0 ? (
+                <p className="text-xs text-slate-500 text-center py-8">Nenhuma sessão de chatbot</p>
+              ) : (
+                chatSessions.map((s) => (
+                  <div key={s.id} className="p-3 rounded-lg bg-[#0a1628] border border-[#1c2e4a]">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium text-white">{s.nome_lead || s.telefone}</span>
+                      <div className="flex items-center gap-2">
+                        {s.classificacao && (
+                          <Badge variant="secondary" className={`text-[9px] ${
+                            s.classificacao === "A" ? "bg-red-500/20 text-red-400" :
+                            s.classificacao === "B" ? "bg-orange-500/20 text-orange-400" :
+                            s.classificacao === "C" ? "bg-yellow-500/20 text-yellow-400" :
+                            "bg-slate-500/20 text-slate-400"
+                          }`}>
+                            {s.classificacao}
+                          </Badge>
+                        )}
+                        <Badge variant="secondary" className={`text-[9px] ${
+                          s.status === "ativa" ? "bg-green-500/20 text-green-400" :
+                          s.status === "concluida" ? "bg-blue-500/20 text-blue-400" :
+                          "bg-slate-500/20 text-slate-400"
+                        }`}>
+                          {s.status}
+                        </Badge>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-500">
+                      {s.instancia} · {new Date(s.created_at).toLocaleDateString("pt-BR")}
+                    </p>
+                    {s.respostas && Object.keys(s.respostas).length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {Object.entries(s.respostas).map(([key, val]: [string, any]) => (
+                          <div key={key} className="text-[10px]">
+                            <span className="text-slate-500">{key}:</span>{" "}
+                            <span className="text-slate-300">{val?.texto || val?.chave || String(val)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          ) : activeTab === "reciee" ? (
+            <div className="space-y-2">
+              {faturas.length === 0 ? (
+                <p className="text-xs text-slate-500 text-center py-8">Nenhuma fatura RECIEE</p>
+              ) : (
+                faturas.map((f) => (
+                  <div key={f.id} className="p-3 rounded-lg bg-[#0a1628] border border-[#1c2e4a]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-white">
+                        {f.competencia || "Sem competência"}
+                      </span>
+                      <span className="text-xs text-green-400">
+                        {f.valor_total ? `R$ ${f.valor_total.toLocaleString("pt-BR")}` : "-"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 text-[10px] text-slate-500 mt-1">
+                      {f.consumo_kwh && <span>{f.consumo_kwh.toLocaleString()} kWh</span>}
+                      {f.bandeira && <span>{f.bandeira}</span>}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {atendimentos.length === 0 ? (
+                <p className="text-xs text-slate-500 text-center py-8">Nenhum atendimento</p>
+              ) : (
+                atendimentos.map((a) => (
+                  <div
+                    key={a.id}
+                    className="p-3 rounded-lg bg-[#0a1628] border border-[#1c2e4a] cursor-pointer hover:border-[#3B64CF]/30 transition-colors"
+                    onClick={() => onNavegar("/atendimento")}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-white">
+                        {a.nome_cliente || a.telefone_cliente}
+                      </span>
+                      <Badge variant="secondary" className={`text-[9px] ${
+                        a.status === "aberto" ? "bg-green-500/20 text-green-400" : "bg-slate-500/20 text-slate-400"
+                      }`}>
+                        {a.status}
+                      </Badge>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1 truncate">
+                      {a.ultima_mensagem || "Sem mensagem"}
+                    </p>
+                    <p className="text-[10px] text-slate-600">
+                      {a.instancia} · {new Date(a.created_at).toLocaleDateString("pt-BR")}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
           )}
-        </CardContent>
-      </Card>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Item de Info ───
+
+function InfoItem({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | null }) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="text-slate-500">{icon}</div>
+      <div>
+        <p className="text-[10px] text-slate-500">{label}</p>
+        <p className="text-xs text-white">{value || "-"}</p>
+      </div>
     </div>
   );
 }
