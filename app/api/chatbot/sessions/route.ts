@@ -95,7 +95,29 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// PUT - Atualizar sessão (ex: encerrar, mudar status)
+// DELETE - Deletar sessão
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = getSupabase();
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: "id é obrigatório" }, { status: 400 });
+    }
+
+    // Deletar mensagens primeiro (cascade manual)
+    await supabase.from('chatbot_messages').delete().eq('session_id', id);
+
+    // Deletar sessão
+    const { error } = await supabase.from('chatbot_sessions').delete().eq('id', id);
+    if (error) throw error;
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
 export async function PUT(request: NextRequest) {
   try {
     const supabase = getSupabase();

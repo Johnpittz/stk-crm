@@ -158,6 +158,16 @@ export default function ChatbotPage() {
     }
   };
 
+  const deletarSessao = async (id: string) => {
+    try {
+      await fetch(`/api/chatbot/sessions?id=${id}`, { method: "DELETE" });
+      carregarSessoes();
+      setSessaoSelecionada(null);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   // ─── Renderização ───
 
   if (loading) {
@@ -444,6 +454,7 @@ function SessoesTab({
             sessao={sessaoSelecionada}
             mensagens={mensagens}
             onEncerrar={onEncerrar}
+            onDeletar={deletarSessao}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center text-slate-500">
@@ -464,10 +475,12 @@ function SessaoDetalhes({
   sessao,
   mensagens,
   onEncerrar,
+  onDeletar,
 }: {
   sessao: ChatSession;
   mensagens: ChatMessage[];
   onEncerrar: (id: string) => void;
+  onDeletar: (id: string) => void;
 }) {
   return (
     <Card className="flex-1 flex flex-col border-[#1c2e4a] bg-[#14233c] min-h-0">
@@ -489,6 +502,19 @@ function SessaoDetalhes({
                 Encerrar
               </Button>
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-[10px] border-red-700/30 text-red-500 hover:bg-red-700/10"
+              onClick={() => {
+                if (confirm('Deletar esta sessão e todas as mensagens?')) {
+                  onDeletar(sessao.id);
+                }
+              }}
+            >
+              <Trash2 className="h-3 w-3 mr-1" />
+              Deletar
+            </Button>
           </div>
         </div>
       </CardHeader>
