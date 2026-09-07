@@ -189,6 +189,19 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: true, atendimento_id: atendimentoExistente.id, action: "chatbot" });
           }
 
+          // Verificar se já recebeu o script antes (concluída/encaminhada) — não reativar
+          const { data: sessaoFinalizada } = await getSupabase()
+            .from('chatbot_sessions')
+            .select('id')
+            .eq('telefone', telefoneLimpo)
+            .in('status', ['concluida', 'encaminhada'])
+            .limit(1)
+            .maybeSingle();
+
+          if (sessaoFinalizada) {
+            return NextResponse.json({ success: true, action: "already_completed" });
+          }
+
           // Verificar se foi cancelada nas últimas 24h (não reativar)
           const { data: sessaoCancelada } = await getSupabase()
             .from('chatbot_sessions')
@@ -350,6 +363,19 @@ export async function POST(request: NextRequest) {
     // ===== INTEGRAÇÃO CHATBOT (novo atendimento) =====
     if (!dados.fromMe && mensagem) {
       try {
+        // Verificar se já recebeu o script antes (concluída/encaminhada) — não reativar
+        const { data: sessaoFinalizadaNovo } = await getSupabase()
+          .from('chatbot_sessions')
+          .select('id')
+          .eq('telefone', telefoneLimpo)
+          .in('status', ['concluida', 'encaminhada'])
+          .limit(1)
+          .maybeSingle();
+
+        if (sessaoFinalizadaNovo) {
+          return NextResponse.json({ success: true, action: "already_completed" });
+        }
+
         // Verificar se foi cancelada nas últimas 24h
         const { data: sessaoCanceladaNovo } = await getSupabase()
           .from('chatbot_sessions')
