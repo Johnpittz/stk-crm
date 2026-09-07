@@ -382,32 +382,20 @@ function DetalhesCliente({
         setChatSessions(sessions || []);
       }
 
-      // Buscar faturas RECIEE
+      // Buscar faturas RECIEE (via API server-side para evitar RLS)
       if (cliente.cpf_cnpj) {
         try {
-          const { data: recieeClients, error: recieeErr } = await supabase
-            .from("clientes_reciee")
-            .select("id")
-            .eq("cpf_cnpj", cliente.cpf_cnpj)
-            .limit(1);
+          // Buscar todos os clientes RECIEE e filtrar por CPF
+          const res = await fetch("/api/reciee/clientes");
+          const { clientes: allReciee } = await res.json();
+          const recieeClient = allReciee?.find(
+            (c: any) => c.cpf_cnpj === cliente.cpf_cnpj
+          );
 
-          if (recieeErr) {
-            console.error("Erro ao buscar cliente RECIEE:", recieeErr.message);
-          }
-
-          const recieeClient = recieeClients?.[0];
           if (recieeClient) {
-            const { data: f, error: fErr } = await supabase
-              .from("faturas_reciee")
-              .select("*")
-              .eq("cliente_id", recieeClient.id)
-              .order("competencia", { ascending: false })
-              .limit(12);
-
-            if (fErr) {
-              console.error("Erro ao buscar faturas:", fErr.message);
-            }
-            setFaturas(f || []);
+            const fRes = await fetch(`/api/reciee/faturas?cliente_id=${recieeClient.id}`);
+            const { faturas } = await fRes.json();
+            setFaturas(faturas || []);
           }
         } catch (err) {
           console.error("Erro inesperado ao buscar faturas:", err);
