@@ -384,21 +384,33 @@ function DetalhesCliente({
 
       // Buscar faturas RECIEE
       if (cliente.cpf_cnpj) {
-        const { data: recieeClient } = await supabase
-          .from("clientes_reciee")
-          .select("id")
-          .eq("cpf_cnpj", cliente.cpf_cnpj)
-          .limit(1)
-          .single();
+        try {
+          const { data: recieeClients, error: recieeErr } = await supabase
+            .from("clientes_reciee")
+            .select("id")
+            .eq("cpf_cnpj", cliente.cpf_cnpj)
+            .limit(1);
 
-        if (recieeClient) {
-          const { data: f } = await supabase
-            .from("faturas_reciee")
-            .select("*")
-            .eq("cliente_id", recieeClient.id)
-            .order("competencia", { ascending: false })
-            .limit(12);
-          setFaturas(f || []);
+          if (recieeErr) {
+            console.error("Erro ao buscar cliente RECIEE:", recieeErr.message);
+          }
+
+          const recieeClient = recieeClients?.[0];
+          if (recieeClient) {
+            const { data: f, error: fErr } = await supabase
+              .from("faturas_reciee")
+              .select("*")
+              .eq("cliente_id", recieeClient.id)
+              .order("competencia", { ascending: false })
+              .limit(12);
+
+            if (fErr) {
+              console.error("Erro ao buscar faturas:", fErr.message);
+            }
+            setFaturas(f || []);
+          }
+        } catch (err) {
+          console.error("Erro inesperado ao buscar faturas:", err);
         }
       }
 
