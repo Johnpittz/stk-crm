@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
             .select('*')
             .eq('telefone', telefoneLimpo)
             .eq('status', 'ativa')
-            .single();
+            .maybeSingle();
 
           console.log(`[Chatbot Debug] Sessão ativa: ${sessaoChatbot ? 'SIM' : 'NÃO'}${errSession ? ' erro: ' + errSession.message : ''}`);
 
@@ -213,27 +213,14 @@ export async function POST(request: NextRequest) {
 
           // Verificar se há fluxo de chatbot para esta instância
           console.log(`[Chatbot Debug] Buscando fluxo para instancia: "${dados.instance}"`);
-          let fluxoChatbot = null;
-          if (dados.instance) {
-            const result = await getSupabase()
-              .from('chatbot_flows')
-              .select('*')
-              .eq('instancia', dados.instance)
-              .eq('ativo', true)
-              .single();
-            fluxoChatbot = result.data;
-            if (result.error) console.log(`[Chatbot Debug] Erro query fluxo: ${result.error.message}`);
-          } else {
-            const result = await getSupabase()
-              .from('chatbot_flows')
-              .select('*')
-              .eq('ativo', true)
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .single();
-            fluxoChatbot = result.data;
-            if (result.error) console.log(`[Chatbot Debug] Erro query fluxo (fallback): ${result.error.message}`);
-          }
+          const { data: fluxoChatbot, error: errFlow } = await getSupabase()
+            .from('chatbot_flows')
+            .select('*')
+            .eq('ativo', true)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (errFlow) console.log(`[Chatbot Debug] Erro query fluxo: ${errFlow.message}`);
 
           console.log(`[Chatbot Debug] Fluxo encontrado: ${fluxoChatbot ? fluxoChatbot.nome : 'NÃO'}`);
 
@@ -382,26 +369,14 @@ export async function POST(request: NextRequest) {
     console.log(`[Chatbot Debug NOVO] fromMe=${dados.fromMe}, instance="${dados.instance}", telefone=${telefoneLimpo}`);
     if (!dados.fromMe && mensagem) {
       try {
-        // Buscar fluxo: se instance é null, busca qualquer fluxo ativo
-        let fluxoChatbotNovo = null;
-        if (dados.instance) {
-          const { data } = await getSupabase()
-            .from('chatbot_flows')
-            .select('*')
-            .eq('instancia', dados.instance)
-            .eq('ativo', true)
-            .single();
-          fluxoChatbotNovo = data;
-        } else {
-          const { data } = await getSupabase()
-            .from('chatbot_flows')
-            .select('*')
-            .eq('ativo', true)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
-          fluxoChatbotNovo = data;
-        }
+        const { data: fluxoChatbotNovo, error: errFlowNovo } = await getSupabase()
+          .from('chatbot_flows')
+          .select('*')
+          .eq('ativo', true)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (errFlowNovo) console.log(`[Chatbot Debug NOVO] Erro query fluxo: ${errFlowNovo.message}`);
 
         console.log(`[Chatbot Debug NOVO] Fluxo encontrado: ${fluxoChatbotNovo ? fluxoChatbotNovo.nome : 'NÃO'}`);
 
