@@ -42,7 +42,7 @@ interface ClienteUnificado {
   cpf_cnpj: string | null;
   cidade: string | null;
   estado: string | null;
-  origem: "cadastro" | "reciee" | "chatbot" | "disparo";
+  origem: "cadastro" | "reciee" | "chatbot" | "disparo" | "whatsapp" | "atendimento";
   tem_atendimento: boolean;
   tem_chatbot: boolean;
   tem_faturas_reciee: boolean;
@@ -202,6 +202,8 @@ export default function ClientesPage() {
             { value: "reciee", label: "RECIEE" },
             { value: "chatbot", label: "Chatbot" },
             { value: "disparo", label: "Disparo" },
+            { value: "whatsapp", label: "WhatsApp" },
+            { value: "atendimento", label: "Atendimento" },
           ].map((f) => (
             <button
               key={f.value}
@@ -330,6 +332,8 @@ function OrigemBadge({ origem }: { origem: string }) {
     reciee: { label: "RECIEE", color: "bg-yellow-500/20 text-yellow-400" },
     chatbot: { label: "GD", color: "bg-green-500/20 text-green-400" },
     disparo: { label: "Disparo", color: "bg-orange-500/20 text-orange-400" },
+    whatsapp: { label: "WhatsApp", color: "bg-emerald-500/20 text-emerald-400" },
+    atendimento: { label: "Atendimento", color: "bg-blue-500/20 text-blue-400" },
   };
   const c = config[origem] || config.cadastro;
   return (
@@ -383,7 +387,7 @@ function DetalhesCliente({
         const { data: recieeClient } = await supabase
           .from("clientes_reciee")
           .select("id")
-          .or(`cpf_cnpj.eq.${cliente.cpf_cnpj},cnpj.eq.${cliente.cpf_cnpj}`)
+          .eq("cpf_cnpj", cliente.cpf_cnpj)
           .limit(1)
           .single();
 
