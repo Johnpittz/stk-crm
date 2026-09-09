@@ -19,6 +19,7 @@ import { uploadMediaToStorage } from "@/lib/media-storage";
 import { gerarRespostaIA, verificarIAAtivada } from "@/lib/ai-assistant";
 import { processarMensagemChatbot } from "@/lib/chatbot/engine";
 import { resolveLidToPhone, saveLidMapping } from "@/lib/lid-resolver";
+import { validateWebhookSecret } from "@/lib/webhook-secret";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,16 @@ function getSupabase() {
 
 export async function POST(request: NextRequest) {
   try {
-    // Rate limit: 60 webhooks por minuto
+    // 1. Validação de webhook secret (autenticação)
+    if (!validateWebhookSecret(request)) {
+      console.warn("[Webhook WhatsApp] Requisição rejeitada: secret inválido");
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    // 2. Rate limit: 60 webhooks por minuto por IP
     const limit = rateLimit(request, { max: 60, windowMs: 60_000 });
     if (!limit.allowed) {
       return NextResponse.json(
@@ -47,8 +57,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse do payload da Evolution API
+    // 3. Parse do payload da Evolution API
     const payload = await request.json();
+
+    // 4. Validação básica do payload
+    if (!payload.event || !payload.data) {
+      return NextResponse.json(
+        { error: "Payload inválido: event e data são obrigatórios" },
+        { status: 400 }
+      );
+    }
 
     // Log para debug
     console.log("[Webhook WhatsApp] Evento:", payload.event);
