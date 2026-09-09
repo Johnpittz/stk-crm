@@ -555,9 +555,9 @@ function extrairDadosEvolutionAPI(payload: any): {
     if (jid.endsWith("@lid") && key.remoteJidAlt) {
       // LID mode com remoteJidAlt (formato antigo com addressingMode)
       telefone = key.remoteJidAlt.replace("@s.whatsapp.net", "") || null;
-    } else if (jid.endsWith("@lid") && data.sender) {
-      // LID mode sem remoteJidAlt (v2.3.7): usar campo sender
-      telefone = data.sender.replace("@s.whatsapp.net", "") || null;
+    } else if (jid.endsWith("@lid") && payload.sender) {
+      // LID mode sem remoteJidAlt (v2.3.7): usar campo sender do payload
+      telefone = payload.sender.replace("@s.whatsapp.net", "") || null;
     } else if (jid) {
       // Normal mode: extrair do remoteJid
       telefone = jid.replace("@s.whatsapp.net", "") || null;
