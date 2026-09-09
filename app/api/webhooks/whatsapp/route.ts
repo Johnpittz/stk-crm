@@ -552,6 +552,10 @@ function extrairDadosEvolutionAPI(payload: any): {
     // Usar o JID que tiver valor, priorizando key
     const jid = jidFromKey || jidFromData;
     
+    console.log("[Webhook DEBUG] jidFromKey:", jidFromKey, "jidFromData:", jidFromData, "jid:", jid);
+    console.log("[Webhook DEBUG] payload.sender:", payload.sender);
+    console.log("[Webhook DEBUG] key.remoteJidAlt:", key.remoteJidAlt);
+    
     if (jid.endsWith("@lid") && key.remoteJidAlt) {
       // LID mode com remoteJidAlt (formato antigo com addressingMode)
       telefone = key.remoteJidAlt.replace("@s.whatsapp.net", "") || null;
@@ -562,6 +566,8 @@ function extrairDadosEvolutionAPI(payload: any): {
       // Normal mode: extrair do remoteJid
       telefone = jid.replace("@s.whatsapp.net", "") || null;
     }
+    
+    console.log("[Webhook DEBUG] telefone extraido:", telefone);
 
     return {
       telefone,
