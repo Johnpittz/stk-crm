@@ -18,6 +18,7 @@ import { buscarVendedorPadrao } from "@/lib/roteamento";
 import { uploadMediaToStorage } from "@/lib/media-storage";
 import { gerarRespostaIA, verificarIAAtivada } from "@/lib/ai-assistant";
 import { processarMensagemChatbot } from "@/lib/chatbot/engine";
+import { resolveLidToPhone, saveLidMapping } from "@/lib/lid-resolver";
 
 export const dynamic = "force-dynamic";
 
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Extrair dados do payload da Evolution API
-    const dados = extrairDadosEvolutionAPI(payload);
+    const dados = await extrairDadosEvolutionAPI(payload);
 
     // Se tem base64 raw, faz upload para Supabase Storage (evita egress no banco)
     if (dados.rawBase64 && dados.rawMime && dados.mediaType) {
@@ -472,7 +473,7 @@ export async function POST(request: NextRequest) {
  * Extrai dados do payload da Evolution API
  * Formato padrão: { event, instance, data: { key, message, pushName, ... } }
  */
-function extrairDadosEvolutionAPI(payload: any): {
+async function extrairDadosEvolutionAPI(payload: any): Promise<{
   telefone: string | null;
   mensagem: string | null;
   nome: string | null;
@@ -485,7 +486,7 @@ function extrairDadosEvolutionAPI(payload: any): {
   instance: string | null;
   rawBase64: string | null;
   rawMime: string | null;
-} {
+}> {
   // Formato Evolution API: { event: 'messages.upsert', data: { key, message, pushName } }
   if (payload.event && payload.data) {
     const data = payload.data;
@@ -559,9 +560,27 @@ function extrairDadosEvolutionAPI(payload: any): {
     if (jid.endsWith("@lid") && key.remoteJidAlt) {
       // LID mode com remoteJidAlt (formato antigo com addressingMode)
       telefone = key.remoteJidAlt.replace("@s.whatsapp.net", "") || null;
+      // Salvar mapeamento para consultas futuras
+      if (telefone) {
+        saveLidMapping(jid, telefone, payload.instance || "", data.pushName);
+      }
     } else if (jid.endsWith("@lid") && payload.sender) {
       // LID mode sem remoteJidAlt (v2.3.7): usar campo sender do payload
       telefone = payload.sender.replace("@s.whatsapp.net", "") || null;
+      // Salvar mapeamento para consultas futuras
+      if (telefone) {
+        saveLidMapping(jid, telefone, payload.instance || "", data.pushName);
+      }
+    } else if (jid.endsWith("@lid")) {
+      // LID mode sem remoteJidAlt nem sender: resolver via banco/cache
+      const instanceName = payload.instance || "";
+      const resolved = await resolveLidToPhone(jid, instanceName);
+      if (resolved) {
+        telefone = resolved;
+        console.log("[Webhook DEBUG] LID resolvido via resolver:", resolved);
+      } else {
+        console.log("[Webhook WARN] LID não resolvido:", jid);
+      }
     } else if (jid) {
       // Normal mode: extrair do remoteJid
       telefone = jid.replace("@s.whatsapp.net", "") || null;
