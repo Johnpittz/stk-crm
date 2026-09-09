@@ -26,12 +26,12 @@ function cleanup() {
   if (now - lastCleanup < CLEANUP_INTERVAL) return;
   lastCleanup = now;
 
-  for (const [key, entry] of globalStore) {
+  Array.from(globalStore.entries()).forEach(([key, entry]) => {
     if (now > entry.resetAt) globalStore.delete(key);
-  }
-  for (const [key, entry] of endpointStore) {
+  });
+  Array.from(endpointStore.entries()).forEach(([key, entry]) => {
     if (now > entry.resetAt) endpointStore.delete(key);
-  }
+  });
 }
 
 function getClientIp(request: Request): string {
