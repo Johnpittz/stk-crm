@@ -539,13 +539,25 @@ function extrairDadosEvolutionAPI(payload: any): {
     }
 
     // Extrair telefone (remove @s.whatsapp.net)
-    // IMPORTANTE: Quando addressingMode é "lid", remoteJid vem como "12345@lid"
-    // Nesse caso, usar remoteJidAlt que contém o número real (ex: "556299190117@s.whatsapp.net")
+    // Suporta dois formatos da Evolution API:
+    // 1. Formato antigo: data.key.remoteJid = "5562...@s.whatsapp.net"
+    // 2. Formato novo (v2.3.7+): data.remoteJid = "xxx@lid" + data.sender = "5562...@s.whatsapp.net"
     let telefone: string | null = null;
-    const jid = key.remoteJid || "";
+    
+    // Tentar extrair de key.remoteJid (formato antigo)
+    const jidFromKey = key.remoteJid || "";
+    // Tentar extrair de data.remoteJid (formato novo)
+    const jidFromData = data.remoteJid || "";
+    
+    // Usar o JID que tiver valor, priorizando key
+    const jid = jidFromKey || jidFromData;
+    
     if (jid.endsWith("@lid") && key.remoteJidAlt) {
-      // LID mode: usar remoteJidAlt que tem o número real
+      // LID mode com remoteJidAlt (formato antigo com addressingMode)
       telefone = key.remoteJidAlt.replace("@s.whatsapp.net", "") || null;
+    } else if (jid.endsWith("@lid") && data.sender) {
+      // LID mode sem remoteJidAlt (v2.3.7): usar campo sender
+      telefone = data.sender.replace("@s.whatsapp.net", "") || null;
     } else if (jid) {
       // Normal mode: extrair do remoteJid
       telefone = jid.replace("@s.whatsapp.net", "") || null;
@@ -558,9 +570,9 @@ function extrairDadosEvolutionAPI(payload: any): {
       mediaType,
       mediaUrl,
       fileName,
-      remoteJid: key.remoteJid || null,
-      fromMe: !!key.fromMe,
-      messageId: key.id || null,
+      remoteJid: key.remoteJid || data.remoteJid || null,
+      fromMe: !!(key.fromMe ?? data.fromMe),
+      messageId: key.id || data.keyId || data.messageId || null,
       instance: payload.instance || null,
       rawBase64,
       rawMime,
