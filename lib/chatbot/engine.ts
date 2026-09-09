@@ -444,7 +444,7 @@ async function processarRespostaExistente(
   // 0. Verificar se pediu pra parar
   if (ehPedidoDeParada(mensagemCliente)) {
     await supabase.from('chatbot_sessions').update({ status: 'cancelada' }).eq('id', sessao.id);
-    await enviarMensagem(sessao.telefone, 'Tudo bem! Encaminhando para um especialista. Obrigado pelo contato! 😊', sessao.instancia || 'STK');
+    await enviarMensagem(sessao.telefone, 'Tudo bem! Encaminhando para um especialista. Obrigado pelo contato! 😊', sessao.instancia || 'ROMA_2');
     return { action: 'sessao_concluida', session: sessao };
   }
 
@@ -500,7 +500,7 @@ async function processarRespostaExistente(
     const delayMs = (fluxo?.delay_min || 7) * 1000;
     await delay(delayMs);
     
-    const resultado = await enviarMensagem(sessao.telefone, mensagemRepetir, sessao.instancia || 'STK');
+    const resultado = await enviarMensagem(sessao.telefone, mensagemRepetir, sessao.instancia || 'ROMA_2');
     
     if (resultado.success) {
       await supabase.from('chatbot_messages').insert({
@@ -587,7 +587,7 @@ async function processarRespostaExistente(
       await delay(delayMs);
 
       const mensagemFinal = formatarMensagem(etapaFinal.pergunta, novasRespostas);
-      const resultado = await enviarMensagem(sessao.telefone, mensagemFinal, sessao.instancia || 'STK');
+      const resultado = await enviarMensagem(sessao.telefone, mensagemFinal, sessao.instancia || 'ROMA_2');
 
       if (resultado.success) {
         await supabase.from('chatbot_messages').insert({
@@ -613,7 +613,7 @@ async function processarRespostaExistente(
     await delay(delayMs);
 
     const mensagemFinal = formatarMensagem(proximaEtapa.pergunta || '', novasRespostas);
-    const resultado = await enviarMensagem(sessao.telefone, mensagemFinal, sessao.instancia || 'STK');
+    const resultado = await enviarMensagem(sessao.telefone, mensagemFinal, sessao.instancia || 'ROMA_2');
 
     if (resultado.success) {
       await supabase.from('chatbot_messages').insert({
@@ -642,7 +642,7 @@ async function processarRespostaExistente(
     ? `${perguntaFormatada}\n\n${proximaEtapa.opcoes.map((o: any, i: number) => `${i + 1} - ${o.texto}`).join('\n')}`
     : perguntaFormatada;
 
-  const resultadoEnvio = await enviarMensagem(sessao.telefone, perguntaComOpcoes, sessao.instancia || 'STK');
+  const resultadoEnvio = await enviarMensagem(sessao.telefone, perguntaComOpcoes, sessao.instancia || 'ROMA_2');
 
   if (resultadoEnvio.success) {
     await supabase.from('chatbot_messages').insert({

@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
         status: "pending",
         sent: 0,
         failed: 0,
-        instancia: instancia || "minha-conexao",
+        instancia: instancia || "ROMA_2",
         delay_min: delay_min || 3,
         delay_max: delay_max || 8,
         campanha_id: campanha_id || null,

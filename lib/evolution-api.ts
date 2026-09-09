@@ -8,7 +8,7 @@
 
 const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || 'http://localhost:8082';
 const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || '';
-const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE || 'minha-conexao';
+const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE || 'ROMA_2';
 
 interface EnviarMensagemParams {
   telefone: string;

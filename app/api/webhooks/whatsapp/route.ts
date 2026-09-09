@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
           ...(nomeCliente && !dados.fromMe ? { nome_cliente: nomeCliente } : {}),
           cliente_id: cliente?.id || atendimentoExistente.cliente_id,
           vendedor_id: vendedorUpdate,
-          instancia: dados.instance || atendimentoExistente.instancia || "minha-conexao",
+          instancia: dados.instance || atendimentoExistente.instancia || "ROMA_2",
         })
         .eq("id", atendimentoExistente.id);
 
@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
             .maybeSingle();
 
           if (sessaoChatbot) {
-            await processarMensagemChatbot(telefoneLimpo, mensagem, dados.instance || 'STK', nomeCliente || undefined);
+            await processarMensagemChatbot(telefoneLimpo, mensagem, dados.instance || 'ROMA_2', nomeCliente || undefined);
             return NextResponse.json({ success: true, atendimento_id: atendimentoExistente.id, action: "chatbot" });
           }
 
@@ -257,7 +257,7 @@ export async function POST(request: NextRequest) {
             }
 
             if (podeAtivar) {
-              await processarMensagemChatbot(telefoneLimpo, mensagem, dados.instance || fluxoChatbot.instancia || 'STK', nomeCliente || undefined);
+              await processarMensagemChatbot(telefoneLimpo, mensagem, dados.instance || fluxoChatbot.instancia || 'ROMA_2', nomeCliente || undefined);
               return NextResponse.json({ success: true, atendimento_id: atendimentoExistente.id, action: "chatbot_started" });
             }
           }
@@ -343,7 +343,7 @@ export async function POST(request: NextRequest) {
         ultima_mensagem_data: new Date().toISOString(),
         ultima_mensagem_remetente: remetente,
         nao_lido: !dados.fromMe,
-        instancia: dados.instance || "minha-conexao",
+        instancia: dados.instance || "ROMA_2",
       })
       .select()
       .single();
@@ -429,7 +429,7 @@ export async function POST(request: NextRequest) {
             podeAtivar = !!noGatilho;
           }
           if (podeAtivar) {
-            await processarMensagemChatbot(telefoneLimpo, mensagem, dados.instance || fluxoChatbotNovo.instancia || 'STK', nomeCliente || undefined);
+            await processarMensagemChatbot(telefoneLimpo, mensagem, dados.instance || fluxoChatbotNovo.instancia || 'ROMA_2', nomeCliente || undefined);
             return NextResponse.json({ success: true, atendimento_id: novoAtendimento.id, action: "chatbot_started" });
           }
         }

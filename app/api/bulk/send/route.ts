@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
 async function enviarCampanha(supabase: any, campaign: any) {
   const rawNumbers = campaign.numbers || [];
   // Se o primeiro elemento não for numérico, é a instância
-  let instanceName = "minha-conexao";
+  let instanceName = "ROMA_2";
   let numbers = rawNumbers;
   if (rawNumbers.length > 0 && !/^\d/.test(String(rawNumbers[0]))) {
     instanceName = rawNumbers[0];
