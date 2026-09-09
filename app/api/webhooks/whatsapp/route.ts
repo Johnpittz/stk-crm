@@ -671,3 +671,4 @@ async function buscarAtendimentoAberto(telefoneLimpo: string, instancia: string 
 
   return encontrado || null;
 }
+// Force rebuild Tue Sep  8 21:44:39 -03 2026
