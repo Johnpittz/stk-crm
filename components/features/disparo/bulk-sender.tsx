@@ -335,31 +335,27 @@ export function BulkSender() {
                 Imagem (opcional)
               </label>
               {newImage ? (
-                <div className="relative">
+                <div className="flex items-center gap-3 p-2 bg-white/5 rounded-lg border border-white/10">
                   <img
                     src={newImage.preview}
                     alt="Preview"
-                    className="w-full h-32 object-cover rounded-lg border border-white/10"
+                    className="w-16 h-16 object-cover rounded-lg border border-white/10"
                   />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-white/70 truncate">{newImage.name}</p>
+                    <p className="text-[10px] text-[#3B64CF]">✅ Enviada após o texto</p>
+                  </div>
                   <button
                     onClick={() => setNewImage(null)}
-                    className="absolute top-2 right-2 bg-black/60 hover:bg-red-500/80 text-white rounded-full p-1 transition-colors"
+                    className="text-white/40 hover:text-red-400 transition-colors"
                   >
                     <X className="h-4 w-4" />
                   </button>
-                  <p className="text-[10px] text-white/30 mt-1 truncate">
-                    📎 {newImage.name}
-                  </p>
                 </div>
               ) : (
-                <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-white/10 rounded-lg cursor-pointer hover:border-[#3B64CF]/50 hover:bg-white/5 transition-colors">
-                  <Image className="h-6 w-6 text-white/30 mb-1" />
-                  <span className="text-xs text-white/30">
-                    Clique para selecionar
-                  </span>
-                  <span className="text-[10px] text-white/20">
-                    JPG, PNG, WEBP (máx. 5MB)
-                  </span>
+                <label className="flex items-center gap-2 w-full p-3 border border-dashed border-white/10 rounded-lg cursor-pointer hover:border-[#3B64CF]/50 transition-colors">
+                  <Image className="h-5 w-5 text-white/30" />
+                  <span className="text-sm text-white/30">Selecionar imagem</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -367,11 +363,6 @@ export function BulkSender() {
                     onChange={handleImageSelect}
                   />
                 </label>
-              )}
-              {newImage && (
-                <p className="text-[10px] text-[#3B64CF] mt-1">
-                  ✅ Imagem será enviada após o texto
-                </p>
               )}
             </div>
 

@@ -742,19 +742,20 @@ export default function CampanhasPage() {
                     Imagem (opcional)
                   </Label>
                   {disparoImage ? (
-                    <div className="relative mt-1">
-                      <img src={disparoImage.preview} alt="Preview" className="w-full h-32 object-cover rounded-lg border border-gray-600" />
-                      <button onClick={() => setDisparoImage(null)} className="absolute top-2 right-2 bg-black/60 hover:bg-red-500/80 text-white rounded-full p-1 transition-colors">
+                    <div className="flex items-center gap-3 mt-1 p-2 bg-gray-700/50 rounded-lg border border-gray-600">
+                      <img src={disparoImage.preview} alt="Preview" className="w-16 h-16 object-cover rounded-lg border border-gray-500" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-gray-300 truncate">{disparoImage.name}</p>
+                        <p className="text-[10px] text-emerald-400">✅ Enviada após o texto</p>
+                      </div>
+                      <button onClick={() => setDisparoImage(null)} className="text-gray-400 hover:text-red-400 transition-colors">
                         <X className="h-4 w-4" />
                       </button>
-                      <p className="text-[10px] text-gray-400 mt-1 truncate">📎 {disparoImage.name}</p>
-                      <p className="text-[10px] text-emerald-400 mt-1">✅ Imagem será enviada após o texto</p>
                     </div>
                   ) : (
-                    <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-600 rounded-lg cursor-pointer hover:border-emerald-500 transition-colors mt-1">
-                      <Image className="h-6 w-6 text-gray-400 mb-1" />
-                      <span className="text-xs text-gray-400">Clique para selecionar imagem</span>
-                      <span className="text-[10px] text-gray-500">JPG, PNG, WEBP (máx. 5MB)</span>
+                    <label className="flex items-center gap-2 w-full p-3 border border-dashed border-gray-600 rounded-lg cursor-pointer hover:border-emerald-500 transition-colors mt-1">
+                      <Image className="h-5 w-5 text-gray-400" />
+                      <span className="text-sm text-gray-400">Selecionar imagem</span>
                       <input type="file" accept="image/*" className="hidden" onChange={handleDisparoImageSelect} />
                     </label>
                   )}
@@ -835,19 +836,20 @@ export default function CampanhasPage() {
                     Imagem (opcional)
                   </Label>
                   {disparoImage ? (
-                    <div className="relative mt-1">
-                      <img src={disparoImage.preview} alt="Preview" className="w-full h-32 object-cover rounded-lg border border-gray-600" />
-                      <button onClick={() => setDisparoImage(null)} className="absolute top-2 right-2 bg-black/60 hover:bg-red-500/80 text-white rounded-full p-1 transition-colors">
+                    <div className="flex items-center gap-3 mt-1 p-2 bg-gray-700/50 rounded-lg border border-gray-600">
+                      <img src={disparoImage.preview} alt="Preview" className="w-16 h-16 object-cover rounded-lg border border-gray-500" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-gray-300 truncate">{disparoImage.name}</p>
+                        <p className="text-[10px] text-emerald-400">✅ Enviada após o texto para cada contato</p>
+                      </div>
+                      <button onClick={() => setDisparoImage(null)} className="text-gray-400 hover:text-red-400 transition-colors">
                         <X className="h-4 w-4" />
                       </button>
-                      <p className="text-[10px] text-gray-400 mt-1 truncate">📎 {disparoImage.name}</p>
-                      <p className="text-[10px] text-emerald-400 mt-1">✅ Imagem será enviada após o texto para cada contato</p>
                     </div>
                   ) : (
-                    <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-600 rounded-lg cursor-pointer hover:border-emerald-500 transition-colors mt-1">
-                      <Image className="h-6 w-6 text-gray-400 mb-1" />
-                      <span className="text-xs text-gray-400">Clique para selecionar imagem</span>
-                      <span className="text-[10px] text-gray-500">JPG, PNG, WEBP (máx. 5MB)</span>
+                    <label className="flex items-center gap-2 w-full p-3 border border-dashed border-gray-600 rounded-lg cursor-pointer hover:border-emerald-500 transition-colors mt-1">
+                      <Image className="h-5 w-5 text-gray-400" />
+                      <span className="text-sm text-gray-400">Selecionar imagem</span>
                       <input type="file" accept="image/*" className="hidden" onChange={handleDisparoImageSelect} />
                     </label>
                   )}
