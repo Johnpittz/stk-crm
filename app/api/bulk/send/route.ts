@@ -72,12 +72,11 @@ async function enviarCampanha(supabase: any, campaign: any) {
     instanceName = rawNumbers[0];
     numbers = rawNumbers.slice(1);
   }
-  const delayMin = (campaign.delay_min || 3) * 1000;
-  const delayMax = (campaign.delay_max || 8) * 1000;
+  const intervalo = (campaign.intervalo || campaign.delay_min || 5) * 1000;
   let sent = 0;
   let failed = 0;
 
-  console.log(`[Bulk Send] Iniciando campanha "${campaign.name}" - ${numbers.length} números - instância: ${instanceName} - delay: ${delayMin/1000}-${delayMax/1000}s`);
+  console.log(`[Bulk Send] Iniciando campanha "${campaign.name}" - ${numbers.length} números - instância: ${instanceName} - intervalo: ${intervalo/1000}s`);
 
   // Salvar números no gatilho do chatbot (se houver fluxo ativo)
   try {
@@ -135,9 +134,8 @@ async function enviarCampanha(supabase: any, campaign: any) {
         .update({ sent, failed })
         .eq("id", campaign.id);
 
-      // Cadência: delay configurável entre envios
-      const delay = delayMin + Math.random() * (delayMax - delayMin);
-      await new Promise((resolve) => setTimeout(resolve, delay));
+      // Intervalo fixo entre envios
+      await new Promise((resolve) => setTimeout(resolve, intervalo));
     } catch (err: any) {
       failed++;
       console.error(`[Bulk Send] Erro para ${number}:`, err.message);

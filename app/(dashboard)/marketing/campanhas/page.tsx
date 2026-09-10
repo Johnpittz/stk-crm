@@ -76,7 +76,7 @@ export default function CampanhasPage() {
 
   const [novoDisparo, setNovoDisparo] = useState({
     nome: '', mensagem: '', instanceName: '', phone_from: '',
-    delay_min: 5, delay_max: 30, promocao_id: '',
+    intervalo: 5, promocao_id: '',
     telefone_avulso: ''
   });
 
@@ -318,7 +318,7 @@ export default function CampanhasPage() {
 
   const resetarDialog = () => {
     setShowDisparoDialog(false);
-    setNovoDisparo({ nome: '', mensagem: '', instanceName: '', phone_from: '', delay_min: 5, delay_max: 30, promocao_id: '', telefone_avulso: '' });
+    setNovoDisparo({ nome: '', mensagem: '', instanceName: '', phone_from: '', intervalo: 5, promocao_id: '', telefone_avulso: '' });
     setContatosImportados([]);
     setFileName('');
     setTipoEnvio('avulso');
@@ -747,16 +747,11 @@ export default function CampanhasPage() {
                 </div>
               </TabsContent>
 
-              {/* DELAYS COMUNS */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-gray-300">Delay Mínimo entre envios (seg)</Label>
-                  <Input type="number" value={novoDisparo.delay_min} onChange={(e) => setNovoDisparo({...novoDisparo, delay_min: parseInt(e.target.value) || 5})} className="bg-gray-700 border-gray-600 text-white" />
-                </div>
-                <div>
-                  <Label className="text-gray-300">Delay Máximo entre envios (seg)</Label>
-                  <Input type="number" value={novoDisparo.delay_max} onChange={(e) => setNovoDisparo({...novoDisparo, delay_max: parseInt(e.target.value) || 30})} className="bg-gray-700 border-gray-600 text-white" />
-                </div>
+              {/* INTERVALO ENTRE ENVIOS */}
+              <div>
+                <Label className="text-gray-300">Enviar a cada (segundos)</Label>
+                <Input type="number" min={1} max={120} value={novoDisparo.intervalo} onChange={(e) => setNovoDisparo({...novoDisparo, intervalo: parseInt(e.target.value) || 5})} className="bg-gray-700 border-gray-600 text-white" />
+                <p className="text-xs text-gray-500 mt-1">Intervalo fixo entre cada envio</p>
               </div>
 
               {/* RESUMO */}

@@ -30,7 +30,7 @@ interface Campaign {
   failed: number;
   instancia: string | null;
   delay_min: number | null;
-  delay_max: number | null;
+  intervalo: number | null;
   createdAt: string;
 }
 
@@ -43,8 +43,7 @@ interface InstanciaWhatsApp {
 export function BulkSender() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [newInstance, setNewInstance] = useState("ROMA_2");
-  const [newDelayMin, setNewDelayMin] = useState(3);
-  const [newDelayMax, setNewDelayMax] = useState(8);
+  const [newIntervalo, setNewIntervalo] = useState(5);
   const [newCampaign, setNewCampaign] = useState({
     name: "",
     message: "",
@@ -126,8 +125,7 @@ export function BulkSender() {
           message: newCampaign.message,
           numbers,
           instancia: newInstance,
-          delay_min: newDelayMin,
-          delay_max: newDelayMax,
+          intervalo: newIntervalo,
         }),
       });
 
@@ -258,29 +256,18 @@ export function BulkSender() {
             <div>
               <label className="text-xs font-medium text-white/60 mb-1 block">
                 <Timer className="inline h-3 w-3 mr-1" />
-                Delay entre envios (segundos)
+                Enviar a cada (segundos)
               </label>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  min={1}
-                  max={30}
-                  value={newDelayMin}
-                  onChange={(e) => setNewDelayMin(Number(e.target.value))}
-                  className="bg-white/5 border-white/10 text-white text-center"
-                />
-                <span className="text-white/40 text-xs">até</span>
-                <Input
-                  type="number"
-                  min={1}
-                  max={60}
-                  value={newDelayMax}
-                  onChange={(e) => setNewDelayMax(Number(e.target.value))}
-                  className="bg-white/5 border-white/10 text-white text-center"
-                />
-              </div>
+              <Input
+                type="number"
+                min={1}
+                max={120}
+                value={newIntervalo}
+                onChange={(e) => setNewIntervalo(Number(e.target.value))}
+                className="bg-white/5 border-white/10 text-white text-center"
+              />
               <p className="text-[10px] text-white/30 mt-1">
-                Aleatório entre {newDelayMin}s e {newDelayMax}s por envio
+                Intervalo fixo de {newIntervalo}s por envio
               </p>
             </div>
 
@@ -411,10 +398,10 @@ export function BulkSender() {
                             <Clock className="h-3 w-3" />
                             {formatarData(campaign.createdAt)}
                           </span>
-                          {campaign.delay_min && campaign.delay_max && (
+                          {campaign.intervalo && (
                             <span className="flex items-center gap-1">
                               <Timer className="h-3 w-3" />
-                              {campaign.delay_min}-{campaign.delay_max}s
+                              a cada {campaign.intervalo}s
                             </span>
                           )}
                         </div>

@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = getSupabase();
     const body = await request.json();
-    const { name, message, numbers, instancia, delay_min, delay_max, campanha_id, promocao_id } = body;
+    const { name, message, numbers, instancia, intervalo, campanha_id, promocao_id } = body;
 
     if (!name || !message || !numbers || numbers.length === 0) {
       return NextResponse.json(
@@ -66,8 +66,7 @@ export async function POST(request: NextRequest) {
         sent: 0,
         failed: 0,
         instancia: instancia || "ROMA_2",
-        delay_min: delay_min || 3,
-        delay_max: delay_max || 8,
+        intervalo: intervalo || 5,
         campanha_id: campanha_id || null,
         promocao_id: promocao_id || null,
       })
