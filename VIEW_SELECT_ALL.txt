@@ -1,0 +1,3 @@
+-- VIEW SIMPLES - sem renomear colunas
+DROP VIEW IF EXISTS v_unified_clientes;
+CREATE OR REPLACE VIEW v_unified_clientes AS SELECT * FROM unified_clients;

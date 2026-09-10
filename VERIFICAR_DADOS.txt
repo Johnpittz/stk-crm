@@ -1,0 +1,20 @@
+-- ============================================
+-- PASSO 1: Verificar dados existentes
+-- Execute PRIMEIRO pra saber o que tem no banco
+-- ============================================
+
+-- Quantos registros tem em cada tabela?
+SELECT 'clientes' as tabela, COUNT(*) as total FROM clientes
+UNION ALL
+SELECT 'clientes_reciee', COUNT(*) FROM clientes_reciee
+UNION ALL
+SELECT 'unified_clients', COUNT(*) FROM unified_clients;
+
+-- Quais sources existem no unified_clients?
+SELECT source, COUNT(*) as total FROM unified_clients GROUP BY source;
+
+-- Amostra dos dados RECIEE (se existirem)
+SELECT id, nome, documento, telefone, uc, estado, distribuidora, grupo 
+FROM unified_clients 
+WHERE source = 'reciee' 
+LIMIT 5;

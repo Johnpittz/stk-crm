@@ -1,0 +1,14 @@
+-- Atualizar source dos clientes RECIEE (com cast UUID → text)
+UPDATE unified_clients
+SET source = 'reciee'
+WHERE id IN (
+  SELECT uc.id
+  FROM unified_clients uc
+  INNER JOIN clientes_reciee cr ON cr.id::text = uc.source_id
+  WHERE uc.source = 'cadastro'
+);
+
+-- Verificar resultado
+SELECT source, COUNT(*) as total
+FROM unified_clients
+GROUP BY source;

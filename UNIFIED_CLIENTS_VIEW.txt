@@ -1,0 +1,32 @@
+-- ============================================
+-- CORREÇÃO: VIEW + RLS para unified_clients
+-- Execute no SQL Editor do Supabase
+-- ============================================
+
+-- 1. Criar view que a página espera
+CREATE OR REPLACE VIEW v_unified_clientes AS
+SELECT
+  id,
+  source,
+  source_id,
+  nome,
+  documento,
+  uc,
+  telefone,
+  email,
+  estado,
+  distribuidora,
+  grupo,
+  classificacao,
+  created_at AS ultima_interacao
+FROM unified_clients
+ORDER BY nome;
+
+-- 2. Desabilitar RLS na tabela (acesso via service_role no backend)
+ALTER TABLE unified_clients DISABLE ROW LEVEL SECURITY;
+
+-- 3. Conceder permissões
+GRANT ALL ON unified_clients TO authenticated;
+GRANT ALL ON unified_clients TO service_role;
+GRANT SELECT ON v_unified_clientes TO authenticated;
+GRANT SELECT ON v_unified_clientes TO service_role;

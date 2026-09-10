@@ -1,0 +1,59 @@
+-- Corrigir coluna faltante + migrar dados
+-- Execute este SQL no Supabase
+
+-- 1. Adicionar coluna classificacao (se não existir)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'unified_clients' AND column_name = 'classificacao'
+  ) THEN
+    ALTER TABLE unified_clients ADD COLUMN classificacao TEXT;
+  END IF;
+END $$;
+
+-- 2. Migrar clientes RECIEE
+INSERT INTO unified_clients (source, source_id, nome, documento, uc, estado, distribuidora, grupo, created_at)
+SELECT
+  'reciee',
+  id::text,
+  nome,
+  cpf_cnpj,
+  uc,
+  estado,
+  distribuidora,
+  grupo,
+  created_at
+FROM clientes_reciee
+ON CONFLICT DO NOTHING;
+
+-- 3. Migrar atendimentos (clientes com nome)
+INSERT INTO unified_clients (source, source_id, nome, telefone, created_at)
+SELECT DISTINCT ON (telefone_cliente)
+  'cadastro',
+  id::text,
+  nome_cliente,
+  telefone_cliente,
+  created_at
+FROM atendimentos
+WHERE telefone_cliente IS NOT NULL
+  AND nome_cliente IS NOT NULL
+  AND nome_cliente != 'Cliente'
+ON CONFLICT DO NOTHING;
+
+-- 4. Migrar chatbot sessions (leads qualificados)
+INSERT INTO unified_clients (source, source_id, nome, telefone, classificacao, created_at)
+SELECT DISTINCT ON (telefone)
+  'chatbot',
+  id::text,
+  nome_lead,
+  telefone,
+  classificacao,
+  created_at
+FROM chatbot_sessions
+WHERE telefone IS NOT NULL
+  AND nome_lead IS NOT NULL
+ON CONFLICT DO NOTHING;
+
+-- 5. Verificar resultado
+SELECT source, COUNT(*) as total FROM unified_clients GROUP BY source;

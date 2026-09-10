@@ -1,0 +1,27 @@
+-- ============================================
+-- VERIFICAR COLUNAS DA TABELA + CRIAR VIEW CORRETA
+-- ============================================
+
+-- 1. Ver colunas existentes
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_name = 'unified_clients'
+ORDER BY ordinal_position;
+
+-- 2. Deletar view antiga
+DROP VIEW IF EXISTS v_unified_clientes;
+
+-- 3. Criar view com colunas REAIS da tabela
+CREATE OR REPLACE VIEW v_unified_clientes AS
+SELECT
+  id,
+  nome,
+  telefone,
+  email,
+  documento AS cpf_cnpj,
+  source AS origem,
+  has_atendimento AS tem_atendimento,
+  has_chatbot AS tem_chatbot,
+  has_faturas AS tem_faturas_reciee,
+  created_at AS ultima_interacao
+FROM unified_clients;

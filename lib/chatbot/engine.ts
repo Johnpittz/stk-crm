@@ -335,11 +335,16 @@ export async function processarMensagemChatbot(
     .maybeSingle();
 
   if (!fluxo) {
+    console.log('[Chatbot] Nenhum fluxo ativo encontrado');
     return { action: 'aguardando' }; // Sem fluxo, ignora
   }
 
+  console.log(`[Chatbot] Fluxo encontrado: ${fluxo.nome} | gatilho: ${fluxo.gatilho} | ativo: ${fluxo.ativo}`);
+
   // 3. Verificar horário comercial
-  if (!estaEmHorarioComercial(fluxo.horario_comercial)) {
+  const emHorario = estaEmHorarioComercial(fluxo.horario_comercial);
+  console.log(`[Chatbot] Horário comercial: ${emHorario ? 'SIM' : 'NÃO'}`);
+  if (!emHorario) {
     return {
       action: 'fora_horario',
       mensagem: 'Obrigado pela mensagem! Nosso time comercial está fora do horário de atendimento. Retornaremos em breve! 😊',

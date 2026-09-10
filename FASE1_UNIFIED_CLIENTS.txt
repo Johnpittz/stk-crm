@@ -1,0 +1,41 @@
+-- ============================================
+-- FASE 1: TABELA UNIFICADA DE CLIENTES
+-- Execute no Supabase SQL Editor
+-- ============================================
+
+-- 1. Criar tabela
+CREATE TABLE IF NOT EXISTS unified_clients (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  source TEXT NOT NULL,
+  source_id TEXT NOT NULL,
+  nome TEXT NOT NULL,
+  documento TEXT,
+  telefone TEXT,
+  email TEXT,
+  uc TEXT,
+  estado TEXT,
+  distribuidora TEXT,
+  grupo TEXT,
+  classify_chatbot TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(source, source_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_unified_clients_documento ON unified_clients(documento);
+CREATE INDEX IF NOT EXISTS idx_unified_clients_telefone ON unified_clients(telefone);
+CREATE INDEX IF NOT EXISTS idx_unified_clients_source ON unified_clients(source);
+
+-- 2. Migrar clientes do RECIEE existentes
+INSERT INTO unified_clients (source, source_id, nome, documento, uc, estado, distribuidora, grupo, created_at)
+SELECT
+  'reciee',
+  c.id::text,
+  c.nome,
+  c.cpf_cnpj,
+  c.uc,
+  c.estado,
+  c.distribuidora,
+  c.grupo,
+  c.created_at
+FROM clientes_reciee c
+ON CONFLICT (source, source_id) DO NOTHING;

@@ -1,0 +1,84 @@
+-- ============================================
+-- VIEW v_unified_clientes - CORRIGIDA
+-- Apenas colunas que EXISTEM nas tabelas
+-- Execute no Supabase SQL Editor
+-- ============================================
+
+DROP VIEW IF EXISTS v_unified_clientes;
+
+CREATE OR REPLACE VIEW v_unified_clientes AS
+
+-- 1. Clientes da tabela clientes (cadastro)
+SELECT
+  c.id,
+  COALESCE(c.nome_completo, 'Sem nome') AS nome,
+  c.telefone,
+  c.email,
+  c.cpf_cnpj,
+  c.cidade,
+  c.estado,
+  'cadastro'::text AS origem,
+  EXISTS(SELECT 1 FROM atendimentos a WHERE a.cliente_id = c.id) AS tem_atendimento,
+  FALSE AS tem_chatbot,
+  EXISTS(SELECT 1 FROM faturas_reciee f WHERE f.cliente_id = c.id) AS tem_faturas_reciee,
+  COALESCE(c.ultima_interacao, c.created_at) AS ultima_interacao
+FROM clientes c
+
+UNION ALL
+
+-- 2. Clientes RECIEE (sem telefone/email/cidade - não existem na tabela)
+SELECT
+  cr.id,
+  COALESCE(cr.nome, 'Sem nome') AS nome,
+  NULL::text AS telefone,
+  NULL::text AS email,
+  cr.cpf_cnpj,
+  NULL::text AS cidade,
+  cr.estado,
+  'reciee'::text AS origem,
+  FALSE AS tem_atendimento,
+  FALSE AS tem_chatbot,
+  EXISTS(SELECT 1 FROM faturas_reciee f WHERE f.cliente_id = cr.id) AS tem_faturas_reciee,
+  cr.created_at AS ultima_interacao
+FROM clientes_reciee cr
+
+UNION ALL
+
+-- 3. Sessões chatbot
+SELECT
+  cs.id,
+  COALESCE(cs.nome_lead, 'Lead ' || RIGHT(cs.telefone, 4)) AS nome,
+  cs.telefone,
+  NULL::text AS email,
+  NULL::text AS cpf_cnpj,
+  NULL::text AS cidade,
+  NULL::text AS estado,
+  'chatbot'::text AS origem,
+  FALSE AS tem_atendimento,
+  TRUE AS tem_chatbot,
+  FALSE AS tem_faturas_reciee,
+  cs.created_at AS ultima_interacao
+FROM chatbot_sessions cs
+
+UNION ALL
+
+-- 4. Atendimentos
+SELECT
+  a.id,
+  COALESCE(a.nome_cliente, 'Cliente ' || RIGHT(a.telefone_cliente, 4)) AS nome,
+  a.telefone_cliente AS telefone,
+  NULL::text AS email,
+  NULL::text AS cpf_cnpj,
+  NULL::text AS cidade,
+  NULL::text AS estado,
+  'disparo'::text AS origem,
+  TRUE AS tem_atendimento,
+  FALSE AS tem_chatbot,
+  FALSE AS tem_faturas_reciee,
+  a.created_at AS ultima_interacao
+FROM atendimentos a
+
+ORDER BY nome;
+
+-- Verificar
+SELECT origem, COUNT(*) as total FROM v_unified_clientes GROUP BY origem;

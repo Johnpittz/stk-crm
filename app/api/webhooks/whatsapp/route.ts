@@ -257,7 +257,12 @@ export async function POST(request: NextRequest) {
             }
 
             if (podeAtivar) {
-              await processarMensagemChatbot(telefoneLimpo, mensagem, dados.instance || fluxoChatbot.instancia || 'ROMA_2', nomeCliente || undefined);
+              const resultadoChatbot = await processarMensagemChatbot(telefoneLimpo, mensagem, dados.instance || fluxoChatbot.instancia || 'ROMA_2', nomeCliente || undefined);
+              console.log(`[Chatbot] Resultado: ${resultadoChatbot.action}`);
+              if (resultadoChatbot.action === 'fora_horario') {
+                // Fora do horário, não cria sessão — retorna mensagem de erro
+                return NextResponse.json({ success: true, atendimento_id: atendimentoExistente.id, action: "chatbot_fora_horario" });
+              }
               return NextResponse.json({ success: true, atendimento_id: atendimentoExistente.id, action: "chatbot_started" });
             }
           }
@@ -429,7 +434,11 @@ export async function POST(request: NextRequest) {
             podeAtivar = !!noGatilho;
           }
           if (podeAtivar) {
-            await processarMensagemChatbot(telefoneLimpo, mensagem, dados.instance || fluxoChatbotNovo.instancia || 'ROMA_2', nomeCliente || undefined);
+            const resultadoChatbotNovo = await processarMensagemChatbot(telefoneLimpo, mensagem, dados.instance || fluxoChatbotNovo.instancia || 'ROMA_2', nomeCliente || undefined);
+            console.log(`[Chatbot] Resultado (novo): ${resultadoChatbotNovo.action}`);
+            if (resultadoChatbotNovo.action === 'fora_horario') {
+              return NextResponse.json({ success: true, atendimento_id: novoAtendimento.id, action: "chatbot_fora_horario" });
+            }
             return NextResponse.json({ success: true, atendimento_id: novoAtendimento.id, action: "chatbot_started" });
           }
         }

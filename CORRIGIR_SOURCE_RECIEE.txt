@@ -1,0 +1,11 @@
+-- Corrigir source dos clientes RECIEE (estava como 'cadastro')
+UPDATE unified_clients
+SET source = 'reciee'
+WHERE source_id IN (
+  SELECT id::text FROM clientes_reciee
+);
+
+-- Contar resultados
+SELECT source, COUNT(*) as total
+FROM unified_clients
+GROUP BY source;

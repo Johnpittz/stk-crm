@@ -1,0 +1,30 @@
+-- ============================================
+-- FIX: Liberar RLS para faturas_reciee e clientes_reciee
+-- O upload usa service_role (ignora RLS)
+-- Mas o frontend usa anon key (respeita RLS)
+-- ============================================
+
+-- 1. Desabilitar RLS nas tabelas necessárias
+ALTER TABLE clientes_reciee DISABLE ROW LEVEL SECURITY;
+ALTER TABLE faturas_reciee DISABLE ROW LEVEL SECURITY;
+ALTER TABLE analises_reciee DISABLE ROW LEVEL SECURITY;
+
+-- 2. Garantir permissões
+GRANT ALL ON clientes_reciee TO authenticated;
+GRANT ALL ON clientes_reciee TO anon;
+GRANT ALL ON faturas_reciee TO authenticated;
+GRANT ALL ON faturas_reciee TO anon;
+GRANT ALL ON analises_reciee TO authenticated;
+GRANT ALL ON analises_reciee TO anon;
+
+-- 3. Conferir que a view mapeia corretamente
+-- (cpf_cnpj do modal deve bater com cpf_cnpj da tabela)
+SELECT 
+  uc.id as unified_id,
+  uc.documento as unified_documento,
+  cr.id as reciee_id,
+  cr.cpf_cnpj as reciee_cpf_cnpj,
+  CASE WHEN uc.documento = cr.cpf_cnpj THEN 'MATCH ✓' ELSE 'DIVERGE ✗' END as status
+FROM unified_clients uc
+JOIN clientes_reciee cr ON cr.cpf_cnpj = uc.documento
+WHERE uc.source = 'reciee';
