@@ -300,6 +300,9 @@ export default function CampanhasPage() {
         status: 'rascunho',
         sent: 0,
         failed: 0,
+        campanha_id: campanhaSelecionada.id,
+        instancia: novoDisparo.instanceName || 'ROMA_2',
+        intervalo: novoDisparo.intervalo || 5,
       }]);
 
       if (error) throw error;
