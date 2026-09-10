@@ -91,6 +91,7 @@ export default function CampanhasPage() {
           const { data: disparos } = await supabase
             .from('bulk_campaigns')
             .select('*')
+            .eq('campanha_id', campanha.id)
             .order('created_at', { ascending: false });
           return { ...campanha, disparos: disparos || [] };
         })
