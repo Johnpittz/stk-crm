@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Megaphone, Trash2, ChevronDown, ChevronUp, Send, Loader2, Upload, FileSpreadsheet, X } from 'lucide-react';
+import { Plus, Megaphone, Trash2, ChevronDown, ChevronUp, Send, Loader2, Upload, FileSpreadsheet, X, Image } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -79,6 +79,36 @@ export default function CampanhasPage() {
     intervalo: 5, promocao_id: '',
     telefone_avulso: ''
   });
+  const [disparoImage, setDisparoImage] = useState<{
+    base64: string;
+    preview: string;
+    mimetype: string;
+    name: string;
+  } | null>(null);
+
+  // Handler para seleção de imagem no disparo
+  const handleDisparoImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Selecione um arquivo de imagem (JPG, PNG, WEBP)');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Imagem muito grande. Máximo: 5MB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setDisparoImage({
+        base64: reader.result as string,
+        preview: reader.result as string,
+        mimetype: file.type,
+        name: file.name,
+      });
+    };
+    reader.readAsDataURL(file);
+  };
 
   const loadCampanhas = useCallback(async () => {
     try {
@@ -293,6 +323,29 @@ export default function CampanhasPage() {
       const numbersWithInstance = novoDisparo.instanceName
         ? [novoDisparo.instanceName, ...contatosFinais.map(c => c.telefone || c)]
         : contatosFinais.map(c => c.telefone || c);
+      // Upload da imagem se houver
+      let imagem_url: string | null = null;
+      if (disparoImage) {
+        try {
+          const base64Clean = disparoImage.base64.replace(/^data:[^;]+;base64,/, '');
+          const uploadRes = await fetch('/api/upload-media', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              base64: base64Clean,
+              mimetype: disparoImage.mimetype,
+              prefix: 'disparos',
+            }),
+          });
+          if (uploadRes.ok) {
+            const uploadData = await uploadRes.json();
+            imagem_url = uploadData.url;
+          }
+        } catch (err) {
+          console.error('Erro ao upload imagem:', err);
+        }
+      }
+
       const { error } = await supabase.from('bulk_campaigns').insert([{
         name: novoDisparo.nome,
         message: mensagemFinal,
@@ -303,6 +356,7 @@ export default function CampanhasPage() {
         campanha_id: campanhaSelecionada.id,
         instancia: novoDisparo.instanceName || 'ROMA_2',
         intervalo: novoDisparo.intervalo || 5,
+        imagem_url,
       }]);
 
       if (error) throw error;
@@ -323,6 +377,7 @@ export default function CampanhasPage() {
   const resetarDialog = () => {
     setShowDisparoDialog(false);
     setNovoDisparo({ nome: '', mensagem: '', instanceName: '', phone_from: '', intervalo: 5, promocao_id: '', telefone_avulso: '' });
+    setDisparoImage(null);
     setContatosImportados([]);
     setFileName('');
     setTipoEnvio('avulso');
@@ -680,6 +735,30 @@ export default function CampanhasPage() {
                   <Textarea value={novoDisparo.mensagem} onChange={(e) => setNovoDisparo({...novoDisparo, mensagem: e.target.value})} placeholder="Olá! Temos uma oferta especial para você..." className="bg-gray-700 border-gray-600 text-white min-h-[120px]" />
                   <p className="text-gray-500 text-xs mt-1">Use {'{{nome}}'}, {'{{telefone}}'}, {'{{promocao}}'} como variáveis</p>
                 </div>
+                {/* Imagem (opcional) - Avulso */}
+                <div>
+                  <Label className="text-gray-300">
+                    <Image className="inline h-3 w-3 mr-1" />
+                    Imagem (opcional)
+                  </Label>
+                  {disparoImage ? (
+                    <div className="relative mt-1">
+                      <img src={disparoImage.preview} alt="Preview" className="w-full h-32 object-cover rounded-lg border border-gray-600" />
+                      <button onClick={() => setDisparoImage(null)} className="absolute top-2 right-2 bg-black/60 hover:bg-red-500/80 text-white rounded-full p-1 transition-colors">
+                        <X className="h-4 w-4" />
+                      </button>
+                      <p className="text-[10px] text-gray-400 mt-1 truncate">📎 {disparoImage.name}</p>
+                      <p className="text-[10px] text-emerald-400 mt-1">✅ Imagem será enviada após o texto</p>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-600 rounded-lg cursor-pointer hover:border-emerald-500 transition-colors mt-1">
+                      <Image className="h-6 w-6 text-gray-400 mb-1" />
+                      <span className="text-xs text-gray-400">Clique para selecionar imagem</span>
+                      <span className="text-[10px] text-gray-500">JPG, PNG, WEBP (máx. 5MB)</span>
+                      <input type="file" accept="image/*" className="hidden" onChange={handleDisparoImageSelect} />
+                    </label>
+                  )}
+                </div>
               </TabsContent>
 
               <TabsContent value="massa" className="space-y-4 mt-0">
@@ -748,6 +827,30 @@ export default function CampanhasPage() {
                       {'{{promocao}}'}
                     </button>
                   </div>
+                </div>
+                {/* Imagem (opcional) - Em Massa */}
+                <div>
+                  <Label className="text-gray-300">
+                    <Image className="inline h-3 w-3 mr-1" />
+                    Imagem (opcional)
+                  </Label>
+                  {disparoImage ? (
+                    <div className="relative mt-1">
+                      <img src={disparoImage.preview} alt="Preview" className="w-full h-32 object-cover rounded-lg border border-gray-600" />
+                      <button onClick={() => setDisparoImage(null)} className="absolute top-2 right-2 bg-black/60 hover:bg-red-500/80 text-white rounded-full p-1 transition-colors">
+                        <X className="h-4 w-4" />
+                      </button>
+                      <p className="text-[10px] text-gray-400 mt-1 truncate">📎 {disparoImage.name}</p>
+                      <p className="text-[10px] text-emerald-400 mt-1">✅ Imagem será enviada após o texto para cada contato</p>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-600 rounded-lg cursor-pointer hover:border-emerald-500 transition-colors mt-1">
+                      <Image className="h-6 w-6 text-gray-400 mb-1" />
+                      <span className="text-xs text-gray-400">Clique para selecionar imagem</span>
+                      <span className="text-[10px] text-gray-500">JPG, PNG, WEBP (máx. 5MB)</span>
+                      <input type="file" accept="image/*" className="hidden" onChange={handleDisparoImageSelect} />
+                    </label>
+                  )}
                 </div>
               </TabsContent>
 
