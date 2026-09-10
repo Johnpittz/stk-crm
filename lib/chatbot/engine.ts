@@ -258,8 +258,14 @@ async function enviarMensagem(
   }
 
   try {
+    // Formatar telefone: remover não-numéricos e garantir código do país 55
+    let telefoneFormatado = telefone.replace(/\D/g, '');
+    if (!telefoneFormatado.startsWith('55')) {
+      telefoneFormatado = '55' + telefoneFormatado;
+    }
+
     const url = `${EVOLUTION_API_URL}/message/sendText/${instancia}`;
-    console.log(`[Chatbot Engine] POST ${url}`);
+    console.log(`[Chatbot Engine] POST ${url} | number: ${telefoneFormatado}`);
 
     const response = await fetch(
       url,
@@ -270,7 +276,7 @@ async function enviarMensagem(
           'apikey': EVOLUTION_API_KEY,
         },
         body: JSON.stringify({
-          number: telefone,
+          number: telefoneFormatado,
           text: mensagem,
         }),
       }
