@@ -246,6 +246,9 @@ export function telefoneParaDigitos(telefone: string): string {
 /**
  * Lista instâncias disponíveis no Evolution API
  * GET /instance/fetchInstances
+ * 
+ * Tenta fetchInstances com retry. Se retornar menos que o esperado,
+ * busca cada instância individualmente via /instance/connectionState/{name}
  */
 export async function listarInstancias(): Promise<Array<{
   id: string;
@@ -257,23 +260,53 @@ export async function listarInstancias(): Promise<Array<{
     return [];
   }
 
-  try {
-    const response = await fetch(
-      `${EVOLUTION_API_URL}/instance/fetchInstances`,
-      {
-        headers: {
-          'apikey': EVOLUTION_API_KEY,
-        },
-      }
-    );
+  // Known instance names to fallback to
+  const knownInstances = ['ROMA_2', 'STK-1', 'STK-2'];
 
-    if (!response.ok) {
-      console.error('[Evolution API] Erro listar instâncias:', response.status);
-      return [];
+  try {
+    // Try fetchInstances with retry
+    let data: any[] = [];
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const response = await fetch(
+        `${EVOLUTION_API_URL}/instance/fetchInstances`,
+        {
+          headers: { 'apikey': EVOLUTION_API_KEY },
+        }
+      );
+      if (response.ok) {
+        data = (await response.json()) || [];
+        if (data.length >= knownInstances.length) break;
+      }
+      await new Promise(r => setTimeout(r, 1000));
     }
 
-    const data = await response.json();
-    return data || [];
+    // If we got fewer instances than expected, fetch missing ones individually
+    const foundNames = new Set(data.map((i: any) => i.name));
+    const missing = knownInstances.filter(n => !foundNames.has(n));
+
+    for (const name of missing) {
+      try {
+        const resp = await fetch(
+          `${EVOLUTION_API_URL}/instance/connectionState/${name}`,
+          { headers: { 'apikey': EVOLUTION_API_KEY } }
+        );
+        if (resp.ok) {
+          const state = await resp.json();
+          if (state && state.state) {
+            data.push({
+              id: name,
+              name: name,
+              number: state.number || '',
+              connectionStatus: state.state === 'open' ? 'open' : 'close',
+            });
+          }
+        }
+      } catch {
+        // Ignore individual failures
+      }
+    }
+
+    return data;
   } catch (err: any) {
     console.error('[Evolution API] Erro listar instâncias:', err.message);
     return [];
