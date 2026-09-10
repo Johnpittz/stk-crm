@@ -67,16 +67,32 @@ async function enviarCampanha(supabase: any, campaign: any) {
   const rawNumbers = campaign.numbers || [];
   // Se o primeiro elemento não for numérico, é a instância
   let instanceName = "ROMA_2";
-  let numbers = rawNumbers;
-  if (rawNumbers.length > 0 && !/^\d/.test(String(rawNumbers[0]))) {
+  let contacts: Array<{ nome: string; telefone: string }> = [];
+  
+  if (rawNumbers.length > 0 && !/^\\d/.test(String(rawNumbers[0]))) {
     instanceName = rawNumbers[0];
-    numbers = rawNumbers.slice(1);
+    // Parse contatos: podem ser strings ou objetos { nome, telefone }
+    contacts = rawNumbers.slice(1).map((n: any) => {
+      if (typeof n === 'object' && n.telefone) {
+        return { nome: n.nome || '', telefone: n.telefone };
+      }
+      // Formato antigo: só número
+      return { nome: '', telefone: String(n) };
+    });
+  } else {
+    contacts = rawNumbers.map((n: any) => {
+      if (typeof n === 'object' && n.telefone) {
+        return { nome: n.nome || '', telefone: n.telefone };
+      }
+      return { nome: '', telefone: String(n) };
+    });
   }
+
   const intervalo = (campaign.intervalo || campaign.delay_min || 5) * 1000;
   let sent = 0;
   let failed = 0;
 
-  console.log(`[Bulk Send] Iniciando campanha "${campaign.name}" - ${numbers.length} números - instância: ${instanceName} - intervalo: ${intervalo/1000}s`);
+  console.log(`[Bulk Send] Iniciando campanha "${campaign.name}" - ${contacts.length} contatos - instância: ${instanceName} - intervalo: ${intervalo/1000}s`);
 
   // Salvar números no gatilho do chatbot (se houver fluxo ativo)
   try {
@@ -89,8 +105,8 @@ async function enviarCampanha(supabase: any, campaign: any) {
       .maybeSingle();
 
     if (fluxoAtivo) {
-      const gatilhoRecords = numbers.map((n: string) => {
-        const num = n.replace(/\D/g, "");
+      const gatilhoRecords = contacts.map((c) => {
+        const num = c.telefone.replace(/\\D/g, "");
         return { flow_id: fluxoAtivo.id, telefone: num.startsWith("55") ? num : "55" + num };
       });
       await supabase.from('chatbot_gatilho_numeros').upsert(gatilhoRecords, { onConflict: 'flow_id,telefone' });
@@ -100,8 +116,8 @@ async function enviarCampanha(supabase: any, campaign: any) {
     console.error('[Bulk Send] Erro ao salvar gatilho:', err.message);
   }
 
-  if (numbers.length === 0) {
-    console.error(`[Bulk Send] Nenhum número encontrado! numbers原始:`, rawNumbers);
+  if (contacts.length === 0) {
+    console.error(`[Bulk Send] Nenhum contato encontrado! rawNumbers:`, rawNumbers);
     await supabase.from("bulk_campaigns").update({ status: "completed", failed: 0 }).eq("id", campaign.id);
     return;
   }
@@ -109,27 +125,53 @@ async function enviarCampanha(supabase: any, campaign: any) {
   const campaignStart = Date.now();
   console.log(`[Bulk Send] Tempo total início: ${new Date().toISOString()}`);
 
-  for (let i = 0; i < numbers.length; i++) {
-    const number = numbers[i];
+  for (let i = 0; i < contacts.length; i++) {
+    const contact = contacts[i];
     try {
       // Formatar número (adicionar 55 se não tiver)
-      let formattedNumber = number.replace(/\D/g, "");
+      let formattedNumber = contact.telefone.replace(/\\D/g, "");
       if (!formattedNumber.startsWith("55")) {
         formattedNumber = "55" + formattedNumber;
       }
 
+      // Buscar nome do WhatsApp se não tiver na planilha
+      let nomeContato = contact.nome;
+      if (!nomeContato) {
+        try {
+          const { data: lidData } = await supabase
+            .from("lid_phone_map")
+            .select("push_name")
+            .eq("phone", formattedNumber)
+            .not("push_name", "is", null)
+            .limit(1)
+            .maybeSingle();
+          if (lidData?.push_name) {
+            nomeContato = lidData.push_name;
+          }
+        } catch {
+          // Silencioso - continua sem nome
+        }
+      }
+
+      // Substituir variáveis na mensagem
+      let mensagemFinal = campaign.message;
+      if (nomeContato) {
+        mensagemFinal = mensagemFinal.replace(/\\{\\{nome\\}\\}/g, nomeContato);
+      }
+      mensagemFinal = mensagemFinal.replace(/\\{\\{telefone\\}\\}/g, formattedNumber);
+
       const msgStart = Date.now();
-      console.log(`[Bulk Send] [${i+1}/${numbers.length}] Enviando para ${formattedNumber}...`);
+      console.log(`[Bulk Send] [${i+1}/${contacts.length}] Enviando para ${formattedNumber}${nomeContato ? ' (' + nomeContato + ')' : ''}...`);
 
       // Enviar mensagem via instância correta
       const result = await enviarMensagemWhatsApp({
         telefone: formattedNumber,
-        mensagem: campaign.message,
+        mensagem: mensagemFinal,
         instance: instanceName,
       });
 
       const msgEnd = Date.now();
-      console.log(`[Bulk Send] [${i+1}/${numbers.length}] ${formattedNumber} - ${result.success ? 'OK' : 'FALHA'} - API levou ${msgEnd - msgStart}ms`);
+      console.log(`[Bulk Send] [${i+1}/${contacts.length}] ${formattedNumber} - ${result.success ? 'OK' : 'FALHA'} - API levou ${msgEnd - msgStart}ms`);
 
       if (result.success) {
         sent++;
@@ -153,7 +195,7 @@ async function enviarCampanha(supabase: any, campaign: any) {
               instance: instanceName,
             });
 
-            console.log(`[Bulk Send] [${i+1}/${numbers.length}] Imagem para ${formattedNumber} - ${imgResult.success ? 'OK' : 'FALHA'}`);
+            console.log(`[Bulk Send] [${i+1}/${contacts.length}] Imagem para ${formattedNumber} - ${imgResult.success ? 'OK' : 'FALHA'}`);
 
             // Aguardar 2s entre texto e imagem
             await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -173,7 +215,7 @@ async function enviarCampanha(supabase: any, campaign: any) {
         .eq("id", campaign.id);
 
       // Intervalo fixo entre envios (exceto no último)
-      if (i < numbers.length - 1) {
+      if (i < contacts.length - 1) {
         console.log(`[Bulk Send] Aguardando ${intervalo/1000}s antes do próximo...`);
         await new Promise((resolve) => setTimeout(resolve, intervalo));
       }

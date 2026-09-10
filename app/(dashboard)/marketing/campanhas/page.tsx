@@ -319,10 +319,10 @@ export default function CampanhasPage() {
         : [];
 
       const contatosFinais = tipoEnvio === 'massa' ? contatosImportados : contatosAvulso;
-      // Salvar instância junto com os números (formato: ["INSTANCIA", "numero1", "numero2"])
+      // Salvar instância + contatos como objetos { nome, telefone } (formato: ["INSTANCIA", {nome, telefone}, ...])
       const numbersWithInstance = novoDisparo.instanceName
-        ? [novoDisparo.instanceName, ...contatosFinais.map(c => c.telefone || c)]
-        : contatosFinais.map(c => c.telefone || c);
+        ? [novoDisparo.instanceName, ...contatosFinais.map(c => ({ nome: c.nome || '', telefone: c.telefone || c }))]
+        : contatosFinais.map(c => ({ nome: c.nome || '', telefone: c.telefone || c }));
       // Upload da imagem se houver
       let imagem_url: string | null = null;
       if (disparoImage) {
