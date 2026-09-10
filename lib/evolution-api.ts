@@ -279,7 +279,7 @@ export async function listarInstancias(): Promise<Array<{
       );
       if (response.ok) {
         data = (await response.json()) || [];
-        if (data.length >= knownInstances.length) break;
+        if (data.length >= Object.keys(knownInstances).length) break;
       }
       await new Promise(r => setTimeout(r, 1000));
     }

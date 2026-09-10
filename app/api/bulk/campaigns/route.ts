@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { uploadMediaToStorage } from "@/lib/media-storage";
 
 export const dynamic = "force-dynamic";
 
@@ -47,13 +48,28 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = getSupabase();
     const body = await request.json();
-    const { name, message, numbers, instancia, intervalo, campanha_id, promocao_id } = body;
+    const { name, message, numbers, instancia, intervalo, campanha_id, promocao_id, imagem_base64, imagem_mimetype } = body;
 
     if (!name || !message || !numbers || numbers.length === 0) {
       return NextResponse.json(
         { error: "name, message e numbers são obrigatórios" },
         { status: 400 }
       );
+    }
+
+    // Upload da imagem para Supabase Storage (se fornecida)
+    let imagem_url: string | null = null;
+    if (imagem_base64 && imagem_mimetype) {
+      try {
+        // Remove prefixo data:...;base64, se houver
+        const base64Clean = imagem_base64.replace(/^data:[^;]+;base64,/, "");
+        imagem_url = await uploadMediaToStorage(base64Clean, imagem_mimetype, "disparos");
+        if (!imagem_url) {
+          console.error("[Bulk Campaigns] Falha ao upload da imagem");
+        }
+      } catch (err: any) {
+        console.error("[Bulk Campaigns] Erro upload imagem:", err.message);
+      }
     }
 
     const { data, error } = await supabase
@@ -69,6 +85,7 @@ export async function POST(request: NextRequest) {
         intervalo: intervalo || 5,
         campanha_id: campanha_id || null,
         promocao_id: promocao_id || null,
+        imagem_url,
       })
       .select(`
         *,

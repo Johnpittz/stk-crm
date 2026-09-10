@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { enviarMensagemWhatsApp } from "@/lib/evolution-api";
+import { enviarMensagemWhatsApp, enviarMidiaWhatsApp } from "@/lib/evolution-api";
 
 export const dynamic = "force-dynamic";
 
@@ -133,6 +133,34 @@ async function enviarCampanha(supabase: any, campaign: any) {
 
       if (result.success) {
         sent++;
+
+        // Enviar imagem após o texto (se houver)
+        if (campaign.imagem_url) {
+          try {
+            // Determinar mimetype da URL
+            const ext = campaign.imagem_url.split('.').pop()?.toLowerCase() || 'jpg';
+            const mimeMap: Record<string, string> = {
+              jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+              webp: 'image/webp', gif: 'image/gif',
+            };
+            const mimetype = mimeMap[ext] || 'image/jpeg';
+
+            const imgResult = await enviarMidiaWhatsApp({
+              telefone: formattedNumber,
+              mediatype: 'image',
+              mimetype,
+              media: campaign.imagem_url,
+              instance: instanceName,
+            });
+
+            console.log(`[Bulk Send] [${i+1}/${numbers.length}] Imagem para ${formattedNumber} - ${imgResult.success ? 'OK' : 'FALHA'}`);
+
+            // Aguardar 2s entre texto e imagem
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+          } catch (imgErr: any) {
+            console.error(`[Bulk Send] Erro enviar imagem para ${formattedNumber}:`, imgErr.message);
+          }
+        }
       } else {
         failed++;
         console.error(`[Bulk Send] Falha para ${formattedNumber}:`, result.error);

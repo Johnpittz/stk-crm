@@ -17,6 +17,8 @@ import {
   Smartphone,
   Timer,
   Loader2,
+  Image,
+  X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -31,6 +33,7 @@ interface Campaign {
   instancia: string | null;
   delay_min: number | null;
   intervalo: number | null;
+  imagem_url: string | null;
   createdAt: string;
 }
 
@@ -49,6 +52,12 @@ export function BulkSender() {
     message: "",
     numbers: "",
   });
+  const [newImage, setNewImage] = useState<{
+    base64: string;
+    preview: string;
+    mimetype: string;
+    name: string;
+  } | null>(null);
   const [creating, setCreating] = useState(false);
   const [instancias, setInstancias] = useState<InstanciaWhatsApp[]>([]);
   const supabase = createClient();
@@ -60,6 +69,36 @@ export function BulkSender() {
       .then((d) => setInstancias(d.instancias || []))
       .catch(() => {});
   }, []);
+
+  // Handler para seleção de imagem
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validar tipo
+    if (!file.type.startsWith("image/")) {
+      alert("Selecione um arquivo de imagem (JPG, PNG, WEBP)");
+      return;
+    }
+
+    // Validar tamanho (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Imagem muito grande. Máximo: 5MB");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      setNewImage({
+        base64,
+        preview: base64,
+        mimetype: file.type,
+        name: file.name,
+      });
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Carregar campanhas
   const fetchCampaigns = useCallback(async () => {
@@ -126,11 +165,14 @@ export function BulkSender() {
           numbers,
           instancia: newInstance,
           intervalo: newIntervalo,
+          imagem_base64: newImage?.base64 || null,
+          imagem_mimetype: newImage?.mimetype || null,
         }),
       });
 
       if (res.ok) {
         setNewCampaign({ name: "", message: "", numbers: "" });
+        setNewImage(null);
         fetchCampaigns();
       }
     } catch (err) {
@@ -286,6 +328,53 @@ export function BulkSender() {
               />
             </div>
 
+            {/* Imagem (opcional) */}
+            <div>
+              <label className="text-xs font-medium text-white/60 mb-1 block">
+                <Image className="inline h-3 w-3 mr-1" />
+                Imagem (opcional)
+              </label>
+              {newImage ? (
+                <div className="relative">
+                  <img
+                    src={newImage.preview}
+                    alt="Preview"
+                    className="w-full h-32 object-cover rounded-lg border border-white/10"
+                  />
+                  <button
+                    onClick={() => setNewImage(null)}
+                    className="absolute top-2 right-2 bg-black/60 hover:bg-red-500/80 text-white rounded-full p-1 transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                  <p className="text-[10px] text-white/30 mt-1 truncate">
+                    📎 {newImage.name}
+                  </p>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-white/10 rounded-lg cursor-pointer hover:border-[#3B64CF]/50 hover:bg-white/5 transition-colors">
+                  <Image className="h-6 w-6 text-white/30 mb-1" />
+                  <span className="text-xs text-white/30">
+                    Clique para selecionar
+                  </span>
+                  <span className="text-[10px] text-white/20">
+                    JPG, PNG, WEBP (máx. 5MB)
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageSelect}
+                  />
+                </label>
+              )}
+              {newImage && (
+                <p className="text-[10px] text-[#3B64CF] mt-1">
+                  ✅ Imagem será enviada após o texto
+                </p>
+              )}
+            </div>
+
             {/* Números */}
             <div>
               <label className="text-xs font-medium text-white/60 mb-1 block">
@@ -375,6 +464,11 @@ export function BulkSender() {
                           {campaign.instancia && (
                             <Badge className="bg-white/5 text-white/40 border-white/10 text-[10px]">
                               📱 {campaign.instancia.slice(-4)}
+                            </Badge>
+                          )}
+                          {campaign.imagem_url && (
+                            <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30 text-[10px]">
+                              🖼️ Com imagem
                             </Badge>
                           )}
                         </div>
