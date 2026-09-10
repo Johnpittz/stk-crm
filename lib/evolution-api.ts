@@ -260,8 +260,12 @@ export async function listarInstancias(): Promise<Array<{
     return [];
   }
 
-  // Known instance names to fallback to
-  const knownInstances = ['ROMA_2', 'STK-1', 'STK-2'];
+  // Known instance names to fallback to (name → number mapping)
+  const knownInstances: Record<string, string> = {
+    'ROMA_2': '556299190117',
+    'STK-1': '556295094949',
+    'STK-2': '5562999961553',
+  };
 
   try {
     // Try fetchInstances with retry
@@ -282,7 +286,7 @@ export async function listarInstancias(): Promise<Array<{
 
     // If we got fewer instances than expected, fetch missing ones individually
     const foundNames = new Set(data.map((i: any) => i.name));
-    const missing = knownInstances.filter(n => !foundNames.has(n));
+    const missing = Object.keys(knownInstances).filter(n => !foundNames.has(n));
 
     for (const name of missing) {
       try {
@@ -297,7 +301,7 @@ export async function listarInstancias(): Promise<Array<{
             data.push({
               id: name,
               name: name,
-              number: instState.number || '',
+              number: knownInstances[name] || '',
               connectionStatus: instState.state === 'open' ? 'open' : 'close',
             });
           }
