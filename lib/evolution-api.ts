@@ -292,12 +292,13 @@ export async function listarInstancias(): Promise<Array<{
         );
         if (resp.ok) {
           const state = await resp.json();
-          if (state && state.state) {
+          const instState = state?.instance || state;
+          if (instState && instState.state) {
             data.push({
               id: name,
               name: name,
-              number: state.number || '',
-              connectionStatus: state.state === 'open' ? 'open' : 'close',
+              number: instState.number || '',
+              connectionStatus: instState.state === 'open' ? 'open' : 'close',
             });
           }
         }
