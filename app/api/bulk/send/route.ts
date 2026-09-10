@@ -106,7 +106,11 @@ async function enviarCampanha(supabase: any, campaign: any) {
     return;
   }
 
-  for (const number of numbers) {
+  const campaignStart = Date.now();
+  console.log(`[Bulk Send] Tempo total início: ${new Date().toISOString()}`);
+
+  for (let i = 0; i < numbers.length; i++) {
+    const number = numbers[i];
     try {
       // Formatar número (adicionar 55 se não tiver)
       let formattedNumber = number.replace(/\D/g, "");
@@ -114,12 +118,18 @@ async function enviarCampanha(supabase: any, campaign: any) {
         formattedNumber = "55" + formattedNumber;
       }
 
+      const msgStart = Date.now();
+      console.log(`[Bulk Send] [${i+1}/${numbers.length}] Enviando para ${formattedNumber}...`);
+
       // Enviar mensagem via instância correta
       const result = await enviarMensagemWhatsApp({
         telefone: formattedNumber,
         mensagem: campaign.message,
         instance: instanceName,
       });
+
+      const msgEnd = Date.now();
+      console.log(`[Bulk Send] [${i+1}/${numbers.length}] ${formattedNumber} - ${result.success ? 'OK' : 'FALHA'} - API levou ${msgEnd - msgStart}ms`);
 
       if (result.success) {
         sent++;
@@ -134,13 +144,18 @@ async function enviarCampanha(supabase: any, campaign: any) {
         .update({ sent, failed })
         .eq("id", campaign.id);
 
-      // Intervalo fixo entre envios
-      await new Promise((resolve) => setTimeout(resolve, intervalo));
+      // Intervalo fixo entre envios (exceto no último)
+      if (i < numbers.length - 1) {
+        console.log(`[Bulk Send] Aguardando ${intervalo/1000}s antes do próximo...`);
+        await new Promise((resolve) => setTimeout(resolve, intervalo));
+      }
     } catch (err: any) {
       failed++;
       console.error(`[Bulk Send] Erro para ${number}:`, err.message);
     }
   }
+
+  console.log(`[Bulk Send] Campanha finalizada em ${((Date.now() - campaignStart) / 1000).toFixed(1)}s total`);
 
   // Finalizar campanha
   await supabase
