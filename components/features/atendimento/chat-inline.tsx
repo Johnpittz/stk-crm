@@ -19,6 +19,8 @@ interface Mensagem {
   media_url?: string | null;
   media_type?: string | null;
   file_name?: string | null;
+  whatsapp_message_id?: string | null;
+  media_key?: string | null;
 }
 
 interface Atendimento {
@@ -495,16 +497,18 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
   const renderMidia = (msg: Mensagem) => {
     if (!msg.media_url && !msg.media_type) return null;
 
-    // data URLs (base64), HTTPS URLs (Supabase Storage) usam direto
-    // Apenas URLs HTTP externas passam pelo proxy
+    const isWhatsAppCdn = msg.media_url?.includes("mmg.whatsapp.net");
     const isDataUrl = msg.media_url?.startsWith("data:");
-    const isSecureUrl = msg.media_url?.startsWith("https://");
-    const useDirect = isDataUrl || isSecureUrl;
-    const mediaUrl = useDirect
-      ? msg.media_url!
-      : msg.media_url
-        ? `/api/media?url=${encodeURIComponent(msg.media_url)}&type=${msg.media_type || "image"}`
-        : null;
+    const isSupabaseStorage = msg.media_url?.includes("supabase.co/storage");
+
+    let mediaUrl: string | null = null;
+    if (isWhatsAppCdn && msg.id && !msg.id.startsWith("virtual-")) {
+      mediaUrl = `/api/media-download?msg_id=${msg.id}&type=${msg.media_type || "image"}`;
+    } else if (isDataUrl || isSupabaseStorage) {
+      mediaUrl = msg.media_url!;
+    } else if (msg.media_url) {
+      mediaUrl = `/api/media?url=${encodeURIComponent(msg.media_url)}&type=${msg.media_type || "image"}`;
+    }
 
     switch (msg.media_type) {
       case "image":
