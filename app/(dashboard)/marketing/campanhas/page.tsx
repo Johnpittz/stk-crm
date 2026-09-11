@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Megaphone, Trash2, ChevronDown, ChevronUp, Send, Loader2, Upload, FileSpreadsheet, X, Image } from 'lucide-react';
+import { Plus, Megaphone, Trash2, ChevronDown, ChevronUp, Send, Loader2, Upload, FileSpreadsheet, X, Image, Square, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -39,6 +39,12 @@ interface Disparo {
   failed: number;
   created_at: string;
   updated_at?: string;
+  error_log?: string;
+  fluxo_mensagens?: any;
+  instancia?: string;
+  intervalo?: number;
+  intervalo_passos?: number;
+  delay_inicial?: number;
 }
 
 interface CampanhaStats {
@@ -68,6 +74,9 @@ export default function CampanhasPage() {
   const [contatosImportados, setContatosImportados] = useState<ContatoPlanilha[]>([]);
   const [fileName, setFileName] = useState('');
   const supabase = createClient();
+  const [logsDisparoId, setLogsDisparoId] = useState<string | null>(null);
+  const [disparoLogs, setDisparoLogs] = useState<any[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
 
   const [novaCampanha, setNovaCampanha] = useState({
     nome: '', descricao: '', tipo: 'promocional', status: 'rascunho',
@@ -76,8 +85,8 @@ export default function CampanhasPage() {
 
   const [novoDisparo, setNovoDisparo] = useState({
     nome: '', mensagem: '', instanceName: '', phone_from: '',
-    intervalo: 5, promocao_id: '',
-    telefone_avulso: ''
+    intervalo: 5, intervalo_passos: 2, delay_inicial: 0,
+    promocao_id: '', telefone_avulso: ''
   });
   
   // Fluxo de mensagens: array de passos { type: 'text'|'image', content?: string, base64?: string, preview?: string, mimetype?: string, url?: string }
@@ -247,6 +256,33 @@ export default function CampanhasPage() {
     }, 5000);
     return () => clearInterval(interval);
   }, [campanhas, loadCampanhas]);
+
+  const loadDisparoLogs = useCallback(async (campaignId: string) => {
+    setLoadingLogs(true);
+    try {
+      const { data, error } = await supabase
+        .from('disparo_logs')
+        .select('*')
+        .eq('campaign_id', campaignId)
+        .order('created_at', { ascending: true })
+        .limit(200);
+      if (error) throw error;
+      setDisparoLogs(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar logs:', error);
+    } finally {
+      setLoadingLogs(false);
+    }
+  }, [supabase]);
+
+  // Auto-refresh logs when viewing a running campaign
+  useEffect(() => {
+    if (!logsDisparoId) return;
+    const disparo = campanhas.flatMap(c => c.disparos || []).find((d: any) => d.id === logsDisparoId);
+    if (!disparo || disparo.status !== 'running') return;
+    const interval = setInterval(() => loadDisparoLogs(logsDisparoId), 3000);
+    return () => clearInterval(interval);
+  }, [logsDisparoId, campanhas, loadDisparoLogs]);
 
   const getCampanhaStats = (campanha: Campanha): CampanhaStats => {
     const disparos = campanha.disparos || [];
@@ -465,6 +501,8 @@ export default function CampanhasPage() {
         campanha_id: campanhaSelecionada.id,
         instancia: novoDisparo.instanceName || 'ROMA_2',
         intervalo: novoDisparo.intervalo || 5,
+        intervalo_passos: novoDisparo.intervalo_passos || 2,
+        delay_inicial: novoDisparo.delay_inicial || 0,
         imagem_url,
       };
 
@@ -491,7 +529,7 @@ export default function CampanhasPage() {
 
   const resetarDialog = () => {
     setShowDisparoDialog(false);
-    setNovoDisparo({ nome: '', mensagem: '', instanceName: '', phone_from: '', intervalo: 5, promocao_id: '', telefone_avulso: '' });
+    setNovoDisparo({ nome: '', mensagem: '', instanceName: '', phone_from: '', intervalo: 5, intervalo_passos: 2, delay_inicial: 0, promocao_id: '', telefone_avulso: '' });
     setDisparoImage(null);
     setFluxoSteps([]);
     setContatosImportados([]);
@@ -519,6 +557,20 @@ export default function CampanhasPage() {
       toast.error("Não foi possível enviar o disparo.");
     } finally {
       setSending(false);
+    }
+  };
+  const pararDisparo = async (disparoId: string) => {
+    try {
+      const { error } = await supabase
+        .from('bulk_campaigns')
+        .update({ status: 'cancelled' })
+        .eq('id', disparoId);
+      if (error) throw error;
+      toast.success('Disparo cancelado!');
+      loadCampanhas();
+    } catch (error) {
+      console.error('Erro ao cancelar disparo:', error);
+      toast.error('Não foi possível cancelar.');
     }
   };
 
@@ -552,8 +604,9 @@ export default function CampanhasPage() {
       pausado: 'bg-orange-600 text-orange-100', enviado: 'bg-green-600 text-green-100',
       processando: 'bg-blue-600 text-blue-100', erro: 'bg-red-600 text-red-100',
       pendente: 'bg-gray-600 text-gray-100', pending: 'bg-gray-600 text-gray-100',
-      failed: 'bg-red-600 text-red-100'
-    };
+ failed: 'bg-red-600 text-red-100',
+ cancelled: 'bg-red-600 text-red-100'
+ };
     const labels: Record<string, string> = {
       rascunho: 'Rascunho', agendado: 'Agendado',
       running: 'Enviando', em_andamento: 'Em Andamento',
@@ -561,8 +614,9 @@ export default function CampanhasPage() {
       pausado: 'Pausado', enviado: 'Enviado',
       processando: 'Processando', erro: 'Erro',
       pendente: 'Pendente', pending: 'Pendente',
-      failed: 'Falhou'
-    };
+ failed: 'Falhou',
+ cancelled: 'Cancelado'
+ };
     return <Badge className={styles[status] || 'bg-gray-600'}>{labels[status] || status}</Badge>;
   };
 
@@ -703,7 +757,9 @@ export default function CampanhasPage() {
                               <TableHead className="text-gray-300">Nome</TableHead>
                               <TableHead className="text-gray-300">Contatos</TableHead>
                               <TableHead className="text-gray-300">Enviados</TableHead>
+                              <TableHead className="text-gray-300">Falhas</TableHead>
                               <TableHead className="text-gray-300">Status</TableHead>
+                              <TableHead className="text-gray-300">Erro</TableHead>
                               <TableHead className="text-gray-300">Ações</TableHead>
                             </TableRow>
                           </TableHeader>
@@ -712,15 +768,33 @@ export default function CampanhasPage() {
                               <TableRow key={disparo.id} className="border-gray-700">
                                 <TableCell className="text-white font-medium">{disparo.name}</TableCell>
                                 <TableCell className="text-gray-300">
-                                  {Array.isArray(disparo.numbers) ? disparo.numbers.length : 1} contato(s)
+                                  {Array.isArray(disparo.numbers) ? disparo.numbers.length - (typeof disparo.numbers[0] === 'string' ? 1 : 0) : 1}
                                 </TableCell>
                                 <TableCell className="text-gray-300">{disparo.sent || 0}</TableCell>
+                                <TableCell className="text-red-400">{disparo.failed || 0}</TableCell>
                                 <TableCell>{getStatusBadge(disparo.status)}</TableCell>
+                                <TableCell className="text-gray-400 text-xs max-w-[150px] truncate" title={disparo.error_log || ''}>
+                                  {disparo.error_log ? (
+                                    <span className="text-red-400">{disparo.error_log.substring(0, 50)}{disparo.error_log.length > 50 ? '...' : ''}</span>
+                                  ) : (
+                                    <span className="text-gray-500">-</span>
+                                  )}
+                                </TableCell>
                                 <TableCell>
                                   <div className="flex gap-1">
                                     {disparo.status === 'rascunho' && (
                                       <Button size="sm" variant="ghost" onClick={() => enviarDisparo(disparo.id)} disabled={sending} className="text-emerald-400 hover:text-emerald-300">
                                         <Send className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                    {disparo.status === 'running' && (
+                                      <Button size="sm" variant="ghost" onClick={() => pararDisparo(disparo.id)} className="text-red-400 hover:text-red-300">
+                                        <Square className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                    {(disparo.status === 'running' || disparo.status === 'completed' || disparo.status === 'cancelled') && (
+                                      <Button size="sm" variant="ghost" onClick={() => { setLogsDisparoId(disparo.id); loadDisparoLogs(disparo.id); }} className="text-blue-400 hover:text-blue-300">
+                                        <FileText className="h-4 w-4" />
                                       </Button>
                                     )}
                                     <Button size="sm" variant="ghost" onClick={() => excluirDisparo(disparo.id)} className="text-red-400 hover:text-red-300">
@@ -756,6 +830,42 @@ export default function CampanhasPage() {
                           <div className="bg-gray-700/50 rounded-lg p-3 text-center">
                             <p className="text-2xl font-bold text-red-400">{stats.totalFalhas}</p>
                             <p className="text-gray-400 text-sm">Falhas</p>
+                          </div>
+                        </div>
+                      )}
+                      {logsDisparoId && (
+                        <div className="mt-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-white text-sm font-medium">📋 Logs do Disparo</h4>
+                            <Button size="sm" variant="ghost" onClick={() => setLogsDisparoId(null)} className="text-gray-400">
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <div className="bg-gray-900 rounded-lg border border-gray-700 max-h-64 overflow-y-auto p-3 font-mono text-xs">
+                            {loadingLogs ? (
+                              <div className="flex items-center gap-2 text-gray-400">
+                                <Loader2 className="h-4 w-4 animate-spin" /> Carregando logs...
+                              </div>
+                            ) : disparoLogs.length === 0 ? (
+                              <p className="text-gray-500">Nenhum log ainda...</p>
+                            ) : (
+                              disparoLogs.map((log) => (
+                                <div key={log.id} className="flex gap-2 py-0.5">
+                                  <span className="text-gray-500 shrink-0">
+                                    {new Date(log.created_at).toLocaleTimeString('pt-BR')}
+                                  </span>
+                                  <span className={log.status === 'ok' ? 'text-green-400' : 'text-red-400'}>
+                                    {log.status === 'ok' ? '✓' : '✗'}
+                                  </span>
+                                  <span className="text-gray-300">
+                                    {log.contact_phone} | Passo {log.step_index} ({log.step_type})
+                                  </span>
+                                  {log.detail && (
+                                    <span className="text-gray-500">- {log.detail}</span>
+                                  )}
+                                </div>
+                              ))
+                            )}
                           </div>
                         </div>
                       )}
@@ -1166,12 +1276,28 @@ export default function CampanhasPage() {
                 </div>
               </TabsContent>
 
+              {/* DELAY ANTES DO PRIMEIRO DISPARO */}
+              <div>
+                <Label className="text-gray-300">Aguuardar antes do 1º disparo (segundos)</Label>
+                <Input type="number" min={0} max={600} value={novoDisparo.delay_inicial} onChange={(e) => setNovoDisparo({...novoDisparo, delay_inicial: parseInt(e.target.value) || 0})} className="bg-gray-700 border-gray-600 text-white" />
+                <p className="text-xs text-gray-500 mt-1">Tempo de espera antes de enviar a primeira mensagem</p>
+              </div>
+
               {/* INTERVALO ENTRE ENVIOS */}
               <div>
                 <Label className="text-gray-300">Enviar a cada (segundos)</Label>
                 <Input type="number" min={1} max={120} value={novoDisparo.intervalo} onChange={(e) => setNovoDisparo({...novoDisparo, intervalo: parseInt(e.target.value) || 5})} className="bg-gray-700 border-gray-600 text-white" />
                 <p className="text-xs text-gray-500 mt-1">Intervalo fixo entre cada envio</p>
               </div>
+
+              {/* DELAY ENTRE PASSOS DO FLUXO */}
+              {fluxoSteps.length > 0 && (
+                <div>
+                  <Label className="text-gray-300">Delay entre passos (segundos)</Label>
+                  <Input type="number" min={1} max={30} value={novoDisparo.intervalo_passos} onChange={(e) => setNovoDisparo({...novoDisparo, intervalo_passos: parseInt(e.target.value) || 2})} className="bg-gray-700 border-gray-600 text-white" />
+                  <p className="text-xs text-gray-500 mt-1">Pausa entre cada mensagem do fluxo</p>
+                </div>
+              )}
 
               {/* RESUMO */}
               <div className="bg-gray-700/50 rounded-lg p-4">

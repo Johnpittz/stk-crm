@@ -514,11 +514,15 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
         return <div className="flex items-center gap-2 text-white/40 text-xs"><span className="text-lg">🖼️</span>Imagem recebida</div>;
       case "audio":
         if (mediaUrl && !mediaUrl.includes("[media_proxy_needed]")) {
+          // Usar endpoint de download com descriptografia para áudio do WhatsApp
+          const audioSrc = msg.id && !msg.id.startsWith("virtual-")
+            ? `/api/media-download?msg_id=${msg.id}&type=audio`
+            : mediaUrl;
           return (
             <div className="flex items-center gap-2 min-w-[180px]">
               <span className="text-lg">🎵</span>
               <audio controls preload="metadata" className="h-8 flex-1" style={{ filter: "invert(1) hue-rotate(180deg)" }}>
-                <source src={mediaUrl} />
+                <source src={audioSrc} />
               </audio>
             </div>
           );

@@ -186,8 +186,10 @@ export async function POST(request: NextRequest) {
         enviada_por: dados.fromMe ? (vendedorUpdate || null) : null,
         media_url: dados.mediaUrl || null,
         media_type: dados.mediaType || null,
+        media_key: dados.mediaKey || null,
         file_name: dados.fileName || null,
         whatsapp_message_id: waMsgId,
+        ...(dados.messageTimestamp ? { created_at: new Date(dados.messageTimestamp * 1000).toISOString() } : {}),
       });
 
       console.log(`[Webhook WhatsApp] Mensagem adicionada ao atendimento ${atendimentoExistente.id}`);
@@ -378,8 +380,10 @@ export async function POST(request: NextRequest) {
       enviada_por: dados.fromMe ? (vendedorFinal || null) : null,
       media_url: dados.mediaUrl || null,
       media_type: dados.mediaType || null,
+      media_key: dados.mediaKey || null,
       file_name: dados.fileName || null,
       whatsapp_message_id: waMsgId2,
+      ...(dados.messageTimestamp ? { created_at: new Date(dados.messageTimestamp * 1000).toISOString() } : {}),
     });
 
     console.log(`[Webhook WhatsApp] Novo atendimento criado: ${novoAtendimento.id}`);
@@ -513,6 +517,8 @@ async function extrairDadosEvolutionAPI(payload: any): Promise<{
   instance: string | null;
   rawBase64: string | null;
   rawMime: string | null;
+  messageTimestamp: number | null;
+  mediaKey: string | null;
 }> {
   // Formato Evolution API: { event: 'messages.upsert', data: { key, message, pushName } }
   if (payload.event && payload.data) {
@@ -615,6 +621,17 @@ async function extrairDadosEvolutionAPI(payload: any): Promise<{
     
     console.log("[Webhook DEBUG] telefone extraido:", telefone);
 
+    // Extrair mediaKey para descriptografia
+    let mediaKey: string | null = null;
+    if (message.audioMessage?.mediaKey) mediaKey = message.audioMessage.mediaKey;
+    else if (message.imageMessage?.mediaKey) mediaKey = message.imageMessage.mediaKey;
+    else if (message.videoMessage?.mediaKey) mediaKey = message.videoMessage.mediaKey;
+    else if (message.documentMessage?.mediaKey) mediaKey = message.documentMessage.mediaKey;
+    else if (message.stickerMessage?.mediaKey) mediaKey = message.stickerMessage.mediaKey;
+
+    // Extrair timestamp original do WhatsApp (messageTimestamp)
+    const messageTimestamp = data.messageTimestamp || data.timestamp || key.messageTimestamp || null;
+
     return {
       telefone,
       mensagem,
@@ -628,6 +645,8 @@ async function extrairDadosEvolutionAPI(payload: any): Promise<{
       instance: payload.instance || null,
       rawBase64,
       rawMime,
+      messageTimestamp: messageTimestamp ? Number(messageTimestamp) : null,
+      mediaKey,
     };
     }
 
@@ -645,6 +664,8 @@ async function extrairDadosEvolutionAPI(payload: any): Promise<{
     instance: payload.instance || null,
     rawBase64: null,
     rawMime: null,
+    messageTimestamp: null,
+    mediaKey: null,
     };
 }
 

@@ -1,6 +1,6 @@
 # 📋 PROGRESSO - STK CRM
 
-> Última atualização: 10/06/2026
+> Última atualização: 11/09/2026
 > Repositório: github.com/Johnpittz/stk-crm
 > Deploy: stk-crm-amber.vercel.app
 > Stack: Next.js 14 + Supabase + Vercel (free tier)
@@ -207,7 +207,7 @@ Mensagem WhatsApp
 11. **email** → E-mail
 12. **pergunta_ouro** → Pergunta aberta estratégica
 13. **classificar** → Pontuação automática
-13. **mensagem_final** → Encerramento ou encaminhamento
+14. **mensagem_final** → Encerramento ou encaminhamento
 
 ### Classificação de Leads (Scoring)
 | Classificação | Pontos | Ação |
@@ -222,15 +222,28 @@ Mensagem WhatsApp
 - **Aba Sessões**: Lista com filtro por status, detalhe com histórico de mensagens
 - **Aba Stats**: Métricas de performance do chatbot
 
+### Fase 11 - Chatbot: Correções e Gatilho (06/09/2026)
+- [x] Bug fix: `.single()` → `.maybeSingle()` (crashava quando não encontrava sessão/fluxo)
+- [x] Bug fix: chatbot não disparava em novos atendimentos (só verificava atendimentos existentes)
+- [x] Bug fix: busca de fluxo sem filtro de instância (busca qualquer fluxo ativo)
+- [x] Campo `gatilho` no `chatbot_flows`: `'todos'` | `'disparo'`
+- [x] Tabela `chatbot_gatilho_numeros` — registra números que receberam disparo
+- [x] Bulk send salva números na tabela de gatilho ao enviar
+- [x] Webhook verifica gatilho antes de ativar chatbot
+- [x] Detecção de palavras de parada ("parar", "cancelar", "sai", etc)
+- [x] Bloqueio de reativação: sessão concluída/encaminhada não reativa por 24h
+- [x] Botão "Deletar" na aba Sessões do chatbot (remove sessão + mensagens)
+- [x] UI: toggle gatilho "Todos" / "Só Disparo" na aba Fluxos
+
 ---
 
 ## 📱 Integração WhatsApp (Evolution API)
 
-### Configuração Atual
-| Instância | Número | Webhook | Status |
-|-----------|--------|---------|--------|
-| **STK** | 556299190117 | MESSAGES_UPSERT ✓ | Conectada |
-| **ROMA_1** | 556282735286 (5286) | MESSAGES_UPSERT ✓ | Conectada |
+### Configuração
+- **API:** Evolution API (self-hosted na VPS)
+- **Porta:** 8082
+- **Webhook:** MESSAGES_UPSERT configurado
+- **Autenticação:** Header `apikey`
 
 ### Fluxo de Mensagens
 ```
@@ -245,25 +258,24 @@ WhatsApp → Evolution API (webhook) → /api/webhooks/whatsapp
 ```
 
 ### Funcionalidades
-- Recebimento de mensagens (texto, mídia, áudio, documentos)
+- Recebimento de mensagens (texto, mídia, áudio, documentos, stickers)
 - Envio de mensagens de texto e mídia
 - Deduplicação via `whatsapp_message_id`
 - Filtro de mensagens de grupo (`@g.us`)
 - Suporte a LID mode (remoteJidAlt para números reais)
-- Sincronização batch de mensagens (`/api/atendimentos/sync-from-evolution`)
+- Upload de mídia base64 → Supabase Storage (evita egress no banco)
+- Múltiplas instâncias WhatsApp (seletor por instância no atendimento)
 - Disparo em massa com cadência (3-8s entre envios, limite 60/hora)
 
 ---
 
-## 🔗 Integrações Externas
+## 🔗 Integrações
 
-| Integração | Uso | Endpoint |
-|------------|-----|----------|
-| **Evolution API** | WhatsApp messaging | `http://2.25.192.248:8082` |
-| **Gemini 2.5 Flash** | AI responses + chatbot | `generativelanguage.googleapis.com` |
-| **Millennium** | ERP (clientes, vendas) | Webhook `/api/webhooks/millennium` |
-| **CNPJ Aberto** | Prospecção (dados de CNPJ) | API externa |
-| **IBGE** | Dados geográficos | API externa |
+| Integração | Uso | Status |
+|------------|-----|--------|
+| **Evolution API** | WhatsApp messaging | ✅ Ativa |
+| **Gemini 2.5 Flash** | AI responses + chatbot | ✅ Ativa |
+| **Millennium** | ERP (clientes, vendas) | ⚠️ Código existe (`lib/integrations/millennium-api.ts`) mas não está integrado em nenhuma rota — legado |
 
 ---
 
@@ -271,12 +283,7 @@ WhatsApp → Evolution API (webhook) → /api/webhooks/whatsapp
 
 ### VPS (Hostinger KVM)
 - **IP:** 2.25.192.248
-- **Serviços:** PostgreSQL 18 + Evolution API (Docker container `john_hermes`)
-- **Gerenciamento:** Supervisor + Docker `network_mode: host`
-
-### Evolution API
-- **STK:** 556299190117 (webhook MESSAGES_UPSERT configurado)
-- **ROMA_1:** 556282735286 (webhook MESSAGES_UPSERT configurado)
+- **Serviços:** Evolution API (Docker)
 - **Porta:** 8082
 
 ### Frontend (Vercel)
@@ -288,17 +295,12 @@ WhatsApp → Evolution API (webhook) → /api/webhooks/whatsapp
 - **Projeto:** nizreygwaqqojwrorpqo
 - **Tier:** Free
 
-### Code Server
-- **URL:** Via Cloudflare tunnel (porta 8443)
-- **Último tunnel:** children-prep-textbooks-listing.trycloudflare.com
-
 ---
 
 ## ⚡ Otimizações Implementadas
 
 | Otimização | Resultado |
 |------------|-----------|
-| Sync-from-evolution com batch queries | 300s → 743ms (400x) |
 | Endpoint unificado `/api/atendimentos/page-data` | 6-8 chamadas → 1 |
 | Polling da lista de conversas | 30s → 10s |
 | Middleware timeout no `supabase.auth.getUser()` | Evita 504 |
@@ -315,7 +317,7 @@ WhatsApp → Evolution API (webhook) → /api/webhooks/whatsapp
 - **SelectItem value vazio:** shadcn não aceita `value=""` - removido item "Nenhuma"
 - **LoadInstances retornando vazio:** API retorna `instancias` não `instances`
 - **Planilha não reconhecia contatos:** Detecção automática de header com linhas de título
-- **bulk_campaigns tabela incompatível:** ✅ Corrigido — insert alinhado com schema real, interface atualizada, instância salva no array numbers.
+- **bulk_campaigns tabela incompatível:** Insert alinhado com schema real, interface atualizada, instância salva no array numbers
 
 ---
 
@@ -367,8 +369,8 @@ stk-crm/
 │       │   ├── flows/route.ts          ← CRUD fluxos
 │       │   └── sessions/route.ts       ← Gerencia sessões
 │       ├── webhooks/
-│       │   ├── whatsapp/route.ts       ← Webhook Evolution API (597 linhas)
-│       │   └── millennium/route.ts     ← Webhook ERP
+│       │   ├── whatsapp/route.ts       ← Webhook Evolution API
+│       │   └── millennium/route.ts     ← Webhook ERP (legado)
 │       ├── bulk/
 │       │   ├── campaigns/route.ts      ← CRUD campanhas bulk
 │       │   └── send/route.ts           ← Envio de disparos
@@ -385,7 +387,7 @@ stk-crm/
 │   ├── ai-assistant.ts                 ← Gemini AI para respostas automáticas
 │   ├── evolution-api.ts                ← Helper WhatsApp (enviar texto/mídia/áudio)
 │   ├── integrations/
-│   │   └── millennium-api.ts           ← Integração ERP
+│   │   └── millennium-api.ts           ← Integração ERP (legado, não utilizado)
 │   ├── supabase/
 │   │   ├── client.ts                   ← Cliente browser
 │   │   ├── server.ts                   ← Cliente server
@@ -410,14 +412,14 @@ stk-crm/
 │   ├── 072_chatbot_inteligente.sql     ← 4 tabelas chatbot
 │   ├── 072_ligacao_modulos_marketing.sql
 │   └── 073_reciee_tables.sql           ← 3 tabelas RECIEE
-├── scripts/                            ← 56 scripts utilitários
+├── scripts/                            ← Scripts utilitários
 └── public/templates/
     └── proposta_template.pdf           ← Template proposta RECIEE
 ```
 
 ---
 
-## 📊 APIs Disponíveis (55 arquivos de rota, 93 handlers)
+## 📊 APIs Disponíveis
 
 ### Por Módulo
 | Módulo | Rotas | Métodos |
@@ -452,7 +454,7 @@ stk-crm/
 ## 🔜 Próximos Passos (Prioridade)
 
 1. **Criar tabela `bulk_campanhas_contatos`** no Supabase (SQL enviado via .txt)
-2. **RECIEE** → Testar upload de faturas com o número 5286 (ROMA_1)
+2. **RECIEE** → Testar upload de faturas
 3. **Chatbot** → Conectar fluxo de qualificação ao pipeline de vendas
 4. **Pós-Vendas** → Conectar follow-ups automáticos
 5. **Marketing** → Conectar leads ao CRM (lead qualificado vira cliente)
@@ -486,6 +488,136 @@ stk-crm/
 | Evolution API | VPS:8082 | API Key no `.env` |
 | GitHub | Token configurado | Repo `Johnpittz/stk-crm` |
 | Gemini | API Key | AI para chatbot + auto-respostas |
+
+---
+
+## 🤖 Chatbot — Correções e Gatilho (06/09/2026)
+
+### Fase 11 - Chatbot Funcional + Gatilho Disparo
+
+#### Bugs Corrigidos
+- **Chatbot não disparava em novos atendimentos:** O webhook só verificava chatbot em atendimentos existentes. Adicionada verificação para atendimentos novos.
+- **`.single()` crashava o engine:** Supabase `.single()` lança PGRST116 quando não encontra registro. Trocado por `.maybeSingle()` em todas as queries críticas (webhook + engine).
+- **Match por instância falhava:** Fluxo configurado com `instancia: 'STK'` mas Evolution API enviava `ROMA_1`. Removido filtro por instância — busca qualquer fluxo ativo.
+
+#### Sistema de Gatilho (Opção 1)
+- Campo `gatilho` no `chatbot_flows`: `'todos' | 'disparo'`
+  - **todos** → qualquer mensagem ativa o bot (comportamento antigo)
+  - **disparo** → só ativa se o número está em `chatbot_gatilho_numeros`
+- Tabela `chatbot_gatilho_numeros` (flow_id, telefone, created_at)
+- Migration `074_chatbot_whitelist.sql`
+- Bulk send salva números na tabela ao enviar
+- Webhook verifica gatilho antes de ativar chatbot
+
+#### Parada do Chatbot
+- **Por texto:** Palavras de parada detectadas: "parar", "para", "cancelar", "sai", "obrigad", "chega", "não quero mais", "para de perguntar", etc.
+- **Por botão:** "Encerrar" no painel de contato + "Deletar" na dashboard
+- **Bloqueio 24h:** Após encerrar/deletar, chatbot não reativa por 24h
+- **Bloqueio permanente:** Se sessão está `concluida` ou `encaminhada`, não reativa (precisa deletar pra testar)
+
+#### Dashboard Admin
+- Botão "Deletar" nas sessões (remove sessão + mensagens)
+- Sessões bloqueadas aparecem como "Bloqueado" no filtro
+
+#### Fluxo: Sustentalski - Geração Distribuída
+- 14 etapas de qualificação (perfil, objetivo, valor conta, localização, tipo negócio, situação atual, decisão compra, momento compra, nome, telefone, email, pergunta ouro, classificação, mensagem final)
+- Scoring: A≥80 (quente), B≥50 (qualificado), C≥25 (nutrição), D<25 (frio)
+- Branching condicional por perfil (empresa vs residencial)
+- Interpretação de respostas livres via Gemini
+
+---
+
+## 🚀 Fase 12 - Worker de Disparo + Múltiplas Instâncias (11/09/2026)
+
+### Worker de Disparo no VPS
+- [x] Worker Python (`/root/disparo_worker.py`) rodando via Supervisor
+- [x] Polling a cada 5s no Supabase por campanhas `status=running`
+- [x] Envio via Evolution API local (sem timeout do Vercel, sem cold start)
+- [x] Processamento de fluxo de mensagens (texto + imagem, com delay configurável)
+- [x] Substituição de variáveis: `{{nome}}`, `{{telefone}}`, `{{promocao}}`
+- [x] Suporte a imagem via base64 (data URI → base64 cru para Evolution API)
+- [x] Verificação de status 200/201 (Evolution API retorna 201 no sucesso)
+- [x] Endpoint Vercel simplificado: apenas marca campanha como `running`
+
+### Múltiplas Instâncias WhatsApp
+- [x] ROMA_2 (556299190117) — conectada ✅
+- [x] STK-1 (6295094949) — conectada ✅, webhook configurado
+- [x] STK-2 (62999961553) — conectada ✅, webhook configurado
+- [x] Todas aparecem no dropdown de seleção de instância
+- [x] Número da instância resolvido via `lid_phone_map` (connectionState não retorna número)
+
+### Campos de Timing Configuráveis
+- [x] **Delay antes do 1º disparo** (`delay_inicial`) — espera antes de enviar ao primeiro contato
+- [x] **Intervalo entre contatos** (`intervalo`) — delay entre cada número da planilha
+- [x] **Delay entre passos do fluxo** (`intervalo_passos`) — pausa entre cada mensagem do fluxo
+- [x] Migration: `080_add_intervalo_passos.sql`, `081_add_delay_inicial.sql`
+
+### Upload de Imagem no Disparo
+- [x] Campo compacto estilo WhatsApp (ícone + "Selecionar imagem", miniatura 64x64)
+- [x] Upload para Supabase Storage via `/api/upload-media`
+- [x] Coluna `imagem_url` na tabela `bulk_campaigns`
+- [x] Imagem enviada junto com o fluxo de mensagens
+
+### Conta Admin Extra
+- [x] Usuário `admstk@stk.com` criado com cargo `admin`
+- [x] Mesmos privilégios do administrador original
+
+---
+
+## 🔐 Fase 13 - Segurança + Webhook + LID Resolver (11/09/2026)
+
+### Webhook Security
+- [x] Validação `X-Webhook-Secret` em todas as requisições
+- [x] Rate limiting: 180 req/min global, 660 req/min por endpoint
+- [x] Validação de payload (event, data obrigatórios)
+- [x] Filtro de mensagens de grupo (`@g.us`)
+
+### LID Resolver
+- [x] Módulo `lib/lid-resolver.ts` — resolve `@lid` → telefone via cache → Supabase → Evolution API
+- [x] Tabela `lid_phone_map` criada
+- [x] Webhook proxy intermediário (`/root/webhook_proxy.py`, porta 9999) — ainda ativo
+- [x] Mapping automático: salva `phone ↔ lid` quando resolve com sucesso
+
+### GitHub + Deploy
+- [x] Repositório tornado público (Vercel Hobby plan)
+- [x] Token Vercel salvo em `~/.vercel-token.env`
+- [x] Deploy automático via CLI com `--prod`
+
+---
+
+## 🎵 Fase 14 - Mídia + Timestamp + Descriptografia (11/09/2026)
+
+### Descriptografia de Mídia WhatsApp
+- [x] Endpoint `/api/media-download` — descriptografa áudio/imagem do WhatsApp
+- [x] Usa Evolution API `getBase64FromMediaMessage` (descriptografa no servidor)
+- [x] Suporte a áudio OGG/Opus, imagem JPEG/PNG/WebP, vídeo MP4
+- [x] Todas as mídias existentes tiveram `media_key` atualizado via Evolution API
+- [x] Player de áudio funcional no chat (antes não reproduzia — 0:00 / 0:00)
+- [x] Migration: `ALTER TABLE atendimento_mensagens ADD COLUMN media_key TEXT`
+
+### Timestamp Original do WhatsApp
+- [x] Webhook extrai `messageTimestamp` do payload da Evolution API
+- [x] Mensagens salvas com o horário real de envio (não o horário do sync)
+- [x] Sync-from-evolution também usa `messageTimestamp`
+- [x] Mensagens no chat agora aparecem na ordem cronológica correta
+
+### Correções de API Key
+- [x] Evolution API tinha chave `AUTHENTICATION_API_KEY` diferente da armazenada no worker
+- [x] Worker atualizado com chave correta (`e3186c...`)
+- [x] Verificação: todas as 3 instâncias funcionando com a chave correta
+
+---
+
+## 🔜 Próximos Passos (Prioridade)
+
+1. **Audio player** → Testar reprodução completa (áudio descriptografado via Evolution API) ✅
+2. **Timestamp** → Mensagens com horário correto do WhatsApp ✅
+3. **STK-3** → Conectar terceira instância quando número for fornecido
+4. **Code-server** → Investigar link quebrado (`http://2.25.192.248:8080/vscode/login`)
+5. **WEBHOOK_SECRET** → Configurar variável de ambiente no Vercel Dashboard
+6. **Pós-Vendas** → Conectar follow-ups automáticos
+7. **Relatórios** → Dashboard de métricas por perfil
+8. **Permissões** → Controle de acesso por perfil (admin, vendedor, atendente)
 
 ---
 

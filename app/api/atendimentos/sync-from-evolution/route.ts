@@ -175,6 +175,8 @@ export async function POST(request: NextRequest) {
             media_type: mediaType || null,
             enviada_por: fromMe ? (atendimento.vendedor_id || null) : null,
             whatsapp_message_id: waMsgId,
+            // Usar timestamp original do WhatsApp se disponível
+            ...(msg.messageTimestamp ? { created_at: new Date(Number(msg.messageTimestamp) * 1000).toISOString() } : {}),
           });
         }
         

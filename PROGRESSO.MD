@@ -1,6 +1,6 @@
 # 📋 PROGRESSO - STK CRM
 
-> Última atualização: 06/09/2026
+> Última atualização: 11/09/2026
 > Repositório: github.com/Johnpittz/stk-crm
 > Deploy: stk-crm-amber.vercel.app
 > Stack: Next.js 14 + Supabase + Vercel (free tier)
@@ -524,6 +524,100 @@ stk-crm/
 - Scoring: A≥80 (quente), B≥50 (qualificado), C≥25 (nutrição), D<25 (frio)
 - Branching condicional por perfil (empresa vs residencial)
 - Interpretação de respostas livres via Gemini
+
+---
+
+## 🚀 Fase 12 - Worker de Disparo + Múltiplas Instâncias (11/09/2026)
+
+### Worker de Disparo no VPS
+- [x] Worker Python (`/root/disparo_worker.py`) rodando via Supervisor
+- [x] Polling a cada 5s no Supabase por campanhas `status=running`
+- [x] Envio via Evolution API local (sem timeout do Vercel, sem cold start)
+- [x] Processamento de fluxo de mensagens (texto + imagem, com delay configurável)
+- [x] Substituição de variáveis: `{{nome}}`, `{{telefone}}`, `{{promocao}}`
+- [x] Suporte a imagem via base64 (data URI → base64 cru para Evolution API)
+- [x] Verificação de status 200/201 (Evolution API retorna 201 no sucesso)
+- [x] Endpoint Vercel simplificado: apenas marca campanha como `running`
+
+### Múltiplas Instâncias WhatsApp
+- [x] ROMA_2 (556299190117) — conectada ✅
+- [x] STK-1 (6295094949) — conectada ✅, webhook configurado
+- [x] STK-2 (62999961553) — conectada ✅, webhook configurado
+- [x] Todas aparecem no dropdown de seleção de instância
+- [x] Número da instância resolvido via `lid_phone_map` (connectionState não retorna número)
+
+### Campos de Timing Configuráveis
+- [x] **Delay antes do 1º disparo** (`delay_inicial`) — espera antes de enviar ao primeiro contato
+- [x] **Intervalo entre contatos** (`intervalo`) — delay entre cada número da planilha
+- [x] **Delay entre passos do fluxo** (`intervalo_passos`) — pausa entre cada mensagem do fluxo
+- [x] Migration: `080_add_intervalo_passos.sql`, `081_add_delay_inicial.sql`
+
+### Upload de Imagem no Disparo
+- [x] Campo compacto estilo WhatsApp (ícone + "Selecionar imagem", miniatura 64x64)
+- [x] Upload para Supabase Storage via `/api/upload-media`
+- [x] Coluna `imagem_url` na tabela `bulk_campaigns`
+- [x] Imagem enviada junto com o fluxo de mensagens
+
+### Conta Admin Extra
+- [x] Usuário `admstk@stk.com` criado com cargo `admin`
+- [x] Mesmos privilégios do administrador original
+
+---
+
+## 🔐 Fase 13 - Segurança + Webhook + LID Resolver (11/09/2026)
+
+### Webhook Security
+- [x] Validação `X-Webhook-Secret` em todas as requisições
+- [x] Rate limiting: 180 req/min global, 660 req/min por endpoint
+- [x] Validação de payload (event, data obrigatórios)
+- [x] Filtro de mensagens de grupo (`@g.us`)
+
+### LID Resolver
+- [x] Módulo `lib/lid-resolver.ts` — resolve `@lid` → telefone via cache → Supabase → Evolution API
+- [x] Tabela `lid_phone_map` criada
+- [x] Webhook proxy intermediário (`/root/webhook_proxy.py`, porta 9999) — ainda ativo
+- [x] Mapping automático: salva `phone ↔ lid` quando resolve com sucesso
+
+### GitHub + Deploy
+- [x] Repositório tornado público (Vercel Hobby plan)
+- [x] Token Vercel salvo em `~/.vercel-token.env`
+- [x] Deploy automático via CLI com `--prod`
+
+---
+
+## 🎵 Fase 14 - Mídia + Timestamp + Descriptografia (11/09/2026)
+
+### Descriptografia de Mídia WhatsApp
+- [x] Endpoint `/api/media-download` — descriptografa áudio/imagem do WhatsApp
+- [x] Usa Evolution API `getBase64FromMediaMessage` (descriptografa no servidor)
+- [x] Suporte a áudio OGG/Opus, imagem JPEG/PNG/WebP, vídeo MP4
+- [x] Todas as mídias existentes tiveram `media_key` atualizado via Evolution API
+- [x] Player de áudio funcional no chat (antes não reproduzia — 0:00 / 0:00)
+- [x] Migration: `ALTER TABLE atendimento_mensagens ADD COLUMN media_key TEXT`
+
+### Timestamp Original do WhatsApp
+- [x] Webhook extrai `messageTimestamp` do payload da Evolution API
+- [x] Mensagens salvas com o horário real de envio (não o horário do sync)
+- [x] Sync-from-evolution também usa `messageTimestamp`
+- [x] Mensagens no chat agora aparecem na ordem cronológica correta
+
+### Correções de API Key
+- [x] Evolution API tinha chave `AUTHENTICATION_API_KEY` diferente da armazenada no worker
+- [x] Worker atualizado com chave correta (`e3186c...`)
+- [x] Verificação: todas as 3 instâncias funcionando com a chave correta
+
+---
+
+## 🔜 Próximos Passos (Prioridade)
+
+1. **Audio player** → Testar reprodução completa (áudio descriptografado via Evolution API) ✅
+2. **Timestamp** → Mensagens com horário correto do WhatsApp ✅
+3. **STK-3** → Conectar terceira instância quando número for fornecido
+4. **Code-server** → Investigar link quebrado (`http://2.25.192.248:8080/vscode/login`)
+5. **WEBHOOK_SECRET** → Configurar variável de ambiente no Vercel Dashboard
+6. **Pós-Vendas** → Conectar follow-ups automáticos
+7. **Relatórios** → Dashboard de métricas por perfil
+8. **Permissões** → Controle de acesso por perfil (admin, vendedor, atendente)
 
 ---
 
