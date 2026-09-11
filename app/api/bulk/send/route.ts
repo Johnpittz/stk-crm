@@ -221,7 +221,7 @@ async function enviarCampanha(supabase: any, campaign: any) {
       }
     } catch (err: any) {
       failed++;
-      console.error(`[Bulk Send] Erro para ${number}:`, err.message);
+      console.error(`[Bulk Send] Erro para ${contact.telefone}:`, err.message);
     }
   }
 
