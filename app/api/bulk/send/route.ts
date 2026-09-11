@@ -159,11 +159,16 @@ async function enviarCampanha(supabase: any, campaign: any) {
       console.log(`[Bulk Send] [${i+1}/${contacts.length}] Enviando para ${formattedNumber}${nomeContato ? ' (' + nomeContato + ')' : ''}...`);
 
       // Verificar se tem fluxo_mensagens (novo formato) ou mensagem antiga
-      const fluxo = campaign.fluxo_mensagens;
+      let fluxo = campaign.fluxo_mensagens;
+      // Garantir que fluxo é array (pode vir como string do banco)
+      if (typeof fluxo === 'string') {
+        try { fluxo = JSON.parse(fluxo); } catch { fluxo = null; }
+      }
       const temFluxo = fluxo && Array.isArray(fluxo) && fluxo.length > 0;
 
       if (temFluxo) {
         // ===== NOVO FORMATO: Fluxo de mensagens =====
+        console.log(`[Bulk Send] [${i+1}/${contacts.length}] Fluxo com ${fluxo.length} passos`);
         let allSuccess = true;
         for (let s = 0; s < fluxo.length; s++) {
           const step = fluxo[s];
@@ -179,37 +184,55 @@ async function enviarCampanha(supabase: any, campaign: any) {
                 mensagem: texto,
                 instance: instanceName,
               });
-              console.log(`[Bulk Send] [${i+1}/${contacts.length}] Passo ${s+1}/${fluxo.length} (texto) - ${result.success ? 'OK' : 'FALHA'}`);
+              console.log(`[Bulk Send] [${i+1}/${contacts.length}] Passo ${s+1}/${fluxo.length} (texto) - ${result.success ? 'OK' : 'FALHA'} - msg: ${result.error || 'ok'}`);
               if (!result.success) allSuccess = false;
               
-            } else if (step.type === 'image' && step.url) {
-              const ext = step.url.split('.').pop()?.toLowerCase() || 'jpg';
-              const mimeMap: Record<string, string> = {
-                jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
-                webp: 'image/webp', gif: 'image/gif',
-              };
-              const mimetype = mimeMap[ext] || 'image/jpeg';
+            } else if (step.type === 'image') {
+              // Tentar URL primeiro, depois base64
+              const mediaSource = step.url || step.base64;
+              if (!mediaSource) {
+                console.error(`[Bulk Send] Passo ${s+1} (imagem) sem URL nem base64 - pulando`);
+                allSuccess = false;
+                continue;
+              }
+              
+              let mimetype = 'image/jpeg';
+              if (step.url) {
+                const ext = step.url.split('.').pop()?.toLowerCase() || 'jpg';
+                const mimeMap: Record<string, string> = {
+                  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+                  webp: 'image/webp', gif: 'image/gif',
+                };
+                mimetype = mimeMap[ext] || 'image/jpeg';
+              } else if (step.mimetype) {
+                mimetype = step.mimetype;
+              }
+              
+              console.log(`[Bulk Send] [${i+1}/${contacts.length}] Passo ${s+1}/${fluxo.length} (imagem) - fonte: ${step.url ? 'URL' : 'base64'} - mimetype: ${mimetype}`);
               
               const result = await enviarMidiaWhatsApp({
                 telefone: formattedNumber,
                 mediatype: 'image',
                 mimetype,
-                media: step.url,
+                media: mediaSource,
                 instance: instanceName,
               });
-              console.log(`[Bulk Send] [${i+1}/${contacts.length}] Passo ${s+1}/${fluxo.length} (imagem) - ${result.success ? 'OK' : 'FALHA'}`);
+              console.log(`[Bulk Send] [${i+1}/${contacts.length}] Passo ${s+1}/${fluxo.length} (imagem) - ${result.success ? 'OK' : 'FALHA'} - msg: ${result.error || 'ok'}`);
               if (!result.success) allSuccess = false;
             }
             
-            // Aguardar 2s entre cada passo (exceto no último)
+            // Aguardar 1.5s entre cada passo (exceto no último)
             if (s < fluxo.length - 1) {
-              await new Promise((resolve) => setTimeout(resolve, 2000));
+              await new Promise((resolve) => setTimeout(resolve, 1500));
             }
           } catch (stepErr: any) {
             console.error(`[Bulk Send] Erro no passo ${s+1}:`, stepErr.message);
             allSuccess = false;
           }
         }
+        
+        const contactEnd = Date.now();
+        console.log(`[Bulk Send] [${i+1}/${contacts.length}] Contato ${formattedNumber} finalizado em ${((contactEnd - msgStart) / 1000).toFixed(1)}s`);
         
         if (allSuccess) sent++; else failed++;
         
