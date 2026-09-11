@@ -78,17 +78,32 @@ export default function CampanhasPage() {
   const [disparoLogs, setDisparoLogs] = useState<any[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [detalheDisparo, setDetalheDisparo] = useState<any>(null);
+  const [carregandoFluxo, setCarregandoFluxo] = useState(false);
   const abrirDetalheDisparo = async (disparo: any) => {
-    // Fetch full details including fluxo_mensagens (not in list query for performance)
     try {
       const { data } = await supabase
         .from('bulk_campaigns')
-        .select('*, fluxo_mensagens')
+        .select('id, name, status, sent, failed, numbers, instancia, intervalo, intervalo_passos, delay_inicial, imagem_url, error_log, created_at')
         .eq('id', disparo.id)
         .single();
       setDetalheDisparo(data || disparo);
     } catch {
       setDetalheDisparo(disparo);
+    }
+  };
+  const carregarFluxoDisparo = async (disparoId: string) => {
+    setCarregandoFluxo(true);
+    try {
+      const { data } = await supabase
+        .from('bulk_campaigns')
+        .select('fluxo_mensagens')
+        .eq('id', disparoId)
+        .single();
+      if (data) {
+        setDetalheDisparo((prev: any) => prev ? { ...prev, fluxo_mensagens: data.fluxo_mensagens } : prev);
+      }
+    } catch {} finally {
+      setCarregandoFluxo(false);
     }
   };
 
@@ -945,7 +960,7 @@ export default function CampanhasPage() {
                   </div>
                 </div>
                 {/* Fluxo */}
-                {fluxo && fluxo.length > 0 && (
+                {fluxo && fluxo.length > 0 ? (
                   <div className="bg-gray-700/50 rounded-lg p-3">
                     <p className="text-gray-400 text-xs mb-2">📝 Fluxo de Mensagens ({fluxo.length} passos)</p>
                     <div className="space-y-2">
@@ -962,6 +977,17 @@ export default function CampanhasPage() {
                         </div>
                       ))}
                     </div>
+                  </div>
+                ) : (
+                  <div className="bg-gray-700/50 rounded-lg p-3 flex items-center justify-between">
+                    <p className="text-gray-400 text-xs">📝 Fluxo de Mensagens</p>
+                    <button
+                      onClick={() => carregarFluxoDisparo(detalheDisparo.id)}
+                      disabled={carregandoFluxo}
+                      className="text-xs bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      {carregandoFluxo ? '⏳ Carregando...' : '📋 Carregar fluxo'}
+                    </button>
                   </div>
                 )}
                 {/* Contatos */}
