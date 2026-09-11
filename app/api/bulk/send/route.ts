@@ -155,61 +155,114 @@ async function enviarCampanha(supabase: any, campaign: any) {
 
       console.log(`[Bulk Send] [${i+1}/${contacts.length}] Nome para ${formattedNumber}: "${nomeContato}" (fonte: ${contact.nome ? 'planilha' : 'WhatsApp/db'})`);
 
-      // Substituir variáveis na mensagem
-      let mensagemFinal = campaign.message;
-      if (nomeContato) {
-        mensagemFinal = mensagemFinal.replace(/\{\{nome\}\}/g, nomeContato);
-      }
-      mensagemFinal = mensagemFinal.replace(/\{\{telefone\}\}/g, formattedNumber);
-      
-      console.log(`[Bulk Send] [${i+1}/${contacts.length}] Mensagem final: "${mensagemFinal.substring(0, 100)}..."`);
-
       const msgStart = Date.now();
       console.log(`[Bulk Send] [${i+1}/${contacts.length}] Enviando para ${formattedNumber}${nomeContato ? ' (' + nomeContato + ')' : ''}...`);
 
-      // Enviar mensagem via instância correta
-      const result = await enviarMensagemWhatsApp({
-        telefone: formattedNumber,
-        mensagem: mensagemFinal,
-        instance: instanceName,
-      });
+      // Verificar se tem fluxo_mensagens (novo formato) ou mensagem antiga
+      const fluxo = campaign.fluxo_mensagens;
+      const temFluxo = fluxo && Array.isArray(fluxo) && fluxo.length > 0;
 
-      const msgEnd = Date.now();
-      console.log(`[Bulk Send] [${i+1}/${contacts.length}] ${formattedNumber} - ${result.success ? 'OK' : 'FALHA'} - API levou ${msgEnd - msgStart}ms`);
-
-      if (result.success) {
-        sent++;
-
-        // Enviar imagem após o texto (se houver)
-        if (campaign.imagem_url) {
+      if (temFluxo) {
+        // ===== NOVO FORMATO: Fluxo de mensagens =====
+        let allSuccess = true;
+        for (let s = 0; s < fluxo.length; s++) {
+          const step = fluxo[s];
           try {
-            // Determinar mimetype da URL
-            const ext = campaign.imagem_url.split('.').pop()?.toLowerCase() || 'jpg';
-            const mimeMap: Record<string, string> = {
-              jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
-              webp: 'image/webp', gif: 'image/gif',
-            };
-            const mimetype = mimeMap[ext] || 'image/jpeg';
-
-            const imgResult = await enviarMidiaWhatsApp({
-              telefone: formattedNumber,
-              mediatype: 'image',
-              mimetype,
-              media: campaign.imagem_url,
-              instance: instanceName,
-            });
-
-            console.log(`[Bulk Send] [${i+1}/${contacts.length}] Imagem para ${formattedNumber} - ${imgResult.success ? 'OK' : 'FALHA'}`);
-
-            // Aguardar 2s entre texto e imagem
-            await new Promise((resolve) => setTimeout(resolve, 2000));
-          } catch (imgErr: any) {
-            console.error(`[Bulk Send] Erro enviar imagem para ${formattedNumber}:`, imgErr.message);
+            if (step.type === 'text' && step.content) {
+              // Substituir variáveis
+              let texto = step.content;
+              if (nomeContato) texto = texto.replace(/\{\{nome\}\}/g, nomeContato);
+              texto = texto.replace(/\{\{telefone\}\}/g, formattedNumber);
+              
+              const result = await enviarMensagemWhatsApp({
+                telefone: formattedNumber,
+                mensagem: texto,
+                instance: instanceName,
+              });
+              console.log(`[Bulk Send] [${i+1}/${contacts.length}] Passo ${s+1}/${fluxo.length} (texto) - ${result.success ? 'OK' : 'FALHA'}`);
+              if (!result.success) allSuccess = false;
+              
+            } else if (step.type === 'image' && step.url) {
+              const ext = step.url.split('.').pop()?.toLowerCase() || 'jpg';
+              const mimeMap: Record<string, string> = {
+                jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+                webp: 'image/webp', gif: 'image/gif',
+              };
+              const mimetype = mimeMap[ext] || 'image/jpeg';
+              
+              const result = await enviarMidiaWhatsApp({
+                telefone: formattedNumber,
+                mediatype: 'image',
+                mimetype,
+                media: step.url,
+                instance: instanceName,
+              });
+              console.log(`[Bulk Send] [${i+1}/${contacts.length}] Passo ${s+1}/${fluxo.length} (imagem) - ${result.success ? 'OK' : 'FALHA'}`);
+              if (!result.success) allSuccess = false;
+            }
+            
+            // Aguardar 2s entre cada passo (exceto no último)
+            if (s < fluxo.length - 1) {
+              await new Promise((resolve) => setTimeout(resolve, 2000));
+            }
+          } catch (stepErr: any) {
+            console.error(`[Bulk Send] Erro no passo ${s+1}:`, stepErr.message);
+            allSuccess = false;
           }
         }
+        
+        if (allSuccess) sent++; else failed++;
+        
       } else {
-        failed++;
-        console.error(`[Bulk Send] Falha para ${formattedNumber}:`, result.error);
+        // ===== FORMATO ANTIGO: Mensagem única + imagem opcional =====
+        let mensagemFinal = campaign.message;
+        if (nomeContato) {
+          mensagemFinal = mensagemFinal.replace(/\{\{nome\}\}/g, nomeContato);
+        }
+        mensagemFinal = mensagemFinal.replace(/\{\{telefone\}\}/g, formattedNumber);
+        
+        console.log(`[Bulk Send] [${i+1}/${contacts.length}] Mensagem final: "${mensagemFinal.substring(0, 100)}..."`);
+
+        const result = await enviarMensagemWhatsApp({
+          telefone: formattedNumber,
+          mensagem: mensagemFinal,
+          instance: instanceName,
+        });
+
+        const msgEnd = Date.now();
+        console.log(`[Bulk Send] [${i+1}/${contacts.length}] ${formattedNumber} - ${result.success ? 'OK' : 'FALHA'} - API levou ${msgEnd - msgStart}ms`);
+
+        if (result.success) {
+          sent++;
+
+          // Enviar imagem após o texto (se houver)
+          if (campaign.imagem_url) {
+            try {
+              const ext = campaign.imagem_url.split('.').pop()?.toLowerCase() || 'jpg';
+              const mimeMap: Record<string, string> = {
+                jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+                webp: 'image/webp', gif: 'image/gif',
+              };
+              const mimetype = mimeMap[ext] || 'image/jpeg';
+
+              const imgResult = await enviarMidiaWhatsApp({
+                telefone: formattedNumber,
+                mediatype: 'image',
+                mimetype,
+                media: campaign.imagem_url,
+                instance: instanceName,
+              });
+
+              console.log(`[Bulk Send] [${i+1}/${contacts.length}] Imagem para ${formattedNumber} - ${imgResult.success ? 'OK' : 'FALHA'}`);
+              await new Promise((resolve) => setTimeout(resolve, 2000));
+            } catch (imgErr: any) {
+              console.error(`[Bulk Send] Erro enviar imagem para ${formattedNumber}:`, imgErr.message);
+            }
+          }
+        } else {
+          failed++;
+          console.error(`[Bulk Send] Falha para ${formattedNumber}:`, result.error);
+        }
       }
 
       // Atualizar contadores

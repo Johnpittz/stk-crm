@@ -79,14 +79,79 @@ export default function CampanhasPage() {
     intervalo: 5, promocao_id: '',
     telefone_avulso: ''
   });
-  const [disparoImage, setDisparoImage] = useState<{
-    base64: string;
-    preview: string;
-    mimetype: string;
-    name: string;
-  } | null>(null);
+  
+  // Fluxo de mensagens: array de passos { type: 'text'|'image', content?: string, base64?: string, preview?: string, mimetype?: string, url?: string }
+  const [fluxoSteps, setFluxoSteps] = useState<Array<{
+    id: string;
+    type: 'text' | 'image';
+    content?: string;
+    base64?: string;
+    preview?: string;
+    mimetype?: string;
+    name?: string;
+  }>>([]);
 
-  // Handler para seleção de imagem no disparo
+  // Handler para seleção de imagem no fluxo
+  const handleFluxoImageSelect = (e: React.ChangeEvent<HTMLInputElement>, stepId: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Selecione um arquivo de imagem (JPG, PNG, WEBP)');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Imagem muito grande. Máximo: 5MB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFluxoSteps(prev => prev.map(s => 
+        s.id === stepId ? { ...s, base64: reader.result as string, preview: reader.result as string, mimetype: file.type, name: file.name } : s
+      ));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Adicionar passo ao fluxo
+  const adicionarPasso = (tipo: 'text' | 'image') => {
+    const newStep = {
+      id: Date.now().toString(),
+      type: tipo,
+      content: tipo === 'text' ? '' : undefined,
+      base64: undefined,
+      preview: undefined,
+      mimetype: undefined,
+      name: undefined,
+    };
+    setFluxoSteps(prev => [...prev, newStep]);
+  };
+
+  // Remover passo do fluxo
+  const removerPasso = (stepId: string) => {
+    setFluxoSteps(prev => prev.filter(s => s.id !== stepId));
+  };
+
+  // Atualizar conteúdo de um passo de texto
+  const atualizarConteudo = (stepId: string, content: string) => {
+    setFluxoSteps(prev => prev.map(s => 
+      s.id === stepId ? { ...s, content } : s
+    ));
+  };
+
+  // Mover passo para cima/baixo
+  const moverPasso = (stepId: string, direction: 'up' | 'down') => {
+    setFluxoSteps(prev => {
+      const idx = prev.findIndex(s => s.id === stepId);
+      if (idx === -1) return prev;
+      const newIdx = direction === 'up' ? idx - 1 : idx + 1;
+      if (newIdx < 0 || newIdx >= prev.length) return prev;
+      const newSteps = [...prev];
+      [newSteps[idx], newSteps[newIdx]] = [newSteps[newIdx], newSteps[idx]];
+      return newSteps;
+    });
+  };
+
+  // Handler para seleção de imagem no disparo (compatibilidade antiga)
   const handleDisparoImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -281,8 +346,17 @@ export default function CampanhasPage() {
   };
 
   const criarDisparo = async () => {
-    if (!novoDisparo.nome || !novoDisparo.mensagem || !novoDisparo.instanceName || !campanhaSelecionada) {
+    if (!novoDisparo.nome || !novoDisparo.instanceName || !campanhaSelecionada) {
       toast.error("Preencha todos os campos obrigatórios");
+      return;
+    }
+
+    // Verificar se tem fluxo OU mensagem antiga
+    const temFluxo = fluxoSteps.length > 0;
+    const temMensagem = novoDisparo.mensagem.trim().length > 0;
+    
+    if (!temFluxo && !temMensagem) {
+      toast.error("Adicione um fluxo de mensagens ou escreva uma mensagem");
       return;
     }
 
@@ -303,9 +377,35 @@ export default function CampanhasPage() {
       return;
     }
 
+    // Validar passos do fluxo
+    if (temFluxo) {
+      for (const step of fluxoSteps) {
+        if (step.type === 'text' && (!step.content || step.content.trim() === '')) {
+          toast.error("Todos os passos de texto devem ter conteúdo");
+          return;
+        }
+        if (step.type === 'image' && !step.base64) {
+          toast.error("Todos os passos de imagem devem ter uma imagem selecionada");
+          return;
+        }
+      }
+    }
+
     try {
+      // Montar fluxo_mensagens
+      let fluxo_mensagens = null;
+      if (temFluxo) {
+        fluxo_mensagens = fluxoSteps.map(step => {
+          if (step.type === 'text') {
+            return { type: 'text', content: step.content };
+          } else {
+            return { type: 'image', base64: step.base64, mimetype: step.mimetype };
+          }
+        });
+      }
+
       let mensagemFinal = novoDisparo.mensagem;
-      if (novoDisparo.promocao_id) {
+      if (novoDisparo.promocao_id && mensagemFinal) {
         const promocao = promocoes.find(p => p.id === novoDisparo.promocao_id);
         if (promocao) mensagemFinal = mensagemFinal.replace(/\{\{promocao\}\}/g, promocao.cupom);
       }
@@ -319,11 +419,11 @@ export default function CampanhasPage() {
         : [];
 
       const contatosFinais = tipoEnvio === 'massa' ? contatosImportados : contatosAvulso;
-      // Salvar instância + contatos como objetos { nome, telefone } (formato: ["INSTANCIA", {nome, telefone}, ...])
       const numbersWithInstance = novoDisparo.instanceName
         ? [novoDisparo.instanceName, ...contatosFinais.map(c => ({ nome: c.nome || '', telefone: c.telefone || c }))]
         : contatosFinais.map(c => ({ nome: c.nome || '', telefone: c.telefone || c }));
-      // Upload da imagem se houver
+
+      // Upload da imagem antiga (compatibilidade)
       let imagem_url: string | null = null;
       if (disparoImage) {
         try {
@@ -346,9 +446,10 @@ export default function CampanhasPage() {
         }
       }
 
-      const { error } = await supabase.from('bulk_campaigns').insert([{
+      // Enviar para API
+      const body: any = {
         name: novoDisparo.nome,
-        message: mensagemFinal,
+        message: fluxo_mensagens ? '' : mensagemFinal,
         numbers: numbersWithInstance,
         status: 'rascunho',
         sent: 0,
@@ -357,7 +458,13 @@ export default function CampanhasPage() {
         instancia: novoDisparo.instanceName || 'ROMA_2',
         intervalo: novoDisparo.intervalo || 5,
         imagem_url,
-      }]);
+      };
+
+      if (fluxo_mensagens) {
+        body.fluxo_mensagens = fluxo_mensagens;
+      }
+
+      const { error } = await supabase.from('bulk_campaigns').insert([body]);
 
       if (error) throw error;
 
@@ -378,6 +485,7 @@ export default function CampanhasPage() {
     setShowDisparoDialog(false);
     setNovoDisparo({ nome: '', mensagem: '', instanceName: '', phone_from: '', intervalo: 5, promocao_id: '', telefone_avulso: '' });
     setDisparoImage(null);
+    setFluxoSteps([]);
     setContatosImportados([]);
     setFileName('');
     setTipoEnvio('avulso');
@@ -730,35 +838,129 @@ export default function CampanhasPage() {
                     ) : null;
                   })()}
                 </div>
+                
+                {/* FLUXO DE MENSAGENS */}
                 <div>
-                  <Label className="text-gray-300">Mensagem *</Label>
-                  <Textarea value={novoDisparo.mensagem} onChange={(e) => setNovoDisparo({...novoDisparo, mensagem: e.target.value})} placeholder="Olá! Temos uma oferta especial para você..." className="bg-gray-700 border-gray-600 text-white min-h-[120px]" />
-                  <p className="text-gray-500 text-xs mt-1">Use {'{{nome}}'}, {'{{telefone}}'}, {'{{promocao}}'} como variáveis</p>
-                </div>
-                {/* Imagem (opcional) - Avulso */}
-                <div>
-                  <Label className="text-gray-300">
-                    <Image className="inline h-3 w-3 mr-1" />
-                    Imagem (opcional)
-                  </Label>
-                  {disparoImage ? (
-                    <div className="flex items-center gap-3 mt-1 p-2 bg-gray-700/50 rounded-lg border border-gray-600">
-                      <img src={disparoImage.preview} alt="Preview" className="w-16 h-16 object-cover rounded-lg border border-gray-500" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-gray-300 truncate">{disparoImage.name}</p>
-                        <p className="text-[10px] text-emerald-400">✅ Enviada após o texto</p>
-                      </div>
-                      <button onClick={() => setDisparoImage(null)} className="text-gray-400 hover:text-red-400 transition-colors">
-                        <X className="h-4 w-4" />
-                      </button>
+                  <Label className="text-gray-300">Fluxo de Mensagens</Label>
+                  <p className="text-gray-500 text-xs mb-2">Monte a sequência: texto → imagem → texto → etc.</p>
+                  
+                  {fluxoSteps.length > 0 ? (
+                    <div className="space-y-2">
+                      {fluxoSteps.map((step, idx) => (
+                        <div key={step.id} className="bg-gray-700/50 rounded-lg p-3 border border-gray-600">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <Badge className={step.type === 'text' ? 'bg-blue-600 text-blue-100' : 'bg-purple-600 text-purple-100'}>
+                                {step.type === 'text' ? '📝 Texto' : '🖼️ Imagem'} #{idx + 1}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => moverPasso(step.id, 'up')} disabled={idx === 0} className="text-gray-400 hover:text-white disabled:opacity-30 p-1">
+                                <ChevronUp className="h-4 w-4" />
+                              </button>
+                              <button onClick={() => moverPasso(step.id, 'down')} disabled={idx === fluxoSteps.length - 1} className="text-gray-400 hover:text-white disabled:opacity-30 p-1">
+                                <ChevronDown className="h-4 w-4" />
+                              </button>
+                              <button onClick={() => removerPasso(step.id)} className="text-gray-400 hover:text-red-400 p-1">
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                          
+                          {step.type === 'text' ? (
+                            <Textarea
+                              value={step.content || ''}
+                              onChange={(e) => atualizarConteudo(step.id, e.target.value)}
+                              placeholder="Digite sua mensagem aqui..."
+                              className="bg-gray-700 border-gray-600 text-white min-h-[80px] text-sm"
+                            />
+                          ) : (
+                            <div>
+                              {step.preview ? (
+                                <div className="flex items-center gap-3 p-2 bg-gray-700 rounded-lg border border-gray-500">
+                                  <img src={step.preview} alt="Preview" className="w-16 h-16 object-cover rounded-lg" />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs text-gray-300 truncate">{step.name}</p>
+                                  </div>
+                                  <button onClick={() => setFluxoSteps(prev => prev.map(s => s.id === step.id ? { ...s, base64: undefined, preview: undefined, name: undefined } : s))} className="text-gray-400 hover:text-red-400">
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <label className="flex items-center gap-2 w-full p-3 border border-dashed border-gray-500 rounded-lg cursor-pointer hover:border-emerald-500 transition-colors">
+                                  <Image className="h-5 w-5 text-gray-400" />
+                                  <span className="text-sm text-gray-400">Selecionar imagem</span>
+                                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFluxoImageSelect(e, step.id)} />
+                                </label>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   ) : (
-                    <label className="flex items-center gap-2 w-full p-3 border border-dashed border-gray-600 rounded-lg cursor-pointer hover:border-emerald-500 transition-colors mt-1">
-                      <Image className="h-5 w-5 text-gray-400" />
-                      <span className="text-sm text-gray-400">Selecionar imagem</span>
-                      <input type="file" accept="image/*" className="hidden" onChange={handleDisparoImageSelect} />
-                    </label>
+                    <div className="bg-gray-700/30 rounded-lg p-4 border border-dashed border-gray-600 text-center">
+                      <p className="text-gray-400 text-sm mb-3">Nenhum passo adicionado</p>
+                    </div>
                   )}
+                  
+                  {/* Botões para adicionar passos */}
+                  <div className="flex gap-2 mt-2">
+                    <button onClick={() => adicionarPasso('text')} className="flex items-center gap-1 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 rounded-lg text-xs transition-colors">
+                      <Plus className="h-3 w-3" /> Texto
+                    </button>
+                    <button onClick={() => adicionarPasso('image')} className="flex items-center gap-1 px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 rounded-lg text-xs transition-colors">
+                      <Plus className="h-3 w-3" /> Imagem
+                    </button>
+                  </div>
+                  
+                  {fluxoSteps.length > 0 && (
+                    <p className="text-emerald-400 text-xs mt-2">✅ {fluxoSteps.length} passo{fluxoSteps.length > 1 ? 's' : ''} • 2s entre cada envio</p>
+                  )}
+                  
+                  {/* Separador: Ou use mensagem única */}
+                  <div className="flex items-center gap-2 mt-4">
+                    <div className="flex-1 h-px bg-gray-600"></div>
+                    <span className="text-gray-500 text-xs">ou use mensagem única</span>
+                    <div className="flex-1 h-px bg-gray-600"></div>
+                  </div>
+                  
+                  {/* Mensagem única (alternativa ao fluxo) */}
+                  <div className="mt-2">
+                    <Textarea 
+                      value={novoDisparo.mensagem} 
+                      onChange={(e) => setNovoDisparo({...novoDisparo, mensagem: e.target.value})} 
+                      placeholder="Se não quiser usar fluxo, digite uma mensagem única aqui..." 
+                      className="bg-gray-700 border-gray-600 text-white min-h-[80px] text-sm" 
+                    />
+                    <p className="text-gray-500 text-xs mt-1">Use {'{{nome}}'}, {'{{telefone}}'}, {'{{promocao}}'}</p>
+                  </div>
+                  
+                  {/* Imagem única (alternativa ao fluxo) */}
+                  <div className="mt-2">
+                    <Label className="text-gray-300 text-xs">
+                      <Image className="inline h-3 w-3 mr-1" />
+                      Imagem única (opcional)
+                    </Label>
+                    {disparoImage ? (
+                      <div className="flex items-center gap-3 mt-1 p-2 bg-gray-700/50 rounded-lg border border-gray-600">
+                        <img src={disparoImage.preview} alt="Preview" className="w-16 h-16 object-cover rounded-lg border border-gray-500" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-gray-300 truncate">{disparoImage.name}</p>
+                          <p className="text-[10px] text-emerald-400">✅ Enviada após o texto</p>
+                        </div>
+                        <button onClick={() => setDisparoImage(null)} className="text-gray-400 hover:text-red-400 transition-colors">
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="flex items-center gap-2 w-full p-2 border border-dashed border-gray-600 rounded-lg cursor-pointer hover:border-emerald-500 transition-colors mt-1">
+                        <Image className="h-4 w-4 text-gray-400" />
+                        <span className="text-xs text-gray-400">Selecionar imagem</span>
+                        <input type="file" accept="image/*" className="hidden" onChange={handleDisparoImageSelect} />
+                      </label>
+                    )}
+                  </div>
                 </div>
               </TabsContent>
 
@@ -816,43 +1018,143 @@ export default function CampanhasPage() {
                     </div>
                   )}
                 </div>
+                
+                {/* FLUXO DE MENSAGENS - Em Massa */}
                 <div>
-                  <Label className="text-gray-300">Mensagem-Padrão *</Label>
-                  <Textarea value={novoDisparo.mensagem} onChange={(e) => setNovoDisparo({...novoDisparo, mensagem: e.target.value})} placeholder={'Olá {{nome}}! Temos uma proposta especial para a sua empresa...'} className="bg-gray-700 border-gray-600 text-white min-h-[120px]" />
-                  <div className="flex items-center gap-4 mt-2">
-                    <p className="text-gray-500 text-xs">Variáveis disponíveis:</p>
-                    <button type="button" onClick={() => setNovoDisparo({...novoDisparo, mensagem: novoDisparo.mensagem + '{{nome}}'})} className="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-emerald-400">
-                      {'{{nome}}'}
-                    </button>
-                    <button type="button" onClick={() => setNovoDisparo({...novoDisparo, mensagem: novoDisparo.mensagem + '{{promocao}}'})} className="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-emerald-400">
-                      {'{{promocao}}'}
-                    </button>
-                  </div>
-                </div>
-                {/* Imagem (opcional) - Em Massa */}
-                <div>
-                  <Label className="text-gray-300">
-                    <Image className="inline h-3 w-3 mr-1" />
-                    Imagem (opcional)
-                  </Label>
-                  {disparoImage ? (
-                    <div className="flex items-center gap-3 mt-1 p-2 bg-gray-700/50 rounded-lg border border-gray-600">
-                      <img src={disparoImage.preview} alt="Preview" className="w-16 h-16 object-cover rounded-lg border border-gray-500" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-gray-300 truncate">{disparoImage.name}</p>
-                        <p className="text-[10px] text-emerald-400">✅ Enviada após o texto para cada contato</p>
-                      </div>
-                      <button onClick={() => setDisparoImage(null)} className="text-gray-400 hover:text-red-400 transition-colors">
-                        <X className="h-4 w-4" />
-                      </button>
+                  <Label className="text-gray-300">Fluxo de Mensagens</Label>
+                  <p className="text-gray-500 text-xs mb-2">Monte a sequência: texto → imagem → texto → etc.</p>
+                  
+                  {fluxoSteps.length > 0 ? (
+                    <div className="space-y-2">
+                      {fluxoSteps.map((step, idx) => (
+                        <div key={step.id} className="bg-gray-700/50 rounded-lg p-3 border border-gray-600">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <Badge className={step.type === 'text' ? 'bg-blue-600 text-blue-100' : 'bg-purple-600 text-purple-100'}>
+                                {step.type === 'text' ? '📝 Texto' : '🖼️ Imagem'} #{idx + 1}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => moverPasso(step.id, 'up')} disabled={idx === 0} className="text-gray-400 hover:text-white disabled:opacity-30 p-1">
+                                <ChevronUp className="h-4 w-4" />
+                              </button>
+                              <button onClick={() => moverPasso(step.id, 'down')} disabled={idx === fluxoSteps.length - 1} className="text-gray-400 hover:text-white disabled:opacity-30 p-1">
+                                <ChevronDown className="h-4 w-4" />
+                              </button>
+                              <button onClick={() => removerPasso(step.id)} className="text-gray-400 hover:text-red-400 p-1">
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                          
+                          {step.type === 'text' ? (
+                            <div>
+                              <Textarea
+                                value={step.content || ''}
+                                onChange={(e) => atualizarConteudo(step.id, e.target.value)}
+                                placeholder="Digite sua mensagem aqui..."
+                                className="bg-gray-700 border-gray-600 text-white min-h-[80px] text-sm"
+                              />
+                              <div className="flex items-center gap-2 mt-1">
+                                <button type="button" onClick={() => atualizarConteudo(step.id, (step.content || '') + '{{nome}}')} className="text-[10px] bg-gray-700 hover:bg-gray-600 px-1.5 py-0.5 rounded text-emerald-400">
+                                  {'{{nome}}'}
+                                </button>
+                                <button type="button" onClick={() => atualizarConteudo(step.id, (step.content || '') + '{{telefone}}')} className="text-[10px] bg-gray-700 hover:bg-gray-600 px-1.5 py-0.5 rounded text-emerald-400">
+                                  {'{{telefone}}'}
+                                </button>
+                                <button type="button" onClick={() => atualizarConteudo(step.id, (step.content || '') + '{{promocao}}')} className="text-[10px] bg-gray-700 hover:bg-gray-600 px-1.5 py-0.5 rounded text-emerald-400">
+                                  {'{{promocao}}'}
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              {step.preview ? (
+                                <div className="flex items-center gap-3 p-2 bg-gray-700 rounded-lg border border-gray-500">
+                                  <img src={step.preview} alt="Preview" className="w-16 h-16 object-cover rounded-lg" />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs text-gray-300 truncate">{step.name}</p>
+                                  </div>
+                                  <button onClick={() => setFluxoSteps(prev => prev.map(s => s.id === step.id ? { ...s, base64: undefined, preview: undefined, name: undefined } : s))} className="text-gray-400 hover:text-red-400">
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <label className="flex items-center gap-2 w-full p-3 border border-dashed border-gray-500 rounded-lg cursor-pointer hover:border-emerald-500 transition-colors">
+                                  <Image className="h-5 w-5 text-gray-400" />
+                                  <span className="text-sm text-gray-400">Selecionar imagem</span>
+                                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFluxoImageSelect(e, step.id)} />
+                                </label>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   ) : (
-                    <label className="flex items-center gap-2 w-full p-3 border border-dashed border-gray-600 rounded-lg cursor-pointer hover:border-emerald-500 transition-colors mt-1">
-                      <Image className="h-5 w-5 text-gray-400" />
-                      <span className="text-sm text-gray-400">Selecionar imagem</span>
-                      <input type="file" accept="image/*" className="hidden" onChange={handleDisparoImageSelect} />
-                    </label>
+                    <div className="bg-gray-700/30 rounded-lg p-4 border border-dashed border-gray-600 text-center">
+                      <p className="text-gray-400 text-sm mb-3">Nenhum passo adicionado</p>
+                    </div>
                   )}
+                  
+                  {/* Botões para adicionar passos */}
+                  <div className="flex gap-2 mt-2">
+                    <button onClick={() => adicionarPasso('text')} className="flex items-center gap-1 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 rounded-lg text-xs transition-colors">
+                      <Plus className="h-3 w-3" /> Texto
+                    </button>
+                    <button onClick={() => adicionarPasso('image')} className="flex items-center gap-1 px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 rounded-lg text-xs transition-colors">
+                      <Plus className="h-3 w-3" /> Imagem
+                    </button>
+                  </div>
+                  
+                  {fluxoSteps.length > 0 && (
+                    <p className="text-emerald-400 text-xs mt-2">✅ {fluxoSteps.length} passo{fluxoSteps.length > 1 ? 's' : ''} • 2s entre cada envio</p>
+                  )}
+                  
+                  {/* Separador */}
+                  <div className="flex items-center gap-2 mt-4">
+                    <div className="flex-1 h-px bg-gray-600"></div>
+                    <span className="text-gray-500 text-xs">ou use mensagem única</span>
+                    <div className="flex-1 h-px bg-gray-600"></div>
+                  </div>
+                  
+                  {/* Mensagem única (alternativa) */}
+                  <div className="mt-2">
+                    <Label className="text-gray-300 text-xs">Mensagem única</Label>
+                    <Textarea 
+                      value={novoDisparo.mensagem} 
+                      onChange={(e) => setNovoDisparo({...novoDisparo, mensagem: e.target.value})} 
+                      placeholder="Se não quiser usar fluxo, digite uma mensagem única aqui..." 
+                      className="bg-gray-700 border-gray-600 text-white min-h-[80px] text-sm mt-1" 
+                    />
+                    <p className="text-gray-500 text-xs mt-1">Use {'{{nome}}'}, {'{{telefone}}'}, {'{{promocao}}'}</p>
+                  </div>
+                  
+                  {/* Imagem única (alternativa) */}
+                  <div className="mt-2">
+                    <Label className="text-gray-300 text-xs">
+                      <Image className="inline h-3 w-3 mr-1" />
+                      Imagem única (opcional)
+                    </Label>
+                    {disparoImage ? (
+                      <div className="flex items-center gap-3 mt-1 p-2 bg-gray-700/50 rounded-lg border border-gray-600">
+                        <img src={disparoImage.preview} alt="Preview" className="w-16 h-16 object-cover rounded-lg border border-gray-500" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-gray-300 truncate">{disparoImage.name}</p>
+                          <p className="text-[10px] text-emerald-400">✅ Enviada após o texto</p>
+                        </div>
+                        <button onClick={() => setDisparoImage(null)} className="text-gray-400 hover:text-red-400 transition-colors">
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="flex items-center gap-2 w-full p-2 border border-dashed border-gray-600 rounded-lg cursor-pointer hover:border-emerald-500 transition-colors mt-1">
+                        <Image className="h-4 w-4 text-gray-400" />
+                        <span className="text-xs text-gray-400">Selecionar imagem</span>
+                        <input type="file" accept="image/*" className="hidden" onChange={handleDisparoImageSelect} />
+                      </label>
+                    )}
+                  </div>
                 </div>
               </TabsContent>
 

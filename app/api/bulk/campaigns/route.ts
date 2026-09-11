@@ -48,16 +48,19 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = getSupabase();
     const body = await request.json();
-    const { name, message, numbers, instancia, intervalo, campanha_id, promocao_id, imagem_base64, imagem_mimetype } = body;
+    const { name, message, numbers, instancia, intervalo, campanha_id, promocao_id, imagem_base64, imagem_mimetype, fluxo_mensagens } = body;
 
-    if (!name || !message || !numbers || numbers.length === 0) {
+    if (!name || !numbers || numbers.length === 0) {
       return NextResponse.json(
-        { error: "name, message e numbers são obrigatórios" },
+        { error: "name e numbers são obrigatórios" },
         { status: 400 }
       );
     }
 
-    // Upload da imagem para Supabase Storage (se fornecida)
+    // Se tem fluxo_mensagens, usar ele. Senão, usar message antigo
+    const messageFinal = message || (fluxo_mensagens ? JSON.stringify(fluxo_mensagens) : '');
+
+    // Upload da imagem para Supabase Storage (se fornecida - compatibilidade antiga)
     let imagem_url: string | null = null;
     if (imagem_base64 && imagem_mimetype) {
       try {
@@ -72,11 +75,30 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Upload de imagens no fluxo_mensagens
+    let fluxoFinal = fluxo_mensagens || null;
+    if (fluxoFinal && Array.isArray(fluxoFinal)) {
+      for (let i = 0; i < fluxoFinal.length; i++) {
+        const step = fluxoFinal[i];
+        if (step.type === 'image' && step.base64 && step.mimetype) {
+          try {
+            const base64Clean = step.base64.replace(/^data:[^;]+;base64,/, "");
+            const url = await uploadMediaToStorage(base64Clean, step.mimetype, "disparos");
+            if (url) {
+              fluxoFinal[i] = { type: 'image', url };
+            }
+          } catch (err: any) {
+            console.error(`[Bulk Campaigns] Erro upload imagem step ${i}:`, err.message);
+          }
+        }
+      }
+    }
+
     const { data, error } = await supabase
       .from("bulk_campaigns")
       .insert({
         name,
-        message,
+        message: messageFinal,
         numbers,
         status: "pending",
         sent: 0,
@@ -86,6 +108,7 @@ export async function POST(request: NextRequest) {
         campanha_id: campanha_id || null,
         promocao_id: promocao_id || null,
         imagem_url,
+        fluxo_mensagens: fluxoFinal,
       })
       .select(`
         *,
