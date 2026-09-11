@@ -202,7 +202,7 @@ export default function CampanhasPage() {
         (campanhasData || []).map(async (campanha: any) => {
           const { data: disparos } = await supabase
             .from('bulk_campaigns')
-            .select('*')
+            .select('id, name, status, sent, failed, campanha_id, instancia, created_at, error_log, numbers')
             .eq('campanha_id', campanha.id)
             .order('created_at', { ascending: false });
           return { ...campanha, disparos: disparos || [] };
