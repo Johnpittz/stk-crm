@@ -77,6 +77,21 @@ export default function CampanhasPage() {
   const [logsDisparoId, setLogsDisparoId] = useState<string | null>(null);
   const [disparoLogs, setDisparoLogs] = useState<any[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [detalheDisparo, setDetalheDisparo] = useState<any>(null);
+  const abrirDetalheDisparo = async (disparo: any) => {
+    // Fetch full details including fluxo_mensagens (not in list query for performance)
+    try {
+      const { data } = await supabase
+        .from('bulk_campaigns')
+        .select('*, fluxo_mensagens')
+        .eq('id', disparo.id)
+        .single();
+      setDetalheDisparo(data || disparo);
+    } catch {
+      setDetalheDisparo(disparo);
+    }
+  };
+
 
   const [novaCampanha, setNovaCampanha] = useState({
     nome: '', descricao: '', tipo: 'promocional', status: 'rascunho',
@@ -717,7 +732,10 @@ export default function CampanhasPage() {
             const isExpanded = expandedCampanha === campanha.id;
             return (
               <Card key={campanha.id} className="bg-gray-800/50 border-gray-700">
-                <CardHeader className="cursor-pointer hover:bg-gray-700/30 transition-colors" onClick={() => setExpandedCampanha(isExpanded ? null : campanha.id)}>
+                <CardHeader className="cursor-pointer hover:bg-gray-700/30 transition-colors" onClick={() => {
+                  setExpandedCampanha(isExpanded ? null : campanha.id);
+                  if (!isExpanded) setLogsDisparoId(null); // Close log panel when expanding a different campaign
+                }}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-lg bg-emerald-600/20 flex items-center justify-center">
@@ -768,7 +786,7 @@ export default function CampanhasPage() {
                           <TableBody>
                             {campanha.disparos.map((disparo) => (
                               <TableRow key={disparo.id} className="border-gray-700">
-                                <TableCell className="text-white font-medium">{disparo.name}</TableCell>
+                                <TableCell className="text-white font-medium cursor-pointer hover:text-emerald-400 transition-colors" onClick={() => abrirDetalheDisparo(disparo)}>{disparo.name}</TableCell>
                                 <TableCell className="text-gray-300">
                                   {Array.isArray(disparo.numbers) ? disparo.numbers.length - (typeof disparo.numbers[0] === 'string' ? 1 : 0) : 1}
                                 </TableCell>
@@ -879,6 +897,104 @@ export default function CampanhasPage() {
           })
         )}
       </div>
+
+      {/* Dialog de Detalhes do Disparo */}
+      <Dialog open={!!detalheDisparo} onOpenChange={(open) => { if (!open) setDetalheDisparo(null); }}>
+        <DialogContent className="bg-gray-800 border-gray-700 max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              📋 {detalheDisparo?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {detalheDisparo && (() => {
+            const numbers = detalheDisparo.numbers || [];
+            const instanceName = numbers.length > 0 && typeof numbers[0] === 'string' ? numbers[0] : detalheDisparo.instancia || 'N/A';
+            const contacts = numbers.slice(instanceName !== detalheDisparo.instancia ? 1 : 0).filter((n: any) => typeof n === 'object');
+            let fluxo = detalheDisparo.fluxo_mensagens;
+            if (typeof fluxo === 'string') try { fluxo = JSON.parse(fluxo); } catch { fluxo = null; }
+            return (
+              <div className="space-y-4">
+                {/* Info geral */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-gray-700/50 rounded-lg p-3">
+                    <p className="text-gray-400 text-xs">Instância</p>
+                    <p className="text-white font-medium">{detalheDisparo.instancia || instanceName}</p>
+                  </div>
+                  <div className="bg-gray-700/50 rounded-lg p-3">
+                    <p className="text-gray-400 text-xs">Status</p>
+                    <div>{getStatusBadge(detalheDisparo.status)}</div>
+                  </div>
+                  <div className="bg-gray-700/50 rounded-lg p-3">
+                    <p className="text-gray-400 text-xs">Enviados / Total</p>
+                    <p className="text-white font-medium">{detalheDisparo.sent || 0} / {contacts.length || (numbers.length - (typeof numbers[0] === 'string' ? 1 : 0))}</p>
+                  </div>
+                  <div className="bg-gray-700/50 rounded-lg p-3">
+                    <p className="text-gray-400 text-xs">Falhas</p>
+                    <p className={`font-medium ${(detalheDisparo.failed || 0) > 0 ? 'text-red-400' : 'text-green-400'}`}>{detalheDisparo.failed || 0}</p>
+                  </div>
+                </div>
+                {/* Timing */}
+                <div className="bg-gray-700/50 rounded-lg p-3">
+                  <p className="text-gray-400 text-xs mb-2">⏱️ Configuração de Timing</p>
+                  <div className="flex gap-4 text-sm">
+                    <span className="text-gray-300">Delay inicial: <span className="text-white">{detalheDisparo.delay_inicial || 0}s</span></span>
+                    <span className="text-gray-300">Intervalo: <span className="text-white">{detalheDisparo.intervalo || 5}s</span></span>
+                    {fluxo && fluxo.length > 0 && (
+                      <span className="text-gray-300">Entre passos: <span className="text-white">{detalheDisparo.intervalo_passos || 2}s</span></span>
+                    )}
+                  </div>
+                </div>
+                {/* Fluxo */}
+                {fluxo && fluxo.length > 0 && (
+                  <div className="bg-gray-700/50 rounded-lg p-3">
+                    <p className="text-gray-400 text-xs mb-2">📝 Fluxo de Mensagens ({fluxo.length} passos)</p>
+                    <div className="space-y-2">
+                      {fluxo.map((step: any, idx: number) => (
+                        <div key={idx} className="flex items-start gap-2">
+                          <Badge className={step.type === 'text' ? 'bg-blue-600 text-blue-100 shrink-0' : 'bg-purple-600 text-purple-100 shrink-0'}>
+                            {step.type === 'text' ? '📝' : '🖼️'} #{idx + 1}
+                          </Badge>
+                          {step.type === 'text' ? (
+                            <p className="text-gray-300 text-sm whitespace-pre-wrap">{step.content}</p>
+                          ) : (
+                            <span className="text-gray-400 text-sm">[imagem]</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Contatos */}
+                <div className="bg-gray-700/50 rounded-lg p-3">
+                  <p className="text-gray-400 text-xs mb-2">📱 Contatos ({contacts.length || numbers.length})</p>
+                  <div className="max-h-32 overflow-y-auto">
+                    {contacts.length > 0 ? contacts.map((c: any, idx: number) => (
+                      <div key={idx} className="flex justify-between py-0.5 text-sm">
+                        <span className="text-gray-300">{c.nome || '(sem nome)'}</span>
+                        <span className="text-gray-500 font-mono">{c.telefone}</span>
+                      </div>
+                    )) : numbers.filter((n: any) => typeof n === 'object').map((c: any, idx: number) => (
+                      <div key={idx} className="flex justify-between py-0.5 text-sm">
+                        <span className="text-gray-300">{c.nome || '(sem nome)'}</span>
+                        <span className="text-gray-500 font-mono">{c.telefone}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {/* Erro */}
+                {detalheDisparo.error_log && (
+                  <div className="bg-red-900/20 rounded-lg p-3 border border-red-800">
+                    <p className="text-red-400 text-xs mb-1">⚠️ Erros</p>
+                    <p className="text-red-300 text-sm whitespace-pre-wrap">{typeof detalheDisparo.error_log === 'string' ? detalheDisparo.error_log : JSON.stringify(detalheDisparo.error_log)}</p>
+                  </div>
+                )}
+                {/* Criado em */}
+                <p className="text-gray-500 text-xs">Criado em: {new Date(detalheDisparo.created_at).toLocaleString('pt-BR')}</p>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog de Criar Disparo */}
       <Dialog open={showDisparoDialog} onOpenChange={(open) => { if (!open) resetarDialog(); else setShowDisparoDialog(true); }}>
