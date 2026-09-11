@@ -153,12 +153,16 @@ async function enviarCampanha(supabase: any, campaign: any) {
         }
       }
 
+      console.log(`[Bulk Send] [${i+1}/${contacts.length}] Nome para ${formattedNumber}: "${nomeContato}" (fonte: ${contact.nome ? 'planilha' : 'WhatsApp/db'})`);
+
       // Substituir variáveis na mensagem
       let mensagemFinal = campaign.message;
       if (nomeContato) {
-        mensagemFinal = mensagemFinal.replace(/\\{\\{nome\\}\\}/g, nomeContato);
+        mensagemFinal = mensagemFinal.replace(/\{\{nome\}\}/g, nomeContato);
       }
-      mensagemFinal = mensagemFinal.replace(/\\{\\{telefone\\}\\}/g, formattedNumber);
+      mensagemFinal = mensagemFinal.replace(/\{\{telefone\}\}/g, formattedNumber);
+      
+      console.log(`[Bulk Send] [${i+1}/${contacts.length}] Mensagem final: "${mensagemFinal.substring(0, 100)}..."`);
 
       const msgStart = Date.now();
       console.log(`[Bulk Send] [${i+1}/${contacts.length}] Enviando para ${formattedNumber}${nomeContato ? ' (' + nomeContato + ')' : ''}...`);
