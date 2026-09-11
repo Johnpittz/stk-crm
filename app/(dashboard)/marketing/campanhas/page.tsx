@@ -248,7 +248,7 @@ export default function CampanhasPage() {
   // Auto-refresh quando há disparos rodando
   useEffect(() => {
     const hasRunning = campanhas.some(c =>
-      (c.disparos || []).some((d: any) => d.status === 'running')
+      (c.disparos || []).some((d: any) => d.status === 'running' || d.status === 'processing')
     );
     if (!hasRunning) return;
     const interval = setInterval(() => {
@@ -600,6 +600,7 @@ export default function CampanhasPage() {
     const styles: Record<string, string> = {
       rascunho: 'bg-gray-600 text-gray-100', agendado: 'bg-blue-600 text-blue-100',
       running: 'bg-yellow-600 text-yellow-100', em_andamento: 'bg-yellow-600 text-yellow-100',
+      processing: 'bg-yellow-600 text-yellow-100',
       completed: 'bg-green-600 text-green-100', concluido: 'bg-green-600 text-green-100',
       pausado: 'bg-orange-600 text-orange-100', enviado: 'bg-green-600 text-green-100',
       processando: 'bg-blue-600 text-blue-100', erro: 'bg-red-600 text-red-100',
@@ -610,6 +611,7 @@ export default function CampanhasPage() {
     const labels: Record<string, string> = {
       rascunho: 'Rascunho', agendado: 'Agendado',
       running: 'Enviando', em_andamento: 'Em Andamento',
+      processing: 'Processando',
       completed: 'Concluído', concluido: 'Concluído',
       pausado: 'Pausado', enviado: 'Enviado',
       processando: 'Processando', erro: 'Erro',
@@ -787,12 +789,12 @@ export default function CampanhasPage() {
                                         <Send className="h-4 w-4" />
                                       </Button>
                                     )}
-                                    {disparo.status === 'running' && (
+                                    {(disparo.status === 'running' || disparo.status === 'processing') && (
                                       <Button size="sm" variant="ghost" onClick={() => pararDisparo(disparo.id)} className="text-red-400 hover:text-red-300">
                                         <Square className="h-4 w-4" />
                                       </Button>
                                     )}
-                                    {(disparo.status === 'running' || disparo.status === 'completed' || disparo.status === 'cancelled') && (
+                                    {(disparo.status === 'running' || disparo.status === 'processing' || disparo.status === 'completed' || disparo.status === 'cancelled') && (
                                       <Button size="sm" variant="ghost" onClick={() => { setLogsDisparoId(disparo.id); loadDisparoLogs(disparo.id); }} className="text-blue-400 hover:text-blue-300">
                                         <FileText className="h-4 w-4" />
                                       </Button>
