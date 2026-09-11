@@ -90,6 +90,14 @@ export default function CampanhasPage() {
     mimetype?: string;
     name?: string;
   }>>([]);
+  
+  // Imagem única (compatibilidade antiga)
+  const [disparoImage, setDisparoImage] = useState<{
+    base64: string;
+    preview: string;
+    mimetype: string;
+    name: string;
+  } | null>(null);
 
   // Handler para seleção de imagem no fluxo
   const handleFluxoImageSelect = (e: React.ChangeEvent<HTMLInputElement>, stepId: string) => {
