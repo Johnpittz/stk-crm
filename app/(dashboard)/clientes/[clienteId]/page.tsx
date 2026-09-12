@@ -51,6 +51,9 @@ interface Cliente {
   telefone: string;
   cidade: string;
   estado: string;
+  logradouro: string | null;
+  axs_card_id: string | null;
+  axs_status: string | null;
 }
 
 interface Interacao {
@@ -227,7 +230,27 @@ export default function ClienteDetalhePage() {
             </p>
           </div>
         </div>
-        <Dialog open={dialogAberto} onOpenChange={setDialogAberto}>
+        <div className="flex items-center gap-2">
+          {/* AXS Button / Badge */}
+          {cliente.axs_card_id ? (
+            <Badge
+              variant="secondary"
+              className="text-[10px] bg-green-500/15 text-green-400 border border-green-500/20"
+            >
+              <Zap className="h-3 w-3 mr-1" />
+              AXS: {cliente.axs_status || "enviado"}
+            </Badge>
+          ) : cliente.nome_razao_social && cliente.cpf_cnpj && cliente.logradouro ? (
+            <Button
+              size="sm"
+              className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={() => router.push(`/clientes/${clienteId}/axs`)}
+            >
+              <Zap className="h-3 w-3 mr-1" />
+              Enviar para AXS
+            </Button>
+          ) : null}
+          <Dialog open={dialogAberto} onOpenChange={setDialogAberto}>
           <DialogTrigger asChild>
             <Button size="sm" className="h-8 bg-[#15317B] hover:bg-[#1a3d8f] text-white">
               <Plus className="h-3 w-3 mr-1" />
@@ -313,6 +336,7 @@ export default function ClienteDetalhePage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Info do Cliente */}
