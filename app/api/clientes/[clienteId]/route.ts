@@ -6,11 +6,11 @@ export const dynamic = "force-dynamic";
 // GET - Buscar cliente por ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { clienteId: string } }
 ) {
   try {
     const supabase = createAdminClient();
-    const { id } = params;
+    const { clienteId: id } = params;
 
     const { data, error } = await supabase
       .from("clientes")
@@ -39,11 +39,11 @@ export async function GET(
 // PUT - Atualizar cliente
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { clienteId: string } }
 ) {
   try {
     const supabase = createAdminClient();
-    const { id } = params;
+    const { clienteId: id } = params;
     const body = await request.json();
 
     // Campos permitidos para atualização (evita sobrescrever com undefined)
@@ -112,11 +112,11 @@ export async function PUT(
 // DELETE - Deletar cliente
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { clienteId: string } }
 ) {
   try {
     const supabase = createAdminClient();
-    const { id } = params;
+    const { clienteId: id } = params;
 
     const { data, error } = await supabase
       .from("clientes")
