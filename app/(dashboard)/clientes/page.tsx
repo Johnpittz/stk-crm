@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 // ─── Types ───
 
@@ -42,6 +43,16 @@ interface ClienteUnificado {
   cpf_cnpj: string | null;
   cidade: string | null;
   estado: string | null;
+  whatsapp: string | null;
+  concessionaria: string | null;
+  status: string | null;
+  classe_tarifaria: string | null;
+  vencimento_fatura: string | null;
+  instalacao: string | null;
+  classificacao: string | null;
+  data_nascimento: string | null;
+  razao_social: string | null;
+  axs_status: string | null;
   origem: "cadastro" | "reciee" | "chatbot" | "disparo" | "whatsapp" | "atendimento";
   tem_atendimento: boolean;
   tem_chatbot: boolean;
@@ -76,8 +87,6 @@ export default function ClientesPage() {
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
   const [filtroOrigem, setFiltroOrigem] = useState<string>("todos");
-  const [clienteSelecionado, setClienteSelecionado] = useState<ClienteUnificado | null>(null);
-  const [detalhesAberto, setDetalhesAberto] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -108,6 +117,16 @@ export default function ClientesPage() {
               cpf_cnpj: c.cpf_cnpj || null,
               cidade: c.cidade || null,
               estado: c.estado || null,
+              whatsapp: c.whatsapp || null,
+              concessionaria: c.concessionaria || null,
+              status: c.status || null,
+              classe_tarifaria: c.classe_tarifaria || null,
+              vencimento_fatura: c.vencimento_fatura || null,
+              instalacao: c.instalacao || null,
+              classificacao: c.classificacao || null,
+              data_nascimento: c.data_nascimento || null,
+              razao_social: c.razao_social || null,
+              axs_status: c.axs_status || null,
               origem: "cadastro" as const,
               tem_atendimento: false,
               tem_chatbot: false,
@@ -152,11 +171,40 @@ export default function ClientesPage() {
     atendimentos: clientes.filter((c) => c.tem_atendimento).length,
   };
 
-  // ─── Abrir detalhes ───
-  const abrirDetalhes = (cliente: ClienteUnificado) => {
-    setClienteSelecionado(cliente);
-    setDetalhesAberto(true);
-  };
+  // ─── Status badge helper ───
+  function StatusBadge({ status }: { status: string | null }) {
+    if (!status) return <span className="text-[10px] text-slate-500">-</span>;
+    const s = status.toLowerCase();
+    const color =
+      s === "ativo" || s === "ativa"
+        ? "bg-green-500/20 text-green-400"
+        : s === "inativo" || s === "inativa"
+          ? "bg-red-500/20 text-red-400"
+          : "bg-slate-500/20 text-slate-400";
+    return (
+      <Badge variant="secondary" className={`text-[10px] ${color}`}>
+        {status}
+      </Badge>
+    );
+  }
+
+  // ─── Origem badge helper ───
+  function OrigemBadge({ origem }: { origem: string }) {
+    const config: Record<string, { label: string; color: string }> = {
+      cadastro: { label: "Cadastro", color: "bg-slate-500/20 text-slate-400" },
+      reciee: { label: "RECIEE", color: "bg-yellow-500/20 text-yellow-400" },
+      chatbot: { label: "GD", color: "bg-green-500/20 text-green-400" },
+      disparo: { label: "Disparo", color: "bg-orange-500/20 text-orange-400" },
+      whatsapp: { label: "WhatsApp", color: "bg-emerald-500/20 text-emerald-400" },
+      atendimento: { label: "Atendimento", color: "bg-blue-500/20 text-blue-400" },
+    };
+    const c = config[origem] || config.cadastro;
+    return (
+      <Badge variant="secondary" className={`text-[9px] ${c.color}`}>
+        {c.label}
+      </Badge>
+    );
+  }
 
   return (
     <div className="h-[calc(100vh-9rem)] flex flex-col overflow-hidden">
@@ -181,6 +229,15 @@ export default function ClientesPage() {
             <RefreshCw className="h-3 w-3 mr-1" />
             Atualizar
           </Button>
+          <Link href="/clientes/novo">
+            <Button
+              size="sm"
+              className="h-8 text-xs bg-[#3B64CF] hover:bg-[#2d4fa0] text-white"
+            >
+              <Plus className="h-3 w-3 mr-1" />
+              Novo Cliente
+            </Button>
+          </Link>
         </div>
       </div>
 
@@ -220,10 +277,10 @@ export default function ClientesPage() {
         </div>
       </div>
 
-      {/* Lista */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      {/* Tabela */}
+      <div className="flex-1 min-h-0 overflow-hidden rounded-lg border border-[#1c2e4a]">
         {loading ? (
-          <div className="flex items-center justify-center h-full text-slate-500">
+          <div className="flex items-center justify-center h-full text-slate-500 text-sm">
             Carregando clientes...
           </div>
         ) : clientesFiltrados.length === 0 ? (
@@ -236,383 +293,87 @@ export default function ClientesPage() {
           </div>
         ) : (
           <ScrollArea className="h-full">
-            <div className="space-y-2">
-              {clientesFiltrados.map((cliente) => (
-                <Card
-                  key={cliente.id}
-                  className="border-[#1c2e4a] bg-[#14233c] cursor-pointer hover:border-[#3B64CF]/30 transition-colors"
-                  onClick={() => abrirDetalhes(cliente)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="text-sm font-semibold text-white truncate">
-                            {cliente.nome}
-                          </h3>
-                          <OrigemBadge origem={cliente.origem} />
-                          {cliente.cidade && (
-                            <span className="text-[10px] text-slate-500">
-                              {cliente.cidade}{cliente.estado ? `/${cliente.estado}` : ""}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-4 text-[10px] text-slate-500">
-                          {cliente.telefone && (
-                            <span className="flex items-center gap-1">
-                              <Phone className="h-3 w-3" />
-                              {cliente.telefone}
-                            </span>
-                          )}
-                          {cliente.email && (
-                            <span className="flex items-center gap-1">
-                              <Mail className="h-3 w-3" />
-                              {cliente.email}
-                            </span>
-                          )}
-                          {cliente.cpf_cnpj && (
-                            <span className="flex items-center gap-1">
-                              <Building2 className="h-3 w-3" />
-                              {cliente.cpf_cnpj}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          {cliente.tem_atendimento && (
-                            <Badge variant="secondary" className="text-[9px] bg-blue-500/20 text-blue-400">
-                              <MessageSquare className="h-2.5 w-2.5 mr-0.5" />
-                              Atendimento
-                            </Badge>
-                          )}
-                          {cliente.tem_chatbot && (
-                            <Badge variant="secondary" className="text-[9px] bg-purple-500/20 text-purple-400">
-                              <Bot className="h-2.5 w-2.5 mr-0.5" />
-                              Chatbot
-                            </Badge>
-                          )}
-                          {cliente.tem_faturas_reciee && (
-                            <Badge variant="secondary" className="text-[9px] bg-yellow-500/20 text-yellow-400">
-                              <FileText className="h-2.5 w-2.5 mr-0.5" />
-                              RECIEE
-                            </Badge>
-                          )}
-                        </div>
+            <table className="w-full text-left">
+              <thead className="sticky top-0 z-10 bg-[#0a1628] border-b border-[#1c2e4a]">
+                <tr>
+                  <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                    Nome
+                  </th>
+                  <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                    CPF/CNPJ
+                  </th>
+                  <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                    Cidade/UF
+                  </th>
+                  <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                    Telefone/WhatsApp
+                  </th>
+                  <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                    Concessionária
+                  </th>
+                  <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider w-8" />
+                </tr>
+              </thead>
+              <tbody>
+                {clientesFiltrados.map((cliente) => (
+                  <tr
+                    key={cliente.id}
+                    className="border-b border-[#1c2e4a]/50 hover:bg-[#1c2e4a]/30 transition-colors cursor-pointer"
+                    onClick={() => router.push(`/clientes/${cliente.id}`)}
+                  >
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs font-medium text-white truncate">
+                          {cliente.nome}
+                        </span>
+                        <OrigemBadge origem={cliente.origem} />
                       </div>
-                      <ChevronRight className="h-4 w-4 text-slate-600 shrink-0" />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-slate-300 whitespace-nowrap">
+                      {cliente.cpf_cnpj || <span className="text-slate-600">-</span>}
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-slate-300 whitespace-nowrap">
+                      {cliente.cidade && cliente.estado
+                        ? `${cliente.cidade}/${cliente.estado}`
+                        : cliente.cidade || <span className="text-slate-600">-</span>}
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-slate-300 whitespace-nowrap">
+                      <div className="flex items-center gap-3">
+                        {cliente.telefone && (
+                          <span className="flex items-center gap-1">
+                            <Phone className="h-3 w-3 text-slate-500" />
+                            {cliente.telefone}
+                          </span>
+                        )}
+                        {cliente.whatsapp && (
+                          <span className="flex items-center gap-1">
+                            <MessageSquare className="h-3 w-3 text-green-400" />
+                            {cliente.whatsapp}
+                          </span>
+                        )}
+                        {!cliente.telefone && !cliente.whatsapp && (
+                          <span className="text-slate-600">-</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-slate-300 truncate max-w-[140px]">
+                      {cliente.concessionaria || <span className="text-slate-600">-</span>}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <StatusBadge status={cliente.status} />
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <ChevronRight className="h-3.5 w-3.5 text-slate-600" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </ScrollArea>
         )}
-      </div>
-
-      {/* Modal de Detalhes */}
-      {clienteSelecionado && (
-        <DetalhesCliente
-          cliente={clienteSelecionado}
-          aberto={detalhesAberto}
-          onFechar={() => setDetalhesAberto(false)}
-          onNavegar={(rota) => {
-            setDetalhesAberto(false);
-            router.push(rota);
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-// ─── Badge de Origem ───
-
-function OrigemBadge({ origem }: { origem: string }) {
-  const config: Record<string, { label: string; color: string }> = {
-    cadastro: { label: "Cadastro", color: "bg-slate-500/20 text-slate-400" },
-    reciee: { label: "RECIEE", color: "bg-yellow-500/20 text-yellow-400" },
-    chatbot: { label: "GD", color: "bg-green-500/20 text-green-400" },
-    disparo: { label: "Disparo", color: "bg-orange-500/20 text-orange-400" },
-    whatsapp: { label: "WhatsApp", color: "bg-emerald-500/20 text-emerald-400" },
-    atendimento: { label: "Atendimento", color: "bg-blue-500/20 text-blue-400" },
-  };
-  const c = config[origem] || config.cadastro;
-  return (
-    <Badge variant="secondary" className={`text-[9px] ${c.color}`}>
-      {c.label}
-    </Badge>
-  );
-}
-
-// ─── Modal de Detalhes do Cliente ───
-
-function DetalhesCliente({
-  cliente,
-  aberto,
-  onFechar,
-  onNavegar,
-}: {
-  cliente: ClienteUnificado;
-  aberto: boolean;
-  onFechar: () => void;
-  onNavegar: (rota: string) => void;
-}) {
-  const [activeTab, setActiveTab] = useState<"geral" | "chatbot" | "reciee" | "atendimentos">("geral");
-  const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
-  const [faturas, setFaturas] = useState<FaturaReciee[]>([]);
-  const [atendimentos, setAtendimentos] = useState<any[]>([]);
-  const [loadingDetalhes, setLoadingDetalhes] = useState(false);
-  const supabase = createClient();
-
-  useEffect(() => {
-    if (!aberto || !cliente) return;
-
-    const carregarDetalhes = async () => {
-      setLoadingDetalhes(true);
-
-      // Buscar sessões de chatbot por telefone
-      if (cliente.telefone) {
-        const tel = cliente.telefone.replace(/\D/g, "");
-        const telComUltimos8 = tel.slice(-8);
-        const { data: sessions } = await supabase
-          .from("chatbot_sessions")
-          .select("*")
-          .or(`telefone.eq.${tel},telefone.like.%${telComUltimos8}%`)
-          .order("created_at", { ascending: false })
-          .limit(10);
-        setChatSessions(sessions || []);
-      }
-
-      // Buscar faturas RECIEE (via API server-side para evitar RLS)
-      if (cliente.cpf_cnpj) {
-        try {
-          // Buscar todos os clientes RECIEE e filtrar por CPF
-          const res = await fetch("/api/reciee/clientes");
-          const { clientes: allReciee } = await res.json();
-          const recieeClient = allReciee?.find(
-            (c: any) => c.cpf_cnpj === cliente.cpf_cnpj
-          );
-
-          if (recieeClient) {
-            const fRes = await fetch(`/api/reciee/faturas?cliente_id=${recieeClient.id}`);
-            const { faturas } = await fRes.json();
-            setFaturas(faturas || []);
-          }
-        } catch (err) {
-          console.error("Erro inesperado ao buscar faturas:", err);
-        }
-      }
-
-      // Buscar atendimentos
-      if (cliente.telefone) {
-        const tel = cliente.telefone.replace(/\D/g, "");
-        const telComUltimos8 = tel.slice(-8);
-        const { data: atts } = await supabase
-          .from("atendimentos")
-          .select("id, telefone_cliente, nome_cliente, status, instancia, created_at, ultima_mensagem")
-          .or(`telefone_cliente.eq.${tel},telefone_cliente.like.%${telComUltimos8}%`)
-          .order("created_at", { ascending: false })
-          .limit(10);
-        setAtendimentos(atts || []);
-      }
-
-      setLoadingDetalhes(false);
-    };
-
-    carregarDetalhes();
-  }, [aberto, cliente, supabase]);
-
-  if (!aberto) return null;
-
-  return (
-    <Dialog open={aberto} onOpenChange={(open) => !open && onFechar()}>
-      <DialogContent className="bg-[#0f1d32] border-[#1c2e4a] max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-        <DialogHeader className="shrink-0">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-white text-base">
-              {cliente.nome}
-            </DialogTitle>
-            <div className="flex items-center gap-2">
-              {cliente.telefone && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-[10px] border-[#1c2e4a] text-slate-400"
-                  onClick={() => onNavegar(`/atendimento?telefone=${cliente.telefone}`)}
-                >
-                  <MessageSquare className="h-3 w-3 mr-1" />
-                  Atendimento
-                </Button>
-              )}
-              {cliente.origem === "reciee" && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-[10px] border-[#1c2e4a] text-slate-400"
-                  onClick={() => onNavegar("/reciee")}
-                >
-                  <FileText className="h-3 w-3 mr-1" />
-                  RECIEE
-                </Button>
-              )}
-            </div>
-          </div>
-        </DialogHeader>
-
-        {/* Tabs */}
-        <div className="shrink-0 flex gap-1 mb-3">
-          {[
-            { key: "geral", label: "Geral" },
-            { key: "chatbot", label: `Chatbot (${chatSessions.length})` },
-            { key: "reciee", label: `RECIEE (${faturas.length})` },
-            { key: "atendimentos", label: `Atendimentos (${atendimentos.length})` },
-          ].map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setActiveTab(t.key as any)}
-              className={`px-2.5 py-1 rounded text-[11px] font-medium transition-all ${
-                activeTab === t.key
-                  ? "bg-[#3B64CF] text-white"
-                  : "bg-white/5 text-white/50 hover:bg-white/10"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Conteúdo */}
-        <ScrollArea className="flex-1 min-h-0">
-          {loadingDetalhes ? (
-            <div className="flex items-center justify-center h-32 text-slate-500 text-xs">
-              Carregando detalhes...
-            </div>
-          ) : activeTab === "geral" ? (
-            <div className="space-y-3">
-              <InfoItem icon={<Phone className="h-3.5 w-3.5" />} label="Telefone" value={cliente.telefone} />
-              <InfoItem icon={<Mail className="h-3.5 w-3.5" />} label="Email" value={cliente.email} />
-              <InfoItem icon={<Building2 className="h-3.5 w-3.5" />} label="CPF/CNPJ" value={cliente.cpf_cnpj} />
-              <InfoItem icon={<Users className="h-3.5 w-3.5" />} label="Cidade" value={cliente.cidade ? `${cliente.cidade}${cliente.estado ? `/${cliente.estado}` : ""}` : null} />
-              <div className="pt-2 border-t border-[#1c2e4a]">
-                <p className="text-[10px] text-slate-500 mb-2">Origem</p>
-                <OrigemBadge origem={cliente.origem} />
-              </div>
-            </div>
-          ) : activeTab === "chatbot" ? (
-            <div className="space-y-2">
-              {chatSessions.length === 0 ? (
-                <p className="text-xs text-slate-500 text-center py-8">Nenhuma sessão de chatbot</p>
-              ) : (
-                chatSessions.map((s) => (
-                  <div key={s.id} className="p-3 rounded-lg bg-[#0a1628] border border-[#1c2e4a]">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium text-white">{s.nome_lead || s.telefone}</span>
-                      <div className="flex items-center gap-2">
-                        {s.classificacao && (
-                          <Badge variant="secondary" className={`text-[9px] ${
-                            s.classificacao === "A" ? "bg-red-500/20 text-red-400" :
-                            s.classificacao === "B" ? "bg-orange-500/20 text-orange-400" :
-                            s.classificacao === "C" ? "bg-yellow-500/20 text-yellow-400" :
-                            "bg-slate-500/20 text-slate-400"
-                          }`}>
-                            {s.classificacao}
-                          </Badge>
-                        )}
-                        <Badge variant="secondary" className={`text-[9px] ${
-                          s.status === "ativa" ? "bg-green-500/20 text-green-400" :
-                          s.status === "concluida" ? "bg-blue-500/20 text-blue-400" :
-                          "bg-slate-500/20 text-slate-400"
-                        }`}>
-                          {s.status}
-                        </Badge>
-                      </div>
-                    </div>
-                    <p className="text-[10px] text-slate-500">
-                      {s.instancia} · {new Date(s.created_at).toLocaleDateString("pt-BR")}
-                    </p>
-                    {s.respostas && Object.keys(s.respostas).length > 0 && (
-                      <div className="mt-2 space-y-1">
-                        {Object.entries(s.respostas).map(([key, val]: [string, any]) => (
-                          <div key={key} className="text-[10px]">
-                            <span className="text-slate-500">{key}:</span>{" "}
-                            <span className="text-slate-300">{val?.texto || val?.chave || String(val)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          ) : activeTab === "reciee" ? (
-            <div className="space-y-2">
-              {faturas.length === 0 ? (
-                <p className="text-xs text-slate-500 text-center py-8">Nenhuma fatura RECIEE</p>
-              ) : (
-                faturas.map((f) => (
-                  <div key={f.id} className="p-3 rounded-lg bg-[#0a1628] border border-[#1c2e4a]">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-white">
-                        {f.competencia || "Sem competência"}
-                      </span>
-                      <span className="text-xs text-green-400">
-                        {f.valor_total ? `R$ ${f.valor_total.toLocaleString("pt-BR")}` : "-"}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3 text-[10px] text-slate-500 mt-1">
-                      {f.consumo_kwh && <span>{f.consumo_kwh.toLocaleString()} kWh</span>}
-                      {f.bandeira && <span>{f.bandeira}</span>}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {atendimentos.length === 0 ? (
-                <p className="text-xs text-slate-500 text-center py-8">Nenhum atendimento</p>
-              ) : (
-                atendimentos.map((a) => (
-                  <div
-                    key={a.id}
-                    className="p-3 rounded-lg bg-[#0a1628] border border-[#1c2e4a] cursor-pointer hover:border-[#3B64CF]/30 transition-colors"
-                    onClick={() => onNavegar("/atendimento")}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-white">
-                        {a.nome_cliente || a.telefone_cliente}
-                      </span>
-                      <Badge variant="secondary" className={`text-[9px] ${
-                        a.status === "aberto" ? "bg-green-500/20 text-green-400" : "bg-slate-500/20 text-slate-400"
-                      }`}>
-                        {a.status}
-                      </Badge>
-                    </div>
-                    <p className="text-[10px] text-slate-500 mt-1 truncate">
-                      {a.ultima_mensagem || "Sem mensagem"}
-                    </p>
-                    <p className="text-[10px] text-slate-600">
-                      {a.instancia} · {new Date(a.created_at).toLocaleDateString("pt-BR")}
-                    </p>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-        </ScrollArea>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ─── Item de Info ───
-
-function InfoItem({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | null }) {
-  return (
-    <div className="flex items-center gap-3">
-      <div className="text-slate-500">{icon}</div>
-      <div>
-        <p className="text-[10px] text-slate-500">{label}</p>
-        <p className="text-xs text-white">{value || "-"}</p>
       </div>
     </div>
   );
