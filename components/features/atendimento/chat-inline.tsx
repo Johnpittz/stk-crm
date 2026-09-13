@@ -177,11 +177,9 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
   }, [atendimento?.id]);
 
   // Sincronizar mensagens do celular ao abrir conversa e a cada 30s
-  const needsScrollAfterSyncRef = useRef(false);
   const syncFromEvolution = useCallback(async () => {
     if (!atendimento?.telefone_cliente) return;
     try {
-      needsScrollAfterSyncRef.current = true;
       await fetch("/api/atendimentos/sync-from-evolution", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -194,23 +192,25 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
     }
   }, [atendimento]);
 
-  // Scroll to bottom quando mensagens mudam (só se estiver no fundo)
+  // Scroll to bottom quando mensagens mudam
   const isInitialLoadRef = useRef(true);
   useEffect(() => {
-    if (scrollRef.current) {
+    if (scrollRef.current && mensagens.length > 0) {
       const el = scrollRef.current;
-      // Primeira vez que abre conversa, sync adicionou mensagens, ou sync pediu scroll
-      if (isInitialLoadRef.current || needsScrollAfterSyncRef.current) {
-        el.scrollTop = el.scrollHeight;
-        isInitialLoadRef.current = false;
-        needsScrollAfterSyncRef.current = false;
-      } else {
-        // Só rola pro fundo se já estiver no fundo (não perturbar quem tá lendo acima)
-        const noFundo = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
-        if (noFundo) {
+      // Espera o DOM renderizar as novas mensagens antes de rolar
+      requestAnimationFrame(() => {
+        if (isInitialLoadRef.current) {
+          // Sempre vai pro final na primeira carga ou troca de conversa
           el.scrollTop = el.scrollHeight;
+          isInitialLoadRef.current = false;
+        } else {
+          // Só rola pro fundo se já estiver perto do fundo (não perturbar quem tá lendo acima)
+          const noFundo = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+          if (noFundo) {
+            el.scrollTop = el.scrollHeight;
+          }
         }
-      }
+      });
     }
   }, [mensagens]);
 
