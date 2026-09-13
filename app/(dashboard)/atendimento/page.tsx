@@ -66,29 +66,32 @@ export default function AtendimentoPage() {
   // Ref para controlar se deve atualizar a lista durante polling
   const isChatOpenRef = useRef(false);
   const atendimentosMapRef = useRef<Map<string, Atendimento>>(new Map());
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // OTIMIZAÇÃO: Usar endpoint unificado para carregar tudo de uma vez
   const fetchPageData = useCallback(async (silent = false) => {
     if (!silent) setLoadingAtendimentos(true);
+    
+    // Cancela request anterior se ainda estiver pendente
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    
     try {
-      const res = await fetch("/api/atendimentos/page-data");
+      const res = await fetch("/api/atendimentos/page-data", {
+        signal: controller.signal,
+      });
       if (!res.ok) return;
       
       const data = await res.json();
       
-      // Atendimentos
+      // Atendimentos — SEMPRE usa os dados novos do servidor
       const novosAtendimentos = data.atendimentos || [];
       const newMap = new Map<string, Atendimento>();
       for (const a of novosAtendimentos) {
-        const existente = atendimentosMapRef.current.get(a.id);
-        if (existente && 
-            existente.ultima_mensagem === a.ultima_mensagem &&
-            existente.ultima_mensagem_data === a.ultima_mensagem_data &&
-            existente.nao_lido === a.nao_lido) {
-          newMap.set(a.id, existente);
-        } else {
-          newMap.set(a.id, a);
-        }
+        newMap.set(a.id, a);
       }
       atendimentosMapRef.current = newMap;
       setAtendimentos(novosAtendimentos.map((a: Atendimento) => newMap.get(a.id) || a));
@@ -106,8 +109,10 @@ export default function AtendimentoPage() {
       if (data.instancias && data.instancias.length > 0) {
         setInstancias(data.instancias);
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      if (err.name !== "AbortError") {
+        console.error("Erro ao buscar dados:", err);
+      }
     } finally {
       if (!silent) setLoadingAtendimentos(false);
     }
@@ -159,11 +164,18 @@ export default function AtendimentoPage() {
     });
   }, [atendimentos, busca, dataInicio, dataFim, etiquetaFiltro, atendimentosComEtiquetas, instanciaSelecionada]);
 
-  // Polling: atualiza lista a cada 30s em background (sem loading visual)
+  // Polling: atualiza lista a cada 15s em background (sem loading visual)
   useEffect(() => {
-    const interval = setInterval(() => {
-      fetchPageData(true); // silent = true
-    }, 10000); // Polling 10s - indicador de msg nova aparece rápido
+    let emAndamento = false;
+    const interval = setInterval(async () => {
+      if (emAndamento) return; // Evita requests sobrepostos
+      emAndamento = true;
+      try {
+        await fetchPageData(true); // silent = true
+      } finally {
+        emAndamento = false;
+      }
+    }, 15000);
     return () => clearInterval(interval);
   }, [fetchPageData]);
 
