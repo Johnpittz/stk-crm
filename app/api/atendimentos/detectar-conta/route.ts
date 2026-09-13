@@ -5,27 +5,25 @@ export const dynamic = "force-dynamic";
 /**
  * POST /api/atendimentos/detectar-conta
  * 
- * Analisa uma mensagem (PDF ou imagem) para detectar se é uma conta de energia.
- * Retorna: detectou, confiança, dados extraídos (UC, consumo, etc.)
- * 
- * Body: { conteudo_base64, tipo_arquivo, nome_arquivo }
+ * Analisa uma mensagem para detectar se é uma conta de energia.
+ * Para imagens: usa Tesseract.js OCR
+ * Para PDFs: analisa nome do arquivo (que geralmente tem a UC)
  */
 
 // Padrões para identificar conta de energia
 const padroesArquivo = {
-  nomes: [/conta/i, /fatura/i, /energia/i, /eletrica/i, /bill/i, /luz/i],
+  nomes: [/conta/i, /fatura/i, /energia/i, /eletrica/i, /bill/i, /luz/i, /celesc/i, /cemig/i, /copel/i, /equatorial/i],
   exclusoes: [/comprovante/i, /recibo/i, /nota\s*fiscal/i, /nf/i],
 };
 
 const padroesConteudo = {
   uc: /UC\s*[\d.\-\/]+/i,
+  ucNumero: /(\d{10,15})/, // UC geralmente tem 10-15 dígitos
   consumo: /consumo.*?(\d+[\.\d]*)\s*kWh/i,
   vencimento: /vencimento.*?(\d{2}\/\d{2}\/\d{4}|\d{2}\/\d{2})/i,
   valorTotal: /valor.*?total.*?R\$\s*([\d.,]+)/i,
   bandeira: /bandeira.*(vermelha|amarela|verde|azul)/i,
   energiaEletrica: /energia\s*elétrica/i,
-  numeroConta: /n[°º]\s*(\d+)/i,
-  cpfCnpj: /(\d{3}\.?\d{3}\.?\d{3}-?\d{2}|\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2})/,
 };
 
 interface ResultadoDetecao {
@@ -38,15 +36,15 @@ interface ResultadoDetecao {
     vencimento?: string;
     valor_total?: number;
     bandeira?: string;
-    numero_conta?: string;
   };
   sugestao: string;
   motivos: string[];
 }
 
-function analisarNomeArquivo(nomeArquivo: string): { score: number; motivos: string[] } {
+function analisarNomeArquivo(nomeArquivo: string): { score: number; motivos: string[]; uc?: string } {
   let score = 0;
   const motivos: string[] = [];
+  let uc: string | undefined;
 
   // Verificar exclusões
   for (const padrao of padroesArquivo.exclusoes) {
@@ -55,12 +53,21 @@ function analisarNomeArquivo(nomeArquivo: string): { score: number; motivos: str
     }
   }
 
-  // Verificar padrões positivos
+  // Verificar padrões positivos no nome
   for (const padrao of padroesArquivo.nomes) {
     if (padrao.test(nomeArquivo)) {
       score += 0.4;
       motivos.push(`Nome contém: ${padrao.source}`);
     }
+  }
+
+  // Extrair UC do nome do arquivo (muitas contas têm a UC no nome)
+  // Exemplo: "000266515901272 (1).pdf" ou "conta_UC_266515901272.pdf"
+  const ucMatch = nomeArquivo.match(/(\d{10,15})/);
+  if (ucMatch) {
+    score += 0.5;
+    uc = ucMatch[1];
+    motivos.push(`UC encontrada no nome: ${uc}`);
   }
 
   // Extensão de imagem ou PDF
@@ -69,16 +76,16 @@ function analisarNomeArquivo(nomeArquivo: string): { score: number; motivos: str
     motivos.push("Formato aceito (imagem/PDF)");
   }
 
-  return { score: Math.min(score, 1), motivos };
+  return { score: Math.min(score, 1), motivos, uc };
 }
 
-function analisarConteudo(textoOCR: string): { score: number; dados: ResultadoDetecao["dados_extraidos"]; motivos: string[] } {
+function analisarConteudo(texto: string): { score: number; dados: ResultadoDetecao["dados_extraidos"]; motivos: string[] } {
   let score = 0;
   const dados: ResultadoDetecao["dados_extraidos"] = {};
   const motivos: string[] = [];
 
-  // UC (Unidade Consumidora) — indicador forte
-  const ucMatch = textoOCR.match(padroesConteudo.uc);
+  // UC (Unidade Consumidora)
+  const ucMatch = texto.match(padroesConteudo.uc);
   if (ucMatch) {
     score += 0.35;
     dados.uc = ucMatch[0].replace(/UC\s*/i, "").trim();
@@ -86,7 +93,7 @@ function analisarConteudo(textoOCR: string): { score: number; dados: ResultadoDe
   }
 
   // Consumo kWh
-  const consumoMatch = textoOCR.match(padroesConteudo.consumo);
+  const consumoMatch = texto.match(padroesConteudo.consumo);
   if (consumoMatch) {
     score += 0.2;
     dados.consumo_kwh = parseInt(consumoMatch[1].replace(".", ""));
@@ -94,7 +101,7 @@ function analisarConteudo(textoOCR: string): { score: number; dados: ResultadoDe
   }
 
   // Valor total
-  const valorMatch = textoOCR.match(padroesConteudo.valorTotal);
+  const valorMatch = texto.match(padroesConteudo.valorTotal);
   if (valorMatch) {
     score += 0.15;
     dados.valor_total = parseFloat(valorMatch[1].replace(".", "").replace(",", "."));
@@ -102,7 +109,7 @@ function analisarConteudo(textoOCR: string): { score: number; dados: ResultadoDe
   }
 
   // Vencimento
-  const vencimentoMatch = textoOCR.match(padroesConteudo.vencimento);
+  const vencimentoMatch = texto.match(padroesConteudo.vencimento);
   if (vencimentoMatch) {
     score += 0.1;
     dados.vencimento = vencimentoMatch[1];
@@ -110,7 +117,7 @@ function analisarConteudo(textoOCR: string): { score: number; dados: ResultadoDe
   }
 
   // Bandeira tarifária
-  const bandeiraMatch = textoOCR.match(padroesConteudo.bandeira);
+  const bandeiraMatch = texto.match(padroesConteudo.bandeira);
   if (bandeiraMatch) {
     score += 0.1;
     dados.bandeira = bandeiraMatch[1];
@@ -118,7 +125,7 @@ function analisarConteudo(textoOCR: string): { score: number; dados: ResultadoDe
   }
 
   // Energia Elétrica
-  if (padroesConteudo.energiaEletrica.test(textoOCR)) {
+  if (padroesConteudo.energiaEletrica.test(texto)) {
     score += 0.1;
     motivos.push("Texto 'Energia Elétrica' encontrado");
   }
@@ -129,7 +136,7 @@ function analisarConteudo(textoOCR: string): { score: number; dados: ResultadoDe
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { conteudo_base64, tipo_arquivo, nome_arquivo, texto_mensagem } = body;
+    const { nome_arquivo, tipo_arquivo, texto_mensagem, conteudo_base64 } = body;
 
     const resultado: ResultadoDetecao = {
       detectou: false,
@@ -140,7 +147,7 @@ export async function POST(request: NextRequest) {
       motivos: [],
     };
 
-    // 1. Analisar nome do arquivo (se houver)
+    // 1. Analisar nome do arquivo (sempre, é o mais rápido)
     if (nome_arquivo) {
       const nomeResult = analisarNomeArquivo(nome_arquivo);
       resultado.motivos.push(...nomeResult.motivos);
@@ -151,30 +158,31 @@ export async function POST(request: NextRequest) {
       }
       
       resultado.confianca += nomeResult.score;
+      if (nomeResult.uc) {
+        resultado.dados_extraidos.uc = nomeResult.uc;
+      }
     }
 
     // 2. Analisar texto da mensagem (se houver)
     if (texto_mensagem) {
       const textoResult = analisarConteudo(texto_mensagem);
       resultado.motivos.push(...textoResult.motivos);
-      resultado.confianca += textoResult.score * 0.5; // Texto tem menos peso que OCR
+      resultado.confianca += textoResult.score * 0.5;
       Object.assign(resultado.dados_extraidos, textoResult.dados);
     }
 
-    // 3. Se tem arquivo, tentar OCR (só para imagens por enquanto)
+    // 3. Se tem conteúdo base64 (imagem), fazer OCR
     if (conteudo_base64 && tipo_arquivo?.startsWith("image/")) {
       try {
-        // Usar Tesseract.js via dynamic import
         const Tesseract = await import("tesseract.js");
         
-        // Converter base64 para buffer
         const base64Data = conteudo_base64.includes(",") 
           ? conteudo_base64.split(",")[1] 
           : conteudo_base64;
         const buffer = Buffer.from(base64Data, "base64");
         
         const { data } = await Tesseract.recognize(buffer, "por", {
-          logger: () => {}, // Silenciar logs
+          logger: () => {},
         });
         
         if (data.text) {
@@ -193,7 +201,7 @@ export async function POST(request: NextRequest) {
     // 4. Determinar se detectou
     resultado.confianca = Math.min(resultado.confianca, 1);
     
-    if (resultado.confianca >= 0.6) {
+    if (resultado.confianca >= 0.5) {
       resultado.detectou = true;
       resultado.sugestao = "Possível conta de energia detectada";
     } else if (resultado.confianca >= 0.3) {
