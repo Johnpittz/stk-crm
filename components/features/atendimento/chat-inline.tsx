@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Phone, Send, Check, User, MessageCircle, X, ArrowRightLeft, Paperclip, Mic, Square } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { AlertaContaDetectada } from "./alerta-conta-detectada";
 
 interface Mensagem {
   id: string;
@@ -82,6 +83,14 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+
+  // State para alerta de conta detectada
+  const [alertaConta, setAlertaConta] = useState<{
+    detectou: boolean;
+    confianca: number;
+    dados: any;
+    mensagemId?: string;
+  } | null>(null);
 
   // Determinar instância a usar: se atendimento tem instância própria, usa ela; senão usa a global
   const instanciaAtivo = atendimento?.instancia || instancia || undefined;
@@ -191,6 +200,64 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
       // Silencioso - sync é best-effort
     }
   }, [atendimento]);
+
+  // Detectar conta de energia em mensagens novas
+  const detectarConta = useCallback(async (mensagem: Mensagem) => {
+    // Só analisar mensagens de cliente com imagem ou PDF
+    if (mensagem.remetente !== "cliente") return;
+    if (!mensagem.media_url && !mensagem.file_name) return;
+    
+    const isMedia = mensagem.media_type?.startsWith("image/") || 
+                    mensagem.media_type === "application/pdf" ||
+                    mensagem.file_name?.endsWith(".pdf");
+    if (!isMedia) return;
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      // Primeiro, analisar nome do arquivo
+      const res = await fetch("/api/atendimentos/detectar-conta", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          nome_arquivo: mensagem.file_name || "",
+          tipo_arquivo: mensagem.media_type || "",
+          texto_mensagem: mensagem.conteudo || "",
+        }),
+      });
+
+      if (res.ok) {
+        const resultado = await res.json();
+        if (resultado.detectou || resultado.confianca >= 0.3) {
+          setAlertaConta({
+            detectou: resultado.detectou,
+            confianca: resultado.confianca,
+            dados: resultado.dados_extraidos || {},
+            mensagemId: mensagem.id,
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Erro ao detectar conta:", err);
+    }
+  }, [supabase]);
+
+  // Verificar última mensagem quando mensagens mudam
+  useEffect(() => {
+    if (mensagens.length > 0) {
+      const ultimaMsg = mensagens[mensagens.length - 1];
+      // Só verificar se é nova (últimos 60 segundos)
+      const msgTime = new Date(ultimaMsg.created_at).getTime();
+      const agora = Date.now();
+      if (agora - msgTime < 60000) {
+        detectarConta(ultimaMsg);
+      }
+    }
+  }, [mensagens, detectarConta]);
 
   // Scroll to bottom quando mensagens mudam
   // Ref rastreia qual atendimento_id ainda precisa de scroll forçado pro final
@@ -710,6 +777,25 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
               })
             )}
           </div>
+
+          {/* Alerta de conta detectada */}
+          {alertaConta && (
+            <div className="px-4 py-2 shrink-0">
+              <AlertaContaDetectada
+                atendimentoId={atendimento?.id || ""}
+                clienteId={atendimento?.clientes?.id}
+                clienteNome={atendimento?.nome_cliente}
+                dados={alertaConta.dados}
+                confianca={alertaConta.confianca}
+                mensagemId={alertaConta.mensagemId}
+                onDismiss={() => setAlertaConta(null)}
+                onOportunidadeCriada={() => {
+                  // Trigger refresh no KANBAN
+                  setAlertaConta(null);
+                }}
+              />
+            </div>
+          )}
 
           {/* Input */}
           <div className="px-4 py-3 border-t border-white/10 shrink-0 bg-[#0f1d32]">
