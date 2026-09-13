@@ -151,6 +151,7 @@ CREATE POLICY "service_role_all_oportunidade_alertas" ON oportunidade_alertas
 -- 4. Migrar dados de tarefas para oportunidades
 -- ============================================================
 
+-- Mapear coluna_kanban antigo para etapa nova
 INSERT INTO oportunidades (
   id, cliente_id, vendedor_id, titulo, descricao, tipo, etapa,
   prioridade, data_inicio, hora_inicio, data_fim, hora_fim,
@@ -159,14 +160,17 @@ INSERT INTO oportunidades (
 )
 SELECT 
   id, cliente_id, vendedor_id, titulo, descricao,
-  COALESCE(
-    CASE tipo
-      WHEN 'prospeccao' THEN 'gd'
-      ELSE 'gd'
-    END,
-    'gd'
-  ) AS tipo,
-  COALESCE(coluna_kanban, 'recebeu_conta') AS etapa,
+  'gd' AS tipo,
+  CASE coluna_kanban
+    WHEN 'recebeu_conta' THEN 'recebeu_conta'
+    WHEN 'proposta_feita' THEN 'proposta_a_fazer'
+    WHEN 'proposta_apresentada' THEN 'proposta_apresentada'
+    WHEN 'apresentacao_realizada' THEN 'apresentacao_feita'
+    WHEN 'contrato_enviado' THEN 'contrato_enviado'
+    WHEN 'contrato_assinado' THEN 'contrato_assinado'
+    WHEN 'comissao_paga' THEN 'comissao_paga'
+    ELSE 'recebeu_conta'
+  END AS etapa,
   COALESCE(prioridade, 'media'),
   data_inicio, hora_inicio, data_fim, hora_fim,
   resultado, observacao_resultado, valor_venda, cliente_nome,
