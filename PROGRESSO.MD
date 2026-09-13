@@ -198,6 +198,16 @@ O STK CRM é um sistema de gestão de relacionamento com cliente composto por **
 - [x] Prioridade: cadastro > RECIEE > chatbot > atendimento
 - [x] Cada pessoa aparece uma única vez na listagem
 
+### Fase 24 - Renomeação Tarefa → Oportunidade (10/06/2026)
+- [x] Migration `084_tarefa_to_oportunidade.sql` — tabelas `oportunidades`, `oportunidade_historico`, `oportunidade_alertas`
+- [x] Migração de dados de `tarefas` para `oportunidades`
+- [x] API `/api/oportunidades` (GET, POST, PATCH, DELETE) com permissões por vendedor
+- [x] API `/api/oportunidades/resumo` para métricas de pipeline
+- [x] Componentes renomeados: `KanbanOportunidades`, `NovaOportunidadeModal`, `ModalDetalhesOportunidade`
+- [x] Sidebar: "Kanban" → "Oportunidades"
+- [x] Página `/kanban` atualizada com novos componentes
+- [x] Colunas do funil: Recebeu a Conta → Proposta a Fazer → Proposta Apresentada → Apresentação Feita → Contrato Enviado → Contrato Assinado → Comissão Paga
+
 ---
 
 ## 🗄️ Estrutura do Banco (Supabase)
@@ -209,7 +219,9 @@ O STK CRM é um sistema de gestão de relacionamento com cliente composto por **
 | `clientes` | Clientes do CRM (~50 colunas incluindo AXS) |
 | `atendimentos` | Conversas WhatsApp |
 | `atendimento_mensagens` | Mensagens das conversas |
-| `tarefas` | Tarefas do Kanban |
+| `oportunidades` | Oportunidades do funil de vendas (renomeado de tarefas) |
+| `oportunidade_historico` | Histórico de movimentação entre etapas |
+| `oportunidade_alertas` | Alertas de detecção automática de contas |
 | `notificacoes` | Notificações do sistema |
 | `lid_phone_map` | Mapeamento LID ↔ telefone |
 

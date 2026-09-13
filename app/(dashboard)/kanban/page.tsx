@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, X } from "lucide-react";
-import { KanbanTarefas } from "@/components/features/atendimento/kanban-tarefas";
+import { KanbanOportunidades } from "@/components/features/atendimento/kanban-oportunidades";
 import { PerformanceKanban } from "@/components/features/atendimento/performance-kanban";
 import { createClient } from "@/lib/supabase/client";
 
@@ -98,7 +98,7 @@ export default function KanbanPage() {
         <div className="relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
           <Input
-            placeholder="Buscar cliente, tarefa..."
+            placeholder="Buscar cliente, oportunidade..."
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             className="w-[220px] h-8 text-xs pl-7 bg-[#14233c] border-[#1c2e4a] text-white placeholder:text-slate-500"
@@ -138,11 +138,11 @@ export default function KanbanPage() {
 
       {/* Kanban */}
       <div className="flex-1 min-h-0 mt-3 overflow-hidden">
-        <KanbanTarefas
+        <KanbanOportunidades
           atendimentos={atendimentosFiltrados}
           onAbrirChat={() => {}}
           onRefresh={fetchAtendimentos}
-          onTarefaAtualizada={() => setRefreshTrigger((t) => t + 1)}
+          onOportunidadeAtualizada={() => setRefreshTrigger((t) => t + 1)}
           busca={busca}
           dataInicio={dataInicio}
           dataFim={dataFim}
