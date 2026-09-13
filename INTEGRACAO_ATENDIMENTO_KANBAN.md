@@ -65,8 +65,23 @@ O sistema deve identificar quando o cliente envia:
 | Tipo | Formato | Indicadores |
 |------|---------|-------------|
 | **PDF** | `.pdf` | Nome contém "conta", "fatura", "energia", "elétrica" |
-| **Imagem** | `.jpg`, `.png`, `.webp` | OCR detecta: "UC", "kWh", "Consumo", "Vencimento", "Valor Total" |
+| **Imagem** | `.jpg`, `.png`, `.webp` | Google Vision API detecta: "UC", "kWh", "Consumo", "Vencimento", "Valor Total" |
 | **Áudio** | `.ogg`, `.mp3` | Transcrição menciona "conta de luz", "fatura" (futuro) |
+
+### 3.1.1 OCR — Google Vision API
+
+Usar **Google Cloud Vision API** para extrair texto de imagens/PDFs:
+
+```
+1. Mensagem com imagem/PDF chega no webhook
+2. Baixar arquivo via Evolution API (getBase64FromMediaMessage)
+3. Enviar para Google Vision API (detectDocumentText)
+4. Receber texto extraído
+5. Analisar com regex para identificar UC, consumo, etc.
+```
+
+**Custo:** ~$1.50 por 1000 imagens (primeiras 1000/mês grátis)
+**Precisão:** >95% em documentos de boa qualidade
 
 ### 3.2 Regras de detecção
 
@@ -97,15 +112,13 @@ const padroesConta = {
 Mensagem recebida no WhatsApp
   │
   ├─ É PDF ou imagem?
-  │   ├─ SIM → Analisar nome + conteúdo
-  │   │         ├─ Confiança alta (>80%) → Banner automático
-  │   │         ├─ Confiança média (50-80%) → Banner com aviso
-  │   │         └─ Confiança baixa (<50%) → Nada fazer
-  │   └─ NÃO → Fim
+  │   ├─ SIM → Baixar via Evolution API → Enviar pro Google Vision
+  │   │         ├─ Texto extraído com UC + kWh + vencimento → Banner automático (confiança alta)
+  │   │         ├─ Texto extraído com 1-2 indícios → Banner com aviso (confiança média)
+  │   │         └─ Nada relevante → Nada fazer
+  │   └─ NÃO → Verificar texto da mensagem
   │
-  └─ Analisar também:
-      - Mensagem de texto: "enviei a conta", "segue fatura"
-      - Resposta a pergunta do chatbot sobre conta
+  └─ Mensagem de texto: "enviei a conta", "segue fatura" → Banner com aviso
 ```
 
 ---
@@ -312,7 +325,17 @@ GET    /api/tarefas/resumo   → GET    /api/oportunidades/resumo
 7. Cria oportunidade na coluna "Recebeu a Conta"
 ```
 
-### 7.3 Progressão no KANBAN
+### 7.3 Reabrir oportunidade
+
+```
+1. Cliente desiste (oportunidade marcada como "perdida")
+2. Cliente volta dias depois com novo interesse
+3. Vendedor cria NOVA oportunidade
+4. Histórico da oportunidade anterior fica na página do CLIENTE
+   → NÃO perde informações do que já foi feito
+```
+
+### 7.4 Progressão no KANBAN
 
 ```
 📥 Recebeu a Conta
@@ -405,15 +428,17 @@ GET    /api/tarefas/resumo   → GET    /api/oportunidades/resumo
 
 ---
 
-## 10. Perguntas para Definir
+## 10. Definições (decidido)
 
-1. **OCR:** Usar API externa (Google Vision, AWS Textract) ou biblioteca local?
-2. **Confiança mínima:** Qual % para mostrar o banner automaticamente?
-3. **Múltiplos tipos:** Uma oportunidade pode ser GD + RECIEE ao mesmo tempo?
-4. **Reabrir:** Se cliente desistir e voltar, cria nova oportunidade ou reabre a antiga?
-5. **Permissões:** Vendedor pode mover qualquer oportunidade ou só as suas?
-6. **Notificação:** Quando mover de etapa, notifica alguém (gestor)?
-7. **Integração AXS:** Oportunidade AXS segue mesmo fluxo ou é diferente?
+| Pergunta | Resposta |
+|----------|----------|
+| **OCR** | Usar API externa (Google Vision ou similar) — mais preciso que biblioteca local |
+| **Confiança mínima** | Máximo viável — mostrar banner só quando tiver certeza quase absoluta |
+| **Múltiplos tipos** | GD e RECIEE ficam separados (uma oportunidade = um tipo). É raro ter os dois ao mesmo tempo |
+| **Reabrir oportunidade** | Criar NOVA oportunidade. Dados do histórico ficam na página do CLIENTE (não perde info) |
+| **Permissões** | Vendedor só move suas próprias oportunidades. Gestores veem todas |
+| **Notificação** | Não por enquanto |
+| **AXS** | AXS = ferramenta onde cadastra a proposta GD. Mesmo fluxo do GD, não precisa tratamento separado |
 
 ---
 
