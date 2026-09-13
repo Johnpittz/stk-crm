@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
     }
 
     const supabaseAdmin = getSupabaseAdmin();
+    const chatAtendimentoId = request.nextUrl.searchParams.get("atendimento_id");
 
     // Buscar perfil
     const { data: meuPerfil } = await supabaseAdmin
@@ -62,8 +63,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Query de mensagens (só se tiver chat aberto)
+    const mensagensQuery = chatAtendimentoId
+      ? supabaseAdmin
+          .from("atendimento_mensagens")
+          .select("*")
+          .eq("atendimento_id", chatAtendimentoId)
+          .order("created_at", { ascending: true })
+      : null;
+
     // Executar queries em paralelo
-    const [atendimentosResult, etiquetasResult, instancesResult, notificacoesResult, tarefasResult] = await Promise.allSettled([
+    const settled = await Promise.allSettled([
       // 1. Atendimentos
       query,
       
@@ -122,18 +132,22 @@ export async function GET(request: NextRequest) {
           return null;
         }
       })(),
+      
+      // 6. Mensagens do chat aberto (só se tiver atendimento_id)
+      mensagensQuery,
     ]);
 
     // Montar resposta
-    const atendimentos = atendimentosResult.status === "fulfilled" ? atendimentosResult.value?.data || [] : [];
-    const etiquetas = etiquetasResult.status === "fulfilled" ? etiquetasResult.value || {} : {};
-    const instancias = instancesResult.status === "fulfilled" ? instancesResult.value || [] : [];
-    const notificacoes = notificacoesResult.status === "fulfilled" ? notificacoesResult.value?.data || [] : [];
+    const atendimentos = settled[0].status === "fulfilled" ? (settled[0] as any).value?.data || [] : [];
+    const etiquetas = settled[1].status === "fulfilled" ? (settled[1] as any).value || {} : {};
+    const instancias = settled[2].status === "fulfilled" ? (settled[2] as any).value || [] : [];
+    const notificacoes = settled[3].status === "fulfilled" ? (settled[3] as any).value?.data || [] : [];
     const naoLidas = notificacoes.filter((n: any) => !n.lida).length;
-    const tarefasResumo = tarefasResult.status === "fulfilled" ? tarefasResult.value : null;
+    const tarefasResumo = settled[4].status === "fulfilled" ? (settled[4] as any).value : null;
+    const mensagensChat = settled[5]?.status === "fulfilled" ? (settled[5] as any).value?.data || [] : [];
 
     const elapsed = Date.now() - start;
-    console.log(`[PageData] Loaded in ${elapsed}ms: ${atendimentos.length} atendimentos, ${instancias.length} instâncias`);
+    console.log(`[PageData] Loaded in ${elapsed}ms: ${atendimentos.length} atendimentos, ${instancias.length} instâncias, ${mensagensChat.length} msgs`);
 
     return NextResponse.json({
       atendimentos,
@@ -142,6 +156,7 @@ export async function GET(request: NextRequest) {
       notificacoes,
       naoLidas,
       tarefasResumo,
+      mensagens: mensagensChat,
       perfil: {
         cargo: meuPerfil?.cargo,
         whatsapp_instance: whatsappInstance,

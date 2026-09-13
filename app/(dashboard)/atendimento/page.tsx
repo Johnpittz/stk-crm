@@ -55,6 +55,9 @@ export default function AtendimentoPage() {
   const [etiquetaFiltro, setEtiquetaFiltro] = useState<string | null>(null);
   const [atendimentosComEtiquetas, setAtendimentosComEtiquetas] = useState<Record<string, string[]>>({});
 
+  // Mensagens do chat aberto (carregadas junto com o polling)
+  const [mensagensChat, setMensagensChat] = useState<any[]>([]);
+
   // Dados do perfil vêm do context (server-side)
   const userCargo = userProfile?.cargo || "";
   const userInstance = userProfile?.whatsapp_instance || null;
@@ -80,7 +83,13 @@ export default function AtendimentoPage() {
     abortControllerRef.current = controller;
     
     try {
-      const res = await fetch("/api/atendimentos/page-data", {
+      // Incluir atendimento_id se tiver chat aberto
+      const chatId = atendimentoChat?.id || "";
+      const url = chatId 
+        ? `/api/atendimentos/page-data?atendimento_id=${chatId}`
+        : "/api/atendimentos/page-data";
+      
+      const res = await fetch(url, {
         signal: controller.signal,
       });
       if (!res.ok) return;
@@ -101,6 +110,9 @@ export default function AtendimentoPage() {
         const atualizado = newMap.get(atendimentoChat.id);
         if (atualizado) setAtendimentoChat(atualizado);
       }
+      
+      // Mensagens do chat (veio junto no response)
+      setMensagensChat(data.mensagens || []);
       
       // Etiquetas
       setAtendimentosComEtiquetas(data.etiquetas || {});
@@ -373,6 +385,7 @@ export default function AtendimentoPage() {
             onFechar={() => setAtendimentoChat(null)}
             instancia={instanciaSelecionada !== "todas" ? instanciaSelecionada : undefined}
             instancias={instancias}
+            mensagensExternas={mensagensChat}
           />
         </div>
 

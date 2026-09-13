@@ -54,6 +54,8 @@ interface ChatInlineProps {
   instancia?: string;
   /** Lista de instâncias disponíveis (para info no header) */
   instancias?: InstanciaWhatsApp[];
+  /** Mensagens vindas do polling externo (page-data) */
+  mensagensExternas?: any[];
 }
 
 interface Vendedor {
@@ -62,7 +64,7 @@ interface Vendedor {
   cargo: string;
 }
 
-export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, onFechar, instancia, instancias }: ChatInlineProps) {
+export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, onFechar, instancia, instancias, mensagensExternas }: ChatInlineProps) {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [novaMensagem, setNovaMensagem] = useState("");
   const [loading, setLoading] = useState(false);
@@ -87,8 +89,6 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
   // Encontrar info da instância ativa para exibir no header
   const instanciaInfo = instancias?.find(i => i.name === instanciaAtivo);
 
-  const messagesCountRef = useRef(0);
-  const lastSyncRef = useRef(0);
   const fetchAbortRef = useRef<AbortController | null>(null);
 
   const fetchMensagens = useCallback(async (silent = false) => {
@@ -241,18 +241,6 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
     }
   }, [atendimento, fetchMensagens]);
 
-  useEffect(() => {
-    if (atendimento) {
-      fetchMensagens();
-      marcarComoLido();
-      // Delay sync to avoid cold start cascade - sync after page is loaded
-      const timer = setTimeout(() => {
-        syncFromEvolution();
-      }, 20000); // 20s delay
-      return () => clearTimeout(timer);
-    }
-  }, [atendimento, fetchMensagens, marcarComoLido, syncFromEvolution]);
-
   // Scroll to bottom quando mensagens mudam (só se estiver no fundo)
   const isInitialLoadRef = useRef(true);
   useEffect(() => {
@@ -278,31 +266,51 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
     isInitialLoadRef.current = true;
   }, [atendimento?.id]);
 
-  // Polling: refresh a cada 15s em background
+  // Sincronizar mensagens externas (vindas do polling único da página)
   useEffect(() => {
-    if (!atendimento) return;
-
-    messagesCountRef.current = mensagens.length;
-
-    let emAndamento = false;
-    const interval = setInterval(async () => {
-      if (emAndamento) return;
-      emAndamento = true;
-      try {
-        await fetchMensagens(true);
-        // Sync do celular a cada 60s
-        const agora = Date.now();
-        if (agora - lastSyncRef.current > 60000) {
-          lastSyncRef.current = agora;
-          syncFromEvolution();
-        }
-      } finally {
-        emAndamento = false;
+    if (mensagensExternas && mensagensExternas.length > 0) {
+      const msgs = mensagensExternas.map((m: any) => ({
+        id: m.id,
+        remetente: m.remetente,
+        conteudo: m.conteudo,
+        created_at: m.created_at,
+        enviada_por: m.enviada_por,
+        url_audio: m.url_audio,
+        media_url: m.media_url,
+        media_type: m.media_type,
+        file_name: m.file_name,
+        whatsapp_message_id: m.whatsapp_message_id,
+        media_key: m.media_key,
+      }));
+      setMensagens(msgs);
+      setLoading(false);
+    } else if (mensagensExternas && mensagensExternas.length === 0 && atendimento) {
+      // Se não há mensagens na tabela mas o atendimento tem ultima_mensagem
+      if (atendimento.ultima_mensagem) {
+        setMensagens([{
+          id: "virtual-" + atendimento.id,
+          remetente: "cliente",
+          conteudo: atendimento.ultima_mensagem,
+          created_at: atendimento.ultima_mensagem_data || atendimento.created_at || new Date().toISOString(),
+          enviada_por: null,
+        }]);
+      } else {
+        setMensagens([]);
       }
-    }, 15000);
+      setLoading(false);
+    }
+  }, [mensagensExternas, atendimento]);
 
-    return () => clearInterval(interval);
-  }, [atendimento, fetchMensagens, mensagens.length, syncFromEvolution]);
+  // Sync inicial com Evolution API ao abrir conversa
+  useEffect(() => {
+    if (atendimento) {
+      marcarComoLido();
+      const timer = setTimeout(() => {
+        syncFromEvolution();
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [atendimento?.id, marcarComoLido, syncFromEvolution]);
 
   const enviarMensagem = async (e: React.FormEvent) => {
     e.preventDefault();
