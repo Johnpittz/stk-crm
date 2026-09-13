@@ -227,7 +227,18 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
   }, [mensagens]);
 
   // Sincronizar mensagens externas (vindas do polling único da página)
+  // Detecta troca de conversa e limpa mensagens imediatamente para evitar
+  // que mensagens antigas consumam a flag de scroll
+  const prevAtendimentoIdRef = useRef<string | null>(null);
   useEffect(() => {
+    // Detectar troca de conversa — limpar mensagens e aguardar dados novos
+    if (atendimento?.id !== prevAtendimentoIdRef.current) {
+      prevAtendimentoIdRef.current = atendimento?.id || null;
+      setMensagens([]);
+      setLoading(true);
+      return; // Não processar mensagensExternas desatualizadas
+    }
+
     if (mensagensExternas && mensagensExternas.length > 0) {
       const msgs = mensagensExternas.map((m: any) => ({
         id: m.id,
