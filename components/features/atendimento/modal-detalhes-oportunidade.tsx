@@ -98,7 +98,7 @@ const opcoesObservacao: Record<string, string[]> = {
 };
 
 interface ModalDetalhesOportunidadeProps {
-  tarefa: OportunidadeCompleta | null;
+  oportunidade: OportunidadeCompleta | null;
   aberto: boolean;
   onClose: () => void;
   onAtualizar: () => void;
@@ -106,7 +106,7 @@ interface ModalDetalhesOportunidadeProps {
 }
 
 export function ModalDetalhesOportunidade({
-  tarefa,
+  oportunidade,
   aberto,
   onClose,
   onAtualizar,
@@ -132,25 +132,25 @@ export function ModalDetalhesOportunidade({
 
   // Quando abre no modo conclusão, inicializa form
   useEffect(() => {
-    if (aberto && iniciarConcluindo && tarefa && tarefa.etapa !== "concluida") {
+    if (aberto && iniciarConcluindo && oportunidade && oportunidade.etapa !== "concluida") {
       setConcluindo(true);
       setEditando(false);
       setForm({
-        titulo: tarefa.titulo,
-        descricao: tarefa.descricao || "",
-        prioridade: tarefa.prioridade,
+        titulo: oportunidade.titulo,
+        descricao: oportunidade.descricao || "",
+        prioridade: oportunidade.prioridade,
         valorVenda: "",
       });
       setResultadoForm({ resultado: "", observacao: "", valorVenda: "" });
-    } else if (aberto && tarefa && !iniciarConcluindo) {
-      // Inicializa form com dados da tarefa
-      const valorFormatado = tarefa.valor_venda
-        ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(tarefa.valor_venda)
+    } else if (aberto && oportunidade && !iniciarConcluindo) {
+      // Inicializa form com dados da oportunidade
+      const valorFormatado = oportunidade.valor_venda
+        ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(oportunidade.valor_venda)
         : "";
       setForm({
-        titulo: tarefa.titulo,
-        descricao: tarefa.descricao || "",
-        prioridade: tarefa.prioridade,
+        titulo: oportunidade.titulo,
+        descricao: oportunidade.descricao || "",
+        prioridade: oportunidade.prioridade,
         valorVenda: valorFormatado,
       });
     } else if (!aberto) {
@@ -158,23 +158,23 @@ export function ModalDetalhesOportunidade({
       setEditando(false);
       setResultadoForm({ resultado: "", observacao: "", valorVenda: "" });
     }
-  }, [aberto, iniciarConcluindo, tarefa]);
+  }, [aberto, iniciarConcluindo, oportunidade]);
 
   const handleSalvarEdicao = async () => {
-    if (!tarefa) return;
+    if (!oportunidade) return;
     setSalvando(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
       const body: any = {
-        id: tarefa.id,
+        id: oportunidade.id,
         titulo: form.titulo,
         descricao: form.descricao,
         prioridade: form.prioridade,
       };
 
-      if (tarefa.resultado === "sucesso" && form.valorVenda) {
+      if (oportunidade.resultado === "sucesso" && form.valorVenda) {
         body.valor_venda = parseFloat(form.valorVenda.replace(/\./g, "").replace(",", "."));
       }
 
@@ -200,14 +200,14 @@ export function ModalDetalhesOportunidade({
   };
 
   const handleMover = async (coluna: string) => {
-    if (!tarefa) return;
+    if (!oportunidade) return;
 
     if (coluna === "concluida") {
       setConcluindo(true);
       setForm({
-        titulo: tarefa.titulo,
-        descricao: tarefa.descricao || "",
-        prioridade: tarefa.prioridade,
+        titulo: oportunidade.titulo,
+        descricao: oportunidade.descricao || "",
+        prioridade: oportunidade.prioridade,
         valorVenda: "",
       });
       setResultadoForm({ resultado: "", observacao: "", valorVenda: "" });
@@ -225,7 +225,7 @@ export function ModalDetalhesOportunidade({
           Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-          id: tarefa.id,
+          id: oportunidade.id,
           etapa: coluna,
           status: coluna === "em_andamento" ? "em_andamento" : "pendente",
         }),
@@ -238,7 +238,7 @@ export function ModalDetalhesOportunidade({
   };
 
   const handleConfirmarConclusao = async () => {
-    if (!tarefa) return;
+    if (!oportunidade) return;
     if (!resultadoForm.resultado) return;
     if (!resultadoForm.observacao) return;
     if (resultadoForm.resultado === "sucesso" && !resultadoForm.valorVenda) return;
@@ -249,7 +249,7 @@ export function ModalDetalhesOportunidade({
       if (!session) return;
 
       const body: any = {
-        id: tarefa.id,
+        id: oportunidade.id,
         etapa: "concluida",
         status: "concluida",
         titulo: form.titulo,
@@ -282,14 +282,14 @@ export function ModalDetalhesOportunidade({
   };
 
   const handleExcluir = async () => {
-    if (!tarefa) return;
-    if (!confirm("Excluir esta tarefa?")) return;
+    if (!oportunidade) return;
+    if (!confirm("Excluir esta oportunidade?")) return;
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const res = await fetch(`/api/tarefas?id=${tarefa.id}`, {
+      const res = await fetch(`/api/oportunidades?id=${oportunidade.id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
@@ -308,10 +308,10 @@ export function ModalDetalhesOportunidade({
     return new Date(data).toLocaleDateString("pt-BR");
   };
 
-  if (!tarefa) return null;
+  if (!oportunidade) return null;
 
-  const isConcluida = tarefa.etapa === "concluida";
-  const isAndamento = tarefa.etapa === "em_andamento";
+  const isConcluida = oportunidade.etapa === "concluida";
+  const isAndamento = oportunidade.etapa === "em_andamento";
   const podeEditar = isConcluida;
   const podeConcluir = isAndamento;
 
@@ -320,7 +320,7 @@ export function ModalDetalhesOportunidade({
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-2">
-            <span className="text-xl">{iconesTarefa[tarefa.tipo] || "📋"}</span>
+            <span className="text-xl">{iconesTarefa[oportunidade.tipo] || "📋"}</span>
             {(editando || concluindo) ? (
               <Input
                 value={form.titulo}
@@ -328,7 +328,7 @@ export function ModalDetalhesOportunidade({
                 className="font-semibold text-lg h-9"
               />
             ) : (
-              <DialogTitle className="text-lg">{tarefa.titulo}</DialogTitle>
+              <DialogTitle className="text-lg">{oportunidade.titulo}</DialogTitle>
             )}
           </div>
         </DialogHeader>
@@ -336,11 +336,11 @@ export function ModalDetalhesOportunidade({
         <div className="space-y-4">
           {/* Metadados */}
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary" className={cn(coresPrioridade[tarefa.prioridade] || coresPrioridade.media)}>
-              {tarefa.prioridade === "urgente" && <AlertCircle className="h-3 w-3 mr-1" />}
-              {(editando || concluindo) ? form.prioridade : tarefa.prioridade}
+            <Badge variant="secondary" className={cn(coresPrioridade[oportunidade.prioridade] || coresPrioridade.media)}>
+              {oportunidade.prioridade === "urgente" && <AlertCircle className="h-3 w-3 mr-1" />}
+              {(editando || concluindo) ? form.prioridade : oportunidade.prioridade}
             </Badge>
-            <Badge variant="outline" className="text-xs">{labelsTipo[tarefa.tipo] || tarefa.tipo}</Badge>
+            <Badge variant="outline" className="text-xs">{labelsTipo[oportunidade.tipo] || oportunidade.tipo}</Badge>
             <Badge variant="secondary" className={cn(
               isConcluida ? "bg-emerald-100 text-emerald-700" : isAndamento ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-700"
             )}>
@@ -349,10 +349,10 @@ export function ModalDetalhesOportunidade({
           </div>
 
           {/* Cliente */}
-          {(tarefa.clientes?.nome_razao_social || tarefa.cliente_nome) && (
+          {(oportunidade.clientes?.nome_razao_social || oportunidade.cliente_nome) && (
             <div className="text-sm">
               <span className="text-slate-500">Cliente:</span>{" "}
-              <span className="font-medium">{tarefa.clientes?.nome_razao_social || tarefa.cliente_nome}</span>
+              <span className="font-medium">{oportunidade.clientes?.nome_razao_social || oportunidade.cliente_nome}</span>
             </div>
           )}
 
@@ -360,11 +360,11 @@ export function ModalDetalhesOportunidade({
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
               <span className="text-slate-500 flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> Início</span>
-              <span className="font-medium">{formatData(tarefa.data_inicio)}</span>
+              <span className="font-medium">{formatData(oportunidade.data_inicio)}</span>
             </div>
             <div>
               <span className="text-slate-500 flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> Prazo</span>
-              <span className="font-medium">{formatData(tarefa.data_fim)}</span>
+              <span className="font-medium">{formatData(oportunidade.data_fim)}</span>
             </div>
           </div>
 
@@ -379,27 +379,27 @@ export function ModalDetalhesOportunidade({
                 className="mt-1 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             ) : (
-              <p className="text-sm text-slate-700 mt-1 whitespace-pre-wrap">{tarefa.descricao || "Sem descrição"}</p>
+              <p className="text-sm text-slate-700 mt-1 whitespace-pre-wrap">{oportunidade.descricao || "Sem descrição"}</p>
             )}
           </div>
 
           {/* Resultado (só mostra se tiver sido concluída com resultado) */}
-          {tarefa.resultado && !concluindo && (
+          {oportunidade.resultado && !concluindo && (
             <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
               <Label className="text-xs text-slate-500">Resultado da execução</Label>
               <div className="flex items-center gap-2 mt-1 mb-2">
-                <Badge variant="secondary" className={cn(labelsResultado[tarefa.resultado]?.cor || "bg-slate-100 text-slate-700")}>
-                  {labelsResultado[tarefa.resultado]?.label || tarefa.resultado}
+                <Badge variant="secondary" className={cn(labelsResultado[oportunidade.resultado]?.cor || "bg-slate-100 text-slate-700")}>
+                  {labelsResultado[oportunidade.resultado]?.label || oportunidade.resultado}
                 </Badge>
               </div>
-              {tarefa.observacao_resultado && (
-                <p className="text-sm text-slate-700 whitespace-pre-wrap">{tarefa.observacao_resultado}</p>
+              {oportunidade.observacao_resultado && (
+                <p className="text-sm text-slate-700 whitespace-pre-wrap">{oportunidade.observacao_resultado}</p>
               )}
-              {tarefa.resultado === "sucesso" && tarefa.valor_venda && (
+              {oportunidade.resultado === "sucesso" && oportunidade.valor_venda && (
                 <div className="mt-2 pt-2 border-t border-slate-200">
                   <span className="text-xs text-slate-500">Valor da Venda:</span>
                   <span className="ml-2 text-sm font-bold text-emerald-700">
-                    {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(tarefa.valor_venda)}
+                    {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(oportunidade.valor_venda)}
                   </span>
                 </div>
               )}
@@ -407,7 +407,7 @@ export function ModalDetalhesOportunidade({
           )}
 
           {/* Campo valor editável no modo edição (concluída com sucesso) */}
-          {editando && tarefa.resultado === "sucesso" && (
+          {editando && oportunidade.resultado === "sucesso" && (
             <div>
               <Label className="text-xs">Valor da Venda (R$)</Label>
               <Input
@@ -432,7 +432,7 @@ export function ModalDetalhesOportunidade({
             <div className="space-y-3 border-t pt-3 bg-slate-50 -mx-6 px-6 pb-3">
               <h4 className="font-semibold text-sm text-slate-800 flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                Registrar resultado da tarefa
+                Registrar resultado da oportunidade
               </h4>
 
               {/* Prioridade */}
@@ -544,9 +544,9 @@ export function ModalDetalhesOportunidade({
                   <Button size="sm" variant="outline" onClick={() => {
                     setEditando(false);
                     // Restaura form original
-                    const valorFormatado = tarefa.valor_venda
-                      ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(tarefa.valor_venda) : "";
-                    setForm({ titulo: tarefa.titulo, descricao: tarefa.descricao || "", prioridade: tarefa.prioridade, valorVenda: valorFormatado });
+                    const valorFormatado = oportunidade.valor_venda
+                      ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(oportunidade.valor_venda) : "";
+                    setForm({ titulo: oportunidade.titulo, descricao: oportunidade.descricao || "", prioridade: oportunidade.prioridade, valorVenda: valorFormatado });
                   }}>
                     <X className="h-4 w-4 mr-1" />
                     Cancelar
