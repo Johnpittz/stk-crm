@@ -89,53 +89,6 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
   // Encontrar info da instância ativa para exibir no header
   const instanciaInfo = instancias?.find(i => i.name === instanciaAtivo);
 
-  const fetchAbortRef = useRef<AbortController | null>(null);
-
-  const fetchMensagens = useCallback(async (silent = false) => {
-    if (!atendimento) return;
-    if (!silent) setLoading(true);
-    
-    // Cancela request anterior
-    if (fetchAbortRef.current) {
-      fetchAbortRef.current.abort();
-    }
-    const controller = new AbortController();
-    fetchAbortRef.current = controller;
-    
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const res = await fetch(`/api/atendimentos/mensagens?atendimento_id=${atendimento.id}`, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        signal: controller.signal,
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        let msgs = data.mensagens || [];
-        
-        // Se não há mensagens na tabela mas o atendimento tem ultima_mensagem (atendimentos antigos)
-        if (msgs.length === 0 && atendimento.ultima_mensagem) {
-          msgs = [{
-            id: "virtual-" + atendimento.id,
-            remetente: "cliente",
-            conteudo: atendimento.ultima_mensagem,
-            created_at: atendimento.ultima_mensagem_data || atendimento.created_at || new Date().toISOString(),
-            enviada_por: null,
-          }];
-        }
-        
-        setMensagens(msgs);
-      }
-    } catch (err: any) {
-      if (err.name !== "AbortError") {
-        console.error(err);
-      }
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  }, [atendimento, supabase]);
 
   // Busca vendedores para transferência
   const fetchVendedores = useCallback(async () => {
@@ -235,11 +188,11 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
         body: JSON.stringify({ telefone: atendimento.telefone_cliente }),
       });
       // Recarregar mensagens após sync
-      await fetchMensagens(true);
+      // Mensagens serão atualizadas pelo polling da página
     } catch (err) {
       // Silencioso - sync é best-effort
     }
-  }, [atendimento, fetchMensagens]);
+  }, [atendimento]);
 
   // Scroll to bottom quando mensagens mudam (só se estiver no fundo)
   const isInitialLoadRef = useRef(true);
@@ -337,7 +290,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
 
       if (res.ok) {
         setNovaMensagem("");
-        fetchMensagens();
+        onMensagemEnviada?.();
         onMensagemEnviada?.();
       }
     } catch (err) {
@@ -403,7 +356,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
               }),
             });
           }
-          fetchMensagens();
+          onMensagemEnviada?.();
           onMensagemEnviada?.();
         }
         setEnviando(false);
@@ -474,7 +427,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
                     }),
                   });
                 }
-                fetchMensagens();
+                onMensagemEnviada?.();
                 onMensagemEnviada?.();
               }
             } catch (err) {

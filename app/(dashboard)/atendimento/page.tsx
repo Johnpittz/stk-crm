@@ -69,47 +69,39 @@ export default function AtendimentoPage() {
   // Ref para controlar se deve atualizar a lista durante polling
   const isChatOpenRef = useRef(false);
   const atendimentosMapRef = useRef<Map<string, Atendimento>>(new Map());
-  const abortControllerRef = useRef<AbortController | null>(null);
   const chatIdRef = useRef<string>("");
+  const mountedRef = useRef(true);
 
   // Manter ref do chatId atualizado
   useEffect(() => {
     chatIdRef.current = atendimentoChat?.id || "";
-    // Busca imediata ao abrir/fechar chat
-    if (atendimentoChat?.id) {
-      fetchPageData(true);
-    }
-  }, [atendimentoChat?.id, fetchPageData]);
+  }, [atendimentoChat?.id]);
 
-  // OTIMIZAÇÃO: Usar endpoint unificado para carregar tudo de uma vez
+  // Cleanup ref
+  useEffect(() => {
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  // Buscar dados — SEM AbortController, simples e direto
   const fetchPageData = useCallback(async (silent = false) => {
     if (!silent) setLoadingAtendimentos(true);
-    
-    // Safety: garante que loading reseta mesmo se algo der errado
-    const safetyTimeout = !silent ? setTimeout(() => setLoadingAtendimentos(false), 10000) : null;
-    
-    // Cancela request anterior se ainda estiver pendente
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-    
     try {
-      // Incluir atendimento_id se tiver chat aberto
       const chatId = chatIdRef.current;
       const url = chatId 
         ? `/api/atendimentos/page-data?atendimento_id=${chatId}`
         : "/api/atendimentos/page-data";
       
-      const res = await fetch(url, {
-        signal: controller.signal,
-      });
-      if (!res.ok) return;
+      const res = await fetch(url);
+      if (!res.ok) {
+        console.error("Page-data error:", res.status);
+        return;
+      }
       
       const data = await res.json();
       
-      // Atendimentos — SEMPRE usa os dados novos do servidor
+      if (!mountedRef.current) return;
+      
+      // Atendimentos
       const novosAtendimentos = data.atendimentos || [];
       const newMap = new Map<string, Atendimento>();
       for (const a of novosAtendimentos) {
@@ -124,7 +116,7 @@ export default function AtendimentoPage() {
         if (atualizado) setAtendimentoChat(atualizado);
       }
       
-      // Mensagens do chat (veio junto no response)
+      // Mensagens do chat
       setMensagensChat(data.mensagens || []);
       
       // Etiquetas
@@ -134,20 +126,22 @@ export default function AtendimentoPage() {
       if (data.instancias && data.instancias.length > 0) {
         setInstancias(data.instancias);
       }
-    } catch (err: any) {
-      if (err.name !== "AbortError") {
-        console.error("Erro ao buscar dados:", err);
-      }
+    } catch (err) {
+      console.error("Erro ao buscar dados:", err);
     } finally {
-      if (safetyTimeout) clearTimeout(safetyTimeout);
-      if (!silent) setLoadingAtendimentos(false);
+      if (mountedRef.current) setLoadingAtendimentos(false);
     }
-  }, []); // Sem dependências!
+  }, []);
 
   // Carregar dados na montagem
   useEffect(() => {
     fetchPageData();
   }, [fetchPageData]);
+
+  // Buscar imediato ao abrir/fechar chat
+  useEffect(() => {
+    fetchPageData(true);
+  }, [atendimentoChat?.id, fetchPageData]);
 
   // Filtrar atendimentos com useMemo para estabilidade
   const atendimentosFiltrados = useMemo(() => {
@@ -192,15 +186,8 @@ export default function AtendimentoPage() {
 
   // Polling: atualiza lista a cada 15s em background (sem loading visual)
   useEffect(() => {
-    let emAndamento = false;
-    const interval = setInterval(async () => {
-      if (emAndamento) return; // Evita requests sobrepostos
-      emAndamento = true;
-      try {
-        await fetchPageData(true); // silent = true
-      } finally {
-        emAndamento = false;
-      }
+    const interval = setInterval(() => {
+      fetchPageData(true);
     }, 15000);
     return () => clearInterval(interval);
   }, [fetchPageData]);
