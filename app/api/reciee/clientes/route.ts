@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabase() {
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!);
+}
 
 export async function GET() {
   try {
+    const supabase = getSupabase();
     const { data: clientes, error } = await supabase
       .from("clientes_reciee")
       .select("*")
@@ -43,6 +44,7 @@ export async function POST(request: Request) {
       grupo 
     } = body;
 
+    const supabase = getSupabase();
     const { data: cliente, error } = await supabase
       .from("clientes_reciee")
       .insert({

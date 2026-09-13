@@ -4,10 +4,10 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import * as fs from "fs";
 import * as path from "path";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabase() {
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!);
+}
 
 const DARK = rgb(15 / 255, 29 / 255, 50 / 255);
 const WHITE = rgb(1, 1, 1);
@@ -34,6 +34,7 @@ export async function POST(
     const { clienteId } = params;
     if (!clienteId) return NextResponse.json({ error: "clienteId required" }, { status: 400 });
 
+    const supabase = getSupabase();
     const { data: cliente } = await supabase.from("clientes_reciee").select("*").eq("id", clienteId).single();
     if (!cliente) return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 });
 

@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabase() {
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!);
+}
 
 export async function POST(
   _request: NextRequest,
@@ -22,6 +22,7 @@ export async function POST(
     }
 
     // Buscar cliente
+    const supabase = getSupabase();
     const { data: cliente, error: clienteError } = await supabase
       .from("clientes_reciee")
       .select("*")

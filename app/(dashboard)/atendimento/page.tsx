@@ -366,12 +366,13 @@ export default function AtendimentoPage() {
 
         {/* PAINEL DIREITO: Info do contato — só aparece quando conversa selecionada */}
         {painelContatoAberto && atendimentoChat && (
-          <div className="w-[320px] min-w-[280px]">
+          <div className="w-[480px] min-w-[400px]">
             <PainelContato
               atendimento={atendimentoChat}
               onFechar={() => setAtendimentoChat(null)}
               onMarcarConcluido={handleFecharAtendimento}
               onEtiquetaChange={fetchPageData}
+              onClienteCriado={fetchPageData}
             />
           </div>
         )}

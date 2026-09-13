@@ -1,8 +1,8 @@
 # 📋 PROGRESSO - STK CRM
 
-> Última atualização: 11/09/2026
-> Repositório: github.com/Johnpittz/stk-crm
-> Deploy: stk-crm-amber.vercel.app
+> Última atualização: 12/09/2026
+> Repositório: github.com/Johnpittz/stk-crm (público)
+> Deploy: stk-crm-amber-delta.vercel.app
 > Stack: Next.js 14 + Supabase + Vercel (free tier)
 
 ---
@@ -16,11 +16,36 @@ O STK CRM é um sistema de gestão de relacionamento com cliente composto por **
 | **CRM** | Atendimento, Kanban, Dashboard, Clientes | `/`, `/kanban`, `/dashboard`, `/clientes` |
 | **Marketing** | Chatbot, Campanhas, Disparos, Leads, Relatórios, Promoções | `/chatbot`, `/marketing/*` |
 | **Pós-Vendas** | Follow-up, Satisfação, Suporte, Acompanhamento | `/pos-vendas/*` |
-| **Admin** | Visão completa + RECIEE (análise energética) | Todos + `/reciee` |
+| **Admin** | Visão completa + RECIEE (análise energética) + AXS | Todos + `/reciee` |
 
-- **Admin** visualiza todos os perfis + módulo RECIEE
+- **Admin** visualiza todos os perfis + módulo RECIEE + AXS Energia
 - **Configurações** e **Ajuda** ficam em comum em todos os perfis
 - Sidebar dinâmica baseada no campo `perfil_principal` na tabela `profiles`
+
+---
+
+## 📊 Visão Geral das Instâncias WhatsApp
+
+| Instância | Número | Status | Webhook |
+|-----------|--------|--------|---------|
+| ROMA_2 | 556299190117 | ✅ Conectada | Vercel |
+| STK-1 | 6295094949 | ✅ Conectada | Vercel |
+| STK-2 | 62999961553 | ✅ Conectada | Vercel |
+
+- Todas apontam para `https://stk-crm-amber-delta.vercel.app/api/webhooks/whatsapp`
+- Evolution API key global: `66D55A2C-3356-4F4E-809C-9ACB9D237D50`
+
+---
+
+## 🤖 Infraestrutura VPS (2.25.192.248)
+
+| Serviço | Porta | Gerenciamento | Descrição |
+|---------|-------|---------------|-----------|
+| Evolution API | 8080 | Docker | WhatsApp API |
+| Webhook Proxy | 9998 | Supervisor | Proxy intermediário (não mais usado para webhooks) |
+| Disparo Worker | (interno) | Supervisor | Worker Python de envio em massa |
+| AXS API Server | 9999 | Supervisor | Servidor Playwright para automação AXS |
+| code-server | 8443 | nginx proxy (8080/vscode/) | IDE remota |
 
 ---
 
@@ -107,13 +132,71 @@ O STK CRM é um sistema de gestão de relacionamento com cliente composto por **
 
 ### Fase 10 - Correções e Realinhamento
 - [x] Chatbot movido do perfil CRM para Marketing na sidebar
-- [x] Tabela `bulk_campaigns` — insert alinhado com schema real (`name`, `message`, `numbers`)
+- [x] Tabela `bulk_campaigns` — insert alinhado com schema real
 - [x] Interface `Disparo` atualizada para colunas reais da tabela
-- [x] Instância do WhatsApp salva no array `numbers` (formato: `["INSTANCIA", "numero1", "numero2"]`)
-- [x] Bulk send extrai instância do array antes de enviar
-- [x] Status do disparo traduzido para português (completed→Concluído, running→Enviando, failed→Falhou)
+- [x] Status do disparo traduzido para português
 - [x] Auto-refresh a cada 5s quando disparo está "Enviando"
-- [x] Tabelas `bulk_campanhas_contatos` — SQL pronto (enviado via .txt para executar no Supabase)
+
+### Fase 11 - Chatbot: Correções e Gatilho (06/09/2026)
+- [x] Bug fix: `.single()` → `.maybeSingle()`
+- [x] Bug fix: chatbot não disparava em novos atendimentos
+- [x] Bug fix: busca de fluxo sem filtro de instância
+- [x] Campo `gatilho` no `chatbot_flows`: `'todos'` | `'disparo'`
+- [x] Tabela `chatbot_gatilho_numeros`
+- [x] Detecção de palavras de parada
+- [x] Bloqueio de reativação: sessão concluída/encaminhada não reativa por 24h
+
+### Fase 12 - Worker de Disparo + Múltiplas Instâncias (11/09/2026)
+- [x] Worker Python (`/root/disparo_worker.py`) rodando via Supervisor
+- [x] Polling a cada 5s no Supabase por campanhas `status=running`
+- [x] Envio via Evolution API local (sem timeout do Vercel, sem cold start)
+- [x] Processamento de fluxo de mensagens (texto + imagem, com delay configurável)
+- [x] Substituição de variáveis: `{{nome}}`, `{{telefone}}`
+- [x] Suporte a imagem via base64
+- [x] Endpoint Vercel simplificado: apenas marca campanha como `running`
+- [x] ROMA_2, STK-1, STK-2 todas conectadas
+- [x] Campos de timing: `delay_inicial`, `intervalo`, `intervalo_passos`
+- [x] Upload de imagem no disparo
+- [x] Conta admin: `admstk@stk.com` / `stk123456`
+
+### Fase 13 - Segurança + Webhook + LID Resolver (11/09/2026)
+- [x] Validação `X-Webhook-Secret` em todas as requisições
+- [x] Rate limiting: 180 req/min global, 660 req/min por endpoint
+- [x] LID Resolver: `lib/lid-resolver.ts`
+- [x] Tabela `lid_phone_map`
+- [x] Repositório tornado público (Vercel Hobby)
+- [x] Token Vercel salvo em `~/.vercel-token.env`
+
+### Fase 14 - Mídia + Timestamp + Descriptografia (11/09/2026)
+- [x] Endpoint `/api/media-download` — descriptografa áudio/imagem do WhatsApp
+- [x] Player de áudio funcional no chat
+- [x] Mensagens salvas com `messageTimestamp` do WhatsApp
+- [x] Evolution API key atualizada para global (`66D55A2C-...`)
+
+### Fase 15 - Integração AXS Energia (12/09/2026)
+- [x] Migração `077_clientes_axs_columns.sql` — colunas AXS na tabela `clientes`
+- [x] Migração `078_axs_propostas_table.sql` — tabela `axs_propostas`
+- [x] Playwright automation (`/root/axs_api/axs_send.py` v15)
+- [x] Servidor AXS na VPS (`/root/axs_api/server.py`, porta 9999)
+- [x] Proxy nginx `/axs-api/` → porta 9999
+- [x] Endpoint `/api/axs/send` no CRM → VPS AXS server
+- [x] Página réplica do formulário AXS (`/clientes/[id]/axs-novo`)
+- [x] Todos os 10 passos mapeados (PJ e PF)
+- [x] Captura de erros via popups e keywords no body
+- [x] Teste completo: proposta criada com UC `9.892.372.281.012-63`
+
+### Fase 16 - Edição de Clientes (12/09/2026)
+- [x] Botão "Editar" no detalhe do cliente
+- [x] Página de edição (`/clientes/[id]/editar`)
+- [x] GET/PUT/DELETE usando Supabase client direto (sem API route)
+- [x] Campos: nome, telefone, email, CPF/CNPJ, cidade, estado, etc.
+
+### Fase 17 - View Deduplicada (12/09/2026)
+- [x] View `v_unified_clientes` reescrita com deduplicação por telefone
+- [x] `bool_or()` para agregação de booleanos (não `MAX()`)
+- [x] Colunas verificadas com information_schema
+- [x] Prioridade: cadastro > RECIEE > chatbot > atendimento
+- [x] Cada pessoa aparece uma única vez na listagem
 
 ---
 
@@ -123,30 +206,34 @@ O STK CRM é um sistema de gestão de relacionamento com cliente composto por **
 | Tabela | Descrição |
 |--------|-----------|
 | `profiles` | Usuários do sistema (com `perfil_principal`) |
+| `clientes` | Clientes do CRM (~50 colunas incluindo AXS) |
 | `atendimentos` | Conversas WhatsApp |
 | `atendimento_mensagens` | Mensagens das conversas |
 | `tarefas` | Tarefas do Kanban |
 | `notificacoes` | Notificações do sistema |
+| `lid_phone_map` | Mapeamento LID ↔ telefone |
 
 ### Tabelas Marketing + Pós-Vendas
 | Tabela | Descrição |
 |--------|-----------|
 | `campanhas` | Campanhas de marketing (hub) |
-| `bulk_campaigns` | Disparos vinculados a campanhas |
+| `bulk_campaigns` | Disparos vinculados a campanhas (com `fluxo_mensagens`, `intervalo_passos`, `delay_inicial`, `imagem_url`) |
 | `leads_marketing` | Leads de marketing |
 | `promocoes_marketing` | Cupons e promoções |
 | `chamados_suporte` | Chamados de suporte |
 | `pedidos_acompanhamento` | Acompanhamento de pedidos |
 | `followups` | Follow-ups pós-venda |
 | `avaliacoes_satisfacao` | Pesquisas de satisfação/NPS |
+| `disparo_logs` | Logs de disparo em tempo real |
 
 ### Tabelas Chatbot
 | Tabela | Descrição |
 |--------|-----------|
-| `chatbot_flows` | Fluxos de conversação (nome, instance, mensagem_inicial, horário comercial) |
+| `chatbot_flows` | Fluxos de conversação (nome, instance, gatilho, mensagem_inicial) |
 | `chatbot_flow_steps` | Etapas dos fluxos (pergunta, opcoes, redirecionamento, scoring) |
 | `chatbot_sessions` | Sessões por telefone (step atual, respostas, classificação A/B/C/D) |
 | `chatbot_messages` | Histórico de mensagens (bot/cliente/ia) |
+| `chatbot_gatilho_numeros` | Números que receberam disparo (gatilho) |
 
 ### Tabelas RECIEE
 | Tabela | Descrição |
@@ -154,6 +241,28 @@ O STK CRM é um sistema de gestão de relacionamento com cliente composto por **
 | `clientes_reciee` | Clientes RECIEE (nome, CPF/CNPJ, UC, estado, distribuidora, grupo A/B) |
 | `faturas_reciee` | Faturas de energia (competência, consumo, tarifa, ICMS, PIS, COFINS, bandeira, CIP) |
 | `analises_reciee` | Análises de cobranças indevidas (severidade, código, descrição, valor estimado) |
+
+### Tabelas AXS
+| Tabela | Descrição |
+|--------|-----------|
+| `axs_propostas` | Propostas AXS Energia sincronizadas |
+
+### View
+| View | Descrição |
+|------|-----------|
+| `v_unified_clientes` | View deduplicada por telefone (cadastro + RECIEE + chatbot + atendimentos) |
+
+### Colunas da tabela `clientes` (verificadas via information_schema)
+- `id`, `nome_razao_social`, `cnpj_cnpj`, `telefone`, `celular`, `email`, `endereco`, `cidade`, `estado`
+- `vendedor_responsavel_id`, `grupo_economico_id`, `origem_lead`, `observacoes`
+- `status`, `data_nascimento`, `whatsapp`, `razao_social`, `nome_fantasia`
+- `rg_ie`, `inscricao_estadual`, `gender`
+- `numero`, `complemento`, `bairro`, `cep`
+- `vencimento_fatura`, `classe_tarifaria`, `subgrupo_tarifario`, `concessionaria`, `instalacao`, `bandeira`
+- `iluminacao_publica`, `consorcio`, `usina`
+- `consumo_jan` a `consumo_dez` (numeric)
+- `geracao_propria`, `geracao_jan` a `geracao_dez` (numeric)
+- `axs_card_id`, `axs_status`, `axs_mensalidade`, `axs_data_envio`
 
 ### Relacionamentos
 ```
@@ -164,8 +273,10 @@ bulk_campaigns ──1:N──> leads_marketing (origem_disparo_id)
 chatbot_flows ──1:N──> chatbot_flow_steps (flow_id)
 chatbot_flows ──1:N──> chatbot_sessions (flow_id)
 chatbot_sessions ──1:N──> chatbot_messages (session_id)
-clientes_reciee ──1:N──> faturas_reciee (cliente_id)
+chatbot_flows ──1:N──> chatbot_gatilho_numeros (flow_id)
+clientes ──1:N──> faturas_reciee (cliente_id)
 faturas_reciee ──1:N──> analises_reciee (fatura_id)
+atendimentos ──1:N──> atendimento_mensagens (atendimento_id)
 ```
 
 ---
@@ -222,36 +333,35 @@ Mensagem WhatsApp
 - **Aba Sessões**: Lista com filtro por status, detalhe com histórico de mensagens
 - **Aba Stats**: Métricas de performance do chatbot
 
-### Fase 11 - Chatbot: Correções e Gatilho (06/09/2026)
-- [x] Bug fix: `.single()` → `.maybeSingle()` (crashava quando não encontrava sessão/fluxo)
-- [x] Bug fix: chatbot não disparava em novos atendimentos (só verificava atendimentos existentes)
-- [x] Bug fix: busca de fluxo sem filtro de instância (busca qualquer fluxo ativo)
-- [x] Campo `gatilho` no `chatbot_flows`: `'todos'` | `'disparo'`
-- [x] Tabela `chatbot_gatilho_numeros` — registra números que receberam disparo
-- [x] Bulk send salva números na tabela de gatilho ao enviar
-- [x] Webhook verifica gatilho antes de ativar chatbot
-- [x] Detecção de palavras de parada ("parar", "cancelar", "sai", etc)
-- [x] Bloqueio de reativação: sessão concluída/encaminhada não reativa por 24h
-- [x] Botão "Deletar" na aba Sessões do chatbot (remove sessão + mensagens)
-- [x] UI: toggle gatilho "Todos" / "Só Disparo" na aba Fluxos
+### Sistema de Gatilho
+- Campo `gatilho` no `chatbot_flows`: `'todos'` | `'disparo'`
+  - **todos** → qualquer mensagem ativa o bot
+  - **disparo** → só ativa se o número está em `chatbot_gatilho_numeros`
+- Bulk send salva números na tabela ao enviar
+
+### Parada do Chatbot
+- **Por texto:** Palavras de parada: "parar", "cancelar", "sai", etc.
+- **Por botão:** "Encerrar" no painel de contato
+- **Bloqueio 24h:** Após encerrar, chatbot não reativa por 24h
 
 ---
 
 ## 📱 Integração WhatsApp (Evolution API)
 
 ### Configuração
-- **API:** Evolution API (self-hosted na VPS)
-- **Porta:** 8082
-- **Webhook:** MESSAGES_UPSERT configurado
+- **API:** Evolution API (self-hosted na VPS, porta 8080)
+- **Webhook:** MESSAGES_UPSERT → Vercel direto
 - **Autenticação:** Header `apikey`
+- **3 instâncias:** ROMA_2, STK-1, STK-2
 
 ### Fluxo de Mensagens
 ```
-WhatsApp → Evolution API (webhook) → /api/webhooks/whatsapp
-  → Rate limit (60/min)
+WhatsApp → Evolution API (webhook) → Vercel (/api/webhooks/whatsapp)
+  → Validação X-Webhook-Secret
+  → Rate limit (180/min)
+  → LID Resolver (se necessário)
   → Parse do payload (text, image, audio, video, document, sticker)
-  → Upload mídia para Supabase Storage
-  → Salvar mensagem no banco
+  → Salvar mensagem no banco (com messageTimestamp)
   → [Chatbot ativo?] → Chatbot Engine
   → [IA ativa?] → Gemini AI Assistant
   → Resposta via Evolution API
@@ -263,9 +373,10 @@ WhatsApp → Evolution API (webhook) → /api/webhooks/whatsapp
 - Deduplicação via `whatsapp_message_id`
 - Filtro de mensagens de grupo (`@g.us`)
 - Suporte a LID mode (remoteJidAlt para números reais)
-- Upload de mídia base64 → Supabase Storage (evita egress no banco)
-- Múltiplas instâncias WhatsApp (seletor por instância no atendimento)
-- Disparo em massa com cadência (3-8s entre envios, limite 60/hora)
+- Descriptografia de mídia via `/api/media-download`
+- Múltiplas instâncias WhatsApp (ROMA_2, STK-1, STK-2)
+- Timestamp original do WhatsApp (`messageTimestamp`)
+- Disparo em massa com cadência configurável
 
 ---
 
@@ -273,9 +384,11 @@ WhatsApp → Evolution API (webhook) → /api/webhooks/whatsapp
 
 | Integração | Uso | Status |
 |------------|-----|--------|
-| **Evolution API** | WhatsApp messaging | ✅ Ativa |
+| **Evolution API** | WhatsApp messaging (3 instâncias) | ✅ Ativa |
 | **Gemini 2.5 Flash** | AI responses + chatbot | ✅ Ativa |
-| **Millennium** | ERP (clientes, vendas) | ⚠️ Código existe (`lib/integrations/millennium-api.ts`) mas não está integrado em nenhuma rota — legado |
+| **AXS Energia** | Criação de propostas via Playwright | ✅ Ativa |
+| **Supabase** | Banco de dados + Storage + Auth | ✅ Ativa |
+| **Millennium** | ERP (clientes, vendas) | ⚠️ Legado, não integrado |
 
 ---
 
@@ -283,13 +396,13 @@ WhatsApp → Evolution API (webhook) → /api/webhooks/whatsapp
 
 ### VPS (Hostinger KVM)
 - **IP:** 2.25.192.248
-- **Serviços:** Evolution API (Docker)
-- **Porta:** 8082
+- **Serviços:** Evolution API, Worker Disparo, AXS Server, Webhook Proxy
+- **Portas:** 8080 (Evolution API), 8080/vscode/ (code-server), 9999 (AXS API)
 
 ### Frontend (Vercel)
-- **URL:** stk-crm-amber.vercel.app
+- **URL:** stk-crm-amber-delta.vercel.app
 - **Tier:** Free (com cold start)
-- **Deploy:** Via Vercel CLI com `--token`
+- **Deploy:** Via Vercel CLI com `--token` (confirmação 1x por sessão, depois deploy livre)
 
 ### Supabase
 - **Projeto:** nizreygwaqqojwrorpqo
@@ -303,21 +416,24 @@ WhatsApp → Evolution API (webhook) → /api/webhooks/whatsapp
 |------------|-----------|
 | Endpoint unificado `/api/atendimentos/page-data` | 6-8 chamadas → 1 |
 | Polling da lista de conversas | 30s → 10s |
-| Middleware timeout no `supabase.auth.getUser()` | Evita 504 |
-| Índices no Supabase | `idx_atendimento_mensagens_wa_msg_id`, etc. |
+| Worker de disparo na VPS | Sem timeout de 60s do Vercel |
+| View deduplicada `v_unified_clientes` | Elimina duplicatas por telefone |
+| Client edit com Supabase direto | Sem API route intermediária |
 
 ---
 
-## 🐛 Bugs Corrigidos
+## 🐛 Bugs Corrigidos (Principais)
 
 - **MIDDLEWARE_INVOCATION_TIMEOUT (504):** Timeout de 3s no `supabase.auth.getUser()`
-- **Indicador de mensagem nova não aparecia:** Polling reduzido de 30s para 10s
-- **Tema escuro com fundo branco nos cards:** Variáveis CSS atualizadas
-- **Build quebrou por sed:** Faltava `}` na sintaxe
-- **SelectItem value vazio:** shadcn não aceita `value=""` - removido item "Nenhuma"
-- **LoadInstances retornando vazio:** API retorna `instancias` não `instances`
-- **Planilha não reconhecia contatos:** Detecção automática de header com linhas de título
-- **bulk_campaigns tabela incompatível:** Insert alinhado com schema real, interface atualizada, instância salva no array numbers
+- **Chatbot não disparava em novos atendimentos:** Adicionada verificação para atendimentos novos
+- **`.single()` crashava o engine:** Trocado por `.maybeSingle()`
+- **bulk_campaigns tabela incompatível:** Insert alinhado com schema real
+- **Evolution API key mudou:** Atualizada para chave global `66D55A2C-...`
+- **Webhooks apontavam para proxy:** Padronizados para Vercel direto
+- **View mostrava duplicatas:** Reescrita com deduplicação por telefone
+- **`MAX()` em booleanos:** Corrigido para `bool_or()`
+- **Edit page 404:** Reescrita para usar Supabase client direto (sem API route)
+- **Nome da tabela clientes:** `nome_razao_social` (não `nome_completo`)
 
 ---
 
@@ -330,17 +446,24 @@ stk-crm/
 │   │   ├── login/page.tsx
 │   │   └── solicitar-acesso/page.tsx
 │   ├── (dashboard)/
-│   │   ├── atendimento/page.tsx        ← WhatsApp tickets
-│   │   ├── chatbot/page.tsx            ← Dashboard chatbot (fluxos + sessões)
-│   │   ├── kanban/page.tsx             ← Kanban de tarefas
-│   │   ├── dashboard/page.tsx          ← Dashboard geral
-│   │   ├── clientes/page.tsx           ← Gestão de clientes
-│   │   ├── reciee/                     ← Módulo RECIEE
-│   │   │   ├── page.tsx                ← Lista de clientes
-│   │   │   ├── [clienteId]/page.tsx    ← Detalhe (faturas + análises)
-│   │   │   └── upload/[clienteId]/page.tsx ← Upload de faturas PDF
+│   │   ├── atendimento/page.tsx           ← WhatsApp tickets
+│   │   ├── chatbot/page.tsx               ← Dashboard chatbot
+│   │   ├── kanban/page.tsx                ← Kanban de tarefas
+│   │   ├── dashboard/page.tsx             ← Dashboard geral
+│   │   ├── clientes/
+│   │   │   ├── page.tsx                   ← Lista de clientes
+│   │   │   ├── novo/page.tsx              ← Novo cliente
+│   │   │   └── [clienteId]/
+│   │   │       ├── page.tsx               ← Detalhe do cliente
+│   │   │       ├── editar/page.tsx        ← Editar cliente (Supabase direto)
+│   │   │       ├── axs/page.tsx           ← AXS iframe + sidebar
+│   │   │       └── axs-novo/page.tsx      ← AXS réplica do formulário
+│   │   ├── reciee/
+│   │   │   ├── page.tsx
+│   │   │   ├── [clienteId]/page.tsx
+│   │   │   └── upload/[clienteId]/page.tsx
 │   │   ├── marketing/
-│   │   │   ├── campanhas/page.tsx      ← Hub de campanhas + disparos
+│   │   │   ├── campanhas/page.tsx         ← Hub de campanhas + disparos + fluxo
 │   │   │   ├── dashboard/page.tsx
 │   │   │   ├── leads/page.tsx
 │   │   │   ├── relatorios/page.tsx
@@ -354,67 +477,47 @@ stk-crm/
 │   │   └── configuracoes/
 │   │       └── vendedores/page.tsx
 │   └── api/
-│       ├── reciee/                     ← APIs RECIEE
-│       │   ├── clientes/route.ts       ← CRUD clientes
-│       │   ├── clientes/[clienteId]/
-│       │   │   ├── route.ts            ← PUT/DELETE cliente
-│       │   │   ├── relatorio/route.ts  ← Gera Excel (.xlsx)
-│       │   │   ├── proposta/route.ts   ← Gera proposta PDF
-│       │   │   └── re-analisar/route.ts ← Re-análise
-│       │   ├── analises/route.ts       ← CRUD análises
-│       │   ├── faturas/route.ts        ← CRUD faturas
-│       │   └── upload/[clienteId]/route.ts ← Upload + parse PDF
-│       ├── chatbot/                    ← APIs Chatbot
-│       │   ├── route.ts                ← Processa mensagens
-│       │   ├── flows/route.ts          ← CRUD fluxos
-│       │   └── sessions/route.ts       ← Gerencia sessões
-│       ├── webhooks/
-│       │   ├── whatsapp/route.ts       ← Webhook Evolution API
-│       │   └── millennium/route.ts     ← Webhook ERP (legado)
+│       ├── webhooks/whatsapp/route.ts     ← Webhook Evolution API (seguro)
 │       ├── bulk/
-│       │   ├── campaigns/route.ts      ← CRUD campanhas bulk
-│       │   └── send/route.ts           ← Envio de disparos
-│       ├── atendimentos/
-│       │   ├── route.ts                ← CRUD atendimentos
-│       │   ├── mensagens/route.ts      ← Mensagens
-│       │   ├── page-data/route.ts      ← Endpoint unificado
-│       │   ├── sync/route.ts           ← Sync WhatsApp
-│       │   └── sync-from-evolution/route.ts ← Batch sync
-│       └── ... (outras 30+ rotas)
+│       │   ├── campaigns/route.ts
+│       │   └── send/route.ts              ← Marca como "running" (worker processa)
+│       ├── upload-media/route.ts          ← Upload de imagem
+│       ├── media-download/route.ts        ← Descriptografia de mídia WhatsApp
+│       ├── axs/
+│       │   ├── send/route.ts              ← Envia para VPS AXS server
+│       │   ├── sync/route.ts
+│       │   └── proposals/route.ts
+│       ├── clientes/route.ts              ← GET/POST clientes
+│       └── ...
 ├── lib/
-│   ├── chatbot/
-│   │   └── engine.ts                   ← State machine do chatbot (675 linhas)
-│   ├── ai-assistant.ts                 ← Gemini AI para respostas automáticas
-│   ├── evolution-api.ts                ← Helper WhatsApp (enviar texto/mídia/áudio)
-│   ├── integrations/
-│   │   └── millennium-api.ts           ← Integração ERP (legado, não utilizado)
-│   ├── supabase/
-│   │   ├── client.ts                   ← Cliente browser
-│   │   ├── server.ts                   ← Cliente server
-│   │   ├── admin-server.ts             ← Service role (admin)
-│   │   └── middleware.ts               ← Middleware auth
-│   └── hooks/
-│       └── use-api.ts                  ← Hook genérico
+│   ├── chatbot/engine.ts                  ← State machine (675 linhas)
+│   ├── ai-assistant.ts                    ← Gemini AI
+│   ├── evolution-api.ts                   ← Helper WhatsApp
+│   ├── lid-resolver.ts                    ← LID → telefone
+│   └── supabase/
+│       ├── client.ts                      ← Browser client
+│       ├── server.ts                      ← Server client
+│       └── admin-server.ts                ← Service role
 ├── components/
-│   ├── layout/
-│   │   ├── sidebar.tsx                 ← Sidebar dinâmica por perfil
-│   │   ├── header.tsx                  ← Header com seletor
-│   │   └── perfil-selector.tsx
-│   ├── features/
-│   │   ├── atendimento/                ← 18 componentes (chat, kanban, painel)
-│   │   ├── disparo/bulk-sender.tsx     ← Disparo em massa
-│   │   ├── campanhas/                  ← Promoções
-│   │   ├── clientes/                   ← Modal novo cliente
-│   │   └── dashboard/                  ← Stats
-│   └── ui/                             ← shadcn/ui (15 componentes)
+│   ├── bulk-sender.tsx                    ← Disparo em massa
+│   ├── dispatch-detail-dialog.tsx         ← Detalhe do disparo
+│   ├── live-log-panel.tsx                 ← Logs em tempo real
+│   └── ...
 ├── supabase/migrations/
 │   ├── 071_marketing_posvendas_tables.sql
-│   ├── 072_chatbot_inteligente.sql     ← 4 tabelas chatbot
-│   ├── 072_ligacao_modulos_marketing.sql
-│   └── 073_reciee_tables.sql           ← 3 tabelas RECIEE
-├── scripts/                            ← Scripts utilitários
-└── public/templates/
-    └── proposta_template.pdf           ← Template proposta RECIEE
+│   ├── 072_chatbot_inteligente.sql
+│   ├── 073_reciee_tables.sql
+│   ├── 074_chatbot_whitelist.sql
+│   ├── 075_chatbot_numeros_whitelist.sql
+│   ├── 076_lid_phone_map.sql
+│   ├── 077_clientes_axs_columns.sql
+│   ├── 078_axs_propostas_table.sql
+│   ├── 079_add_fluxo_mensagens.sql
+│   ├── 080_add_intervalo_passos.sql
+│   ├── 081_add_delay_inicial.sql
+│   ├── 082_drop_campanhas_status_check.sql
+│   └── 083_deduplicate_clientes_view.sql
+└── PROGRESSO.MD
 ```
 
 ---
@@ -433,49 +536,14 @@ stk-crm/
 | Pós-Vendas | 4 | GET, POST |
 | Tarefas | 2 | GET, POST, PATCH, DELETE |
 | Vendas/Vendedores | 2 | GET, POST |
-| Oportunidades | 1 | GET, POST, PATCH |
-| Leads | 1 | GET, POST, PATCH |
-| Prospecção | 1 | GET, POST |
-| Produtos | 1 | GET |
-| Promoções | 1 | GET, POST, PATCH |
-| Clientes | 1 | POST |
+| Clientes | 2 | GET, POST |
+| AXS | 3 | GET, POST |
+| Upload/Mídia | 2 | POST, GET |
 | Auth | 1 | POST |
-| WhatsApp/Instâncias | 2 | GET |
-| Send (Envio) | 2 | POST |
 | Notificações | 1 | GET, PATCH, DELETE |
-| Mídia | 1 | GET |
 | Config | 1 | GET, PUT |
 | Debug | 3 | GET |
 | Health | 1 | GET |
-| Admin | 1 | GET, POST |
-
----
-
-## 🔜 Próximos Passos (Prioridade)
-
-1. **Criar tabela `bulk_campanhas_contatos`** no Supabase (SQL enviado via .txt)
-2. **RECIEE** → Testar upload de faturas
-3. **Chatbot** → Conectar fluxo de qualificação ao pipeline de vendas
-4. **Pós-Vendas** → Conectar follow-ups automáticos
-5. **Marketing** → Conectar leads ao CRM (lead qualificado vira cliente)
-6. **Relatórios** → Dashboard de métricas por perfil
-7. **Permissões** → Controle de acesso por perfil (admin, vendedor, atendente)
-8. **Chamadas** → Integrar VOIP para atender/ligar pelo CRM
-
----
-
-## 📞 Pesquisa: Chamadas de Voz no CRM
-
-### Evolution API + Baileys
-| Funcionalidade | Suportado? |
-|----------------|------------|
-| Receber eventos de chamada | ✅ Sim (evento `call`) |
-| Rejeitar chamada recebida | ✅ Sim (`rejectCall`) |
-| Criar link de chamada | ✅ Sim (`createCallLink`) |
-| Iniciar ligação direta | ❌ Não (restrição WhatsApp Web) |
-| Falar pelo CRM | ❌ Não (sem suporte a WebRTC) |
-
-**Conclusão:** A Evolution API consegue **receber e rejeitar** chamadas, mas **não consegue iniciar** nem **transmitir áudio** em tempo real. Para isso seria necessário Twilio (~$1/min).
 
 ---
 
@@ -483,142 +551,25 @@ stk-crm/
 
 | Serviço | Local | Notas |
 |---------|-------|-------|
-| Vercel | `VERCEL_TOKEN` env var | Deploy automático |
+| Vercel | `~/.vercel-token.env` | Deploy automático |
 | Supabase | Dashboard web | Projeto `nizreygwaqqojwrorpqo` |
-| Evolution API | VPS:8082 | API Key no `.env` |
-| GitHub | Token configurado | Repo `Johnpittz/stk-crm` |
+| Evolution API | VPS:8080 | Key global `66D55A2C-...` |
+| GitHub | Repo público | `Johnpittz/stk-crm` |
 | Gemini | API Key | AI para chatbot + auto-respostas |
-
----
-
-## 🤖 Chatbot — Correções e Gatilho (06/09/2026)
-
-### Fase 11 - Chatbot Funcional + Gatilho Disparo
-
-#### Bugs Corrigidos
-- **Chatbot não disparava em novos atendimentos:** O webhook só verificava chatbot em atendimentos existentes. Adicionada verificação para atendimentos novos.
-- **`.single()` crashava o engine:** Supabase `.single()` lança PGRST116 quando não encontra registro. Trocado por `.maybeSingle()` em todas as queries críticas (webhook + engine).
-- **Match por instância falhava:** Fluxo configurado com `instancia: 'STK'` mas Evolution API enviava `ROMA_1`. Removido filtro por instância — busca qualquer fluxo ativo.
-
-#### Sistema de Gatilho (Opção 1)
-- Campo `gatilho` no `chatbot_flows`: `'todos' | 'disparo'`
-  - **todos** → qualquer mensagem ativa o bot (comportamento antigo)
-  - **disparo** → só ativa se o número está em `chatbot_gatilho_numeros`
-- Tabela `chatbot_gatilho_numeros` (flow_id, telefone, created_at)
-- Migration `074_chatbot_whitelist.sql`
-- Bulk send salva números na tabela ao enviar
-- Webhook verifica gatilho antes de ativar chatbot
-
-#### Parada do Chatbot
-- **Por texto:** Palavras de parada detectadas: "parar", "para", "cancelar", "sai", "obrigad", "chega", "não quero mais", "para de perguntar", etc.
-- **Por botão:** "Encerrar" no painel de contato + "Deletar" na dashboard
-- **Bloqueio 24h:** Após encerrar/deletar, chatbot não reativa por 24h
-- **Bloqueio permanente:** Se sessão está `concluida` ou `encaminhada`, não reativa (precisa deletar pra testar)
-
-#### Dashboard Admin
-- Botão "Deletar" nas sessões (remove sessão + mensagens)
-- Sessões bloqueadas aparecem como "Bloqueado" no filtro
-
-#### Fluxo: Sustentalski - Geração Distribuída
-- 14 etapas de qualificação (perfil, objetivo, valor conta, localização, tipo negócio, situação atual, decisão compra, momento compra, nome, telefone, email, pergunta ouro, classificação, mensagem final)
-- Scoring: A≥80 (quente), B≥50 (qualificado), C≥25 (nutrição), D<25 (frio)
-- Branching condicional por perfil (empresa vs residencial)
-- Interpretação de respostas livres via Gemini
-
----
-
-## 🚀 Fase 12 - Worker de Disparo + Múltiplas Instâncias (11/09/2026)
-
-### Worker de Disparo no VPS
-- [x] Worker Python (`/root/disparo_worker.py`) rodando via Supervisor
-- [x] Polling a cada 5s no Supabase por campanhas `status=running`
-- [x] Envio via Evolution API local (sem timeout do Vercel, sem cold start)
-- [x] Processamento de fluxo de mensagens (texto + imagem, com delay configurável)
-- [x] Substituição de variáveis: `{{nome}}`, `{{telefone}}`, `{{promocao}}`
-- [x] Suporte a imagem via base64 (data URI → base64 cru para Evolution API)
-- [x] Verificação de status 200/201 (Evolution API retorna 201 no sucesso)
-- [x] Endpoint Vercel simplificado: apenas marca campanha como `running`
-
-### Múltiplas Instâncias WhatsApp
-- [x] ROMA_2 (556299190117) — conectada ✅
-- [x] STK-1 (6295094949) — conectada ✅, webhook configurado
-- [x] STK-2 (62999961553) — conectada ✅, webhook configurado
-- [x] Todas aparecem no dropdown de seleção de instância
-- [x] Número da instância resolvido via `lid_phone_map` (connectionState não retorna número)
-
-### Campos de Timing Configuráveis
-- [x] **Delay antes do 1º disparo** (`delay_inicial`) — espera antes de enviar ao primeiro contato
-- [x] **Intervalo entre contatos** (`intervalo`) — delay entre cada número da planilha
-- [x] **Delay entre passos do fluxo** (`intervalo_passos`) — pausa entre cada mensagem do fluxo
-- [x] Migration: `080_add_intervalo_passos.sql`, `081_add_delay_inicial.sql`
-
-### Upload de Imagem no Disparo
-- [x] Campo compacto estilo WhatsApp (ícone + "Selecionar imagem", miniatura 64x64)
-- [x] Upload para Supabase Storage via `/api/upload-media`
-- [x] Coluna `imagem_url` na tabela `bulk_campaigns`
-- [x] Imagem enviada junto com o fluxo de mensagens
-
-### Conta Admin Extra
-- [x] Usuário `admstk@stk.com` criado com cargo `admin`
-- [x] Mesmos privilégios do administrador original
-
----
-
-## 🔐 Fase 13 - Segurança + Webhook + LID Resolver (11/09/2026)
-
-### Webhook Security
-- [x] Validação `X-Webhook-Secret` em todas as requisições
-- [x] Rate limiting: 180 req/min global, 660 req/min por endpoint
-- [x] Validação de payload (event, data obrigatórios)
-- [x] Filtro de mensagens de grupo (`@g.us`)
-
-### LID Resolver
-- [x] Módulo `lib/lid-resolver.ts` — resolve `@lid` → telefone via cache → Supabase → Evolution API
-- [x] Tabela `lid_phone_map` criada
-- [x] Webhook proxy intermediário (`/root/webhook_proxy.py`, porta 9999) — ainda ativo
-- [x] Mapping automático: salva `phone ↔ lid` quando resolve com sucesso
-
-### GitHub + Deploy
-- [x] Repositório tornado público (Vercel Hobby plan)
-- [x] Token Vercel salvo em `~/.vercel-token.env`
-- [x] Deploy automático via CLI com `--prod`
-
----
-
-## 🎵 Fase 14 - Mídia + Timestamp + Descriptografia (11/09/2026)
-
-### Descriptografia de Mídia WhatsApp
-- [x] Endpoint `/api/media-download` — descriptografa áudio/imagem do WhatsApp
-- [x] Usa Evolution API `getBase64FromMediaMessage` (descriptografa no servidor)
-- [x] Suporte a áudio OGG/Opus, imagem JPEG/PNG/WebP, vídeo MP4
-- [x] Todas as mídias existentes tiveram `media_key` atualizado via Evolution API
-- [x] Player de áudio funcional no chat (antes não reproduzia — 0:00 / 0:00)
-- [x] Migration: `ALTER TABLE atendimento_mensagens ADD COLUMN media_key TEXT`
-
-### Timestamp Original do WhatsApp
-- [x] Webhook extrai `messageTimestamp` do payload da Evolution API
-- [x] Mensagens salvas com o horário real de envio (não o horário do sync)
-- [x] Sync-from-evolution também usa `messageTimestamp`
-- [x] Mensagens no chat agora aparecem na ordem cronológica correta
-
-### Correções de API Key
-- [x] Evolution API tinha chave `AUTHENTICATION_API_KEY` diferente da armazenada no worker
-- [x] Worker atualizado com chave correta (`e3186c...`)
-- [x] Verificação: todas as 3 instâncias funcionando com a chave correta
+| Admin CRM | `admstk@stk.com` / `stk123456` | Conta admin |
+| AXS Energia | iris.axsenergia.com.br | Autenticação via login |
 
 ---
 
 ## 🔜 Próximos Passos (Prioridade)
 
-1. **Audio player** → Testar reprodução completa (áudio descriptografado via Evolution API) ✅
-2. **Timestamp** → Mensagens com horário correto do WhatsApp ✅
-3. **STK-3** → Conectar terceira instância quando número for fornecido
-4. **Code-server** → Investigar link quebrado (`http://2.25.192.248:8080/vscode/login`)
-5. **WEBHOOK_SECRET** → Configurar variável de ambiente no Vercel Dashboard
-6. **Pós-Vendas** → Conectar follow-ups automáticos
-7. **Relatórios** → Dashboard de métricas por perfil
-8. **Permissões** → Controle de acesso por perfil (admin, vendedor, atendente)
+1. **STK-3** → Conectar terceira instância quando número for fornecido
+2. **WEBHOOK_SECRET** → Configurar variável de ambiente no Vercel Dashboard
+3. **AXS Sync** → Puxar propostas do AXS API para o CRM (Fase 4)
+4. **Pós-Vendas** → Conectar follow-ups automáticos
+5. **Relatórios** → Dashboard de métricas por perfil
+6. **Permissões** → Controle de acesso por perfil (admin, vendedor, atendente)
 
 ---
 
-*Este arquivo é atualizado automaticamente a cada fase concluída.*
+*Este arquivo é atualizado a cada fase concluída.*

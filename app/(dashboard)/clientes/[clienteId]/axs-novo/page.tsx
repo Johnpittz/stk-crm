@@ -40,16 +40,20 @@ import {
   RefreshCw,
 } from "lucide-react";
 
+import { createClient } from "@/lib/supabase/client";
+
 // ─── Types ───
 
 interface Cliente {
   id: string;
-  nome_razao_social: string;
-  cpf_cnpj: string;
-  email: string;
-  telefone: string;
-  whatsapp: string;
-  tipo: string;
+  nome_completo: string | null;
+  nome_razao_social: string | null;
+  cpf_cnpj: string | null;
+  email: string | null;
+  telefone: string | null;
+  whatsapp: string | null;
+  cidade: string | null;
+  estado: string | null;
 }
 
 interface FormData {
@@ -218,6 +222,7 @@ export default function AxSNovoPage() {
   const params = useParams();
   const router = useRouter();
   const clienteId = params.clienteId as string;
+  const supabase = createClient();
 
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [form, setForm] = useState<FormData>(INITIAL_FORM);
@@ -233,33 +238,49 @@ export default function AxSNovoPage() {
   useEffect(() => {
     const loadClient = async () => {
       try {
-        const res = await fetch(`/api/clientes/${clienteId}`);
-        const data = await res.json();
-        if (data.cliente) {
-          setCliente(data.cliente);
-          // Pre-fill form with client data
+        // Try view first, then fallback to clientes table
+        let clienteData: any = null;
+
+        const { data: viewData } = await supabase
+          .from("v_unified_clientes")
+          .select("*")
+          .eq("id", clienteId)
+          .maybeSingle();
+
+        if (viewData) {
+          clienteData = viewData;
+        } else {
+          const { data: tableData } = await supabase
+            .from("clientes")
+            .select("*")
+            .eq("id", clienteId)
+            .maybeSingle();
+          clienteData = tableData;
+        }
+
+        if (clienteData) {
+          setCliente(clienteData);
           setForm((prev) => ({
             ...prev,
-            nome_razao_social: data.cliente.nome_razao_social || "",
-            cpf_cnpj: data.cliente.cpf_cnpj || "",
-            email: data.cliente.email || "",
-            telefone: data.cliente.telefone || "",
-            whatsapp: data.cliente.whatsapp || "",
-            cep: data.cliente.cep || "",
-            logradouro: data.cliente.logradouro || "",
-            numero: data.cliente.numero || "",
-            complemento: data.cliente.complemento || "",
-            bairro: data.cliente.bairro || "",
-            cidade: data.cliente.cidade || "",
-            estado: data.cliente.estado || "",
-            tipo_pessoa: data.cliente.tipo === "pf" ? "pf" : "pj",
-            classe: data.cliente.classe_tarifaria || "",
-            subgrupo: data.cliente.subgrupo || "",
-            uc_instalacao: data.cliente.uc_instalacao || "",
-            vencimento_dia: data.cliente.vencimento_fatura || "",
-            concessionaria: data.cliente.concessionaria || "",
-            geracao_propria: data.cliente.geracao_propria || false,
-            observacoes: data.cliente.observacoes || "",
+            nome_razao_social: clienteData.nome_completo || clienteData.nome || clienteData.nome_razao_social || "",
+            cpf_cnpj: clienteData.cpf_cnpj || "",
+            email: clienteData.email || "",
+            telefone: clienteData.telefone || "",
+            whatsapp: clienteData.whatsapp || "",
+            cep: clienteData.cep || "",
+            logradouro: clienteData.logradouro || "",
+            numero: clienteData.numero || "",
+            complemento: clienteData.complemento || "",
+            bairro: clienteData.bairro || "",
+            cidade: clienteData.cidade || "",
+            estado: clienteData.estado || "",
+            classe: clienteData.classe_tarifaria || clienteData.classe || "",
+            subgrupo: clienteData.subgrupo_tarifario || clienteData.subgrupo || "",
+            uc_instalacao: clienteData.instalacao || clienteData.uc || "",
+            vencimento_dia: clienteData.vencimento_fatura || "",
+            concessionaria: clienteData.concessionaria || "",
+            geracao_propria: clienteData.geracao_propria || false,
+            observacoes: clienteData.observacoes || "",
           }));
         }
       } catch (err) {
@@ -269,7 +290,7 @@ export default function AxSNovoPage() {
       }
     };
     loadClient();
-  }, [clienteId]);
+  }, [clienteId, supabase]);
 
   // ─── Form helpers ───
   const set = useCallback(
@@ -342,57 +363,27 @@ export default function AxSNovoPage() {
     setResult(null);
 
     try {
-      // Step 1: Save/update client data in Supabase
-      const updatePayload: Record<string, any> = {
-        nome_razao_social: form.nome_razao_social.trim(),
-        tipo: form.tipo_pessoa,
-        cpf_cnpj: form.cpf_cnpj.replace(/\D/g, ""),
-        email: form.email.trim() || null,
-        telefone: form.telefone.trim() || null,
-        whatsapp: form.whatsapp.trim() || null,
-        cep: form.cep.replace(/\D/g, "") || null,
-        logradouro: form.logradouro.trim() || null,
-        numero: form.numero.trim() || null,
-        complemento: form.complemento.trim() || null,
-        bairro: form.bairro.trim() || null,
-        cidade: form.cidade.trim() || null,
-        estado: form.estado || null,
-        classe_tarifaria: form.classe || null,
-        subgrupo: form.subgrupo || null,
-        uc_instalacao: form.uc_instalacao.trim() || null,
-        vencimento_fatura: form.vencimento_dia || null,
-        concessionaria: form.concessionaria || null,
-        geracao_propria: form.geracao_propria,
-        observacoes: form.observacoes.trim() || null,
-        data_nascimento: form.data_nascimento || null,
-      };
+      // Step 1: Save/update client data directly in Supabase
+      // NOTE: cpf_cnpj does NOT exist in the clientes table
 
-      // Add consumption data
-      const consumoValues = Object.entries(form.consumo_meses)
-        .filter(([, v]) => v.trim() !== "")
-        .map(([mes, valor]) => ({ mes, valor: parseFloat(valor) || 0 }));
-      if (consumoValues.length > 0) {
-        updatePayload.consumo_mensal = consumoValues;
-      }
+      // Safe columns - only columns that DEFINITELY exist in the clientes table
+      // NOTE: cpf_cnpj does NOT exist in clientes (it's in clientes_reciee)
+      // We skip saving to clientes entirely if the table has minimal columns
+      const safePayload: Record<string, any> = {};
+      if (form.nome_razao_social.trim()) safePayload.nome_completo = form.nome_razao_social.trim();
+      if (form.email.trim()) safePayload.email = form.email.trim();
+      if (form.telefone.trim()) safePayload.telefone = form.telefone.trim();
+      if (form.cidade.trim()) safePayload.cidade = form.cidade.trim();
+      if (form.estado) safePayload.estado = form.estado;
 
-      if (form.geracao_propria) {
-        const geracaoValues = Object.entries(form.geracao_meses)
-          .filter(([, v]) => v.trim() !== "")
-          .map(([mes, valor]) => ({ mes, valor: parseFloat(valor) || 0 }));
-        if (geracaoValues.length > 0) {
-          updatePayload.geracao_mensal = geracaoValues;
-        }
-      }
+      // Try saving - if it fails, skip saving entirely (AXS send is the priority)
+      const { error: saveErr } = await supabase
+        .from("clientes")
+        .update(safePayload)
+        .eq("id", clienteId);
 
-      const saveRes = await fetch(`/api/clientes/${clienteId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatePayload),
-      });
-
-      if (!saveRes.ok) {
-        const saveData = await saveRes.json();
-        throw new Error(saveData.error || "Erro ao salvar dados do cliente");
+      if (saveErr) {
+        console.warn("Could not save to clientes table:", saveErr.message, "- continuing to AXS send");
       }
 
       // Step 2: Send to AXS

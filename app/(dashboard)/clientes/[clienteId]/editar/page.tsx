@@ -274,21 +274,35 @@ export default function EditarClientePage() {
 
     const fetchCliente = async () => {
       try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const token = sessionData.session?.access_token;
+        // Try v_unified_clientes first (has cpf_cnpj), fallback to clientes
+        let data = null;
+        let error = null;
 
-        const headers: Record<string, string> = {};
-        if (token) headers["Authorization"] = `Bearer ${token}`;
+        const result = await supabase
+          .from("v_unified_clientes")
+          .select("*")
+          .eq("id", clienteId)
+          .single();
 
-        const res = await fetch(`/api/clientes/${clienteId}`, { headers });
-        const result = await res.json();
+        if (result.error) {
+          // Fallback to clientes table
+          const fallback = await supabase
+            .from("clientes")
+            .select("*")
+            .eq("id", clienteId)
+            .single();
+          data = fallback.data;
+          error = fallback.error;
+        } else {
+          data = result.data;
+        }
 
-        if (!res.ok) {
-          setFetchError(result.error || "Erro ao carregar cliente.");
+        if (error || !data) {
+          setFetchError("Cliente não encontrado.");
           return;
         }
 
-        setForm(mapClienteToForm(result.cliente));
+        setForm(mapClienteToForm(data));
       } catch (err: any) {
         setFetchError(err.message || "Erro inesperado ao carregar cliente.");
       } finally {
@@ -385,6 +399,7 @@ export default function EditarClientePage() {
   };
 
   // ─── Submit ───
+  // ─── Submit ───
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
@@ -392,79 +407,32 @@ export default function EditarClientePage() {
     if (!validate()) return;
 
     setLoading(true);
-
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
+      // Build payload — only columns that exist in the clientes table
+      const payload: Record<string, any> = {};
 
-      if (!token) {
-        setSubmitError("Sessão expirada. Faça login novamente.");
-        setLoading(false);
-        return;
-      }
+      // Safe columns (confirmed to exist)
+      if (form.nome_razao_social.trim()) payload.nome_completo = form.nome_razao_social.trim();
+      if (form.email.trim()) payload.email = form.email.trim();
+      if (form.telefone.trim()) payload.telefone = form.telefone.trim();
+      if (form.whatsapp.trim()) payload.whatsapp = form.whatsapp.trim();
+      if (form.celular.trim()) payload.celular = form.celular.trim();
+      if (form.cep.trim()) payload.cep = form.cep.trim();
+      if (form.logradouro.trim()) payload.endereco = form.logradouro.trim();
+      if (form.numero.trim()) payload.numero = form.numero.trim();
+      if (form.complemento.trim()) payload.complemento = form.complemento.trim();
+      if (form.bairro.trim()) payload.bairro = form.bairro.trim();
+      if (form.cidade.trim()) payload.cidade = form.cidade.trim();
+      if (form.estado) payload.estado = form.estado;
+      if (form.observacoes.trim()) payload.observacoes = form.observacoes.trim();
 
-      // Build payload with all the fields
-      const payload: Record<string, any> = {
-        nome_razao_social: form.nome_razao_social.trim(),
-        tipo: form.tipo,
-        cpf_cnpj: form.cpf_cnpj.trim() || null,
-        rg_ie: form.rg_ie.trim() || null,
-        data_nascimento: form.data_nascimento || null,
-        email: form.email.trim() || null,
-        telefone: form.telefone.trim() || null,
-        whatsapp: form.whatsapp.trim() || null,
-        celular: form.celular.trim() || null,
-        cep: form.cep.trim() || null,
-        logradouro: form.logradouro.trim() || null,
-        numero: form.numero.trim() || null,
-        complemento: form.complemento.trim() || null,
-        bairro: form.bairro.trim() || null,
-        cidade: form.cidade.trim() || null,
-        estado: form.estado || null,
-        concessionaria: form.concessionaria || null,
-        classe_tarifaria: form.classe_tarifaria.trim() || null,
-        subgrupo: form.subgrupo.trim() || null,
-        uc_instalacao: form.uc_instalacao.trim() || null,
-        vencimento_fatura: form.vencimento_fatura || null,
-        bandeira: form.bandeira || null,
-        geracao_propria: form.geracao_propria,
-        observacoes: form.observacoes.trim() || null,
-        status: form.status,
-        classificacao: form.classificacao.trim() || null,
-        origem: form.origem,
-      };
+      const { error } = await supabase
+        .from("clientes")
+        .update(payload)
+        .eq("id", clienteId);
 
-      // Add consumption data
-      const consumoValues = Object.entries(form.consumo_meses)
-        .filter(([, v]) => v.trim() !== "")
-        .map(([mes, valor]) => ({ mes, valor: parseFloat(valor) || 0 }));
-      if (consumoValues.length > 0) {
-        payload.consumo_mensal = consumoValues;
-      }
-
-      // Add generation data if enabled
-      if (form.geracao_propria) {
-        const geracaoValues = Object.entries(form.geracao_meses)
-          .filter(([, v]) => v.trim() !== "")
-          .map(([mes, valor]) => ({ mes, valor: parseFloat(valor) || 0 }));
-        if (geracaoValues.length > 0) {
-          payload.geracao_mensal = geracaoValues;
-        }
-      }
-
-      const res = await fetch(`/api/clientes/${clienteId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const result = await res.json();
-
-      if (!res.ok) {
-        setSubmitError(result.error || "Erro ao salvar cliente.");
+      if (error) {
+        setSubmitError(error.message || "Erro ao salvar cliente.");
         setLoading(false);
         return;
       }
@@ -483,27 +451,13 @@ export default function EditarClientePage() {
   const handleDelete = async () => {
     setDeleting(true);
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
+      const { error } = await supabase
+        .from("clientes")
+        .delete()
+        .eq("id", clienteId);
 
-      if (!token) {
-        setSubmitError("Sessão expirada. Faça login novamente.");
-        setDeleting(false);
-        setDeleteDialogOpen(false);
-        return;
-      }
-
-      const res = await fetch(`/api/clientes/${clienteId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const result = await res.json();
-
-      if (!res.ok) {
-        setSubmitError(result.error || "Erro ao excluir cliente.");
+      if (error) {
+        setSubmitError(error.message || "Erro ao excluir cliente.");
         setDeleting(false);
         setDeleteDialogOpen(false);
         return;

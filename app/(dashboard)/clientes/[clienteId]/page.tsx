@@ -27,6 +27,7 @@ import {
   ArrowLeft,
   Plus,
   Zap,
+  Pencil,
   MessageSquare,
   FileText,
   ShoppingCart,
@@ -40,18 +41,26 @@ import {
   Mail,
   Building2,
 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 // ─── Tipos ───
 
 interface Cliente {
   id: string;
-  nome_razao_social: string;
-  cpf_cnpj: string;
-  email: string;
-  telefone: string;
-  cidade: string;
-  estado: string;
-  logradouro: string | null;
+  nome: string;
+  telefone: string | null;
+  email: string | null;
+  cpf_cnpj: string | null;
+  cidade: string | null;
+  estado: string | null;
+  whatsapp: string | null;
+  concessionaria: string | null;
+  status: string | null;
+  classe_tarifaria: string | null;
+  vencimento_fatura: string | null;
+  instalacao: string | null;
+  classificacao: string | null;
+  origem: string;
   axs_card_id: string | null;
   axs_status: string | null;
 }
@@ -100,6 +109,7 @@ export default function ClienteDetalhePage() {
   const params = useParams();
   const router = useRouter();
   const clienteId = params.clienteId as string;
+  const supabase = createClient();
 
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [interacoes, setInteracoes] = useState<Interacao[]>([]);
@@ -116,18 +126,73 @@ export default function ClienteDetalhePage() {
 
   // ─── Carregar dados ───
 
-  const carregarCliente = async () => {
+  const carregarCliente = useCallback(async () => {
     try {
-      const res = await fetch(`/api/clientes?search=${clienteId}`);
-      const data = await res.json();
-      const c = (data.clientes || []).find((x: any) => x.id === clienteId);
-      if (c) setCliente(c);
-    } catch (err) {
-      console.error(err);
-    }
-  };
+      // Tentar buscar da view unificada primeiro
+      const { data, error } = await supabase
+        .from("v_unified_clientes")
+        .select("*")
+        .eq("id", clienteId)
+        .maybeSingle();
 
-  const carregarInteracoes = async () => {
+      if (error || !data) {
+        // Fallback: buscar direto da tabela clientes
+        const { data: fallback } = await supabase
+          .from("clientes")
+          .select("*")
+          .eq("id", clienteId)
+          .maybeSingle();
+
+        if (fallback) {
+          setCliente({
+            id: fallback.id,
+            nome: fallback.nome_completo || fallback.nome_razao_social || "Sem nome",
+            telefone: fallback.telefone || null,
+            email: fallback.email || null,
+            cpf_cnpj: fallback.cpf_cnpj || null,
+            cidade: fallback.cidade || null,
+            estado: fallback.estado || null,
+            whatsapp: fallback.whatsapp || null,
+            concessionaria: fallback.concessionaria || null,
+            status: fallback.status || null,
+            classe_tarifaria: fallback.classe_tarifaria || null,
+            vencimento_fatura: fallback.vencimento_fatura || null,
+            instalacao: fallback.instalacao || null,
+            classificacao: fallback.classificacao || null,
+            origem: "cadastro",
+            axs_card_id: fallback.axs_card_id || null,
+            axs_status: fallback.axs_status || null,
+          });
+          return;
+        }
+      } else {
+        setCliente({
+          id: data.id,
+          nome: data.nome || "Sem nome",
+          telefone: data.telefone || null,
+          email: data.email || null,
+          cpf_cnpj: data.cpf_cnpj || null,
+          cidade: data.cidade || null,
+          estado: data.estado || null,
+          whatsapp: null,
+          concessionaria: null,
+          status: null,
+          classe_tarifaria: null,
+          vencimento_fatura: null,
+          instalacao: null,
+          classificacao: null,
+          origem: data.origem || "cadastro",
+          axs_card_id: null,
+          axs_status: null,
+        });
+        return;
+      }
+    } catch (err) {
+      console.error("Erro ao carregar cliente:", err);
+    }
+  }, [supabase, clienteId]);
+
+  const carregarInteracoes = useCallback(async () => {
     try {
       const res = await fetch(`/api/clientes/${clienteId}/interactions`);
       const data = await res.json();
@@ -135,13 +200,13 @@ export default function ClienteDetalhePage() {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [clienteId]);
 
   useEffect(() => {
     Promise.all([carregarCliente(), carregarInteracoes()]).then(() =>
       setLoading(false)
     );
-  }, [clienteId]);
+  }, [carregarCliente, carregarInteracoes]);
 
   // ─── Criar interação ───
 
@@ -223,33 +288,33 @@ export default function ClienteDetalhePage() {
           <div>
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <User className="h-5 w-5 text-[#3B64CF]" />
-              {cliente.nome_razao_social}
+              {cliente.nome}
             </h2>
             <p className="text-xs text-slate-400">
-              {cliente.cpf_cnpj} · {cliente.cidade}/{cliente.estado}
+              {cliente.cpf_cnpj || "Sem CPF/CNPJ"} · {cliente.cidade && cliente.estado ? `${cliente.cidade}/${cliente.estado}` : cliente.cidade || "Sem localização"}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* AXS Button / Badge */}
-          {cliente.axs_card_id ? (
-            <Badge
-              variant="secondary"
-              className="text-[10px] bg-green-500/15 text-green-400 border border-green-500/20"
-            >
-              <Zap className="h-3 w-3 mr-1" />
-              AXS: {cliente.axs_status || "enviado"}
-            </Badge>
-          ) : cliente.nome_razao_social && cliente.cpf_cnpj && cliente.logradouro ? (
-            <Button
-              size="sm"
-              className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-              onClick={() => router.push(`/clientes/${clienteId}/axs`)}
-            >
-              <Zap className="h-3 w-3 mr-1" />
-              Enviar para AXS
-            </Button>
-          ) : null}
+          {/* Edit Button */}
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs border-[#1c2e4a] text-slate-300 hover:text-white hover:bg-[#1c2e4a]"
+            onClick={() => router.push(`/clientes/${clienteId}/editar`)}
+          >
+            <Pencil className="h-3 w-3 mr-1" />
+            Editar
+          </Button>
+          {/* AXS Button */}
+          <Button
+            size="sm"
+            className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+            onClick={() => router.push(`/clientes/${clienteId}/axs-novo`)}
+          >
+            <Zap className="h-3 w-3 mr-1" />
+            Criar Proposta AXS
+          </Button>
           <Dialog open={dialogAberto} onOpenChange={setDialogAberto}>
           <DialogTrigger asChild>
             <Button size="sm" className="h-8 bg-[#15317B] hover:bg-[#1a3d8f] text-white">
@@ -345,7 +410,7 @@ export default function ClienteDetalhePage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
             <div className="flex items-center gap-2 text-slate-400">
               <User className="h-3.5 w-3.5" />
-              <span>{cliente.nome_razao_social}</span>
+              <span>{cliente.nome}</span>
             </div>
             <div className="flex items-center gap-2 text-slate-400">
               <Building2 className="h-3.5 w-3.5" />

@@ -4,10 +4,10 @@ import { createClient } from "@supabase/supabase-js";
 // Increase function timeout (Vercel Pro: 300s max, Hobby: 60s max)
 export const maxDuration = 60;
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabase() {
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!);
+}
 
 // Parse PDF using pdf2json (pure Node.js, no browser dependencies)
 function parsePdf(buffer: Buffer): Promise<string> {
@@ -310,6 +310,7 @@ export async function POST(
     const clienteId = params.clienteId;
 
     // Buscar cliente
+    const supabase = getSupabase();
     const { data: cliente, error: clienteError } = await supabase
       .from("clientes_reciee")
       .select("*")
@@ -376,6 +377,7 @@ export async function POST(
     // Salvar faturas no Supabase
     const faturasSalvas: Record<string, any>[] = [];
     for (const f of faturasExtraidas) {
+    const supabase = getSupabase();
       const { data: faturaSalva, error: faturaError } = await supabase
         .from("faturas_reciee")
         .insert({
@@ -405,6 +407,7 @@ export async function POST(
     for (const fatura of faturasSalvas) {
       const analises = verificarReciee(fatura, cliente);
       for (const analise of analises) {
+      const supabase = getSupabase();
         const { data: analiseSalva } = await supabase
           .from("analises_reciee")
           .insert({

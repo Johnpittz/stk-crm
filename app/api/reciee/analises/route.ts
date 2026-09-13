@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const clienteId = searchParams.get("cliente_id");
 
+    const supabase = getSupabase();
     let query = supabase
       .from("analises_reciee")
       .select("*")
@@ -47,6 +50,7 @@ export async function POST(request: NextRequest) {
       valor_estimado,
     } = body;
 
+    const supabase = getSupabase();
     const { data: analise, error } = await supabase
       .from("analises_reciee")
       .insert({
