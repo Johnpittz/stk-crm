@@ -3,7 +3,15 @@
 -- Cria novas tabelas e migra dados existentes
 -- ============================================================
 
+-- 0. Limpar tabelas se existirem de tentativa anterior
+DROP TABLE IF EXISTS oportunidade_historico;
+DROP TABLE IF EXISTS oportunidade_alertas;
+DROP TABLE IF EXISTS oportunidades;
+
+-- ============================================================
 -- 1. Criar tabela oportunidades
+-- ============================================================
+
 CREATE TABLE IF NOT EXISTS oportunidades (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   
@@ -15,30 +23,26 @@ CREATE TABLE IF NOT EXISTS oportunidades (
   -- Dados da oportunidade
   titulo TEXT NOT NULL,
   descricao TEXT,
-  tipo TEXT NOT NULL DEFAULT 'gd',  -- 'gd', 'reciee', 'axs'
+  tipo TEXT NOT NULL DEFAULT 'gd',
   etapa TEXT NOT NULL DEFAULT 'recebeu_conta',
   prioridade TEXT DEFAULT 'media',
   
   -- Dados da conta/proposta
-  uc TEXT,                          -- Unidade Consumidora
+  uc TEXT,
   consumo_kwh INTEGER,
   concessionaria TEXT,
   valor_proposta NUMERIC(12,2),
   valor_venda NUMERIC(12,2),
   
   -- Datas
-  data_inicio DATE,
-  hora_inicio TIME,
-  data_fim DATE,
-  hora_fim TIME,
+  data_limite TIMESTAMPTZ,
+  data_fechamento DATE,
   
   -- Resultado
   resultado TEXT,
   observacao_resultado TEXT,
   
   -- Controle
-  ordem INTEGER DEFAULT 0,
-  origem_lead TEXT,
   cliente_nome TEXT,
   
   -- Auditoria
@@ -56,14 +60,12 @@ CREATE INDEX IF NOT EXISTS idx_oportunidades_created ON oportunidades(created_at
 -- RLS
 ALTER TABLE oportunidades ENABLE ROW LEVEL SECURITY;
 
--- Vendedor vê suas próprias oportunidades
 DROP POLICY IF EXISTS "vendedor_ve proprias oportunidades" ON oportunidades;
 CREATE POLICY "vendedor_ve proprias oportunidades" ON oportunidades
   FOR ALL TO authenticated
   USING (vendedor_id = auth.uid())
   WITH CHECK (vendedor_id = auth.uid());
 
--- Gestores veem todas as oportunidades
 DROP POLICY IF EXISTS "gestores_veem_todas_oportunidades" ON oportunidades;
 CREATE POLICY "gestores_veem_todas_oportunidades" ON oportunidades
   FOR SELECT TO authenticated
@@ -75,7 +77,6 @@ CREATE POLICY "gestores_veem_todas_oportunidades" ON oportunidades
     )
   );
 
--- Service role total
 DROP POLICY IF EXISTS "service_role_all_oportunidades" ON oportunidades;
 CREATE POLICY "service_role_all_oportunidades" ON oportunidades
   FOR ALL TO service_role
@@ -102,7 +103,6 @@ CREATE INDEX IF NOT EXISTS idx_oportunidade_hist_oportunidade
 CREATE INDEX IF NOT EXISTS idx_oportunidade_hist_created 
   ON oportunidade_historico(created_at DESC);
 
--- RLS
 ALTER TABLE oportunidade_historico ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "service_role_all_oportunidade_historico" ON oportunidade_historico;
@@ -128,7 +128,7 @@ CREATE TABLE IF NOT EXISTS oportunidade_alertas (
   tipo TEXT NOT NULL DEFAULT 'conta_detectada',
   confianca REAL DEFAULT 0.5,
   dados_extraidos JSONB DEFAULT '{}',
-  status TEXT DEFAULT 'pendente',  -- 'pendente', 'aceito', 'rejeitado'
+  status TEXT DEFAULT 'pendente',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -137,7 +137,6 @@ CREATE INDEX IF NOT EXISTS idx_oportunidade_alertas_atendimento
 CREATE INDEX IF NOT EXISTS idx_oportunidade_alertas_status 
   ON oportunidade_alertas(status);
 
--- RLS
 ALTER TABLE oportunidade_alertas ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "service_role_all_oportunidade_alertas" ON oportunidade_alertas;
@@ -149,38 +148,34 @@ CREATE POLICY "service_role_all_oportunidade_alertas" ON oportunidade_alertas
 
 -- ============================================================
 -- 4. Migrar dados de tarefas para oportunidades
+-- Colunas reais de tarefas: id, titulo, descricao, status, 
+-- prioridade, vendedor_id, cliente_id, data_limite, 
+-- valor_venda, cliente_nome, created_at, updated_at
 -- ============================================================
 
--- Mapear coluna_kanban antigo para etapa nova
 INSERT INTO oportunidades (
-  id, cliente_id, vendedor_id, titulo, descricao, tipo, etapa,
-  prioridade, data_inicio, hora_inicio, data_fim, hora_fim,
-  resultado, observacao_resultado, valor_venda, cliente_nome,
-  ordem, origem_lead, created_at
+  id, cliente_id, vendedor_id, titulo, descricao,
+  etapa, prioridade, valor_venda, cliente_nome,
+  data_limite, created_at
 )
 SELECT 
   id, cliente_id, vendedor_id, titulo, descricao,
-  'gd' AS tipo,
-  CASE coluna_kanban
-    WHEN 'recebeu_conta' THEN 'recebeu_conta'
-    WHEN 'proposta_feita' THEN 'proposta_a_fazer'
-    WHEN 'proposta_apresentada' THEN 'proposta_apresentada'
-    WHEN 'apresentacao_realizada' THEN 'apresentacao_feita'
-    WHEN 'contrato_enviado' THEN 'contrato_enviado'
-    WHEN 'contrato_assinado' THEN 'contrato_assinado'
-    WHEN 'comissao_paga' THEN 'comissao_paga'
+  CASE status
+    WHEN 'concluida' THEN 'comissao_paga'
+    WHEN 'em_andamento' THEN 'proposta_a_fazer'
     ELSE 'recebeu_conta'
   END AS etapa,
   COALESCE(prioridade, 'media'),
-  data_inicio, hora_inicio, data_fim, hora_fim,
-  resultado, observacao_resultado, valor_venda, cliente_nome,
-  COALESCE(ordem, 0), origem_lead, created_at
+  valor_venda,
+  cliente_nome,
+  data_limite,
+  created_at
 FROM tarefas
 ON CONFLICT (id) DO NOTHING;
 
 
 -- ============================================================
--- 5. Criar function para updated_at automático
+-- 5. Trigger para updated_at automático
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION update_oportunidades_updated_at()
