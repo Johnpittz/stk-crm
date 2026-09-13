@@ -28,6 +28,7 @@ import {
   ExternalLink,
   X,
   Eye,
+  Trash2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -87,6 +88,8 @@ export default function ClientesPage() {
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
   const [filtroOrigem, setFiltroOrigem] = useState<string>("todos");
+  const [clienteParaDeletar, setClienteParaDeletar] = useState<ClienteUnificado | null>(null);
+  const [deletando, setDeletando] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -148,6 +151,36 @@ export default function ClientesPage() {
   useEffect(() => {
     carregarClientes();
   }, [carregarClientes]);
+
+  // ─── Deletar cliente ───
+  const handleDeletarCliente = async () => {
+    if (!clienteParaDeletar) return;
+    setDeletando(true);
+    try {
+      // Desvincular de atendimentos (setar cliente_id = null)
+      await supabase
+        .from("atendimentos")
+        .update({ cliente_id: null })
+        .eq("cliente_id", clienteParaDeletar.id);
+
+      // Deletar cliente
+      const res = await fetch(`/api/clientes/${clienteParaDeletar.id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        setClientes((prev) => prev.filter((c) => c.id !== clienteParaDeletar.id));
+        setClienteParaDeletar(null);
+      } else {
+        const data = await res.json();
+        alert(`Erro: ${data.error || "Não foi possível excluir"}`);
+      }
+    } catch (err) {
+      alert("Erro ao excluir cliente");
+    } finally {
+      setDeletando(false);
+    }
+  };
 
   // ─── Filtrar ───
   const clientesFiltrados = clientes.filter((c) => {
@@ -366,7 +399,19 @@ export default function ClientesPage() {
                       <StatusBadge status={cliente.status} />
                     </td>
                     <td className="px-4 py-2.5">
-                      <ChevronRight className="h-3.5 w-3.5 text-slate-600" />
+                      <div className="flex items-center gap-1">
+                        <button
+                          className="p-1 rounded hover:bg-red-500/20 transition-colors"
+                          title="Excluir cliente"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setClienteParaDeletar(cliente);
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-slate-500 hover:text-red-400" />
+                        </button>
+                        <ChevronRight className="h-3.5 w-3.5 text-slate-600" />
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -375,6 +420,45 @@ export default function ClientesPage() {
           </ScrollArea>
         )}
       </div>
+
+      {/* Modal de confirmação de exclusão */}
+      <Dialog open={!!clienteParaDeletar} onOpenChange={() => setClienteParaDeletar(null)}>
+        <DialogContent className="bg-[#0f1d32] border border-[#1c2e4a] max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-red-400" />
+              Excluir Cliente
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-slate-300">
+              Tem certeza que deseja excluir <strong className="text-white">{clienteParaDeletar?.nome}</strong>?
+            </p>
+            <p className="text-xs text-slate-500 mt-2">
+              O cliente será removido, mas os atendimentos anteriores serão mantidos.
+            </p>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-[#1c2e4a] text-slate-400"
+              onClick={() => setClienteParaDeletar(null)}
+              disabled={deletando}
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={handleDeletarCliente}
+              disabled={deletando}
+            >
+              {deletando ? "Excluindo..." : "Excluir"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
