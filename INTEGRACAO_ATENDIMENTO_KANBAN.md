@@ -65,23 +65,26 @@ O sistema deve identificar quando o cliente envia:
 | Tipo | Formato | Indicadores |
 |------|---------|-------------|
 | **PDF** | `.pdf` | Nome contém "conta", "fatura", "energia", "elétrica" |
-| **Imagem** | `.jpg`, `.png`, `.webp` | Google Vision API detecta: "UC", "kWh", "Consumo", "Vencimento", "Valor Total" |
+| **Imagem** | `.jpg`, `.png`, `.webp` | Tesseract.js detecta: "UC", "kWh", "Consumo", "Vencimento", "Valor Total" |
 | **Áudio** | `.ogg`, `.mp3` | Transcrição menciona "conta de luz", "fatura" (futuro) |
 
-### 3.1.1 OCR — Google Vision API
+### 3.1.1 OCR — Tesseract.js (grátis)
 
-Usar **Google Cloud Vision API** para extrair texto de imagens/PDFs:
+Usar **Tesseract.js** para extrair texto de imagens/PDFs — roda 100% no servidor, sem custo:
 
 ```
 1. Mensagem com imagem/PDF chega no webhook
 2. Baixar arquivo via Evolution API (getBase64FromMediaMessage)
-3. Enviar para Google Vision API (detectDocumentText)
+3. Rodar Tesseract.js localmente (node worker)
 4. Receber texto extraído
 5. Analisar com regex para identificar UC, consumo, etc.
 ```
 
-**Custo:** ~$1.50 por 1000 imagens (primeiras 1000/mês grátis)
-**Precisão:** >95% em documentos de boa qualidade
+**Custo:** $0 (open source, roda local)
+**Precisão:** ~85-90% em documentos de boa qualidade
+**Setup:** `npm install tesseract.js` — sem conta externa
+
+> **Nota:** Se precisar de mais precisão no futuro, migrar pra Google Vision API ($1.50/1000 imgs). Tesseract é suficiente para contas de energia (documento padronizado).
 
 ### 3.2 Regras de detecção
 
@@ -432,7 +435,7 @@ GET    /api/tarefas/resumo   → GET    /api/oportunidades/resumo
 
 | Pergunta | Resposta |
 |----------|----------|
-| **OCR** | Usar API externa (Google Vision ou similar) — mais preciso que biblioteca local |
+| **OCR** | Tesseract.js (grátis, roda local). Se precisar mais precisão, migrar pro Google Vision depois |
 | **Confiança mínima** | Máximo viável — mostrar banner só quando tiver certeza quase absoluta |
 | **Múltiplos tipos** | GD e RECIEE ficam separados (uma oportunidade = um tipo). É raro ter os dois ao mesmo tempo |
 | **Reabrir oportunidade** | Criar NOVA oportunidade. Dados do histórico ficam na página do CLIENTE (não perde info) |
