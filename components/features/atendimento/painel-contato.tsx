@@ -783,7 +783,7 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
               <select
                 value={formCliente.estado}
                 onChange={(e) => setFormCliente({ ...formCliente, estado: e.target.value })}
-                className="h-10 text-sm rounded-md border border-slate-200 bg-white px-2"
+                className="h-10 text-sm rounded-md border border-slate-600 bg-slate-800 text-white px-2"
               >
                 <option value="">UF</option>
                 {ESTADOS.map((uf) => (
@@ -916,7 +916,7 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
               <select
                 value={formEnriquecer.estado}
                 onChange={(e) => setFormEnriquecer({ ...formEnriquecer, estado: e.target.value })}
-                className="h-10 text-sm rounded-md border border-slate-200 bg-white px-2"
+                className="h-10 text-sm rounded-md border border-slate-600 bg-slate-800 text-white px-2"
               >
                 <option value="">UF</option>
                 {ESTADOS.map((uf) => (
@@ -935,7 +935,7 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
               placeholder="Observações"
               value={formEnriquecer.observacoes}
               onChange={(e) => setFormEnriquecer({ ...formEnriquecer, observacoes: e.target.value })}
-              className="h-20 text-sm rounded-md border border-slate-200 bg-white px-2 py-1.5 w-full resize-none"
+              className="h-20 text-sm rounded-md border border-slate-600 bg-slate-800 text-white px-2 py-1.5 w-full resize-none"
             />
             <div className="flex gap-2 pt-1">
               <Button
@@ -1044,7 +1044,7 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
                   <select
                     value={gdForm.concessionaria}
                     onChange={(e) => setGdForm({ ...gdForm, concessionaria: e.target.value })}
-                    className="h-10 text-sm rounded-md border border-slate-200 bg-white px-2 w-full"
+                    className="h-10 text-sm rounded-md border border-slate-600 bg-slate-800 text-white px-2 w-full"
                   >
                     <option value="">Concessionária *</option>
                     {CONCESSIONARIAS.map((c) => (
@@ -1061,7 +1061,7 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
                     <select
                       value={gdForm.classe_tarifaria}
                       onChange={(e) => setGdForm({ ...gdForm, classe_tarifaria: e.target.value })}
-                      className="h-10 text-sm rounded-md border border-slate-200 bg-white px-2"
+                      className="h-10 text-sm rounded-md border border-slate-600 bg-slate-800 text-white px-2"
                     >
                       <option value="">Classe</option>
                       {CLASSES_TARIFARIAS.map((c) => (
@@ -1071,7 +1071,7 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
                     <select
                       value={gdForm.subgrupo_tarifario}
                       onChange={(e) => setGdForm({ ...gdForm, subgrupo_tarifario: e.target.value })}
-                      className="h-10 text-sm rounded-md border border-slate-200 bg-white px-2"
+                      className="h-10 text-sm rounded-md border border-slate-600 bg-slate-800 text-white px-2"
                     >
                       <option value="">Subgrupo</option>
                       {SUBGRUPOS.map((s) => (
@@ -1082,7 +1082,7 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
                   <select
                     value={gdForm.bandeira}
                     onChange={(e) => setGdForm({ ...gdForm, bandeira: e.target.value })}
-                    className="h-10 text-sm rounded-md border border-slate-200 bg-white px-2 w-full"
+                    className="h-10 text-sm rounded-md border border-slate-600 bg-slate-800 text-white px-2 w-full"
                   >
                     <option value="">Bandeira</option>
                     {BANDEIRAS.map((b) => (
@@ -1127,7 +1127,7 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
                     <select
                       value={recieeForm.estado}
                       onChange={(e) => setRecieeForm({ ...recieeForm, estado: e.target.value })}
-                      className="h-10 text-sm rounded-md border border-slate-200 bg-white px-2"
+                      className="h-10 text-sm rounded-md border border-slate-600 bg-slate-800 text-white px-2"
                     >
                       <option value="">UF *</option>
                       {ESTADOS.map((uf) => (
@@ -1137,7 +1137,7 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
                     <select
                       value={recieeForm.distribuidora}
                       onChange={(e) => setRecieeForm({ ...recieeForm, distribuidora: e.target.value })}
-                      className="h-10 text-sm rounded-md border border-slate-200 bg-white px-2"
+                      className="h-10 text-sm rounded-md border border-slate-600 bg-slate-800 text-white px-2"
                     >
                       <option value="">Distribuidora *</option>
                       {DISTRIBUIDORAS.map((d) => (
@@ -1149,7 +1149,7 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
                     <select
                       value={recieeForm.subgrupo}
                       onChange={(e) => setRecieeForm({ ...recieeForm, subgrupo: e.target.value })}
-                      className="h-10 text-sm rounded-md border border-slate-200 bg-white px-2"
+                      className="h-10 text-sm rounded-md border border-slate-600 bg-slate-800 text-white px-2"
                     >
                       <option value="">Subgrupo</option>
                       {SUBGRUPOS_RECIEE.map((s) => (
@@ -1159,7 +1159,7 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
                     <select
                       value={recieeForm.modalidade}
                       onChange={(e) => setRecieeForm({ ...recieeForm, modalidade: e.target.value })}
-                      className="h-10 text-sm rounded-md border border-slate-200 bg-white px-2"
+                      className="h-10 text-sm rounded-md border border-slate-600 bg-slate-800 text-white px-2"
                     >
                       <option value="">Modalidade</option>
                       {MODALIDADES.map((m) => (
@@ -1171,7 +1171,7 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
                     <select
                       value={recieeForm.classe}
                       onChange={(e) => setRecieeForm({ ...recieeForm, classe: e.target.value })}
-                      className="h-10 text-sm rounded-md border border-slate-200 bg-white px-2"
+                      className="h-10 text-sm rounded-md border border-slate-600 bg-slate-800 text-white px-2"
                     >
                       <option value="">Classe</option>
                       {CLASSES_RECIEE.map((c) => (
@@ -1181,7 +1181,7 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
                     <select
                       value={recieeForm.tensao}
                       onChange={(e) => setRecieeForm({ ...recieeForm, tensao: e.target.value })}
-                      className="h-10 text-sm rounded-md border border-slate-200 bg-white px-2"
+                      className="h-10 text-sm rounded-md border border-slate-600 bg-slate-800 text-white px-2"
                     >
                       <option value="">Tensão</option>
                       {TENSOES.map((t) => (
@@ -1193,7 +1193,7 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
                     <select
                       value={recieeForm.regime_tributario}
                       onChange={(e) => setRecieeForm({ ...recieeForm, regime_tributario: e.target.value })}
-                      className="h-10 text-sm rounded-md border border-slate-200 bg-white px-2"
+                      className="h-10 text-sm rounded-md border border-slate-600 bg-slate-800 text-white px-2"
                     >
                       <option value="">Regime</option>
                       {REGIMES_TRIBUTARIOS.map((r) => (
@@ -1203,7 +1203,7 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
                     <select
                       value={recieeForm.grupo}
                       onChange={(e) => setRecieeForm({ ...recieeForm, grupo: e.target.value })}
-                      className="h-10 text-sm rounded-md border border-slate-200 bg-white px-2"
+                      className="h-10 text-sm rounded-md border border-slate-600 bg-slate-800 text-white px-2"
                     >
                       <option value="">Grupo</option>
                       {GRUPOS.map((g) => (
