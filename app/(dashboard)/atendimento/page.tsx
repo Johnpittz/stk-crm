@@ -70,10 +70,23 @@ export default function AtendimentoPage() {
   const isChatOpenRef = useRef(false);
   const atendimentosMapRef = useRef<Map<string, Atendimento>>(new Map());
   const abortControllerRef = useRef<AbortController | null>(null);
+  const chatIdRef = useRef<string>("");
+
+  // Manter ref do chatId atualizado
+  useEffect(() => {
+    chatIdRef.current = atendimentoChat?.id || "";
+    // Busca imediata ao abrir/fechar chat
+    if (atendimentoChat?.id) {
+      fetchPageData(true);
+    }
+  }, [atendimentoChat?.id, fetchPageData]);
 
   // OTIMIZAÇÃO: Usar endpoint unificado para carregar tudo de uma vez
   const fetchPageData = useCallback(async (silent = false) => {
     if (!silent) setLoadingAtendimentos(true);
+    
+    // Safety: garante que loading reseta mesmo se algo der errado
+    const safetyTimeout = !silent ? setTimeout(() => setLoadingAtendimentos(false), 10000) : null;
     
     // Cancela request anterior se ainda estiver pendente
     if (abortControllerRef.current) {
@@ -84,7 +97,7 @@ export default function AtendimentoPage() {
     
     try {
       // Incluir atendimento_id se tiver chat aberto
-      const chatId = atendimentoChat?.id || "";
+      const chatId = chatIdRef.current;
       const url = chatId 
         ? `/api/atendimentos/page-data?atendimento_id=${chatId}`
         : "/api/atendimentos/page-data";
@@ -106,8 +119,8 @@ export default function AtendimentoPage() {
       setAtendimentos(novosAtendimentos.map((a: Atendimento) => newMap.get(a.id) || a));
       
       // Atualizar chat se aberto
-      if (atendimentoChat) {
-        const atualizado = newMap.get(atendimentoChat.id);
+      if (chatIdRef.current) {
+        const atualizado = newMap.get(chatIdRef.current);
         if (atualizado) setAtendimentoChat(atualizado);
       }
       
@@ -126,9 +139,10 @@ export default function AtendimentoPage() {
         console.error("Erro ao buscar dados:", err);
       }
     } finally {
+      if (safetyTimeout) clearTimeout(safetyTimeout);
       if (!silent) setLoadingAtendimentos(false);
     }
-  }, [atendimentoChat]);
+  }, []); // Sem dependências!
 
   // Carregar dados na montagem
   useEffect(() => {
