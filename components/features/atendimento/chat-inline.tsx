@@ -87,15 +87,28 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
   // Encontrar info da instância ativa para exibir no header
   const instanciaInfo = instancias?.find(i => i.name === instanciaAtivo);
 
+  const messagesCountRef = useRef(0);
+  const lastSyncRef = useRef(0);
+  const fetchAbortRef = useRef<AbortController | null>(null);
+
   const fetchMensagens = useCallback(async (silent = false) => {
     if (!atendimento) return;
     if (!silent) setLoading(true);
+    
+    // Cancela request anterior
+    if (fetchAbortRef.current) {
+      fetchAbortRef.current.abort();
+    }
+    const controller = new AbortController();
+    fetchAbortRef.current = controller;
+    
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
       const res = await fetch(`/api/atendimentos/mensagens?atendimento_id=${atendimento.id}`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
+        signal: controller.signal,
       });
 
       if (res.ok) {
@@ -115,8 +128,10 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
         
         setMensagens(msgs);
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      if (err.name !== "AbortError") {
+        console.error(err);
+      }
     } finally {
       if (!silent) setLoading(false);
     }
@@ -263,23 +278,28 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
     isInitialLoadRef.current = true;
   }, [atendimento?.id]);
 
-  // Polling: refresh a cada 8s + sync a cada 30s em background
-  const messagesCountRef = useRef(0);
-  const lastSyncRef = useRef(0);
+  // Polling: refresh a cada 15s em background
   useEffect(() => {
     if (!atendimento) return;
 
     messagesCountRef.current = mensagens.length;
 
-    const interval = setInterval(() => {
-      fetchMensagens(true);
-      // Sync do celular a cada 30s
-      const agora = Date.now();
-      if (agora - lastSyncRef.current > 60000) { // Changed from 30s to 60s
-        lastSyncRef.current = agora;
-        syncFromEvolution();
+    let emAndamento = false;
+    const interval = setInterval(async () => {
+      if (emAndamento) return;
+      emAndamento = true;
+      try {
+        await fetchMensagens(true);
+        // Sync do celular a cada 60s
+        const agora = Date.now();
+        if (agora - lastSyncRef.current > 60000) {
+          lastSyncRef.current = agora;
+          syncFromEvolution();
+        }
+      } finally {
+        emAndamento = false;
       }
-    }, 15000); // Changed from 8s to 15s
+    }, 15000);
 
     return () => clearInterval(interval);
   }, [atendimento, fetchMensagens, mensagens.length, syncFromEvolution]);
