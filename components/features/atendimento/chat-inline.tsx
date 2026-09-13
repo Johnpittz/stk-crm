@@ -193,31 +193,38 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
   }, [atendimento]);
 
   // Scroll to bottom quando mensagens mudam
-  const isInitialLoadRef = useRef(true);
-  useEffect(() => {
-    if (scrollRef.current && mensagens.length > 0) {
-      const el = scrollRef.current;
-      // Espera o DOM renderizar as novas mensagens antes de rolar
-      requestAnimationFrame(() => {
-        if (isInitialLoadRef.current) {
-          // Sempre vai pro final na primeira carga ou troca de conversa
-          el.scrollTop = el.scrollHeight;
-          isInitialLoadRef.current = false;
-        } else {
-          // Só rola pro fundo se já estiver perto do fundo (não perturbar quem tá lendo acima)
-          const noFundo = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
-          if (noFundo) {
-            el.scrollTop = el.scrollHeight;
-          }
-        }
-      });
-    }
-  }, [mensagens]);
+  // Ref rastreia qual atendimento_id ainda precisa de scroll forçado pro final
+  const pendingScrollChatId = useRef<string | null>(null);
 
-  // Reset do initial load ao trocar de conversa
+  // Ao trocar de conversa, marca que precisa de scroll forçado
   useEffect(() => {
-    isInitialLoadRef.current = true;
+    pendingScrollChatId.current = atendimento?.id || null;
   }, [atendimento?.id]);
+
+  // Sempre que mensagens atualizam, verifica se precisa scrollar pro final
+  useEffect(() => {
+    if (!scrollRef.current || mensagens.length === 0) return;
+    const el = scrollRef.current;
+
+    const doScroll = () => {
+      if (pendingScrollChatId.current) {
+        // Primeira vez depois de trocar de conversa — sempre vai pro final
+        el.scrollTop = el.scrollHeight;
+        pendingScrollChatId.current = null;
+      } else {
+        // Só rola pro fundo se já estiver perto do fundo
+        const noFundo = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+        if (noFundo) {
+          el.scrollTop = el.scrollHeight;
+        }
+      }
+    };
+
+    // Double-rAF garante que o DOM já pintou com as mensagens novas
+    requestAnimationFrame(() => {
+      requestAnimationFrame(doScroll);
+    });
+  }, [mensagens]);
 
   // Sincronizar mensagens externas (vindas do polling único da página)
   useEffect(() => {
