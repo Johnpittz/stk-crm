@@ -715,11 +715,16 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
         {temCliente ? (
           // Já tem cliente vinculado → Mostrar "Enriquecer com detalhes"
           <Button
-            className="w-full bg-[#3B64CF] hover:bg-[#2D4FA3] text-white gap-2"
-            onClick={() => setMostrarFormEnriquecer(true)}
+            className={cn(
+              "w-full gap-2",
+              mostrarFormEnriquecer
+                ? "bg-slate-600 hover:bg-slate-500 text-white"
+                : "bg-[#3B64CF] hover:bg-[#2D4FA3] text-white"
+            )}
+            onClick={() => setMostrarFormEnriquecer(!mostrarFormEnriquecer)}
           >
             <Pencil className="h-4 w-4" />
-            Enriquecer com detalhes
+            {mostrarFormEnriquecer ? "Fechar" : "Enriquecer com detalhes"}
           </Button>
         ) : (
           // Não existe cliente → "Criar Cliente"
