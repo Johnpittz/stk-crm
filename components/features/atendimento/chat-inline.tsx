@@ -207,8 +207,10 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
     if (mensagem.remetente !== "cliente") return;
     if (!mensagem.media_url && !mensagem.file_name) return;
     
-    const isMedia = mensagem.media_type?.startsWith("image/") || 
-                    mensagem.media_type === "application/pdf" ||
+    const isMedia = mensagem.media_type === "image" || 
+                    mensagem.media_type === "document" ||
+                    mensagem.media_type?.startsWith("image/") || 
+                    mensagem.media_type === "application/pdf" || 
                     mensagem.file_name?.endsWith(".pdf");
     if (!isMedia) return;
 
@@ -249,7 +251,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
   // Detectar conta quando última mensagem é mídia do cliente
   const ultimaMsgDetectadaRef = useRef<string | null>(null);
   useEffect(() => {
-    if (mensagens.length === 0) return;
+    if (mensagens.length === 0 || !atendimento?.id) return;
     const ultima = mensagens[mensagens.length - 1];
     
     // Só verificar uma vez por mensagem
@@ -259,9 +261,13 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
     if (ultima.remetente !== "cliente") return;
     if (!ultima.media_url && !ultima.file_name) return;
     
+    // Verificar se banner já foi dispensado para este atendimento
+    const key = `banner_dispensado_${atendimento.id}`;
+    if (localStorage.getItem(key) === "true") return;
+    
     ultimaMsgDetectadaRef.current = ultima.id;
     detectarConta(ultima);
-  }, [mensagens, detectarConta]);
+  }, [mensagens, detectarConta, atendimento?.id]);
 
   // Scroll to bottom quando mensagens mudam
   // Ref rastreia qual atendimento_id ainda precisa de scroll forçado pro final
@@ -278,6 +284,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
     const el = scrollRef.current;
 
     const doScroll = () => {
+      if (!el) return;
       if (pendingScrollChatId.current) {
         // Primeira vez depois de trocar de conversa — sempre vai pro final
         el.scrollTop = el.scrollHeight;
@@ -291,9 +298,11 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
       }
     };
 
-    // Double-rAF garante que o DOM já pintou com as mensagens novas
+    // Triple-rAF para garantir que o DOM já pintou com as mensagens novas
     requestAnimationFrame(() => {
-      requestAnimationFrame(doScroll);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(doScroll);
+      });
     });
   }, [mensagens]);
 
@@ -305,12 +314,21 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
     // Detectar troca de conversa — limpar mensagens e aguardar dados novos
     if (atendimento?.id !== prevAtendimentoIdRef.current) {
       prevAtendimentoIdRef.current = atendimento?.id || null;
+      ultimaMsgDetectadaRef.current = null; // Reset detecção para nova conversa
+      setAlertaConta(null); // Limpar banner ao trocar de conversa
       setMensagens([]);
       setLoading(true);
       return; // Não processar mensagensExternas desatualizadas
     }
 
     if (mensagensExternas && mensagensExternas.length > 0) {
+      // Evitar re-render desnecessário — só atualizar se os dados mudaram
+      const lastId = mensagensExternas[mensagensExternas.length - 1]?.id;
+      const currentLastId = mensagens[mensagens.length - 1]?.id;
+      if (lastId === currentLastId && mensagens.length === mensagensExternas.length) {
+        setLoading(false);
+        return;
+      }
       const msgs = mensagensExternas.map((m: any) => ({
         id: m.id,
         remetente: m.remetente,
@@ -792,9 +810,16 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
                 dados={alertaConta.dados}
                 confianca={alertaConta.confianca}
                 mensagemId={alertaConta.mensagemId}
-                onDismiss={() => setAlertaConta(null)}
+                onDismiss={() => {
+                  // Salvar dispensa no localStorage
+                  const key = `banner_dispensado_${atendimento?.id || ""}`;
+                  localStorage.setItem(key, "true");
+                  setAlertaConta(null);
+                }}
                 onOportunidadeCriada={() => {
-                  // Trigger refresh no KANBAN
+                  // Salvar dispensa no localStorage
+                  const key = `banner_dispensado_${atendimento?.id || ""}`;
+                  localStorage.setItem(key, "true");
                   setAlertaConta(null);
                 }}
               />

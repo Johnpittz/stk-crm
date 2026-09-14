@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STK CRM — Apresentação do Sistema</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            line-height: 1.7;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 60px 40px;
+        }
+        
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 60px;
+            padding-bottom: 40px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #3B64CF, #60a5fa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 12px;
+        }
+        
+        .header .subtitle {
+            font-size: 1.25rem;
+            color: #94a3b8;
+            font-weight: 300;
+        }
+        
+        .header .date {
+            margin-top: 16px;
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+        
+        /* Sections */
+        .section {
+            margin-bottom: 50px;
+        }
+        
+        .section-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #f8fafc;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .section-title .icon {
+            font-size: 1.5rem;
+        }
+        
+        .section p {
+            font-size: 1.05rem;
+            color: #cbd5e1;
+            margin-bottom: 16px;
+        }
+        
+        .highlight {
+            background: rgba(59, 100, 207, 0.15);
+            border-left: 4px solid #3B64CF;
+            padding: 20px 24px;
+            border-radius: 0 12px 12px 0;
+            margin: 24px 0;
+        }
+        
+        .highlight p {
+            color: #e2e8f0;
+            margin: 0;
+            font-size: 1.1rem;
+        }
+        
+        /* Cards */
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 24px 0;
+        }
+        
+        .card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 24px;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(59, 100, 207, 0.5);
+        }
+        
+        .card .card-icon {
+            font-size: 2rem;
+            margin-bottom: 12px;
+        }
+        
+        .card h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #f8fafc;
+            margin-bottom: 8px;
+        }
+        
+        .card p {
+            font-size: 0.9rem;
+            color: #94a3b8;
+            margin: 0;
+        }
+        
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin: 24px 0;
+            flex-wrap: wrap;
+        }
+        
+        .tab {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 16px 20px;
+            flex: 1;
+            min-width: 150px;
+        }
+        
+        .tab h4 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #60a5fa;
+            margin-bottom: 6px;
+        }
+        
+        .tab p {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            margin: 0;
+        }
+        
+        /* Pipeline */
+        .pipeline {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            margin: 24px 0;
+        }
+        
+        .pipeline-step {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px 20px;
+            background: rgba(255,255,255,0.03);
+            border-left: 3px solid #3B64CF;
+            position: relative;
+        }
+        
+        .pipeline-step:nth-child(even) {
+            background: rgba(255,255,255,0.05);
+        }
+        
+        .pipeline-step .step-num {
+            width: 32px;
+            height: 32px;
+            background: #3B64CF;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+        
+        .pipeline-step .step-text {
+            font-size: 1rem;
+            color: #e2e8f0;
+        }
+        
+        .pipeline-arrow {
+            text-align: center;
+            color: #3B64CF;
+            font-size: 1.2rem;
+            padding: 4px 0;
+        }
+        
+        /* Flow */
+        .flow {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 32px;
+            margin: 24px 0;
+        }
+        
+        .flow-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            padding: 12px 0;
+        }
+        
+        .flow-step:not(:last-child) {
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .flow-step .flow-icon {
+            font-size: 1.5rem;
+            flex-shrink: 0;
+            width: 40px;
+            text-align: center;
+        }
+        
+        .flow-step .flow-text {
+            font-size: 1rem;
+            color: #cbd5e1;
+        }
+        
+        .flow-step .flow-text strong {
+            color: #f8fafc;
+        }
+        
+        .flow-arrow-down {
+            text-align: center;
+            color: #3B64CF;
+            font-size: 1.5rem;
+            padding: 8px 0;
+        }
+        
+        /* Table */
+        .table-wrapper {
+            overflow-x: auto;
+            margin: 24px 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(255,255,255,0.03);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        th {
+            background: rgba(59, 100, 207, 0.2);
+            padding: 14px 20px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #60a5fa;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        td {
+            padding: 14px 20px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            font-size: 0.95rem;
+            color: #cbd5e1;
+        }
+        
+        tr:hover td {
+            background: rgba(255,255,255,0.03);
+        }
+        
+        /* Stats */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 16px;
+            margin: 24px 0;
+        }
+        
+        .stat {
+            text-align: center;
+            padding: 24px 16px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .stat .stat-number {
+            font-size: 2rem;
+            font-weight: 800;
+            color: #3B64CF;
+            display: block;
+        }
+        
+        .stat .stat-label {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding-top: 40px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            margin-top: 60px;
+            color: #64748b;
+            font-size: 0.875rem;
+        }
+        
+        /* Print styles */
+        @media print {
+            body { background: #fff; color: #1e293b; }
+            .container { padding: 40px; }
+            .header h1 { -webkit-text-fill-color: #3B64CF; }
+            .card, .tab, .pipeline-step, .flow, .stat { border-color: #e2e8f0; }
+            .highlight { background: #f1f5f9; border-left-color: #3B64CF; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        
+        <!-- HEADER -->
+        <div class="header">
+            <h1>STK CRM</h1>
+            <div class="subtitle">Sistema de Gestão Comercial com Integração WhatsApp</div>
+            <div class="date">Setembro 2026 — STK Tecnologia</div>
+        </div>
+        
+        <!-- O QUE É -->
+        <div class="section">
+            <div class="section-title">
+                <span class="icon">💡</span>
+                O que é o STK CRM?
+            </div>
+            <p>
+                O STK CRM é um sistema feito sob medida para gerenciar todo o ciclo de vendas de energia solar e RECIEE. Ele conecta <strong>WhatsApp</strong>, <strong>cadastro de clientes</strong> e <strong>controle de vendas</strong> em um único lugar.
+            </p>
+            <div class="highlight">
+                <p>
+                    <strong>Resumindo:</strong> Quando um cliente manda uma mensagem no WhatsApp, o vendedor já vê tudo sobre ele — dados pessoais, propostas anteriores, contas de luz, conversas — tudo na mesma tela.
+                </p>
+            </div>
+        </div>
+        
+        <!-- 3 MÓDULOS -->
+        <div class="section">
+            <div class="section-title">
+                <span class="icon">🧩</span>
+                Os 3 Módulos Principais
+            </div>
+            
+            <div class="cards">
+                <div class="card">
+                    <div class="card-icon">👥</div>
+                    <h3>Clientes</h3>
+                    <p>Cada cliente tem uma "pasta completa" com tudo que foi feito com ele — dados, propostas, contas de luz, conversas.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">📋</div>
+                    <h3>Kanban</h3>
+                    <p>Quadro visual que mostra onde cada venda está. Funciona como um funil — cada venda passa por etapas até ser fechada.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">💬</div>
+                    <h3>Atendimento</h3>
+                    <p>WhatsApp integrado — o vendedor conversa com clientes direto pelo sistema, sem precisar abrir o WhatsApp separado.</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- CLIENTES -->
+        <div class="section">
+            <div class="section-title">
+                <span class="icon">👥</span>
+                1. CLIENTES — A "Pasta" do Cliente
+            </div>
+            <p>
+                Cada cliente tem uma <strong>pasta completa</strong> com 5 abas. Quando o vendedor clica num cliente, ele vê tudo sobre ele:
+            </p>
+            
+            <div class="tabs">
+                <div class="tab">
+                    <h4>📄 Dados</h4>
+                    <p>Nome, telefone, CPF/CNPJ, endereço, concessionária, classe tarifária, consumo mensal com gráfico</p>
+                </div>
+                <div class="tab">
+                    <h4>⚡ GD</h4>
+                    <p>Todas as propostas de Geração Distribuída (solar), incluindo as feitas pela plataforma AXS</p>
+                </div>
+                <div class="tab">
+                    <h4>📊 RECIEE</h4>
+                    <p>Contas de luz enviadas pelo cliente, com análise automática de cobranças indevidas</p>
+                </div>
+                <div class="tab">
+                    <h4>💬 Atendimentos</h4>
+                    <p>Histórico de todas as conversas WhatsApp com o cliente</p>
+                </div>
+                <div class="tab">
+                    <h4>🎯 Oportunidades</h4>
+                    <p>Todas as oportunidades de venda vinculadas ao cliente</p>
+                </div>
+            </div>
+            
+            <div class="highlight">
+                <p>
+                    <strong>Por que isso é importante?</strong> Antes, cada informação ficava em um lugar diferente. Agora, tudo está na pasta do cliente. Se ele mandou 120 contas de luz para análise RECIEE, todas ficam salvas — e ocupam apenas ~24KB de espaço.
+                </p>
+            </div>
+        </div>
+        
+        <!-- KANBAN -->
+        <div class="section">
+            <div class="section-title">
+                <span class="icon">📋</span>
+                2. KANBAN — O Funil de Vendas
+            </div>
+            <p>
+                O Kanban é um <strong>quadro visual</strong> que mostra onde cada venda está. Cada venda passa por etapas até ser fechada:
+            </p>
+            
+            <div class="pipeline">
+                <div class="pipeline-step">
+                    <div class="step-num">1</div>
+                    <div class="step-text">📥 Recebeu a Conta</div>
+                </div>
+                <div class="pipeline-arrow">↓</div>
+                <div class="pipeline-step">
+                    <div class="step-num">2</div>
+                    <div class="step-text">📝 Proposta a Fazer</div>
+                </div>
+                <div class="pipeline-arrow">↓</div>
+                <div class="pipeline-step">
+                    <div class="step-num">3</div>
+                    <div class="step-text">📋 Proposta Apresentada</div>
+                </div>
+                <div class="pipeline-arrow">↓</div>
+                <div class="pipeline-step">
+                    <div class="step-num">4</div>
+                    <div class="step-text">📤 Contrato Enviado</div>
+                </div>
+                <div class="pipeline-arrow">↓</div>
+                <div class="pipeline-step">
+                    <div class="step-num">5</div>
+                    <div class="step-text">✅ Contrato Assinado</div>
+                </div>
+                <div class="pipeline-arrow">↓</div>
+                <div class="pipeline-step">
+                    <div class="step-num">6</div>
+                    <div class="step-text">💰 Comissão Paga</div>
+                </div>
+            </div>
+            
+            <p>
+                <strong>Cada vendedor só vê as suas oportunidades.</strong> Gestores veem todas. O vendedor arrasta a oportunidade pelo quadro conforme vai avançando na venda.
+            </p>
+        </div>
+        
+        <!-- ATENDIMENTO -->
+        <div class="section">
+            <div class="section-title">
+                <span class="icon">💬</span>
+                3. ATENDIMENTO — WhatsApp Integrado
+            </div>
+            <p>
+                O módulo de atendimento é onde o vendedor <strong>conversa com os clientes</strong> diretamente pelo sistema, com 3 colunas no estilo WhatsApp:
+            </p>
+            
+            <div class="cards">
+                <div class="card">
+                    <div class="card-icon">📱</div>
+                    <h3>Lista de Conversas</h3>
+                    <p>Todas as conversas ativas, filtradas por número, com busca e etiquetas</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">💬</div>
+                    <h3>Chat</h3>
+                    <p>Conversa em tempo real com suporte a textos, imagens, áudios e documentos</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">👤</div>
+                    <h3>Painel do Cliente</h3>
+                    <p>Dados do cliente, propostas, e possibilidade de criar GD/RECIEE direto do chat</p>
+                </div>
+            </div>
+            
+            <p style="margin-top: 20px;"><strong>Destaques do atendimento:</strong></p>
+            
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Funcionalidade</th>
+                            <th>Como funciona</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>3 números de WhatsApp</strong></td>
+                            <td>ROMA_2, STK-1 e STK-2 conectados ao mesmo sistema</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Chatbot Inteligente</strong></td>
+                            <td>Assiste virtual responde automaticamente as primeiras mensagens, qualificando o cliente com IA</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Detecção de Conta</strong></td>
+                            <td>Quando cliente manda foto/PDF da conta, o sistema sugere criar uma oportunidade</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Criação de Propostas</strong></td>
+                            <td>Vendedor pode criar propostas GD ou RECIEE direto do chat, sem sair da conversa</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Etiquetas</strong></td>
+                            <td>Classificar conversas (ex: "Prioridade", "Aguardando retorno")</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- FLUXO COMPLETO -->
+        <div class="section">
+            <div class="section-title">
+                <span class="icon">🔄</span>
+                Como Tudo se Conecta
+            </div>
+            
+            <div class="flow">
+                <div class="flow-step">
+                    <div class="flow-icon">📲</div>
+                    <div class="flow-text"><strong>Cliente manda WhatsApp</strong></div>
+                </div>
+                <div class="flow-arrow-down">↓</div>
+                <div class="flow-step">
+                    <div class="flow-icon">💬</div>
+                    <div class="flow-text"><strong>Atendimento recebe</strong> a mensagem</div>
+                </div>
+                <div class="flow-arrow-down">↓</div>
+                <div class="flow-step">
+                    <div class="flow-icon">🤖</div>
+                    <div class="flow-text"><strong>Chatbot qualifica</strong> o cliente (opcional)</div>
+                </div>
+                <div class="flow-arrow-down">↓</div>
+                <div class="flow-step">
+                    <div class="flow-icon">👨‍💼</div>
+                    <div class="flow-text"><strong>Vendedor assume</strong> a conversa</div>
+                </div>
+                <div class="flow-arrow-down">↓</div>
+                <div class="flow-step">
+                    <div class="flow-icon">📄</div>
+                    <div class="flow-text"><strong>Cliente manda conta de luz</strong></div>
+                </div>
+                <div class="flow-arrow-down">↓</div>
+                <div class="flow-step">
+                    <div class="flow-icon">🔍</div>
+                    <div class="flow-text"><strong>Sistema detecta</strong> e sugere criar oportunidade</div>
+                </div>
+                <div class="flow-arrow-down">↓</div>
+                <div class="flow-step">
+                    <div class="flow-icon">📋</div>
+                    <div class="flow-text"><strong>Oportunidade aparece no Kanban</strong></div>
+                </div>
+                <div class="flow-arrow-down">↓</div>
+                <div class="flow-step">
+                    <div class="flow-icon">🎯</div>
+                    <div class="flow-text"><strong>Vendedor trabalha a venda</strong> (proposta → contrato → assinatura)</div>
+                </div>
+                <div class="flow-arrow-down">↓</div>
+                <div class="flow-step">
+                    <div class="flow-icon">💰</div>
+                    <div class="flow-text"><strong>Comissão paga</strong> → Venda fechada!</div>
+                </div>
+                <div class="flow-arrow-down">↓</div>
+                <div class="flow-step">
+                    <div class="flow-icon">📁</div>
+                    <div class="flow-text"><strong>Tudo fica salvo</strong> na pasta do cliente</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- OUTROS MÓDULOS -->
+        <div class="section">
+            <div class="section-title">
+                <span class="icon">📦</span>
+                Outros Módulos do Sistema
+            </div>
+            
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Módulo</th>
+                            <th>O que faz</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>📢 Marketing</strong></td>
+                            <td>Campanhas de WhatsApp em massa, gestão de leads, promoções</td>
+                        </tr>
+                        <tr>
+                            <td><strong>🤖 Chatbot</strong></td>
+                            <td>Assistente virtual com fluxos personalizáveis (usa IA Gemini)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>⚡ RECIEE</strong></td>
+                            <td>Análise automática de contas de luz para recuperar cobranças indevidas</td>
+                        </tr>
+                        <tr>
+                            <td><strong>🔧 Pós-Vendas</strong></td>
+                            <td>Follow-up, pesquisa de satisfação, suporte, acompanhamento</td>
+                        </tr>
+                        <tr>
+                            <td><strong>👨‍💼 Equipes</strong></td>
+                            <td>Gestão de vendedores e métricas por equipe</td>
+                        </tr>
+                        <tr>
+                            <td><strong>📦 Produtos</strong></td>
+                            <td>Catálogo de produtos com preços e filtros</td>
+                        </tr>
+                        <tr>
+                            <td><strong>💰 Vendas</strong></td>
+                            <td>Registro e acompanhamento de vendas fechadas</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- TECNOLOGIA -->
+        <div class="section">
+            <div class="section-title">
+                <span class="icon">⚙️</span>
+                Tecnologia
+            </div>
+            
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Componente</th>
+                            <th>Tecnologia</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Sistema</strong></td>
+                            <td>Next.js 14 (hospedado na Vercel, plano gratuito)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Banco de dados</strong></td>
+                            <td>Supabase (PostgreSQL, plano gratuito)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>WhatsApp</strong></td>
+                            <td>Evolution API (rodando num servidor próprio)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Chatbot</strong></td>
+                            <td>Google Gemini 2.5 Flash (IA)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Análise de contas</strong></td>
+                            <td>Tesseract.js (OCR gratuito, roda no navegador)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Propostas AXS</strong></td>
+                            <td>Playwright (automação de navegador no servidor)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="highlight">
+                <p>
+                    <strong>Custo de infraestrutura:</strong> Praticamente zero — tudo roda em planos gratuitos ou servidor próprio.
+                </p>
+            </div>
+        </div>
+        
+        <!-- NÚMEROS -->
+        <div class="section">
+            <div class="section-title">
+                <span class="icon">📊</span>
+                Números do Sistema
+            </div>
+            
+            <div class="stats">
+                <div class="stat">
+                    <span class="stat-number">32</span>
+                    <span class="stat-label">Páginas</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">59</span>
+                    <span class="stat-label">Componentes</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">63</span>
+                    <span class="stat-label">APIs</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">3</span>
+                    <span class="stat-label">Números WhatsApp</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">7</span>
+                    <span class="stat-label">Etapas no Funil</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">5</span>
+                    <span class="stat-label">Abas por Cliente</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- RESUMO -->
+        <div class="section">
+            <div class="section-title">
+                <span class="icon">🎯</span>
+                Resumo para Apresentação
+            </div>
+            
+            <div class="highlight" style="border-left-color: #22c55e;">
+                <p style="font-size: 1.2rem; color: #f8fafc;">
+                    "O STK CRM é um sistema que conecta WhatsApp, cadastro de clientes e controle de vendas em um só lugar. Quando um cliente manda mensagem, o vendedor já vê tudo sobre ele. Quando ele manda uma conta de luz, o sistema detecta e sugere criar uma oportunidade de venda. Tudo fica organizado num quadro visual que mostra onde cada venda está. E toda a informação fica salva na pasta do cliente, sem perda de dados."
+                </p>
+            </div>
+        </div>
+        
+        <!-- FOOTER -->
+        <div class="footer">
+            <p>STK Tecnologia — Setembro 2026</p>
+        </div>
+        
+    </div>
+</body>
+</html>

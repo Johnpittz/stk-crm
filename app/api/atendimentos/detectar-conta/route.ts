@@ -15,8 +15,10 @@ export async function POST(request: NextRequest) {
     const { nome_arquivo, tipo_arquivo } = body;
 
     // Se tem arquivo (imagem ou PDF), sugerir
-    const isArquivo = tipo_arquivo?.startsWith("image/") || 
-                      tipo_arquivo === "application/pdf" ||
+    const isArquivo = tipo_arquivo === "image" ||
+                      tipo_arquivo === "document" ||
+                      tipo_arquivo?.startsWith("image/") || 
+                      tipo_arquivo === "application/pdf" || 
                       nome_arquivo?.endsWith(".pdf");
 
     if (isArquivo) {

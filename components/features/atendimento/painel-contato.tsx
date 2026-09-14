@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Pencil, Phone, Mail, Calendar, FileText, Plus, ChevronDown, ChevronRight,
   Check, X, Zap, Receipt, UserPlus, Loader2, AlertCircle, Save, Link2,
@@ -130,6 +130,7 @@ function Secao({ titulo, children, badge, defaultOpen = false, icon }: SecaoProp
 export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiquetaChange, onClienteCriado }: PainelContatoProps) {
   // ─── State ───
   const [abaAtiva, setAbaAtiva] = useState<AbaAtiva>("dados");
+  const prevAtendimentoIdRef = useRef<string | null>(null);
   const [etiquetasBusca, setEtiquetasBusca] = useState("");
   const [etiquetasVinculadas, setEtiquetasVinculadas] = useState<string[]>([]);
   const [loadingEtiquetas, setLoadingEtiquetas] = useState(false);
@@ -259,6 +260,11 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
 
   useEffect(() => {
     if (atendimento) {
+      // Só resetar aba ao trocar de conversa (ID diferente), não a cada atualização do polling
+      if (atendimento.id !== prevAtendimentoIdRef.current) {
+        prevAtendimentoIdRef.current = atendimento.id;
+        setAbaAtiva("dados");
+      }
       fetchEtiquetas();
       setEtiquetasBusca("");
       setTipoProposta(null);
@@ -266,7 +272,6 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
       setMostrarFormEnriquecer(false);
       setMensagemErro(null);
       setMensagemSucesso(null);
-      setAbaAtiva("dados");
       setClienteIdLocal(atendimento.cliente_id || null);
 
       // Verificar se telefone já existe e vincular automaticamente (só se NÃO tem cliente vinculado)
@@ -1000,8 +1005,17 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
 
           {/* Aba Dados */}
           {abaAtiva === "dados" && (
-            <div className="px-4 py-3 text-xs text-white/50">
-              Informações do cliente vinculado.
+            <div className="px-4 py-3 space-y-3">
+              {/* Indicador de conta detectada (dispensada) */}
+              {atendimento?.id && typeof window !== "undefined" && localStorage.getItem(`banner_dispensado_${atendimento.id}`) === "true" && (
+                <div className="flex items-center gap-2 p-2 rounded-md bg-slate-700/50 border border-slate-600/50">
+                  <Receipt className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                  <span className="text-[11px] text-slate-400">Conta detectada — dispensada pelo vendedor</span>
+                </div>
+              )}
+              <p className="text-xs text-white/50">
+                Informações do cliente vinculado.
+              </p>
             </div>
           )}
 
