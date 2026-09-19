@@ -581,6 +581,28 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
     return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   };
 
+  // Formatar label de separador de data (estilo WhatsApp)
+  const formatarDataSeparador = (data: string) => {
+    const d = new Date(data);
+    const hoje = new Date();
+    const ontem = new Date();
+    ontem.setDate(hoje.getDate() - 1);
+
+    const isMesmoDia = (a: Date, b: Date) =>
+      a.getDate() === b.getDate() && a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear();
+
+    if (isMesmoDia(d, hoje)) return "Hoje";
+    if (isMesmoDia(d, ontem)) return "Ontem";
+    return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  };
+
+  // Verificar se dois timestamps são de dias diferentes
+  const diasDiferentes = (a: string, b: string) => {
+    const da = new Date(a);
+    const db = new Date(b);
+    return da.getDate() !== db.getDate() || da.getMonth() !== db.getMonth() || da.getFullYear() !== db.getFullYear();
+  };
+
   // Função para renderizar mídia
   const renderMidia = (msg: Mensagem) => {
     if (!msg.media_url && !msg.media_type) return null;
@@ -760,41 +782,53 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
                 <p>Nenhuma mensagem ainda</p>
               </div>
             ) : (
-              mensagens.map((msg) => {
+              mensagens.map((msg, index) => {
                 const isCliente = msg.remetente === "cliente";
                 const isOperador = msg.remetente === "operador" || msg.remetente === "vendedor";
+
+                // Inserir separador de data quando muda o dia
+                const mostrarSeparador = index === 0 || (mensagens[index - 1] && diasDiferentes(mensagens[index - 1].created_at, msg.created_at));
+
                 return (
-                  <div
-                    key={msg.id}
-                    className={cn(
-                      "flex",
-                      isOperador ? "justify-end" : "justify-start"
+                  <>
+                    {mostrarSeparador && (
+                      <div className="flex justify-center py-2">
+                        <span className="text-[11px] px-3 py-1 rounded-full bg-white/10 text-white/50 font-medium">
+                          {formatarDataSeparador(msg.created_at)}
+                        </span>
+                      </div>
                     )}
-                  >
                     <div
                       className={cn(
-                        "max-w-[80%] rounded-2xl px-3 py-2 text-sm",
-                        isOperador
-                          ? "bg-[#3B64CF] text-white rounded-br-sm"
-                          : "bg-white/10 border border-white/10 text-white/90 rounded-bl-sm"
+                        "flex",
+                        isOperador ? "justify-end" : "justify-start"
                       )}
                     >
-                      {/* Renderizar mídia ou texto */}
-                      {renderMidia(msg) || (
-                        <p className="whitespace-pre-wrap break-words">{msg.conteudo}</p>
-                      )}
-                      
-                      {/* Timestamp */}
-                      <span
+                      <div
                         className={cn(
-                          "text-[10px] mt-1 block text-right",
-                          isOperador ? "text-white/50" : "text-white/30"
+                          "max-w-[80%] rounded-2xl px-3 py-2 text-sm",
+                          isOperador
+                            ? "bg-[#3B64CF] text-white rounded-br-sm"
+                            : "bg-white/10 border border-white/10 text-white/90 rounded-bl-sm"
                         )}
                       >
-                        {formatarHora(msg.created_at)}
-                      </span>
+                        {/* Renderizar mídia ou texto */}
+                        {renderMidia(msg) || (
+                          <p className="whitespace-pre-wrap break-words">{msg.conteudo}</p>
+                        )}
+                        
+                        {/* Timestamp */}
+                        <span
+                          className={cn(
+                            "text-[10px] mt-1 block text-right",
+                            isOperador ? "text-white/50" : "text-white/30"
+                          )}
+                        >
+                          {formatarHora(msg.created_at)}
+                        </span>
+                      </div>
                     </div>
-                  </div>
+                  </>
                 );
               })
             )}
