@@ -33,6 +33,25 @@ import {
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 
+// ─── Colunas do Funil de Vendas (mesmo do Kanban) ───
+const colunas = [
+  { id: "recebeu_conta", titulo: "Recebeu a Conta", cor: "#5b9bd5", icone: "📥" },
+  { id: "proposta_feita", titulo: "Proposta a Ser Feita", cor: "#6ba3d6", icone: "📝" },
+  { id: "proposta_apresentada", titulo: "Proposta Apresentada", cor: "#7fb8e8", icone: "📋" },
+  { id: "apresentacao_realizada", titulo: "Apresentação Realizada", cor: "#8cc5f0", icone: "🎤" },
+  { id: "contrato_enviado", titulo: "Contrato Enviado", cor: "#a3d4ff", icone: "📤" },
+  { id: "contrato_assinado", titulo: "Contrato Assinado", cor: "#34d399", icone: "✅" },
+  { id: "comissao_paga", titulo: "Comissão Paga", cor: "#4ade80", icone: "💰" },
+];
+
+const origemConfig: Record<string, { icone: string; nome: string; cor: string }> = {
+  prospeccao_b2b: { icone: "🔍", nome: "Prospecção", cor: "bg-emerald-500/15 text-emerald-400" },
+  whatsapp: { icone: "💬", nome: "WhatsApp", cor: "bg-green-500/15 text-green-400" },
+  indicacao: { icone: "🤝", nome: "Indicação", cor: "bg-purple-500/15 text-purple-400" },
+  site: { icone: "🌐", nome: "Site", cor: "bg-blue-500/15 text-blue-400" },
+  manual: { icone: "✋", nome: "Manual", cor: "bg-slate-500/15 text-slate-400" },
+};
+
 interface OportunidadeCompleta {
   id: string;
   titulo: string;
@@ -49,6 +68,7 @@ interface OportunidadeCompleta {
   observacao_resultado: string | null;
   valor_venda: number | null;
   cliente_nome: string | null;
+  origem_lead: string | null;
   clientes: { id: string; nome_razao_social: string } | null;
 }
 
@@ -334,36 +354,56 @@ export function ModalDetalhesOportunidade({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Metadados */}
+          {/* Etapa + Prioridade */}
           <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary" className={cn(
+              "text-xs px-3 py-1 font-semibold",
+              isConcluida ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"
+            )}>
+              {isConcluida ? "✅ Concluída" : colunas.find(c => c.id === oportunidade.etapa)?.titulo || oportunidade.etapa}
+            </Badge>
             <Badge variant="secondary" className={cn(coresPrioridade[oportunidade.prioridade] || coresPrioridade.media)}>
               {oportunidade.prioridade === "urgente" && <AlertCircle className="h-3 w-3 mr-1" />}
-              {(editando || concluindo) ? form.prioridade : oportunidade.prioridade}
+              {oportunidade.prioridade}
             </Badge>
-            <Badge variant="outline" className="text-xs">{labelsTipo[oportunidade.tipo] || oportunidade.tipo}</Badge>
-            <Badge variant="secondary" className={cn(
-              isConcluida ? "bg-emerald-100 text-emerald-700" : isAndamento ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-700"
-            )}>
-              {isConcluida ? "Concluído" : isAndamento ? "Andamento" : "A Fazer"}
-            </Badge>
+            {oportunidade.origem_lead && origemConfig[oportunidade.origem_lead] && (
+              <Badge variant="secondary" className={cn("text-xs", origemConfig[oportunidade.origem_lead].cor)}>
+                {origemConfig[oportunidade.origem_lead].icone} {origemConfig[oportunidade.origem_lead].nome}
+              </Badge>
+            )}
           </div>
 
           {/* Cliente */}
           {(oportunidade.clientes?.nome_razao_social || oportunidade.cliente_nome) && (
-            <div className="text-sm">
-              <span className="text-slate-500">Cliente:</span>{" "}
-              <span className="font-medium">{oportunidade.clientes?.nome_razao_social || oportunidade.cliente_nome}</span>
+            <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-lg">
+              <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold text-sm">
+                {(oportunidade.clientes?.nome_razao_social || oportunidade.cliente_nome || "").charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <p className="text-sm font-semibold">{oportunidade.clientes?.nome_razao_social || oportunidade.cliente_nome}</p>
+                <p className="text-xs text-slate-500">Cliente</p>
+              </div>
+            </div>
+          )}
+
+          {/* Valor da Venda */}
+          {oportunidade.valor_venda && oportunidade.valor_venda > 0 && (
+            <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+              <span className="text-sm text-emerald-700">Valor da Venda</span>
+              <span className="text-lg font-bold text-emerald-700">
+                {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(oportunidade.valor_venda)}
+              </span>
             </div>
           )}
 
           {/* Datas */}
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <span className="text-slate-500 flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> Início</span>
+            <div className="p-2 bg-slate-50 rounded-lg">
+              <span className="text-slate-500 flex items-center gap-1 text-xs"><Calendar className="h-3.5 w-3.5" /> Início</span>
               <span className="font-medium">{formatData(oportunidade.data_inicio)}</span>
             </div>
-            <div>
-              <span className="text-slate-500 flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> Prazo</span>
+            <div className="p-2 bg-slate-50 rounded-lg">
+              <span className="text-slate-500 flex items-center gap-1 text-xs"><Calendar className="h-3.5 w-3.5" /> Prazo</span>
               <span className="font-medium">{formatData(oportunidade.data_fim)}</span>
             </div>
           </div>

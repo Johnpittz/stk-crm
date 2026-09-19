@@ -14,7 +14,7 @@ import {
   Draggable,
   DropResult,
 } from "@hello-pangea/dnd";
-import { Clock, AlertCircle, Trash2, MoreHorizontal } from "lucide-react";
+import { Clock, AlertCircle, Trash2, MoreHorizontal, Calendar } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -371,86 +371,90 @@ export function KanbanOportunidades({
                                       setModalAberto(true);
                                     }}
                                     className={cn(
-                                      "rounded-lg p-2.5 cursor-grab active:cursor-grabbing group transition-all border",
-                                      "bg-[#14233c] border-[#1c2e4a] hover:border-[#3B64CF]/50 hover:bg-[#1a2d47]",
+                                      "rounded-xl cursor-grab active:cursor-grabbing group transition-all",
+                                      "bg-gradient-to-br from-[#1e3a5f] to-[#162d4a] border-l-4 shadow-md",
+                                      "hover:from-[#243f63] hover:to-[#1a3352] hover:shadow-lg hover:shadow-black/20",
                                       snapshot.isDragging &&
-                                        "shadow-lg shadow-black/30 ring-1 ring-[#3B64CF]/50 rotate-1"
+                                        "shadow-xl shadow-black/40 ring-2 ring-white/20 rotate-2 scale-[1.02]"
                                     )}
+                                    style={{ borderLeftColor: coluna.cor }}
                                   >
-                                    {/* Prioridade + Ações */}
-                                    <div className="flex items-center justify-between mb-1.5">
+                                    {/* Header: Cliente + Valor */}
+                                    <div className="px-3 pt-3 pb-2">
+                                      <div className="flex items-start justify-between gap-2 mb-1">
+                                        <p className="text-sm font-bold text-white leading-tight line-clamp-1">
+                                          {oportunidade.clientes?.nome_razao_social ||
+                                            oportunidade.cliente_nome ||
+                                            oportunidade.titulo}
+                                        </p>
+                                        {oportunidade.valor_venda && oportunidade.valor_venda > 0 && (
+                                          <span className="text-xs font-bold text-emerald-400 shrink-0 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                                            R$ {oportunidade.valor_venda.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      {/* Título/Descrição */}
+                                      {oportunidade.titulo && oportunidade.clientes?.nome_razao_social && (
+                                        <p className="text-xs text-slate-400 leading-snug line-clamp-1 mb-2">
+                                          {oportunidade.titulo}
+                                        </p>
+                                      )}
+                                    </div>
+
+                                    {/* Tags */}
+                                    <div className="px-3 pb-3 flex flex-wrap gap-1.5">
+                                      {/* Origem */}
+                                      {oportunidade.origem_lead && origemConfig[oportunidade.origem_lead] && (
+                                        <Badge
+                                          variant="secondary"
+                                          className={cn(
+                                            "text-[10px] px-2 py-0.5 border-0 font-medium",
+                                            origemConfig[oportunidade.origem_lead].cor
+                                          )}
+                                        >
+                                          {origemConfig[oportunidade.origem_lead].icone}{" "}
+                                          {origemConfig[oportunidade.origem_lead].nome}
+                                        </Badge>
+                                      )}
+
+                                      {/* Prioridade */}
                                       <Badge
                                         variant="secondary"
                                         className={cn(
-                                          "text-[9px] px-1.5 py-0 border font-medium",
+                                          "text-[10px] px-2 py-0.5 border-0 font-medium",
                                           coresPrioridade[oportunidade.prioridade] || coresPrioridade.media
                                         )}
                                       >
                                         {oportunidade.prioridade === "urgente" && (
-                                          <AlertCircle className="h-2.5 w-2.5 mr-0.5" />
+                                          <AlertCircle className="h-3 w-3 mr-0.5" />
                                         )}
                                         {oportunidade.prioridade}
                                       </Badge>
-                                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-5 w-5 text-slate-500 hover:text-red-400"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDelete(oportunidade.id);
-                                          }}
-                                        >
-                                          <Trash2 className="h-3 w-3" />
-                                        </Button>
-                                      </div>
-                                    </div>
 
-                                    {/* Título */}
-                                    <p className="font-medium text-white text-[11px] leading-tight mb-1.5 line-clamp-2">
-                                      {oportunidade.titulo}
-                                    </p>
-
-                                    {/* Origem */}
-                                    {oportunidade.origem_lead && origemConfig[oportunidade.origem_lead] && (
-                                      <Badge
-                                        variant="secondary"
-                                        className={cn(
-                                          "text-[8px] px-1 py-0 mb-1.5 border-0",
-                                          origemConfig[oportunidade.origem_lead].cor
-                                        )}
-                                      >
-                                        {origemConfig[oportunidade.origem_lead].icone}{" "}
-                                        {origemConfig[oportunidade.origem_lead].nome}
-                                      </Badge>
-                                    )}
-
-                                    {/* Footer */}
-                                    <div className="flex items-center justify-between text-[10px] text-slate-500">
-                                      <span className="truncate max-w-[100px]">
-                                        {oportunidade.clientes?.nome_razao_social ||
-                                          oportunidade.cliente_nome ||
-                                          "—"}
-                                      </span>
-                                      {oportunidade.hora_inicio && (
-                                        <span className="flex items-center gap-0.5 shrink-0">
-                                          <Clock className="h-2.5 w-2.5" />
-                                          {formatHora(oportunidade.hora_inicio)}
+                                      {/* Data */}
+                                      {oportunidade.data_inicio && (
+                                        <span className="text-[10px] text-slate-400 flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded-full">
+                                          <Calendar className="h-3 w-3" />
+                                          {new Date(oportunidade.data_inicio).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
                                         </span>
                                       )}
                                     </div>
 
-                                    {/* Valor da venda */}
-                                    {oportunidade.valor_venda && oportunidade.valor_venda > 0 && (
-                                      <div className="mt-1.5 pt-1.5 border-t border-[#1c2e4a]">
-                                        <span className="text-[10px] font-semibold text-[#3B64CF]">
-                                          R${" "}
-                                          {oportunidade.valor_venda.toLocaleString("pt-BR", {
-                                            minimumFractionDigits: 2,
-                                          })}
-                                        </span>
-                                      </div>
-                                    )}
+                                    {/* Ações (hover) */}
+                                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 bg-black/30 backdrop-blur-sm text-slate-400 hover:text-red-400 hover:bg-red-500/20"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDelete(oportunidade.id);
+                                        }}
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </div>
                                   </div>
                                 )}
                               </Draggable>
