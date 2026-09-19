@@ -4,6 +4,21 @@
 
 ---
 
+## 1.6.0 — 19/09/2026
+
+### Redesign Cards Kanban Oportunidades + Modal Tema Escuro
+- Cards do Kanban redesenhados com gradiente e borda lateral colorida por coluna
+- Cards: cliente em destaque (fonte maior/bold), valor em badge verde, tags de origem/prioridade/data
+- Cards: botão deletar com backdrop-blur no hover, drag feedback visual melhorado
+- Modal de detalhes completamente em tema escuro (bg-[#0c1426])
+- Modal: etapa real do funil no badge (substituiu 'Tipo: Pedido | A Fazer')
+- Modal: cliente com avatar, valor da venda em destaque, origem como badge colorido
+- Modal: todos inputs/selects/botões em tema escuro consistente
+- Botão de fechar (X) visível em tema escuro
+- Arquivos modificados: kanban-oportunidades.tsx, modal-detalhes-oportunidade.tsx, dialog.tsx
+
+---
+
 ## 1.5.0 — 19/09/2026
 
 ### Separadores de Date no Chat

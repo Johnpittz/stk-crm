@@ -33,7 +33,8 @@ O STK CRM é um sistema de gestão de relacionamento com cliente composto por **
 stk-crm/
 ├── app/(dashboard)/         ← Páginas do dashboard
 │   ├── atendimento/         ← Chat WhatsApp
-│   ├── kanban/              ← Kanban de tarefas
+│   ├── kanban/              ← Kanban de tarefas + Oportunidades
+│   │   └── kanban/              ← Funil de vendas (Oportunidades)
 │   ├── clientes/            ← Gestão de clientes
 │   ├── chatbot/             ← Dashboard chatbot
 │   ├── marketing/           ← Campanhas, leads, relatórios
