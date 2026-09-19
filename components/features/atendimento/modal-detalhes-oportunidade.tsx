@@ -337,19 +337,24 @@ export function ModalDetalhesOportunidade({
 
   return (
     <Dialog open={aberto} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <div className="flex items-center gap-2">
-            <span className="text-xl">{iconesTarefa[oportunidade.tipo] || "📋"}</span>
-            {(editando || concluindo) ? (
-              <Input
-                value={form.titulo}
-                onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))}
-                className="font-semibold text-lg h-9"
-              />
-            ) : (
-              <DialogTitle className="text-lg">{oportunidade.titulo}</DialogTitle>
-            )}
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto bg-[#0c1426] border-[#1c2e4a] text-white">
+        {/* Header */}
+        <DialogHeader className="pb-0">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">{iconesTarefa[oportunidade.tipo] || "📋"}</span>
+            <div className="flex-1 min-w-0">
+              {(editando || concluindo) ? (
+                <Input
+                  value={form.titulo}
+                  onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))}
+                  className="font-semibold text-lg h-9 bg-[#14233c] border-[#1c2e4a] text-white"
+                />
+              ) : (
+                <DialogTitle className="text-lg font-bold text-white truncate">
+                  {oportunidade.titulo}
+                </DialogTitle>
+              )}
+            </div>
           </div>
         </DialogHeader>
 
@@ -358,16 +363,19 @@ export function ModalDetalhesOportunidade({
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary" className={cn(
               "text-xs px-3 py-1 font-semibold",
-              isConcluida ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"
+              isConcluida ? "bg-emerald-500/20 text-emerald-400" : "bg-blue-500/20 text-blue-400"
             )}>
               {isConcluida ? "✅ Concluída" : colunas.find(c => c.id === oportunidade.etapa)?.titulo || oportunidade.etapa}
             </Badge>
-            <Badge variant="secondary" className={cn(coresPrioridade[oportunidade.prioridade] || coresPrioridade.media)}>
+            <Badge variant="secondary" className={cn(
+              "text-xs px-2 py-0.5",
+              coresPrioridade[oportunidade.prioridade] || coresPrioridade.media
+            )}>
               {oportunidade.prioridade === "urgente" && <AlertCircle className="h-3 w-3 mr-1" />}
               {oportunidade.prioridade}
             </Badge>
             {oportunidade.origem_lead && origemConfig[oportunidade.origem_lead] && (
-              <Badge variant="secondary" className={cn("text-xs", origemConfig[oportunidade.origem_lead].cor)}>
+              <Badge variant="secondary" className={cn("text-xs px-2 py-0.5", origemConfig[oportunidade.origem_lead].cor)}>
                 {origemConfig[oportunidade.origem_lead].icone} {origemConfig[oportunidade.origem_lead].nome}
               </Badge>
             )}
@@ -375,70 +383,76 @@ export function ModalDetalhesOportunidade({
 
           {/* Cliente */}
           {(oportunidade.clientes?.nome_razao_social || oportunidade.cliente_nome) && (
-            <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-lg">
-              <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold text-sm">
+            <div className="flex items-center gap-3 p-3 bg-[#14233c] rounded-xl border border-[#1c2e4a]">
+              <div className="h-10 w-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 font-bold text-sm shrink-0">
                 {(oportunidade.clientes?.nome_razao_social || oportunidade.cliente_nome || "").charAt(0).toUpperCase()}
               </div>
               <div>
-                <p className="text-sm font-semibold">{oportunidade.clientes?.nome_razao_social || oportunidade.cliente_nome}</p>
-                <p className="text-xs text-slate-500">Cliente</p>
+                <p className="text-sm font-semibold text-white">{oportunidade.clientes?.nome_razao_social || oportunidade.cliente_nome}</p>
+                <p className="text-xs text-slate-400">Cliente</p>
               </div>
             </div>
           )}
 
           {/* Valor da Venda */}
           {oportunidade.valor_venda && oportunidade.valor_venda > 0 && (
-            <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-lg border border-emerald-200">
-              <span className="text-sm text-emerald-700">Valor da Venda</span>
-              <span className="text-lg font-bold text-emerald-700">
+            <div className="flex items-center justify-between p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
+              <span className="text-sm text-emerald-400">💰 Valor da Venda</span>
+              <span className="text-lg font-bold text-emerald-400">
                 {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(oportunidade.valor_venda)}
               </span>
             </div>
           )}
 
           {/* Datas */}
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="p-2 bg-slate-50 rounded-lg">
-              <span className="text-slate-500 flex items-center gap-1 text-xs"><Calendar className="h-3.5 w-3.5" /> Início</span>
-              <span className="font-medium">{formatData(oportunidade.data_inicio)}</span>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3 bg-[#14233c] rounded-xl border border-[#1c2e4a]">
+              <span className="text-slate-400 flex items-center gap-1.5 text-xs mb-1">
+                <Calendar className="h-3.5 w-3.5" /> Início
+              </span>
+              <span className="text-sm font-medium text-white">{formatData(oportunidade.data_inicio)}</span>
             </div>
-            <div className="p-2 bg-slate-50 rounded-lg">
-              <span className="text-slate-500 flex items-center gap-1 text-xs"><Calendar className="h-3.5 w-3.5" /> Prazo</span>
-              <span className="font-medium">{formatData(oportunidade.data_fim)}</span>
+            <div className="p-3 bg-[#14233c] rounded-xl border border-[#1c2e4a]">
+              <span className="text-slate-400 flex items-center gap-1.5 text-xs mb-1">
+                <Calendar className="h-3.5 w-3.5" /> Prazo
+              </span>
+              <span className="text-sm font-medium text-white">{formatData(oportunidade.data_fim)}</span>
             </div>
           </div>
 
           {/* Descrição */}
           <div>
-            <Label className="text-xs text-slate-500">Descrição</Label>
+            <Label className="text-xs text-slate-400 mb-1 block">Descrição</Label>
             {(editando || concluindo) ? (
               <textarea
                 value={form.descricao}
                 onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))}
                 rows={3}
-                className="mt-1 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="w-full rounded-xl border border-[#1c2e4a] bg-[#14233c] px-3 py-2 text-sm text-white placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500"
               />
             ) : (
-              <p className="text-sm text-slate-700 mt-1 whitespace-pre-wrap">{oportunidade.descricao || "Sem descrição"}</p>
+              <p className="text-sm text-slate-300 whitespace-pre-wrap bg-[#14233c] p-3 rounded-xl border border-[#1c2e4a]">
+                {oportunidade.descricao || "Sem descrição"}
+              </p>
             )}
           </div>
 
           {/* Resultado (só mostra se tiver sido concluída com resultado) */}
           {oportunidade.resultado && !concluindo && (
-            <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
-              <Label className="text-xs text-slate-500">Resultado da execução</Label>
+            <div className="bg-[#14233c] rounded-xl p-3 border border-[#1c2e4a]">
+              <Label className="text-xs text-slate-400">Resultado da execução</Label>
               <div className="flex items-center gap-2 mt-1 mb-2">
                 <Badge variant="secondary" className={cn(labelsResultado[oportunidade.resultado]?.cor || "bg-slate-100 text-slate-700")}>
                   {labelsResultado[oportunidade.resultado]?.label || oportunidade.resultado}
                 </Badge>
               </div>
               {oportunidade.observacao_resultado && (
-                <p className="text-sm text-slate-700 whitespace-pre-wrap">{oportunidade.observacao_resultado}</p>
+                <p className="text-sm text-slate-300 whitespace-pre-wrap">{oportunidade.observacao_resultado}</p>
               )}
               {oportunidade.resultado === "sucesso" && oportunidade.valor_venda && (
-                <div className="mt-2 pt-2 border-t border-slate-200">
-                  <span className="text-xs text-slate-500">Valor da Venda:</span>
-                  <span className="ml-2 text-sm font-bold text-emerald-700">
+                <div className="mt-2 pt-2 border-t border-[#1c2e4a]">
+                  <span className="text-xs text-slate-400">Valor da Venda:</span>
+                  <span className="ml-2 text-sm font-bold text-emerald-400">
                     {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(oportunidade.valor_venda)}
                   </span>
                 </div>
@@ -449,7 +463,7 @@ export function ModalDetalhesOportunidade({
           {/* Campo valor editável no modo edição (concluída com sucesso) */}
           {editando && oportunidade.resultado === "sucesso" && (
             <div>
-              <Label className="text-xs">Valor da Venda (R$)</Label>
+              <Label className="text-xs text-slate-400">Valor da Venda (R$)</Label>
               <Input
                 type="text"
                 placeholder="0,00"
@@ -462,25 +476,25 @@ export function ModalDetalhesOportunidade({
                   }
                   setForm((f) => ({ ...f, valorVenda: v }));
                 }}
-                className="mt-1"
+                className="mt-1 bg-[#14233c] border-[#1c2e4a] text-white"
               />
             </div>
           )}
 
-          {/* Formulário de conclusão (título/desc/prioridade já editáveis acima) */}
+          {/* Formulário de conclusão */}
           {concluindo && (
-            <div className="space-y-3 border-t pt-3 bg-slate-50 -mx-6 px-6 pb-3">
-              <h4 className="font-semibold text-sm text-slate-800 flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            <div className="space-y-3 border-t border-[#1c2e4a] pt-3 bg-[#0a1020] -mx-6 px-6 pb-3 rounded-b-xl">
+              <h4 className="font-semibold text-sm text-white flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
                 Registrar resultado da oportunidade
               </h4>
 
               {/* Prioridade */}
               <div>
-                <Label className="text-xs">Prioridade</Label>
+                <Label className="text-xs text-slate-400">Prioridade</Label>
                 <Select value={form.prioridade} onValueChange={(v) => setForm((f) => ({ ...f, prioridade: v }))}>
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>
+                  <SelectTrigger className="mt-1 bg-[#14233c] border-[#1c2e4a] text-white"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-[#14233c] border-[#1c2e4a]">
                     <SelectItem value="baixa">Baixa</SelectItem>
                     <SelectItem value="media">Média</SelectItem>
                     <SelectItem value="alta">Alta</SelectItem>
@@ -491,10 +505,10 @@ export function ModalDetalhesOportunidade({
 
               {/* Resultado */}
               <div>
-                <Label className="text-xs">Resultado *</Label>
+                <Label className="text-xs text-slate-400">Resultado *</Label>
                 <Select value={resultadoForm.resultado} onValueChange={(v) => setResultadoForm((f) => ({ ...f, resultado: v, observacao: "" }))}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                  <SelectContent>
+                  <SelectTrigger className="mt-1 bg-[#14233c] border-[#1c2e4a] text-white"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <SelectContent className="bg-[#14233c] border-[#1c2e4a]">
                     <SelectItem value="sucesso">✅ Sucesso — contato/negociação realizada</SelectItem>
                     <SelectItem value="insucesso">❌ Insucesso — não houve interesse</SelectItem>
                     <SelectItem value="remarcado">📅 Remarcado — agendado para outro dia</SelectItem>
@@ -506,16 +520,16 @@ export function ModalDetalhesOportunidade({
 
               {/* Observação do resultado */}
               <div>
-                <Label className="text-xs">Observação do resultado *</Label>
+                <Label className="text-xs text-slate-400">Observação do resultado *</Label>
                 <Select
                   value={resultadoForm.observacao}
                   onValueChange={(v) => setResultadoForm((f) => ({ ...f, observacao: v }))}
                   disabled={!resultadoForm.resultado}
                 >
-                  <SelectTrigger className="mt-1">
+                  <SelectTrigger className="mt-1 bg-[#14233c] border-[#1c2e4a] text-white">
                     <SelectValue placeholder={resultadoForm.resultado ? "Selecione..." : "Selecione o resultado primeiro"} />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-[#14233c] border-[#1c2e4a]">
                     {(opcoesObservacao[resultadoForm.resultado] || []).map((opcao) => (
                       <SelectItem key={opcao} value={opcao}>{opcao}</SelectItem>
                     ))}
@@ -526,7 +540,7 @@ export function ModalDetalhesOportunidade({
               {/* Valor da venda (só se Sucesso) */}
               {resultadoForm.resultado === "sucesso" && (
                 <div>
-                  <Label className="text-xs">Valor da Venda (R$) *</Label>
+                  <Label className="text-xs text-slate-400">Valor da Venda (R$) *</Label>
                   <Input
                     type="text"
                     placeholder="0,00"
@@ -539,7 +553,7 @@ export function ModalDetalhesOportunidade({
                       }
                       setResultadoForm((f) => ({ ...f, valorVenda: v }));
                     }}
-                    className="mt-1"
+                    className="mt-1 bg-[#14233c] border-[#1c2e4a] text-white"
                   />
                 </div>
               )}
@@ -552,7 +566,7 @@ export function ModalDetalhesOportunidade({
                     salvando || !resultadoForm.resultado || !resultadoForm.observacao ||
                     (resultadoForm.resultado === "sucesso" && !resultadoForm.valorVenda)
                   }
-                  className="gap-1"
+                  className="gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
                   <Check className="h-4 w-4" />
                   {salvando ? "Salvando..." : "Confirmar conclusão"}
@@ -564,6 +578,7 @@ export function ModalDetalhesOportunidade({
                     setConcluindo(false);
                     setResultadoForm({ resultado: "", observacao: "", valorVenda: "" });
                   }}
+                  className="border-[#1c2e4a] text-slate-300 hover:bg-[#14233c]"
                 >
                   <X className="h-4 w-4 mr-1" />
                   Cancelar
@@ -574,48 +589,44 @@ export function ModalDetalhesOportunidade({
 
           {/* Ações */}
           {!concluindo && (
-            <div className="flex flex-wrap items-center gap-2 pt-2 border-t">
+            <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-[#1c2e4a]">
               {editando ? (
                 <>
-                  <Button size="sm" onClick={handleSalvarEdicao} disabled={salvando} className="gap-1">
+                  <Button size="sm" onClick={handleSalvarEdicao} disabled={salvando} className="gap-1 bg-blue-600 hover:bg-blue-700 text-white">
                     <Save className="h-4 w-4" />
                     {salvando ? "Salvando..." : "Salvar"}
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => {
                     setEditando(false);
-                    // Restaura form original
                     const valorFormatado = oportunidade.valor_venda
                       ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(oportunidade.valor_venda) : "";
                     setForm({ titulo: oportunidade.titulo, descricao: oportunidade.descricao || "", prioridade: oportunidade.prioridade, valorVenda: valorFormatado });
-                  }}>
+                  }} className="border-[#1c2e4a] text-slate-300 hover:bg-[#14233c]">
                     <X className="h-4 w-4 mr-1" />
                     Cancelar
                   </Button>
                 </>
               ) : (
                 <>
-                  {/* Botão Editar: só aparece quando concluída */}
                   {podeEditar && (
-                    <Button size="sm" variant="outline" onClick={() => setEditando(true)}>
+                    <Button size="sm" variant="outline" onClick={() => setEditando(true)} className="border-[#1c2e4a] text-slate-300 hover:bg-[#14233c]">
                       ✏️ Editar
                     </Button>
                   )}
 
-                  {/* Botão Andamento: aparece quando não está em andamento e não está concluída */}
                   {!isAndamento && !isConcluida && (
-                    <Button size="sm" variant="outline" onClick={() => handleMover("em_andamento")}>
+                    <Button size="sm" variant="outline" onClick={() => handleMover("em_andamento")} className="border-[#1c2e4a] text-slate-300 hover:bg-[#14233c]">
                       <ArrowRight className="h-4 w-4 mr-1" />
                       Andamento
                     </Button>
                   )}
 
-                  {/* Botão Concluir: só aparece quando em andamento */}
                   {podeConcluir && (
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => handleMover("concluida")}
-                      className="text-emerald-600 hover:text-emerald-700"
+                      className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
                     >
                       <CheckCircle2 className="h-4 w-4 mr-1" />
                       Concluir
@@ -626,7 +637,7 @@ export function ModalDetalhesOportunidade({
                     size="sm"
                     variant="ghost"
                     onClick={handleExcluir}
-                    className="text-red-500 hover:text-red-600 ml-auto"
+                    className="text-red-400 hover:text-red-300 hover:bg-red-500/10 ml-auto"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
