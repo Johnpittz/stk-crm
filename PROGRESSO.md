@@ -608,6 +608,18 @@ stk-crm/
 
 ---
 
+## 🎯 Fase 15 - Date Separators no Chat (19/09/2026)
+
+### Separadores de Data (estilo WhatsApp)
+- [x] Função `formatarDataSeparador` — exibe "Hoje", "Ontem" ou data completa (dd/mm/aaaa)
+- [x] Função `diasDiferentes` — detecta troca de dia entre mensagens consecutivas
+- [x] Separador visual: pill centralizado com fundo sutil (`rounded-full bg-white/10`)
+- [x] Inserção automática: aparece quando muda o dia entre mensagens
+- [x] Sem separadores duplicados (compara com mensagem anterior)
+- [x] Arquivo: `components/features/atendimento/chat-inline.tsx`
+
+---
+
 ## 🔜 Próximos Passos (Prioridade)
 
 1. **Audio player** → Testar reprodução completa (áudio descriptografado via Evolution API) ✅
