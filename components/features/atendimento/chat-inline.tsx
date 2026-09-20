@@ -35,7 +35,7 @@ interface Atendimento {
   nao_lido?: boolean;
   created_at?: string;
   cliente_id?: string | null;
-  instancia?: string | null;
+  instance_name?: string | null;
   clientes?: { id: string; nome_razao_social: string; telefone?: string; celular?: string } | null;
 }
 
@@ -93,7 +93,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
   } | null>(null);
 
   // Determinar instância a usar: se atendimento tem instância própria, usa ela; senão usa a global
-  const instanciaAtivo = atendimento?.instancia || instancia || undefined;
+  const instanciaAtivo = atendimento?.instance_name || instancia || undefined;
 
   // Encontrar info da instância ativa para exibir no header
   const instanciaInfo = instancias?.find(i => i.name === instanciaAtivo);

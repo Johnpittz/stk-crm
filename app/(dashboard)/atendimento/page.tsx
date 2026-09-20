@@ -27,7 +27,7 @@ interface Atendimento {
   vendedor_interagiu: boolean;
   ultima_mensagem_remetente: string | null;
   data_fechamento?: string | null;
-  instancia?: string | null;
+  instance_name?: string | null;
   clientes: { id: string; nome_razao_social: string } | null;
 }
 
@@ -177,7 +177,7 @@ export default function AtendimentoPage() {
       // Filtro por instância
       let matchInstancia = true;
       if (instanciaSelecionada && instanciaSelecionada !== "todas") {
-        matchInstancia = a.instancia === instanciaSelecionada;
+        matchInstancia = a.instance_name === instanciaSelecionada;
       }
 
       return matchBusca && matchData && matchEtiqueta && matchInstancia;
@@ -256,7 +256,7 @@ export default function AtendimentoPage() {
   // Contagem de conversas por instância
   const contarPorInstancia = useCallback((instName: string) => {
     if (instName === "todas") return atendimentos.length;
-    return atendimentos.filter(a => a.instancia === instName).length;
+    return atendimentos.filter(a => a.instance_name === instName).length;
   }, [atendimentos]);
 
   return (

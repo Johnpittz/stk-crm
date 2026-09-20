@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     if (isGestor) {
       // Gestores veem todos
     } else if (whatsappInstance) {
-      query = query.eq("instancia", whatsappInstance);
+      query = query.eq("instance_name", whatsappInstance);
     } else {
       const isDemo = (meuPerfil?.cargo || "") === "demonstracao";
       if (isDemo) {

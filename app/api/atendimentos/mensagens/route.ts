@@ -98,18 +98,20 @@ export async function POST(request: NextRequest) {
   // Se é vendedor enviando, envia via Evolution API para o WhatsApp do cliente
   if (remetente === "vendedor" && process.env.EVOLUTION_API_KEY) {
     try {
-      // Busca telefone do cliente no atendimento
+      // Busca telefone E instância do atendimento
       const { data: atendimento } = await supabaseAdmin
         .from("atendimentos")
-        .select("telefone_cliente")
+        .select("telefone_cliente, instance_name")
         .eq("id", atendimento_id)
         .single();
 
       if (atendimento?.telefone_cliente) {
+        // Prioridade: instance do body > instance_name do atendimento
+        const instanceFinal = instance || atendimento.instance_name || undefined;
         const resultado = await enviarMensagemWhatsApp({
           telefone: atendimento.telefone_cliente,
           mensagem: conteudo,
-          instance,
+          instance: instanceFinal,
         });
 
         if (resultado.success) {

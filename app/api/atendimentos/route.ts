@@ -259,13 +259,13 @@ export async function PATCH(request: NextRequest) {
     
     const { data: atendimentoAtual } = await supabase
       .from("atendimentos")
-      .select("vendedor_id, instancia")
+      .select("vendedor_id, instance_name")
       .eq("id", id)
       .single();
     
     const isDono = atendimentoAtual?.vendedor_id === user.id;
     const isMesmaInstancia = meuPerfilFull?.whatsapp_instance && 
-                             atendimentoAtual?.instancia === meuPerfilFull.whatsapp_instance;
+                             atendimentoAtual?.instance_name === meuPerfilFull.whatsapp_instance;
     
     if (!isDono && !isMesmaInstancia) {
       return NextResponse.json({ error: "Sem permissão para alterar este atendimento" }, { status: 403 });

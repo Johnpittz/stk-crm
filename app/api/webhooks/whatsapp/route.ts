@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
           ...(nomeCliente && !dados.fromMe ? { nome_cliente: nomeCliente } : {}),
           cliente_id: cliente?.id || atendimentoExistente.cliente_id,
           vendedor_id: vendedorUpdate,
-          instancia: dados.instance || atendimentoExistente.instancia || "ROMA_2",
+          instance_name: dados.instance || atendimentoExistente.instance_name || "ROMA_2",
         })
         .eq("id", atendimentoExistente.id);
 
@@ -350,7 +350,7 @@ export async function POST(request: NextRequest) {
         ultima_mensagem_data: new Date().toISOString(),
         ultima_mensagem_remetente: remetente,
         nao_lido: !dados.fromMe,
-        instancia: dados.instance || "ROMA_2",
+        instance_name: dados.instance || "ROMA_2",
       })
       .select()
       .single();
@@ -708,12 +708,12 @@ async function buscarAtendimentoAberto(telefoneLimpo: string, instancia: string 
   // Busca EXATA por telefone + instância
   const query = getSupabase()
     .from("atendimentos")
-    .select("id, nome_cliente, cliente_id, vendedor_id, instancia")
+    .select("id, nome_cliente, cliente_id, vendedor_id, instance_name")
     .eq("telefone_cliente", telefoneLimpo)
     .eq("status", "aberto");
 
   if (instancia) {
-    query.eq("instancia", instancia);
+    query.eq("instance_name", instancia);
   }
 
   const { data: exato } = await query.limit(1).single();

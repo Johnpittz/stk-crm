@@ -86,9 +86,9 @@ function extrairConteudo(msg: any): { conteudo: string; mediaType: string | null
 async function buscarAtendimento(supabase: any, telefoneLimpo: string, instancia: string) {
   const { data } = await supabase
     .from("atendimentos")
-    .select("id, telefone_cliente, nome_cliente, cliente_id, vendedor_id, instancia")
+    .select("id, telefone_cliente, nome_cliente, cliente_id, vendedor_id, instance_name")
     .eq("telefone_cliente", telefoneLimpo)
-    .eq("instancia", instancia)
+    .eq("instance_name", instancia)
     .eq("status", "aberto")
     .limit(1)
     .single();
