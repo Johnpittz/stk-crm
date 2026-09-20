@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
 
 // POST /api/atendimentos/mensagens
 export async function POST(request: NextRequest) {
+  // Autenticação via user session
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
@@ -55,7 +56,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "atendimento_id e conteudo são obrigatórios" }, { status: 400 });
   }
 
-  const { data: mensagem, error } = await supabase
+  // Usa service_role para inserts/updates (mesmo padrão do webhook)
+  const supabaseAdmin = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const { data: mensagem, error } = await supabaseAdmin
     .from("atendimento_mensagens")
     .insert({
       atendimento_id,
@@ -83,16 +90,16 @@ export async function POST(request: NextRequest) {
     updateData.vendedor_interagiu = true;
   }
 
-  await supabase
+  await supabaseAdmin
     .from("atendimentos")
     .update(updateData)
     .eq("id", atendimento_id);
 
-  // Se é vendedor enviando, envia via BotConversa para o WhatsApp do cliente
-  if (remetente === "vendedor" && process.env.BOTCONVERSA_API_KEY) {
+  // Se é vendedor enviando, envia via Evolution API para o WhatsApp do cliente
+  if (remetente === "vendedor" && process.env.EVOLUTION_API_KEY) {
     try {
       // Busca telefone do cliente no atendimento
-      const { data: atendimento } = await supabase
+      const { data: atendimento } = await supabaseAdmin
         .from("atendimentos")
         .select("telefone_cliente")
         .eq("id", atendimento_id)
@@ -107,7 +114,7 @@ export async function POST(request: NextRequest) {
 
         if (resultado.success) {
           // Atualiza mensagem com whatsapp_message_id para rastreamento
-          await supabase
+          await supabaseAdmin
             .from("atendimento_mensagens")
             .update({ whatsapp_message_id: resultado.message_id || null })
             .eq("id", mensagem.id);
@@ -117,7 +124,7 @@ export async function POST(request: NextRequest) {
       }
     } catch (err) {
       // Não falha a mensagem se o envio WhatsApp der erro
-      console.error("[Mensagens] Erro ao enviar via BotConversa:", err);
+      console.error("[Mensagens] Erro ao enviar via Evolution API:", err);
     }
   }
 

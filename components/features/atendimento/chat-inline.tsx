@@ -398,7 +398,6 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
       if (res.ok) {
         setNovaMensagem("");
         onMensagemEnviada?.();
-        onMensagemEnviada?.();
       }
     } catch (err) {
       console.error(err);
@@ -463,7 +462,6 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
               }),
             });
           }
-          onMensagemEnviada?.();
           onMensagemEnviada?.();
         }
         setEnviando(false);
@@ -534,7 +532,6 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
                     }),
                   });
                 }
-                onMensagemEnviada?.();
                 onMensagemEnviada?.();
               }
             } catch (err) {

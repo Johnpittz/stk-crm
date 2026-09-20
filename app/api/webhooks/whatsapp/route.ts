@@ -699,49 +699,24 @@ async function buscarClientePorTelefone(telefoneLimpo: string) {
 /**
  * Busca atendimento aberto existente para o telefone + instância
  * Cada instância WhatsApp mantém atendimentos separados
+ *
+ * IMPORTANTE: Só faz busca EXATA por telefone. A busca anterior por
+ * "últimos 8 dígitos" causava cruzamento — mensagens de disparo iam
+ * pro atendimento errado quando 2 telefones terminavam iguais.
  */
 async function buscarAtendimentoAberto(telefoneLimpo: string, instancia: string | null) {
-  // Primeiro: busca exata por telefone + instância (rápida)
+  // Busca EXATA por telefone + instância
   const query = getSupabase()
     .from("atendimentos")
     .select("id, nome_cliente, cliente_id, vendedor_id, instancia")
     .eq("telefone_cliente", telefoneLimpo)
     .eq("status", "aberto");
 
-  // Se tem instância, filtra por ela
   if (instancia) {
     query.eq("instancia", instancia);
   }
 
   const { data: exato } = await query.limit(1).single();
-
-  if (exato) return exato;
-
-  // Segundo: busca ampla — compara apenas os últimos 8 dígitos
-  const ultimos8 = telefoneLimpo.slice(-8);
-  if (ultimos8.length < 8) return null;
-
-  const queryAmpla = getSupabase()
-    .from("atendimentos")
-    .select("id, nome_cliente, cliente_id, vendedor_id, telefone_cliente, instancia")
-    .eq("status", "aberto");
-
-  if (instancia) {
-    queryAmpla.eq("instancia", instancia);
-  }
-
-  const { data: candidatos } = await queryAmpla
-    .order("ultima_mensagem_data", { ascending: false })
-    .limit(50);
-
-  if (!candidatos || candidatos.length === 0) return null;
-
-  const encontrado = candidatos.find((a: any) => {
-    const telBanco = (a.telefone_cliente || "").replace(/\D/g, "");
-    const ultimos8Banco = telBanco.slice(-8);
-    return ultimos8Banco === ultimos8 && ultimos8Banco.length >= 8;
-  });
-
-  return encontrado || null;
+  return exato || null;
 }
 // Force rebuild Tue Sep  8 21:44:39 -03 2026
