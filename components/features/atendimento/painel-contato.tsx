@@ -260,18 +260,19 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
 
   useEffect(() => {
     if (atendimento) {
-      // Só resetar aba ao trocar de conversa (ID diferente), não a cada atualização do polling
+      // Só resetar estado ao trocar de conversa (ID diferente), não a cada atualização do polling
       if (atendimento.id !== prevAtendimentoIdRef.current) {
         prevAtendimentoIdRef.current = atendimento.id;
         setAbaAtiva("dados");
+        setTipoProposta(null);
+        setMostrarFormCliente(false);
+        setMostrarFormEnriquecer(false);
+        setMensagemErro(null);
+        setMensagemSucesso(null);
       }
+      // Estes sempre atualizam (mesmo durante polling)
       fetchEtiquetas();
       setEtiquetasBusca("");
-      setTipoProposta(null);
-      setMostrarFormCliente(false);
-      setMostrarFormEnriquecer(false);
-      setMensagemErro(null);
-      setMensagemSucesso(null);
       setClienteIdLocal(atendimento.cliente_id || null);
 
       // Verificar se telefone já existe e vincular automaticamente (só se NÃO tem cliente vinculado)
