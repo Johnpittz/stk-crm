@@ -9,8 +9,9 @@ import { TogglePresenca } from "@/components/features/atendimento/toggle-presenc
 import { ToggleIA } from "@/components/features/atendimento/toggle-ia";
 import { PainelContato } from "@/components/features/atendimento/painel-contato";
 import { FiltroEtiquetas } from "@/components/features/atendimento/filtro-etiquetas";
-import { Search, Calendar, HelpCircle, Bell, Smartphone } from "lucide-react";
+import { Search, Calendar, HelpCircle, Bell, Smartphone, UserPlus } from "lucide-react";
 import { SimularWhatsAppModal } from "@/components/features/atendimento/simular-whatsapp-modal";
+import { BuscarContatosWhatsApp } from "@/components/features/atendimento/buscar-contatos-whatsapp";
 import { createClient } from "@/lib/supabase/client";
 import { useUserProfile } from "@/lib/user-profile-context";
 
@@ -65,6 +66,9 @@ export default function AtendimentoPage() {
   // Estado do seletor de instância WhatsApp
   const [instancias, setInstancias] = useState<InstanciaWhatsApp[]>([]);
   const [instanciaSelecionada, setInstanciaSelecionada] = useState<string>("todas");
+
+  // Estado do modal de busca de contatos
+  const [buscarContatosAberto, setBuscarContatosAberto] = useState(false);
 
   // Ref para controlar se deve atualizar a lista durante polling
   const isChatOpenRef = useRef(false);
@@ -218,6 +222,44 @@ export default function AtendimentoPage() {
     }
   }, [supabase]);
 
+  // Handler para quando um contato é selecionado no modal
+  const handleContatoSelecionado = useCallback(async (contact: any) => {
+    // Extrair telefone do JID
+    const telefone = contact.remoteJid
+      .replace("@s.whatsapp.net", "")
+      .replace("@lid", "");
+
+    // Criar novo atendimento
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const res = await fetch("/api/atendimentos", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          telefone_cliente: telefone,
+          nome_cliente: contact.pushName || "Cliente",
+          instancia: instanciaSelecionada !== "todas" ? instanciaSelecionada : undefined,
+        }),
+      });
+
+      if (res.ok) {
+        const novoAtendimento = await res.json();
+        // Atualizar lista e abrir chat
+        await fetchPageData();
+        if (novoAtendimento?.id) {
+          setAtendimentoChat(novoAtendimento);
+        }
+      }
+    } catch (err) {
+      console.error("Erro ao criar atendimento:", err);
+    }
+  }, [supabase, instanciaSelecionada, fetchPageData]);
+
   const handleFecharAtendimento = async (id: string) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -279,6 +321,16 @@ export default function AtendimentoPage() {
           {userCargo === "demonstracao" && (
             <SimularWhatsAppModal onSuccess={fetchPageData} />
           )}
+
+          {/* Botão Buscar Contatos WhatsApp */}
+          <button
+            onClick={() => setBuscarContatosAberto(true)}
+            className="h-8 px-3 rounded-lg border bg-[#3B64CF]/20 border-[#3B64CF]/30 text-[#3B64CF] hover:bg-[#3B64CF]/30 transition-colors flex items-center gap-1.5 text-xs font-medium"
+            title="Buscar contatos WhatsApp"
+          >
+            <UserPlus className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Novo Contato</span>
+          </button>
 
           {/* Busca geral */}
           <div className="relative">
@@ -403,6 +455,14 @@ export default function AtendimentoPage() {
           </div>
         )}
       </div>
+
+      {/* Modal Buscar Contatos WhatsApp */}
+      <BuscarContatosWhatsApp
+        open={buscarContatosAberto}
+        onClose={() => setBuscarContatosAberto(false)}
+        onSelect={handleContatoSelecionado}
+        instance={instanciaSelecionada !== "todas" ? instanciaSelecionada : undefined}
+      />
     </div>
   );
 }
