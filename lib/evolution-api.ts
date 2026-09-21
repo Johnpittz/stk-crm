@@ -8,7 +8,7 @@
 
 const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || 'http://2.25.192.248:8080';
 const EVOLUTION_FALLBACK_URL = 'http://2.25.192.248:8080';
-const EVOLUTION_API_KEY=*** || '';
+const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || '';
 const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE || 'STK-1';
 
 interface EnviarMensagemParams {
