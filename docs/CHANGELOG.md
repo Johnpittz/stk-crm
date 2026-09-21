@@ -4,6 +4,32 @@
 
 ---
 
+## 1.7.0 — 20/09/2026
+
+### Busca de Contatos WhatsApp via Evolution API
+- Modal de busca de contatos com debounce (300ms)
+- Verificação de números no WhatsApp
+- Criação de atendimento direto da busca
+- API routes: `/api/whatsapp/contacts`, `/api/whatsapp/check-number`
+- Fallback automático de URL da Evolution API
+- Rota de debug `/api/whatsapp/debug`
+
+### Bug Fixes
+- EVOLUTION_API_KEY corrompida no build Vercel
+- EVOLUTION_INSTANCE estava 'minha-conexao' (inexistente), corrigido para STK-1
+
+### Arquivos modificados
+- `lib/evolution-api.ts`
+- `app/(dashboard)/atendimento/page.tsx`
+
+### Arquivos criados
+- `app/api/whatsapp/contacts/route.ts`
+- `app/api/whatsapp/check-number/route.ts`
+- `app/api/whatsapp/debug/route.ts`
+- `components/features/atendimento/buscar-contatos-whatsapp.tsx`
+
+---
+
 ## 1.6.0 — 19/09/2026
 
 ### Redesign Cards Kanban Oportunidades + Modal Tema Escuro

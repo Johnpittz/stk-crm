@@ -41,6 +41,7 @@ stk-crm/
 │   ├── pos-vendas/          ← Follow-up, suporte
 │   └── reciee/              ← Análise de contas de luz
 ├── app/api/                 ← API Routes (30+ endpoints)
+│   └── whatsapp/            ← Busca contatos, verificação números
 ├── components/
 │   ├── features/atendimento/ ← 18+ componentes do chat
 │   ├── layout/              ← Sidebar, header, seletor
@@ -62,6 +63,7 @@ stk-crm/
 6. **Disparo em Massa** — Envio de mensagens com cadência
 7. **Pasta do Cliente** — Dados, GD, RECIEE, atendimentos, oportunidades
 8. **RECIEE** — Análise de cobranças indevidas em contas de luz
+9. **Busca de Contatos WhatsApp** — Modal de busca na agenda, verificação de números, criação direta de atendimento
 
 ## Convenções
 
