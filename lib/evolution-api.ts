@@ -353,15 +353,26 @@ export async function findContacts(params: {
       }
     );
 
-    const data = await response.json().catch(() => []);
+    // Ler body como texto primeiro para debug
+    const responseText = await response.text();
+    console.log(`[Evolution API] findContacts URL: ${EVOLUTION_API_URL}/chat/findContacts/${instanceName}`);
+    console.log(`[Evolution API] findContacts Status: ${response.status}`);
+    console.log(`[Evolution API] findContacts Body: ${responseText.substring(0, 500)}`);
+
+    let data: any;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      data = [];
+    }
 
     if (!response.ok) {
-      console.error('[Evolution API] Erro findContacts:', response.status, data);
+      console.error('[Evolution API] ERRO findContacts:', response.status, data);
       return { 
         success: false, 
         contacts: [], 
         total: 0,
-        error: data?.message || data?.error || `HTTP ${response.status}` 
+        error: typeof data === 'object' ? (data?.message || data?.error || JSON.stringify(data)) : `HTTP ${response.status}: ${responseText.substring(0, 200)}`
       };
     }
 

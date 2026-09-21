@@ -27,27 +27,36 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log(`[Contacts] Buscando contatos... search="${search || ''}" limit=${limit}`);
+    // LOGS DETALHADOS PARA DEBUG
+    const evoUrl = process.env.EVOLUTION_API_URL || "NOT_SET";
+    const evoKey = process.env.EVOLUTION_API_KEY || "NOT_SET";
+    const evoInstance = process.env.EVOLUTION_INSTANCE || "NOT_SET";
+    
+    console.log(`[Contacts] ========== DEBUG START ==========`);
+    console.log(`[Contacts] EVOLUTION_API_URL: "${evoUrl}" (len: ${evoUrl.length})`);
+    console.log(`[Contacts] EVOLUTION_API_KEY: "${evoKey.substring(0, 8)}..." (len: ${evoKey.length})`);
+    console.log(`[Contacts] EVOLUTION_INSTANCE: "${evoInstance}"`);
+    console.log(`[Contacts] search="${search || ''}" limit=${limit} instance="${instance || 'default'}"`);
+    console.log(`[Contacts] ========== DEBUG END ============`);
 
     const result = await findContacts({ search, limit, instance });
 
     if (!result.success) {
-      console.error("[Contacts] Erro:", result.error);
+      console.error(`[Contacts] ERRO: ${result.error}`);
       return NextResponse.json(
         { error: result.error },
         { status: 500 }
       );
     }
 
-    console.log(`[Contacts] Encontrados: ${result.total} contatos`);
-
+    console.log(`[Contacts] OK: ${result.total} contatos`);
     return NextResponse.json({
       success: true,
       contacts: result.contacts,
       total: result.total,
     });
   } catch (error: any) {
-    console.error("[Contacts] Erro geral:", error);
+    console.error("[Contacts] ERRO GERAL:", error.message, error.stack);
     return NextResponse.json(
       { error: error.message || "Erro ao buscar contatos" },
       { status: 500 }
