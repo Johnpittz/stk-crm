@@ -6,8 +6,9 @@
  * API Key: configurada em .env
  */
 
-const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || 'http://localhost:8082';
-const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || '';
+const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || 'http://2.25.192.248:8080';
+const EVOLUTION_FALLBACK_URL = 'http://2.25.192.248:8080';
+const EVOLUTION_API_KEY=*** || '';
 const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE || 'STK-1';
 
 interface EnviarMensagemParams {
@@ -341,7 +342,7 @@ export async function findContacts(params: {
   }
 
   try {
-    const response = await fetch(
+    let response = await fetch(
       `${EVOLUTION_API_URL}/chat/findContacts/${instanceName}`,
       {
         method: 'POST',
@@ -352,6 +353,22 @@ export async function findContacts(params: {
         body: JSON.stringify({ where: {}, limit }),
       }
     );
+
+    // Se a URL primária falhar, tenta a URL fallback
+    if (!response.ok && EVOLUTION_API_URL !== EVOLUTION_FALLBACK_URL) {
+      console.log(`[Evolution API] URL primária falhou (${response.status}), tentando fallback...`);
+      response = await fetch(
+        `${EVOLUTION_FALLBACK_URL}/chat/findContacts/${instanceName}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': EVOLUTION_API_KEY,
+          },
+          body: JSON.stringify({ where: {}, limit }),
+        }
+      );
+    }
 
     // Ler body como texto primeiro para debug
     const responseText = await response.text();
