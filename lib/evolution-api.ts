@@ -335,7 +335,8 @@ export async function findContacts(params: {
   error?: string;
 }> {
   const { search, limit = 100, instance } = params;
-  const instanceName = instance || EVOLUTION_INSTANCE;
+  // STK-CRM usa instância STK-1. EVOLUTION_INSTANCE no Vercel pode estar errado
+  const instanceName = instance || 'STK-1';
 
   if (!EVOLUTION_API_KEY) {
     return { success: false, contacts: [], total: 0, error: 'API Key não configurada' };
