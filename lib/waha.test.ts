@@ -1,0 +1,512 @@
+import { describe, it, expect } from 'vitest'
+import { enviarTexto, enviarMidia, enviarAudio, enviarLido, verificarSessao, checkNumbers, findContacts, resolverLid, buscarNomeContato, montarUrlArquivo, buscarUrlMidiaHistoria, resolverUrlMidia, type FetchImpl, type Mediatype } from './waha'
+
+function fakeFetch(status: number, body: unknown) {
+  const calls: Array<{ url: string; init: RequestInit }> = []
+  const impl: FetchImpl = async (url, init = {}) => {
+    calls.push({ url: String(url), init })
+    return {
+      ok: status >= 200 && status < 300,
+      status,
+      json: async () => body,
+    } as Response
+  }
+  return { impl, calls }
+}
+
+const CONFIG = { baseUrl: 'http://waha.test:3000', apiKey: 'k-test', session: 'STK-1' }
+
+describe('enviarTexto', () => {
+  it('envia POST /api/sendText com chatId @c.us e devolve o message_id', async () => {
+    const { impl, calls } = fakeFetch(200, { id: 'msg-123' })
+
+    const resultado = await enviarTexto(
+      { telefone: '(62) 3416-5014', mensagem: 'Olá!' },
+      { fetchImpl: impl, config: CONFIG }
+    )
+
+    expect(resultado.success).toBe(true)
+    expect(resultado.message_id).toBe('msg-123')
+    expect(calls).toHaveLength(1)
+    expect(calls[0].url).toBe('http://waha.test:3000/api/sendText')
+    expect(calls[0].init.method).toBe('POST')
+    expect(calls[0].init.headers).toMatchObject({ 'X-Api-Key': 'k-test' })
+    const body = JSON.parse(String(calls[0].init.body))
+    expect(body).toEqual({ chatId: '556234165014@c.us', text: 'Olá!', session: 'STK-1' })
+  })
+
+  it('retorna success:false com erro quando a API responde 4xx', async () => {
+    const { impl } = fakeFetch(422, { error: 'chat not found' })
+
+    const resultado = await enviarTexto(
+      { telefone: '5562999990000', mensagem: 'oi' },
+      { fetchImpl: impl, config: CONFIG }
+    )
+
+    expect(resultado.success).toBe(false)
+    expect(resultado.error).toContain('422')
+  })
+
+  it('aceita session explícita ignorando a padrão', async () => {
+    const { impl, calls } = fakeFetch(200, { id: 'msg-2' })
+
+    await enviarTexto(
+      { telefone: '5562999990000', mensagem: 'oi', session: 'STK-3' },
+      { fetchImpl: impl, config: CONFIG }
+    )
+
+    const body = JSON.parse(String(calls[0].init.body))
+    expect(body.session).toBe('STK-3')
+  })
+})
+
+describe('enviarMidia', () => {
+  it('envia imagem por POST /api/sendImage com o payload file do WAHA', async () => {
+    const { impl, calls } = fakeFetch(200, { id: 'mid-1' })
+
+    const resultado = await enviarMidia(
+      {
+        telefone: '5562999990000',
+        mediatype: 'image',
+        mimetype: 'image/jpeg',
+        media: 'AAAA',
+        fileName: 'foto.jpg',
+      },
+      { fetchImpl: impl, config: CONFIG }
+    )
+
+    expect(resultado.success).toBe(true)
+    expect(resultado.message_id).toBe('mid-1')
+    expect(calls[0].url).toBe('http://waha.test:3000/api/sendImage')
+    const body = JSON.parse(String(calls[0].init.body))
+    expect(body.chatId).toBe('5562999990000@c.us')
+    expect(body.session).toBe('STK-1')
+    expect(body.file).toEqual({
+      mimetype: 'image/jpeg',
+      filename: 'foto.jpg',
+      data: 'AAAA',
+    })
+  })
+
+  it('roteia o endpoint pelo mediatype (video, document)', async () => {
+    const casos: Array<[Mediatype, string]> = [
+      ['video', '/api/sendVideo'],
+      ['document', '/api/sendFile'],
+      ['audio', '/api/sendFile'],
+      ['sticker', '/api/sendSticker'],
+    ]
+    for (const [mediatype, endpoint] of casos) {
+      const { impl, calls } = fakeFetch(200, { id: 'x' })
+      await enviarMidia(
+        { telefone: '5562999990000', mediatype, mimetype: 'm', media: 'AA' },
+        { fetchImpl: impl, config: CONFIG }
+      )
+      expect(calls[0].url).toBe(`http://waha.test:3000${endpoint}`)
+    }
+  })
+})
+
+describe('montarUrlArquivo (URL de mídia do WAHA)', () => {
+  it('reescreve localhost para a base pública — a Vercel não alcança localhost (bug E2E)', () => {
+    expect(
+      montarUrlArquivo('http://localhost:3000/api/files/STK-1/x.jpeg', 'http://waha.test:3000')
+    ).toBe('http://waha.test:3000/api/files/STK-1/x.jpeg')
+  })
+
+  it('reescreve 127.0.0.1 e IPs privados (10.x, 172.16-31.x, 192.168.x)', () => {
+    expect(montarUrlArquivo('http://127.0.0.1:3000/a.bin', 'http://waha.test:3000')).toBe('http://waha.test:3000/a.bin')
+    expect(montarUrlArquivo('http://10.0.0.5:3000/a.bin', 'http://waha.test:3000')).toBe('http://waha.test:3000/a.bin')
+    expect(montarUrlArquivo('http://172.16.1.1:3000/a.bin', 'http://waha.test:3000')).toBe('http://waha.test:3000/a.bin')
+    expect(montarUrlArquivo('http://192.168.0.10:3000/a.bin', 'http://waha.test:3000')).toBe('http://waha.test:3000/a.bin')
+  })
+
+  it('resolve URL relativa contra a base', () => {
+    expect(montarUrlArquivo('/api/files/STK-1/x.pdf', 'http://waha.test:3000')).toBe(
+      'http://waha.test:3000/api/files/STK-1/x.pdf'
+    )
+  })
+
+  it('mantém URLs públicas intactas e devolve null para ausente/inválida', () => {
+    expect(montarUrlArquivo('https://files.example.com/x.pdf', 'http://waha.test:3000')).toBe(
+      'https://files.example.com/x.pdf'
+    )
+    expect(montarUrlArquivo(null, 'http://waha.test:3000')).toBeNull()
+    expect(montarUrlArquivo('://errado', 'http://waha.test:3000')).toBeNull()
+  })
+})
+
+describe('buscarUrlMidiaHistoria (fallback p/ evento com media.url nulo)', () => {
+  it('busca no histórico do chat e devolve a URL normalizada', async () => {
+    const { impl, calls } = fakeFetch(200, {
+      messages: [
+        { payload: { id: 'OUTRA', media: { url: 'http://localhost:3000/api/files/S/outra.jpeg' } } },
+        { payload: { id: 'QUERO', media: { url: 'http://localhost:3000/api/files/S/quer.jpeg' } } },
+      ],
+    })
+
+    const url = await buscarUrlMidiaHistoria(
+      { telefone: '5562999990000', messageId: 'QUERO' },
+      { fetchImpl: impl, config: CONFIG }
+    )
+
+    expect(url).toBe('http://waha.test:3000/api/files/S/quer.jpeg')
+    expect(calls[0].url).toContain('/api/STK-1/chats/5562999990000@c.us/messages')
+  })
+
+  it('devolve null quando a mensagem não tem mídia ou não existe', async () => {
+    const semMidia = fakeFetch(200, { messages: [{ payload: { id: 'QUERO', body: 'oi' } }] })
+    expect(
+      await buscarUrlMidiaHistoria({ telefone: '5562999990000', messageId: 'QUERO' }, { fetchImpl: semMidia.impl, config: CONFIG })
+    ).toBeNull()
+
+    const vazio = fakeFetch(200, { messages: [] })
+    expect(
+      await buscarUrlMidiaHistoria({ telefone: '5562999990000', messageId: 'QUERO' }, { fetchImpl: vazio.impl, config: CONFIG })
+    ).toBeNull()
+  })
+
+  it('devolve null quando a API falha', async () => {
+    const erro = fakeFetch(500, { error: 'boom' })
+    expect(
+      await buscarUrlMidiaHistoria({ telefone: '5562999990000', messageId: 'QUERO' }, { fetchImpl: erro.impl, config: CONFIG })
+    ).toBeNull()
+  })
+})
+
+describe('resolverUrlMidia (URL final de mídia do evento)', () => {
+  it('usa a URL do evento, normalizada para a base pública, sem consultar o histórico', async () => {
+    const { impl, calls } = fakeFetch(200, {})
+
+    const url = await resolverUrlMidia(
+      { urlMidia: 'http://localhost:3000/api/files/STK-1/x.jpeg', telefone: '5562999990000', messageId: 'MSG1' },
+      { fetchImpl: impl, config: CONFIG }
+    )
+
+    expect(url).toBe('http://waha.test:3000/api/files/STK-1/x.jpeg')
+    expect(calls).toHaveLength(0)
+  })
+
+  it('sem URL no evento (media.url nulo), recupera no histórico pelo whatsapp_message_id', async () => {
+    const { impl, calls } = fakeFetch(200, {
+      messages: [{ payload: { id: 'MSG1', media: { url: 'http://localhost:3000/api/files/STK-1/y.pdf' } } }],
+    })
+
+    const url = await resolverUrlMidia(
+      { urlMidia: null, telefone: '5562999990000', messageId: 'MSG1' },
+      { fetchImpl: impl, config: CONFIG }
+    )
+
+    expect(url).toBe('http://waha.test:3000/api/files/STK-1/y.pdf')
+    expect(calls[0].url).toContain('/api/STK-1/chats/5562999990000@c.us/messages')
+  })
+
+  it('URL inválida no evento também cai no fallback do histórico', async () => {
+    const { impl } = fakeFetch(200, {
+      messages: [{ payload: { id: 'MSG1', media: { url: '/api/files/STK-1/z.mp4' } } }],
+    })
+
+    const url = await resolverUrlMidia(
+      { urlMidia: '://errado', telefone: '5562999990000', messageId: 'MSG1' },
+      { fetchImpl: impl, config: CONFIG }
+    )
+
+    expect(url).toBe('http://waha.test:3000/api/files/STK-1/z.mp4')
+  })
+
+  it('sem URL e sem messageId devolve null sem consultar o WAHA', async () => {
+    const { impl, calls } = fakeFetch(200, {})
+
+    const url = await resolverUrlMidia(
+      { urlMidia: null, telefone: '5562999990000' },
+      { fetchImpl: impl, config: CONFIG }
+    )
+
+    expect(url).toBeNull()
+    expect(calls).toHaveLength(0)
+  })
+})
+
+describe('enviarMidia (mediaUrl — arquivos grandes)', () => {
+  it('com mediaUrl envia file:{url} e não manda base64', async () => {
+    const { impl, calls } = fakeFetch(200, { id: 'x' })
+
+    const resultado = await enviarMidia(
+      {
+        telefone: '5562999990000',
+        mediatype: 'document',
+        mimetype: 'application/pdf',
+        mediaUrl: 'https://storage.example.com/enviados/proposta.pdf',
+        fileName: 'proposta.pdf',
+      },
+      { fetchImpl: impl, config: CONFIG }
+    )
+
+    expect(resultado.success).toBe(true)
+    expect(JSON.parse(String(calls[0].init.body)).file).toEqual({
+      url: 'https://storage.example.com/enviados/proposta.pdf',
+      filename: 'proposta.pdf',
+    })
+  })
+})
+
+describe('enviarAudio', () => {
+  it('envia nota de voz por POST /api/sendVoice', async () => {
+    const { impl, calls } = fakeFetch(200, { id: 'aud-1' })
+
+    const resultado = await enviarAudio(
+      { telefone: '(62) 99999-0000', audio: 'BBBB' },
+      { fetchImpl: impl, config: CONFIG }
+    )
+
+    expect(resultado.success).toBe(true)
+    expect(resultado.message_id).toBe('aud-1')
+    expect(calls[0].url).toBe('http://waha.test:3000/api/sendVoice')
+    const body = JSON.parse(String(calls[0].init.body))
+    expect(body.chatId).toBe('5562999990000@c.us')
+    expect(body.file.data).toBe('BBBB')
+    expect(body.session).toBe('STK-1')
+  })
+
+  it('propaga erro da API com status HTTP', async () => {
+    const { impl } = fakeFetch(500, { error: 'engine down' })
+
+    const resultado = await enviarAudio(
+      { telefone: '5562999990000', audio: 'BBBB' },
+      { fetchImpl: impl, config: CONFIG }
+    )
+
+    expect(resultado.success).toBe(false)
+    expect(resultado.error).toContain('engine down')
+    expect(resultado.error).toContain('500')
+  })
+})
+
+describe('verificarSessao', () => {
+  it('retorna connected:true quando o status é WORKING', async () => {
+    const { impl, calls } = fakeFetch(200, { name: 'STK-1', status: 'WORKING' })
+
+    const resultado = await verificarSessao({ fetchImpl: impl, config: CONFIG })
+
+    expect(resultado).toEqual({ connected: true, state: 'WORKING' })
+    expect(calls[0].url).toBe('http://waha.test:3000/api/sessions/STK-1')
+    expect(calls[0].init.headers).toMatchObject({ 'X-Api-Key': 'k-test' })
+  })
+
+  it('retorna connected:false para outros status', async () => {
+    const { impl } = fakeFetch(200, { name: 'STK-1', status: 'FAILED' })
+
+    const resultado = await verificarSessao({ fetchImpl: impl, config: CONFIG })
+
+    expect(resultado).toEqual({ connected: false, state: 'FAILED' })
+  })
+
+  it('retorna state:error em falha de conexão', async () => {
+    const impl: FetchImpl = async () => {
+      throw new Error('ECONNREFUSED')
+    }
+
+    const resultado = await verificarSessao({ fetchImpl: impl, config: CONFIG })
+
+    expect(resultado).toEqual({ connected: false, state: 'error' })
+  })
+})
+
+describe('checkNumbers', () => {
+  it('converte numberExists/chatId para o formato do CRM', async () => {
+    const { impl, calls } = fakeFetch(200, {
+      numberExists: true,
+      chatId: '5562999990000@c.us',
+    })
+
+    const resultado = await checkNumbers(
+      { numbers: ['(62) 99999-0000'] },
+      { fetchImpl: impl, config: CONFIG }
+    )
+
+    expect(resultado.success).toBe(true)
+    expect(resultado.results).toEqual([
+      { number: '5562999990000', exists: true, jid: '5562999990000@c.us' },
+    ])
+    expect(calls[0].url).toContain('/api/contacts/check-exists')
+    expect(calls[0].url).toContain('phone=5562999990000')
+  })
+
+  it('faz uma chamada por número', async () => {
+    const { impl, calls } = fakeFetch(200, { numberExists: false, chatId: null })
+
+    await checkNumbers(
+      { numbers: ['5562999990000', '5562888880000'] },
+      { fetchImpl: impl, config: CONFIG }
+    )
+
+    expect(calls).toHaveLength(2)
+  })
+})
+
+describe('findContacts', () => {
+  it('mapeia os contatos WAHA para o formato do CRM', async () => {
+    const { impl } = fakeFetch(200, [
+      {
+        id: '5562999990000@c.us',
+        name: 'João Silva',
+        pushName: 'João',
+        profilePicUrl: 'http://pic/joao.jpg',
+      },
+    ])
+
+    const resultado = await findContacts({}, { fetchImpl: impl, config: CONFIG })
+
+    expect(resultado.success).toBe(true)
+    expect(resultado.total).toBe(1)
+    expect(resultado.contacts[0]).toMatchObject({
+      remoteJid: '5562999990000@c.us',
+      pushName: 'João',
+      profilePicUrl: 'http://pic/joao.jpg',
+      isSaved: true,
+      isGroup: false,
+      type: 'contact',
+    })
+  })
+
+  it('filtra por search no pushName/remoteJid (client-side)', async () => {
+    const { impl } = fakeFetch(200, [
+      { id: '5562999990000@c.us', name: 'João Silva', pushName: 'João' },
+      { id: '5562888880000@c.us', name: 'Maria', pushName: 'Maria' },
+    ])
+
+    const resultado = await findContacts(
+      { search: 'maria' },
+      { fetchImpl: impl, config: CONFIG }
+    )
+
+    expect(resultado.contacts).toHaveLength(1)
+    expect(resultado.contacts[0].pushName).toBe('Maria')
+  })
+
+  it('resolve JIDs @lid para o número real (débito §8.2)', async () => {
+    const impl: FetchImpl = async (url) => {
+      const u = String(url)
+      if (u.includes('/lids/')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ lid: '3E22AD6A8D21AE12C15F4C576AFABE9E@lid', pn: '5562999990000@c.us' }),
+        } as Response
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => [{ id: '3E22AD6A8D21AE12C15F4C576AFABE9E@lid', name: 'Contato Lid' }],
+      } as Response
+    }
+
+    const resultado = await findContacts({}, { fetchImpl: impl, config: CONFIG })
+
+    expect(resultado.contacts[0].remoteJid).toBe('5562999990000@s.whatsapp.net')
+  })
+
+  it('lê o payload real do GOWS: pushname minúsculo, name vazio e pushname numérico = sem nome', async () => {
+    const { impl } = fakeFetch(200, [
+      { id: '13135550002@c.us', name: '', pushname: '13135550002' },
+      { id: '17867961367@c.us', name: '', pushname: 'Ricardo Sanches' },
+      { id: '5562999990000@c.us', name: 'Salvo na agenda', pushname: '' },
+    ])
+
+    const resultado = await findContacts({}, { fetchImpl: impl, config: CONFIG })
+
+    expect(resultado.success).toBe(true)
+    // payload real (23/09): pushname minúsculo com o nome; name vazio para não-salvos
+    expect(resultado.contacts[0].pushName).toBeNull() // pushname igual ao número = "sem nome"
+    expect(resultado.contacts[1].pushName).toBe('Ricardo Sanches')
+    expect(resultado.contacts[2].pushName).toBe('Salvo na agenda')
+    expect(resultado.contacts[0].isSaved).toBe(false)
+    expect(resultado.contacts[2].isSaved).toBe(true)
+    // JID preservado — extrairTelefoneJid (lib/telefone) cuida da exibição/seleção
+    expect(resultado.contacts[0].remoteJid).toBe('13135550002@c.us')
+  })
+})
+
+describe('resolverLid', () => {
+  it('consulta /api/sessions/{s}/lids/{lid} e devolve o telefone', async () => {
+    const { impl, calls } = fakeFetch(200, {
+      lid: '3E22AD6A8D21AE12C15F4C576AFABE9E@lid',
+      pn: '5562999990000@c.us',
+    })
+
+    const telefone = await resolverLid(
+      '3E22AD6A8D21AE12C15F4C576AFABE9E@lid',
+      { fetchImpl: impl, config: CONFIG }
+    )
+
+    expect(telefone).toBe('5562999990000')
+    expect(calls[0].url).toBe(
+      'http://waha.test:3000/api/STK-1/lids/3E22AD6A8D21AE12C15F4C576AFABE9E'
+    )
+    expect(calls[0].init.headers).toMatchObject({ 'X-Api-Key': 'k-test' })
+  })
+
+  it('devolve null quando o WAHA não conhece o mapeamento (pn: null)', async () => {
+    const { impl } = fakeFetch(200, { lid: '3E22@lid', pn: null })
+
+    const telefone = await resolverLid('3E22@lid', { fetchImpl: impl, config: CONFIG })
+
+    expect(telefone).toBeNull()
+  })
+})
+
+describe('buscarNomeContato', () => {
+  it('prefere pushname (nome do WhatsApp) e monta o endpoint /api/{session}/contacts/{id}', async () => {
+    const { impl, calls } = fakeFetch(200, {
+      id: '556284329526@c.us',
+      name: 'Correios Coimbra Coleta',
+      pushname: 'AGF Campininha',
+    })
+
+    const nome = await buscarNomeContato('556284329526', { fetchImpl: impl, config: CONFIG })
+
+    expect(nome).toBe('AGF Campininha')
+    expect(calls[0].url).toBe('http://waha.test:3000/api/STK-1/contacts/556284329526@c.us')
+    expect(calls[0].init.headers).toMatchObject({ 'X-Api-Key': 'k-test' })
+  })
+
+  it('cai para o nome salvo quando não há pushname', async () => {
+    const { impl } = fakeFetch(200, { id: 'x', name: 'Correios', pushname: '' })
+
+    const nome = await buscarNomeContato('556284329526', { fetchImpl: impl, config: CONFIG })
+
+    expect(nome).toBe('Correios')
+  })
+
+  it('devolve null quando o contato não existe', async () => {
+    const { impl } = fakeFetch(404, {})
+
+    const nome = await buscarNomeContato('556284329526', { fetchImpl: impl, config: CONFIG })
+
+    expect(nome).toBeNull()
+  })
+})
+
+describe('enviarLido', () => {
+  it('faz POST /api/sendSeen com session + chatId', async () => {
+    const { impl, calls } = fakeFetch(200, { success: true })
+
+    const resultado = await enviarLido('5562999990000', { fetchImpl: impl, config: CONFIG })
+
+    expect(resultado.success).toBe(true)
+    expect(calls[0].url).toBe('http://waha.test:3000/api/sendSeen')
+    expect(calls[0].init.method).toBe('POST')
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({
+      session: 'STK-1',
+      chatId: '5562999990000@c.us',
+    })
+  })
+
+  it('retorna success:false em erro HTTP', async () => {
+    const { impl } = fakeFetch(500, { message: 'sessão fora' })
+
+    const resultado = await enviarLido('5562999990000', { fetchImpl: impl, config: CONFIG })
+
+    expect(resultado.success).toBe(false)
+    expect(resultado.error).toContain('500')
+  })
+})
