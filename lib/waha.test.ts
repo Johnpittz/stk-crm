@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { enviarTexto, enviarMidia, enviarAudio, enviarLido, verificarSessao, checkNumbers, findContacts, resolverLid, buscarNomeContato, montarUrlArquivo, buscarUrlMidiaHistoria, resolverUrlMidia, type FetchImpl, type Mediatype } from './waha'
+import { enviarTexto, enviarMidia, enviarAudio, enviarLido, verificarSessao, checkNumbers, findContacts, resolverLid, buscarNomeContato, montarUrlArquivo, buscarUrlMidiaHistoria, resolverUrlMidia, listarSessoes, mapearStatusSessao, type FetchImpl, type Mediatype } from './waha'
 
 function fakeFetch(status: number, body: unknown) {
   const calls: Array<{ url: string; init: RequestInit }> = []
@@ -508,5 +508,39 @@ describe('enviarLido', () => {
 
     expect(resultado.success).toBe(false)
     expect(resultado.error).toContain('500')
+  })
+})
+
+
+describe('listarSessoes', () => {
+  it('lista sessões e mapeia status WAHA para o contrato da UI (open/close/connecting)', async () => {
+    const { impl, calls } = fakeFetch(200, [
+      { name: 'STK-1', status: 'WORKING', me: { id: '5562999991111@c.us' } },
+      { name: 'STK-3', status: 'STOPPED', me: null },
+      { name: 'STK-2', status: 'SCAN_QR_CODE', me: null },
+    ])
+
+    const sessoes = await listarSessoes({ fetchImpl: impl, config: CONFIG })
+
+    expect(calls[0].url).toBe('http://waha.test:3000/api/sessions')
+    expect(sessoes).toEqual([
+      { id: 'STK-1', name: 'STK-1', number: '5562999991111', status: 'open', state: 'WORKING' },
+      { id: 'STK-3', name: 'STK-3', number: '', status: 'close', state: 'STOPPED' },
+      { id: 'STK-2', name: 'STK-2', number: '', status: 'connecting', state: 'SCAN_QR_CODE' },
+    ])
+  })
+
+  it('devolve [] quando a API responde erro', async () => {
+    const { impl } = fakeFetch(500, { message: 'boom' })
+    const sessoes = await listarSessoes({ fetchImpl: impl, config: CONFIG })
+    expect(sessoes).toEqual([])
+  })
+
+  it('mapearStatusSessao cobre os estados do WAHA', () => {
+    expect(mapearStatusSessao('WORKING')).toBe('open')
+    expect(mapearStatusSessao('STARTING')).toBe('connecting')
+    expect(mapearStatusSessao('SCAN_QR_CODE')).toBe('connecting')
+    expect(mapearStatusSessao('FAILED')).toBe('close')
+    expect(mapearStatusSessao('')).toBe('close')
   })
 })

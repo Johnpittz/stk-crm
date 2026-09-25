@@ -90,19 +90,15 @@ export async function GET(request: NextRequest) {
           return mapa;
         }),
       
-      // 3. Instâncias WhatsApp
-      fetch(`${process.env.EVOLUTION_API_URL || "http://2.25.192.248:8080"}/instance/fetchInstances`, {
-        headers: { apikey: process.env.EVOLUTION_API_KEY || "" },
-        signal: AbortSignal.timeout(5000),
-      })
-        .then(r => r.ok ? r.json() : [])
-        .then((data: any) => (data || []).map((i: any) => ({
-          id: i.id || "",
-          name: i.name || "",
-          number: i.number || "",
-          status: i.state || "unknown",
-        })))
-        .catch(() => []),
+      // 3. Sessões WhatsApp (WAHA — plano-migracao-waha.md Fase 6)
+      (await import("@/lib/waha")).listarSessoes().then((sessoes) =>
+        sessoes.map((s) => ({
+          id: s.id,
+          name: s.name,
+          number: s.number,
+          status: s.status,
+        }))
+      ).catch(() => []),
       
       // 4. Notificações (count não lidas)
       supabaseAdmin

@@ -588,3 +588,57 @@ export async function enviarLido(
     return { success: false, error: descreverErro(err) }
   }
 }
+
+
+// ─── Sessões (substitui listarInstancias do Evolution) ───
+
+export interface SessaoResumo {
+  id: string
+  name: string
+  /** Número conectado (sem @c.us); vazio quando a sessão não está WORKING */
+  number: string
+  /** Contrato legado da UI: 'open' | 'connecting' | 'close' */
+  status: string
+  /** Status bruto do WAHA (WORKING, STOPPED, ...) */
+  state: string
+}
+
+/** Mapeia o status bruto do WAHA para o contrato de status da UI (Evolution 'open'/'close'). */
+export function mapearStatusSessao(statusWaha: string): string {
+  const s = (statusWaha || '').toUpperCase()
+  if (s === 'WORKING') return 'open'
+  if (s === 'STARTING' || s === 'SCAN_QR_CODE') return 'connecting'
+  return 'close'
+}
+
+/**
+ * Lista as sessões do WAHA no formato que a UI espera
+ * ({ id, name, number, status }) — usado por /api/instances,
+ * /api/whatsapp/status e /api/atendimentos/page-data.
+ */
+export async function listarSessoes(opts?: WahaOptions): Promise<SessaoResumo[]> {
+  const config = opts?.config ?? getWahaConfig()
+  const doFetch: FetchImpl = opts?.fetchImpl ?? fetch
+
+  try {
+    const response = await doFetch(`${config.baseUrl}/api/sessions`, {
+      headers: { 'X-Api-Key': config.apiKey },
+    })
+    if (!response.ok) {
+      console.error(`[WAHA] listarSessoes HTTP ${response.status}`)
+      return []
+    }
+    const data = await response.json()
+    const lista = Array.isArray(data) ? data : []
+    return lista.map((s: any) => ({
+      id: s.name || '',
+      name: s.name || '',
+      number: String(s.me?.id || '').replace(/@c\.us$/, ''),
+      status: mapearStatusSessao(s.status),
+      state: s.status || '',
+    }))
+  } catch (err: any) {
+    console.error(`[WAHA] listarSessoes erro:`, err?.message || err)
+    return []
+  }
+}
