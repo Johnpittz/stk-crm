@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
     
     // For WhatsApp CDN URLs, use Evolution API to decrypt
     // First, find the message in Evolution API by whatsapp_message_id
-    const instances = ["STK-1", "STK-2", "ROMA_2"];
+    const instances = ["STK-1", "STK-2", "STK-3"];
     const messageType = TYPE_MAP[mediaType] || "audioMessage";
     
     for (const instance of instances) {

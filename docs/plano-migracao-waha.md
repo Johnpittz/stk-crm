@@ -115,41 +115,41 @@ Só a fase opcional de checkmarks mexe no chat.
 
 ## 5. Fases (ordem de execução, cada uma com teste primeiro)
 
-### F0 — Decisões travadas (sem código)
+### F0 — Decisões travadas (sem código) ✅ CONCLUÍDA
 - Validar D1–D8 com o usuário; confirmar domínio de produção do Vercel (webhook URL); confirmar que quem escaneia os QR é outra pessoa.
 
-### F1 — Fundação de testes
+### F1 — Fundação de testes ✅ CONCLUÍDA (vitest + 65 testes portados)
 - `npm i -D vitest` + script `"test": "vitest run"` + `vitest.config.ts` (transform JSX).
 - Portar de lá: `lib/telefone.test.ts`, `lib/waha.test.ts`, `lib/waha-webhook.test.ts`, fixtures.
 - **Aceite:** `npm test` rodando (RED inicial na porta errada é esperado).
 
-### F2 — Infra WAHA (fora do repo)
+### F2 — Infra WAHA (fora do repo) ✅ CONCLUÍDA (sessões STK-1/2/3 criadas STOPPED + runbook `runbook-conectar-numeros-stk.md`)
 - Criar sessões `STK-1`, `STK-2`, `ROMA_2` no WAHA da VPS (engine GOWS, ao lado da `ROMA_1`).
 - **QR fica para a outra pessoa** — entregamos o runbook (`docs/runbook-waha-numeros.md` adaptado).
 - **Aceite:** sessões no ar (mesmo que sem QR ainda) + `WAHA_API_KEY` nas env vars do Vercel do STK.
 
-### F3 — `lib/waha.ts` (TDD)
+### F3 — `lib/waha.ts` (TDD) ✅ CONCLUÍDA (portado com testes; envio ao vivo pendente de sessão conectada)
 - Port + adaptar: parâmetro `instancia` → `session`, env vars `WAHA_API_URL`/`WAHA_API_KEY`.
 - **Aceite:** testes verdes; `enviarTexto` entrega em número de teste via curl.
 
-### F4 — Webhook `/api/webhooks/waha` (TDD no parser)
+### F4 — Webhook `/api/webhooks/waha` (TDD no parser) ✅ CONCLUÍDA (fluxo fiel + 4 testes de rota; 70/70)
 - Port do parser + fixture; rota com o fluxo STK completo (dedup → mídia → cliente → atendimento → roteamento → chatbot → IA).
 - Mapeamento: `payload.session` → coluna `instancia` (D1 faz ser igual ao nome).
 - **Aceite:** replay de fixture cria atendimento+mensagem reais; replay 2º → `dedup_skipped`; grupo (`@g.us`) → `ignored_group`.
 
-### F5 — Troca dos envios (TDD)
+### F5 — Troca dos envios (TDD) ✅ CONCLUÍDA (send/text, send/media, mensagens, chatbot engine)
 - `send/text`, `send/media` (+upload assinado p/ >3 MB), `atendimentos/mensagens`, **chatbot engine**, auto-resposta do webhook.
 - **Aceite:** texto, imagem, áudio, PDF saem do chat e chegam no WhatsApp real; bolha aparece no CRM.
 
-### F6 — Contatos/status/instâncias
+### F6 — Contatos/status/instâncias ✅ CONCLUÍDA (listarSessoes + instances/status/page-data/contacts/check-number; 73/73)
 - 4 rotas de consulta + modal de busca funcionando sem alteração de UI.
 - **Aceite:** checklist de `docs/busca-contatos-whatsapp.md` passando.
 
-### F7 — Disparo via WAHA
+### F7 — Disparo via WAHA ✅ CÓDIGO PRONTO (`worker/disparo_worker_waha.py` + 12 testes unittest; deploy na VPS no cutover — exige parar o worker antigo, ver `worker/README.md`)
 - Adaptar `disparo_worker.py` (versão versionada no repo) e trocar no Supervisor.
 - **Aceite:** campanha de teste entrega mensagens nos 3 números; logs `disparo_logs` ok.
 
-### F8 — Cutover + backfill (dia da troca) — ver §7
+### F8 — Cutover + backfill (dia da troca) — ver §7 ⏳ PENDENTE (bloqueia: push/deploy + QR (outra pessoa) + parada do worker antigo na VPS + migration de rótulo ROMA_2→STK-3 + env vars no Vercel + webhook registrado)
 
 ### F9 — Opcional: checkmarks (migration `ack_status` + `message.ack`) — TDD mesmo caminho do CRM-ROMA
 

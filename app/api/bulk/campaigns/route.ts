@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
         status: "pending",
         sent: 0,
         failed: 0,
-        instancia: instancia || "ROMA_2",
+        instancia: instancia || "STK-3",
         intervalo: intervalo || 5,
         campanha_id: campanha_id || null,
         promocao_id: promocao_id || null,

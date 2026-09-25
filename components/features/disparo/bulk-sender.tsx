@@ -45,7 +45,7 @@ interface InstanciaWhatsApp {
 
 export function BulkSender() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [newInstance, setNewInstance] = useState("ROMA_2");
+  const [newInstance, setNewInstance] = useState("STK-3");
   const [newIntervalo, setNewIntervalo] = useState(5);
   const [newCampaign, setNewCampaign] = useState({
     name: "",

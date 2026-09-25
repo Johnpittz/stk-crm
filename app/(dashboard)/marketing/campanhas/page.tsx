@@ -529,7 +529,7 @@ export default function CampanhasPage() {
         sent: 0,
         failed: 0,
         campanha_id: campanhaSelecionada.id,
-        instancia: novoDisparo.instanceName || 'ROMA_2',
+        instancia: novoDisparo.instanceName || 'STK-3',
         intervalo: novoDisparo.intervalo || 5,
         intervalo_passos: novoDisparo.intervalo_passos || 2,
         delay_inicial: novoDisparo.delay_inicial || 0,
