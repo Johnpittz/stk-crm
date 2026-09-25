@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
-import { enviarMensagemWhatsApp, formatarTelefone } from "@/lib/evolution-api";
+import { enviarTexto } from "@/lib/waha";
+import { formatarTelefone } from "@/lib/telefone";
 
 export const dynamic = "force-dynamic";
 
@@ -88,8 +89,8 @@ export async function POST(request: NextRequest) {
     .update(updateData)
     .eq("id", atendimento_id);
 
-  // Se é vendedor enviando, envia via BotConversa para o WhatsApp do cliente
-  if (remetente === "vendedor" && process.env.BOTCONVERSA_API_KEY) {
+  // Se é vendedor enviando, envia via WAHA para o WhatsApp do cliente
+  if (remetente === "vendedor" && process.env.WAHA_API_URL) {
     try {
       // Busca telefone do cliente no atendimento
       const { data: atendimento } = await supabase
@@ -99,10 +100,10 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (atendimento?.telefone_cliente) {
-        const resultado = await enviarMensagemWhatsApp({
+        const resultado = await enviarTexto({
           telefone: atendimento.telefone_cliente,
           mensagem: conteudo,
-          instance,
+          session: instance,
         });
 
         if (resultado.success) {
@@ -117,7 +118,7 @@ export async function POST(request: NextRequest) {
       }
     } catch (err) {
       // Não falha a mensagem se o envio WhatsApp der erro
-      console.error("[Mensagens] Erro ao enviar via BotConversa:", err);
+      console.error("[Mensagens] Erro ao enviar via WAHA:", err);
     }
   }
 

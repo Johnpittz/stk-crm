@@ -8,6 +8,7 @@
  */
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { enviarTexto } from "@/lib/waha";
 
 // ─── Tipos ───
 
@@ -245,56 +246,26 @@ async function enviarMensagem(
   mensagem: string,
   instancia: string
 ): Promise<{ success: boolean; message_id?: string; error?: string }> {
-  const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL;
-  const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY;
+  // Migração WAHA (docs/plano-migracao-waha.md Fase 5): envio via lib/waha
+  console.log(`[Chatbot Engine] Enviando mensagem para ${telefone} via sessão ${instancia}`);
 
-  console.log(`[Chatbot Engine] Enviando mensagem para ${telefone} via instância ${instancia}`);
-  console.log(`[Chatbot Engine] EVOLUTION_API_URL: ${EVOLUTION_API_URL ? 'CONFIGURADA' : 'NÃO CONFIGURADA'}`);
-  console.log(`[Chatbot Engine] EVOLUTION_API_KEY: ${EVOLUTION_API_KEY ? 'CONFIGURADA' : 'NÃO CONFIGURADA'}`);
-
-  if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
-    console.error('[Chatbot Engine] Evolution API não configurada nas env vars');
-    return { success: false, error: 'Evolution API não configurada' };
+  if (!process.env.WAHA_API_URL) {
+    console.error('[Chatbot Engine] WAHA_API_URL não configurada nas env vars');
+    return { success: false, error: 'WAHA não configurada' };
   }
 
-  try {
-    // Formatar telefone: remover não-numéricos e garantir código do país 55
-    let telefoneFormatado = telefone.replace(/\D/g, '');
-    if (!telefoneFormatado.startsWith('55')) {
-      telefoneFormatado = '55' + telefoneFormatado;
-    }
+  const resultado = await enviarTexto({
+    telefone,
+    mensagem,
+    session: instancia,
+  });
 
-    const url = `${EVOLUTION_API_URL}/message/sendText/${instancia}`;
-    console.log(`[Chatbot Engine] POST ${url} | number: ${telefoneFormatado}`);
-
-    const response = await fetch(
-      url,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': EVOLUTION_API_KEY,
-        },
-        body: JSON.stringify({
-          number: telefoneFormatado,
-          text: mensagem,
-        }),
-      }
-    );
-
-    const data = await response.json();
-    
-    if (response.ok) {
-      console.log(`[Chatbot Engine] ✅ Mensagem enviada com sucesso: ${data.key?.id || data.id}`);
-      return { success: true, message_id: data.key?.id || data.id };
-    } else {
-      console.error(`[Chatbot Engine] ❌ Erro HTTP ${response.status}:`, JSON.stringify(data));
-      return { success: false, error: data.message || `Erro HTTP ${response.status}` };
-    }
-  } catch (err: any) {
-    console.error(`[Chatbot Engine] ❌ Erro de conexão:`, err.message);
-    return { success: false, error: err.message };
+  if (resultado.success) {
+    console.log(`[Chatbot Engine] ✅ Mensagem enviada: ${resultado.message_id}`);
+  } else {
+    console.error(`[Chatbot Engine] ❌ Erro no envio:`, resultado.error);
   }
+  return { success: resultado.success, message_id: resultado.message_id || undefined, ...(resultado.success ? {} : { error: resultado.error }) };
 }
 
 // ─── Delay ───

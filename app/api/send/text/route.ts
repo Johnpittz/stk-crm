@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { enviarMensagemWhatsApp } from "@/lib/evolution-api";
+import { enviarTexto } from "@/lib/waha";
 
 export const dynamic = "force-dynamic";
 
@@ -23,10 +23,10 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Send Text] Enviando para ${number} via ${instance || 'padrão'}: ${text.substring(0, 50)}...`);
 
-    const result = await enviarMensagemWhatsApp({
+    const result = await enviarTexto({
       telefone: number,
       mensagem: text,
-      instance,
+      session: instance,
     });
 
     if (!result.success) {
