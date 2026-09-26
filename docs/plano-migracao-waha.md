@@ -173,6 +173,82 @@ Só a fase opcional de checkmarks mexe no chat.
 4. **"Mensagem enviada para um número chega em outro" é FÍSICO, não bug** — quando os dois lados da conversa são números conectados no próprio WAHA (ex.: STK-1 `556295094949` ↔ STK-3 `556299190117`), a mensagem existe nos dois atendimentos por quê ela realmente viajou de uma conta do WhatsApp para outra. Sinal para distinguir de bug real: o lado "recebido" tem `remetente: cliente` e o id final igual com prefixo `false_…@lid`/`false_…@c.us` vs `true_…`. **Mitigação de UX:** badge `🔗 STK-x` na lista e no cabeçalho quando o número do atendimento é uma sessão conectada (`encontrarInstanciaConectada` em `lib/telefone.ts`).
 5. **Limpeza de duplicatas** — só apagar o lado que NÃO tem mídia (ou, em par texto, o eco do webhook), sempre com backup do que foi apagado; nunca deduplicar em massa ids/contéudos antigos sem revisão caso a caso.
 
+### 6.1.1 Mensagem caindo como "CLIENTE + LID" (bug recorrente, 26/09)
+
+**Sintoma**: atendimento criado com `telefone_cliente` = dígitos do LID e nome "Cliente".
+
+**Causas-raiz** (três, corrigidas via TDD — commits `8a09f87` e `c3549c2`):
+
+1. **Resolução na sessão errada** — `resolverLid()` usava a sessão padrão da env
+   (`WAHA_SESSION=STK-1`), mas o conhecimento LID→número é **por sessão**: na prova
+   real, STK-1 respondia `pn: null` para `183095059849432@lid` e STK-3 respondia
+   `pn: 5511919351515`. O evento chegava na STK-3 e se resolvia na STK-1 → falhava
+   sempre. Hoje: `resolverLidMultiSessao(jid, sessionName)` tenta a **sessão do
+   evento primeiro** e depois as demais (via `listarSessoes()`).
+2. **`lid_phone_map` contaminado** — 88 linhas: 57 gravavam o **número da própria
+   sessão** no lugar do cliente e 27 eram lixo. Auditoria contra o WAHA ao vivo:
+   51 corrigidas para a verdade ao vivo, 27 apagadas, duplicatas deduplicadas →
+   55 linhas 100% verificadas (backup: `.backup-lid-map.json`). Linhas antigas
+   `instance_name=ROMA_2` não eram achadas pela STK-3 → `resolveLidToPhone` ganhou
+   fallback por `lid` puro (o lid é global).
+3. **LID persistido quando nada resolvia** — os dígitos do próprio LID eram usados
+   como telefone (caminho truthy ⇒ passava reto). Agora, se nenhuma camada resolver
+   (payload `SenderAlt` → WAHA multi-sessão → cache), a rota retorna
+   **400 "LID não resolveu para número — atendimento não criado"**.
+
+**Nome "Cliente"**: o parser só lia `pushName`; contas verificadas (ex.: Vivo) chegam
+com `pushName` vazio e o nome real em `_data.Info.VerifiedName.Details.verifiedName`.
+Parser agora lê `VerifiedName` e trata `pushName` vazio como ausente. E o número já
+pode vir no próprio payload (`SenderAlt`) — camada 1 da resolução, sem API.
+
+**Provas em produção** (sondas no webhook real, resíduos apagados):
+- LID real sem alternativo → resolvido via fallback cruzado (STK-1 null → STK-3 hit)
+  → atendimento com o número real;
+- LID desconhecido → `400`, 0 atendimentos, 0 com telefone-LID;
+- LID com `SenderAlt` → atendimento com número + nome do payload.
+
+**Estado final**: 105 testes vitest (7 arquivos) + 12 unittest do worker,
+`tsc --noEmit` e `next build` limpos. Commits: `8a09f87` (rota + parser),
+`c3549c2` (fallback do cache por lid), `8a53f97` (sufixo de dispositivo).
+
+### 6.1.2 Sufixo de dispositivo no `SenderAlt` (regressão autointroduzida, 26/09)
+
+**Sintoma**: a bateria E2E reprovou 9/9 "não chegou ao receptor" com **todas as
+mensagens chegando de fato** — o chat receptora nascia com
+`telefone_cliente = 55629509494923` (o `:23` virou dígito) e o lookup da bateria
+pelo número limpo nunca achava a linha.
+
+**Causa**: `SenderAlt = "556295094949:23@s.whatsapp.net"` — o jid vindo da
+**própria sessão** traz o sufixo `:DISPOSITIVO`; `extrairTelefoneAlt` fazia
+`.replace(/\D/g, '')` no jid inteiro → `55629509494923`.
+
+**Correção** (commit `8a53f97`, teste em `lib/waha-webhook.test.ts`):
+`split('@')[0].split(':')[0]` antes de tirar os não-dígitos. Reparo de dado:
+mapa de LIDs corrigido + os 2 atendimentos de teste da bateria apagados
+(volta a 28/28).
+
+**Lição**: nunca dígitos crus de um jid — descartar domínio e `:dispositivo`
+antes. E quando a bateria reprovar, conferir o **dado** do chat antes de
+desconfiar do pipeline.
+
+### 6.1.3 Bateria de testes: destino único 6282735286 (regra do usuário, 26/09)
+
+`worker/bateria_waha.py` envia **apenas para `556282735286` ((62) 82735-286)** —
+número externo — para não poluir a produção (destino conectado criava
+espelhamento: a mesma mensagem em 2 atendimentos, um por sessão).
+
+- `DESTINO_NUM=556282735286` / `DESTINO_INST=STK-1`: o chat do destino vive na
+  sessão de envio (o atendimento real "João Pedro" já existe nas 3 sessões).
+- Validação de "chegada" = **eco `fromMe` gravado pelo webhook** no chat de
+  destino (`remetente=vendedor`, com `media_url`/`file_name` nas mídias — o eco
+  grava Storage normalmente, comprovado). Chegada física no aparelho =
+  conferência visual do usuário.
+- Pós-execução: apagar **só** as linhas com o marcador `bateria-<epoch>` — o
+  atendimento é conversa real.
+- Env obrigatória antes de rodar: `. /root/.stk-worker.env` (sem ela, `KeyError:
+  'SUPABASE_URL'` na largada).
+- Commit `70ba58a`.
+
 ## 6. Riscos e rollback
 
 | Risco | Mitigação |

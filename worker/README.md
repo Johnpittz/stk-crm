@@ -67,3 +67,29 @@ este reescrito foi reconstruído a partir do comportamento documentado + schema 
 `contact_phone/step_index/step_type/status/detail`). O smoke do cutover valida a paridade;
 se o worker antigo tiver algum comportamento extra não documentado, anotar aqui antes de
 apagá-lo.
+
+## Bateria de testes E2E (`bateria_waha.py`)
+
+Valida o pipeline de **ATENDIMENTO** (não o disparo): para cada caso (texto,
+imagem, áudio ptt, vídeo, pdf, docx, xlsx, pptx, txt) envia pela API de produção
+e espera o **eco `fromMe`** voltar pelo webhook, gravado no chat de destino
+(`remetente=vendedor`, com `media_url`/`file_name` nas mídias). Exit 1 se algum
+caso falhar.
+
+**REGRA (26/09): envia APENAS para `6282735286` (`556282735286`)** — número
+externo. Nunca trocar por números conectados: cria espelhamento (mensagem em 2
+atendimentos) e polui a produção. O chat de destino é o atendimento real
+"João Pedro" em `STK-1`.
+
+```bash
+cd /root/stk-crm && set -a && . /root/.stk-worker.env && set +a \
+  && python3 worker/bateria_waha.py           # envia + asserções
+python3 worker/bateria_waha.py --skip-send    # só re-asserção (sem mandar)
+```
+
+Env obrigatória: `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` (sem elas a
+largada morre com `KeyError: 'SUPABASE_URL'`); opcional `BATERIA_URL`
+(padrão: produção no Vercel).
+
+Após rodar: apagar **só** as linhas com o marcador `bateria-<epoch>` do chat de
+destino — nunca o atendimento (é conversa real).
