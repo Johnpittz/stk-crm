@@ -68,6 +68,8 @@ interface Vendedor {
 export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, onFechar, instancia, instancias, mensagensExternas }: ChatInlineProps) {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [novaMensagem, setNovaMensagem] = useState("");
+  // Visualização ampliada de imagem (lightbox) — em vez de nova aba
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [vendedores, setVendedores] = useState<Vendedor[]>([]);
@@ -623,7 +625,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
     switch (msg.media_type) {
       case "image":
         if (mediaUrl && !mediaUrl.includes("[media_proxy_needed]")) {
-          return <img src={mediaUrl} alt="Imagem" className="max-w-[250px] rounded-lg cursor-pointer hover:opacity-90" onClick={() => window.open(mediaUrl, "_blank")} />;
+          return <img src={mediaUrl} alt="Imagem" className="max-w-[250px] rounded-lg cursor-zoom-in hover:opacity-90" onClick={() => setLightboxUrl(mediaUrl)} />;
         }
         return <div className="flex items-center gap-2 text-white/40 text-xs"><span className="text-lg">🖼️</span>Imagem recebida</div>;
       case "audio":
@@ -659,7 +661,7 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
         return <div className="flex items-center gap-2 text-white/40 text-xs"><span className="text-lg">📄</span>{msg.file_name || "Documento recebido"}</div>;
       case "sticker":
         if (mediaUrl && !mediaUrl.includes("[media_proxy_needed]")) {
-          return <img src={mediaUrl} alt="Sticker" className="max-h-32" />;
+          return <img src={mediaUrl} alt="Sticker" className="max-h-32 cursor-zoom-in" onClick={() => setLightboxUrl(mediaUrl)} />;
         }
         return <div className="text-white/40 text-xs">📎 Figurinha</div>;
       default:
@@ -934,6 +936,27 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
             )}
           </div>
         </>
+      )}
+
+      {/* Lightbox: imagem expande dentro do CRM (clique fora fecha) */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 cursor-zoom-out"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <img
+            src={lightboxUrl}
+            alt="Imagem ampliada"
+            className="max-h-[90vh] max-w-[95vw] rounded-lg shadow-2xl"
+          />
+          <button
+            className="absolute top-4 right-4 text-white/80 hover:text-white"
+            onClick={() => setLightboxUrl(null)}
+            aria-label="Fechar"
+          >
+            <X className="h-7 w-7" />
+          </button>
+        </div>
       )}
     </div>
   );

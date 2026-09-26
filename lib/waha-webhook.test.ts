@@ -87,6 +87,34 @@ describe('parseEventoWaha', () => {
     expect(resultado.conteudo).toBe(payload.body)
   })
 
+  it('ignora mensagem de canal/newsletter (from terminado em @newsletter)', () => {
+    const resultado = parseEventoWaha({
+      event: 'message.any',
+      payload: {
+        id: '120363426287119703@newsletter_ABC123',
+        from: '120363426287119703@newsletter',
+        to: '5562999961553@s.whatsapp.net',
+        fromMe: false,
+        body: 'post de canal',
+      },
+    })
+    expect(resultado.evento).toBe('ignorado')
+  })
+
+  it('ignora mensagem com type newsletter mesmo vindo de chat comum', () => {
+    const resultado = parseEventoWaha({
+      event: 'message.any',
+      payload: {
+        id: '3EB0ABC',
+        from: '5562999990000@c.us',
+        fromMe: false,
+        type: 'newsletter',
+        body: 'x',
+      },
+    })
+    expect(resultado.evento).toBe('ignorado')
+  })
+
   it('reconhece evento message.ack', () => {
     const resultado = parseEventoWaha(fixtures.message_ack_read) as AckWaha
 

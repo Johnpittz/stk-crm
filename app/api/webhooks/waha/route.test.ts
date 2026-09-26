@@ -12,18 +12,23 @@ import { NextRequest } from 'next/server'
 
 // ==================== MOCKS ====================
 
-const { filas, inserts, supabaseFake } = vi.hoisted(() => {
+const { filas, inserts, updates, supabaseFake } = vi.hoisted(() => {
   const filas: Record<string, Array<{ single?: any; list?: any }>> = {}
   const inserts: Array<{ tabela: string; row: any }> = []
+  const updates: Array<{ tabela: string; row: any }> = []
 
   function criarBuilder(tabela: string) {
     const fila = () => filas[tabela] || (filas[tabela] = [])
     const b: any = {}
-    for (const m of ['select', 'update', 'eq', 'in', 'gte', 'or', 'order', 'limit']) {
+    for (const m of ['select', 'eq', 'in', 'gte', 'or', 'order', 'limit', 'delete', 'upsert', 'neq', 'not']) {
       b[m] = () => b
     }
     b.insert = (row: any) => {
       inserts.push({ tabela, row })
+      return b
+    }
+    b.update = (row: any) => {
+      updates.push({ tabela, row })
       return b
     }
     const resolver = async () => {
@@ -39,7 +44,7 @@ const { filas, inserts, supabaseFake } = vi.hoisted(() => {
     return b
   }
 
-  return { filas, inserts, supabaseFake: { from: criarBuilder } }
+  return { filas, inserts, updates, supabaseFake: { from: criarBuilder } }
 })
 
 vi.mock('@supabase/supabase-js', () => ({ createClient: () => supabaseFake }))
@@ -55,6 +60,7 @@ vi.mock('@/lib/waha', () => ({
   enviarTexto: vi.fn(async () => ({ success: true, message_id: 'waha-1' })),
   resolverLid: vi.fn(async () => null),
   resolverUrlMidia: vi.fn(async () => null),
+  buscarNomeContato: vi.fn(async () => null),
 }))
 vi.mock('@/lib/roteamento', () => ({ buscarVendedorPadrao: vi.fn(async () => null) }))
 vi.mock('@/lib/media-storage', () => ({
@@ -66,6 +72,7 @@ vi.mock('@/lib/lid-resolver', () => ({
 }))
 
 import { POST } from './route'
+import { resolverLid, buscarNomeContato } from '@/lib/waha'
 
 // O getSupabase() da rota exige as env vars (o cliente é mockado; só a validação importa)
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://supabase.test'
@@ -86,6 +93,9 @@ function req(payload: any): NextRequest {
 beforeEach(() => {
   for (const k of Object.keys(filas)) delete filas[k]
   inserts.length = 0
+  updates.length = 0
+  vi.mocked(resolverLid).mockReset().mockResolvedValue(null)
+  vi.mocked(buscarNomeContato).mockReset().mockResolvedValue(null)
 })
 
 // ==================== TESTES ====================
@@ -199,5 +209,90 @@ describe('POST /api/webhooks/waha', () => {
     expect(insertsMensagem[0].row.atendimento_id).toBe('atend-9')
     expect(insertsMensagem[0].row.remetente).toBe('vendedor')
     expect(insertsMensagem[0].row.enviada_por).toBe('vend-1')
+  })
+
+  it('ignora mensagem de canal/newsletter sem criar atendimento', async () => {
+    const payload = {
+      ...fixtures.message_text,
+      payload: { ...fixtures.message_text.payload, from: '120363426287119703@newsletter' },
+    }
+    const res = await POST(req(payload))
+    const json = await res.json()
+    expect(res.status).toBe(200)
+    expect(json.action).toBe('ignored_event')
+    expect(inserts).toHaveLength(0)
+  })
+
+  it('preenche o nome pelo contato do WAHA quando não há pushName nem cadastro', async () => {
+    const semNome: any = { ...fixtures.message_text, payload: { ...fixtures.message_text.payload } }
+    delete semNome.payload.pushName
+    delete semNome.payload.pushname
+    delete semNome.payload.notifyName
+    vi.mocked(buscarNomeContato).mockResolvedValueOnce('Nome Via Contato')
+
+    filas['atendimento_mensagens'] = [{ list: [] }, { list: [] }]
+    filas['clientes'] = [{ list: [] }]
+    filas['atendimentos'] = [{ single: null }, { list: [] }, { single: { id: 'novo-2' } }]
+    filas['chatbot_sessions'] = [{ single: null }, { single: null }]
+    filas['chatbot_flows'] = [{ single: null }]
+
+    const res = await POST(req(semNome))
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.action).toBe('created')
+    expect(buscarNomeContato).toHaveBeenCalledWith('5562999990000')
+    const at = inserts.filter((i) => i.tabela === 'atendimentos')
+    expect(at).toHaveLength(1)
+    expect(at[0].row.nome_cliente).toBe('Nome Via Contato')
+  })
+
+  it('funde atendimento criado com LID quando a resolução passa a funcionar', async () => {
+    vi.mocked(resolverLid).mockResolvedValueOnce('556282735286')
+    const payload = {
+      ...fixtures.message_text,
+      payload: {
+        ...fixtures.message_text.payload,
+        from: '17502058848385@lid',
+        fromMe: true,
+        body: 'depois que resolveu',
+      },
+    }
+
+    // Ordem: dedup | merge(busca LID, busca alvo, msgs alvo, msgs LID, move, delete)
+    //        | clientes | atendimento exato | update | insert mensagem
+    filas['lid_phone_map'] = [{ list: [] }]
+    filas['atendimento_mensagens'] = [
+      { list: [] }, // dedup
+      { list: [] }, // msgs do alvo
+      { list: [] }, // msgs do LID
+      { list: [] }, // move (update atendimento_id)
+      { list: [] }, // insert final da mensagem
+    ]
+    filas['atendimentos'] = [
+      { list: [{ id: 'lid-at' }] }, // atendimentos com telefone = LID
+      { list: [{ id: 'alvo-at' }] }, // atendimento do telefone real
+      { list: [] }, // delete da linha LID
+      { single: { id: 'alvo-at', nome_cliente: 'João Pedro', cliente_id: null, vendedor_id: 'vend-1', instancia: 'STK-1' } },
+      { list: [] }, // update do alvo (ultima_mensagem)
+    ]
+    filas['clientes'] = [{ list: [] }]
+
+    const res = await POST(req(payload))
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.action).toBe('updated')
+    expect(json.atendimento_id).toBe('alvo-at')
+
+    // moveu as mensagens para o alvo em vez de rechavear
+    const move = updates.find((u) => u.tabela === 'atendimento_mensagens' && u.row.atendimento_id === 'alvo-at')
+    expect(move).toBeTruthy()
+    expect(updates.some((u) => u.tabela === 'atendimentos' && u.row.telefone_cliente === '556282735286')).toBe(false)
+
+    // a mensagem desta chegada foi gravada no atendimento do telefone real
+    const msg = inserts.filter((i) => i.tabela === 'atendimento_mensagens')
+    expect(msg).toHaveLength(1)
+    expect(msg[0].row.atendimento_id).toBe('alvo-at')
   })
 })

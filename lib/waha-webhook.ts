@@ -54,6 +54,15 @@ export function parseEventoWaha(body: unknown): EventoWaha {
     // (bug 23/09: grupo aparecia como Cliente 556234165014).
     const rawFrom: string = payload.from || payload.to || ''
     const media = payload.media || null
+    // Canais/newsletters não são clientes — o GOWS emite como mensagem e o
+    // Evolution nunca emitia (bug 25/09: "Receitas Fáceis" virou atendimento)
+    if (
+      rawFrom.endsWith('@newsletter') ||
+      typeof payload.type === 'string' && payload.type.startsWith('newsletter') ||
+      typeof payload.id === 'string' && payload.id.endsWith('@newsletter')
+    ) {
+      return { evento: 'ignorado' }
+    }
     return {
       evento: 'message',
       telefone: rawFrom.replace(/@(c\.us|s\.whatsapp\.net|g\.us|lid)$/, ''),

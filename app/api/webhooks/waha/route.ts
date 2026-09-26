@@ -33,7 +33,7 @@ import { gerarRespostaIA, verificarIAAtivada } from "@/lib/ai-assistant";
 import { processarMensagemChatbot } from "@/lib/chatbot/engine";
 import { resolveLidToPhone, saveLidMapping } from "@/lib/lid-resolver";
 import { parseEventoWaha, montarConteudo, type MensagemWaha } from "@/lib/waha-webhook";
-import { enviarTexto, getWahaConfig, resolverLid, resolverUrlMidia } from "@/lib/waha";
+import { buscarNomeContato, enviarTexto, getWahaConfig, resolverLid, resolverUrlMidia } from "@/lib/waha";
 
 export const dynamic = "force-dynamic";
 
@@ -177,6 +177,9 @@ export async function POST(request: NextRequest) {
 
     // Resolve JIDs @lid para o número real (lição 1 do handoff) e persiste o mapeamento
     let telefoneLimpo = telefoneParaDigitos(dados.telefone);
+    // dígitos do LID "cru" — usados para achar/fundir atendimentos criados
+    // enquanto a resolução ainda falhava
+    const telefoneLid = dados.de_lid ? telefoneParaDigitos(dados.telefone) : null;
     if (dados.de_lid) {
       const resolvido = await resolverLid(dados.jid);
       if (resolvido) {
@@ -222,6 +225,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ============ FUSÃO DE ATENDIMENTO LID ============
+    // Se a resolução do LID só passou a funcionar agora, o atendimento criado
+    // com o número "cru" é fundido no atendimento do telefone real.
+    if (telefoneLid && telefoneLid !== telefoneLimpo) {
+      await fundirAtendimentoDeLid(telefoneLid, telefoneLimpo, sessionName);
+    }
+
+    // ============ NOME (fallback: contato do WhatsApp) ============
+    // pushName nem sempre vem (especialmente em LIDs); se o cadastro não tem
+    // nome, pergunta ao WAHA antes de cair no "Cliente".
+    let nomeContatoWa: string | null = null;
+    if (!dados.from_me && !nomeCliente) {
+      const alvoNome = telefoneLid && telefoneLid === telefoneLimpo ? dados.jid : telefoneLimpo;
+      nomeContatoWa = await buscarNomeContato(alvoNome);
+    }
+
     // ==================== MÍDIA ====================
     let mediaUrlFinal: string | null = null;
     if (temMidia) {
@@ -250,8 +269,16 @@ export async function POST(request: NextRequest) {
           ultima_mensagem_data: new Date().toISOString(),
           ultima_mensagem_remetente: remetente,
           nao_lido: naoLido,
-          // Só atualiza nome se veio do CLIENTE (pushName do operador é o próprio nome)
-          ...(nomeCliente && !dados.from_me ? { nome_cliente: nomeCliente } : {}),
+          // Só atualiza nome se veio do CLIENTE (pushName do operador é o próprio nome);
+          // sem pushName, preenche com o contato do WAHA só se ainda estiver genérico
+          ...(() => {
+            if (dados.from_me) return {};
+            const nomeAtual = atendimentoExistente.nome_cliente;
+            const efetivo =
+              nomeCliente ||
+              (nomeContatoWa && (!nomeAtual || nomeAtual === "Cliente") ? nomeContatoWa : null);
+            return efetivo ? { nome_cliente: efetivo } : {};
+          })(),
           cliente_id: cliente?.id || atendimentoExistente.cliente_id,
           vendedor_id: vendedorUpdate,
           instancia: sessionName || atendimentoExistente.instancia || "STK-3",
@@ -354,8 +381,8 @@ export async function POST(request: NextRequest) {
         vendedor_id: vendedorFinal,
         canal: "whatsapp",
         telefone_cliente: telefoneLimpo,
-        // Só usa pushName se veio do CLIENTE; operador = "Cliente" ou nome do cadastro
-        nome_cliente: (!dados.from_me && nomeCliente) || cliente?.nome_razao_social || "Cliente",
+        // Só usa pushName/contato do WAHA se veio do CLIENTE; senão cadastro ou "Cliente"
+        nome_cliente: (!dados.from_me && (nomeCliente || nomeContatoWa)) || cliente?.nome_razao_social || "Cliente",
         status: "aberto",
         prioridade: cliente ? "normal" : "alta",
         assunto: conteudoMensagem.substring(0, 100),
@@ -580,6 +607,82 @@ async function buscarClientePorTelefone(telefoneLimpo: string) {
  * Busca atendimento aberto existente para o telefone + instância
  * Cada instância WhatsApp mantém atendimentos separados (mesma regra do webhook antigo)
  */
+/**
+ * Quando um LID finalmente resolve, um atendimento que tenha sido criado com
+ * os dígitos do LID (resolução falhou na 1ª mensagem) é fundido no atendimento
+ * do telefone real: mensagens movidas (sem duplicar ids do WhatsApp) e a linha
+ * LID apagada. Sem ação quando não existe atendimento LID.
+ */
+async function fundirAtendimentoDeLid(
+  lidDigits: string,
+  telefone: string,
+  instancia: string | null
+) {
+  if (!telefone || lidDigits === telefone) return;
+  const supa = getSupabase();
+
+  const qLid = supa.from("atendimentos").select("id").eq("telefone_cliente", lidDigits);
+  if (instancia) qLid.eq("instancia", instancia);
+  const { data: lidRows } = await qLid.limit(5);
+  if (!lidRows || lidRows.length === 0) return;
+
+  const qAlvo = supa
+    .from("atendimentos")
+    .select("id")
+    .eq("telefone_cliente", telefone)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  const { data: alvoRows } = await qAlvo;
+  const alvoId: string | null = alvoRows && alvoRows[0] && !lidRows.some((l: any) => l.id === alvoRows[0].id)
+    ? alvoRows[0].id
+    : null;
+
+  for (const lid of lidRows) {
+    if (!alvoId) {
+      // não existe atendimento no telefone real → só rechaveia a linha
+      await supa.from("atendimentos").update({ telefone_cliente: telefone }).eq("id", lid.id);
+      console.log(`[Webhook WAHA] Atendimento LID ${lid.id} rechaveado para ${telefone}`);
+      continue;
+    }
+
+    // ids do WhatsApp já presentes no alvo (dedup antes de mover)
+    const { data: alvoMsgs } = await supa
+      .from("atendimento_mensagens")
+      .select("whatsapp_message_id")
+      .eq("atendimento_id", alvoId)
+      .limit(5000);
+    const idsAlvo = new Set(
+      ((alvoMsgs || []).map((m: any) => m.whatsapp_message_id).filter(Boolean) as string[]).map(
+        (id) => id.toLowerCase().slice(-28)
+      )
+    );
+
+    const { data: lidMsgs } = await supa
+      .from("atendimento_mensagens")
+      .select("id, whatsapp_message_id")
+      .eq("atendimento_id", lid.id)
+      .limit(5000);
+
+    const duplicadas = (lidMsgs || [])
+      .filter((m: any) => m.whatsapp_message_id && idsAlvo.has(m.whatsapp_message_id.toLowerCase().slice(-28)))
+      .map((m: any) => m.id);
+    if (duplicadas.length > 0) {
+      await supa.from("atendimento_mensagens").delete().in("id", duplicadas);
+    }
+
+    // move as mensagens restantes e apaga a linha LID
+    await supa
+      .from("atendimento_mensagens")
+      .update({ atendimento_id: alvoId })
+      .eq("atendimento_id", lid.id);
+    await supa.from("atendimentos").delete().eq("id", lid.id);
+    console.log(
+      `[Webhook WAHA] LID ${lidDigits} fundido em ${telefone}: ` +
+      `${(lidMsgs || []).length - duplicadas.length} mensagens movidas, ${duplicadas.length} duplicadas descartadas`
+    );
+  }
+}
+
 async function buscarAtendimentoAberto(telefoneLimpo: string, instancia: string | null) {
   const query = getSupabase()
     .from("atendimentos")
