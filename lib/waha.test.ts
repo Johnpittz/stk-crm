@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { enviarTexto, enviarMidia, enviarAudio, enviarLido, verificarSessao, checkNumbers, findContacts, resolverLid, buscarNomeContato, montarUrlArquivo, buscarUrlMidiaHistoria, resolverUrlMidia, listarSessoes, mapearStatusSessao, type FetchImpl, type Mediatype } from './waha'
+import { enviarTexto, enviarMidia, enviarAudio, enviarLido, verificarSessao, checkNumbers, findContacts, resolverLid, resolverLidMultiSessao, buscarNomeContato, montarUrlArquivo, buscarUrlMidiaHistoria, resolverUrlMidia, listarSessoes, mapearStatusSessao, type FetchImpl, type Mediatype } from './waha'
 
 function fakeFetch(status: number, body: unknown) {
   const calls: Array<{ url: string; init: RequestInit }> = []
@@ -543,5 +543,52 @@ describe('listarSessoes', () => {
     expect(mapearStatusSessao('SCAN_QR_CODE')).toBe('connecting')
     expect(mapearStatusSessao('FAILED')).toBe('close')
     expect(mapearStatusSessao('')).toBe('close')
+  })
+})
+
+describe('resolverLidMultiSessao (bug 26/09: conhecimento de LID é POR SESSÃO)', () => {
+  const CFG = { baseUrl: 'http://waha.test:3000', apiKey: 'k', session: 'STK-3' }
+
+  it('sessão do evento não conhece → lista sessões e tenta as outras', async () => {
+    const urls: string[] = []
+    const impl: FetchImpl = async (url) => {
+      urls.push(String(url))
+      if (String(url).includes('/api/STK-3/lids/')) {
+        return { ok: true, json: async () => ({ lid: 'x@lid', pn: null }) } as any
+      }
+      if (String(url).includes('/api/sessions')) {
+        return { ok: true, json: async () => ([{ name: 'STK-3' }, { name: 'STK-1' }]) } as any
+      }
+      if (String(url).includes('/api/STK-1/lids/')) {
+        return { ok: true, json: async () => ({ lid: 'x@lid', pn: '5511919351515@c.us' }) } as any
+      }
+      return { ok: false, status: 404, json: async () => ({}) } as any
+    }
+
+    const tel = await resolverLidMultiSessao('183095059849432@lid', 'STK-3', { fetchImpl: impl, config: CFG })
+
+    expect(tel).toBe('5511919351515')
+    expect(urls[0]).toContain('/api/STK-3/lids/183095059849432')
+    expect(urls.some((u) => u.includes('/api/STK-1/lids/'))).toBe(true)
+  })
+
+  it('nenhuma sessão conhece (ou lista falha) → null', async () => {
+    const impl: FetchImpl = async (url) => {
+      if (String(url).includes('/api/sessions')) {
+        return { ok: false, status: 500, json: async () => ({}) } as any
+      }
+      return { ok: true, json: async () => ({ pn: null }) } as any
+    }
+    expect(await resolverLidMultiSessao('999@lid', 'STK-3', { fetchImpl: impl, config: CFG })).toBeNull()
+  })
+
+  it('sessão principal conhece → retorna sem nem listar as outras', async () => {
+    const urls: string[] = []
+    const impl: FetchImpl = async (url) => {
+      urls.push(String(url))
+      return { ok: true, json: async () => ({ pn: '5562988887777@c.us' }) } as any
+    }
+    expect(await resolverLidMultiSessao('111@lid', 'STK-3', { fetchImpl: impl, config: CFG })).toBe('5562988887777')
+    expect(urls.some((u) => u.includes('/api/sessions'))).toBe(false)
   })
 })

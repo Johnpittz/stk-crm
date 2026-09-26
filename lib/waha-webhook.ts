@@ -6,6 +6,8 @@
 export type TipoMidia = 'image' | 'audio' | 'video' | 'document' | null
 
 export interface MensagemWaha {
+  /** Número real do remetente quando o `from` é @lid (SenderAlt etc. no payload) */
+  telefone_alt: string | null;
   evento: 'message'
   telefone: string
   /** JID original do remetente (ex.: 123@lid, 5562999990000@c.us) */
@@ -41,6 +43,35 @@ export type EventoWaha = MensagemWaha | AckWaha | StatusWaha | { evento: 'ignora
 /**
  * Converte o payload do webhook WAHA em um evento normalizado do CRM.
  */
+/** Primeira string não vazia da lista (pushName pode vir ''). */
+function primeiraString(candidatos: unknown[]): string | null {
+  for (const c of candidatos) {
+    if (typeof c === 'string' && c.trim()) return c.trim()
+  }
+  return null
+}
+
+/**
+ * Telefone real do remetente quando `from` é @lid. O payload do GOWS carrega o
+ * número em `_data.Info.SenderAlt` (ou variantes flat) — sem depender de API.
+ */
+function extrairTelefoneAlt(payload: any): string | null {
+  const candidatos = [
+    payload?._data?.Info?.SenderAlt,
+    payload?.senderAlt,
+    payload?.fromAlt,
+    payload?.participantAlt,
+    payload?.remoteJidAlt,
+    payload?._data?.SenderAlt,
+  ]
+  for (const c of candidatos) {
+    if (typeof c !== 'string') continue
+    const digitos = c.replace(/\D/g, '')
+    if (digitos.length >= 10) return digitos
+  }
+  return null
+}
+
 export function parseEventoWaha(body: unknown): EventoWaha {
   const b = body as any
   if (!b || typeof b !== 'object' || !b.event) {
@@ -68,7 +99,17 @@ export function parseEventoWaha(body: unknown): EventoWaha {
       telefone: rawFrom.replace(/@(c\.us|s\.whatsapp\.net|g\.us|lid)$/, ''),
       jid: rawFrom,
       de_lid: rawFrom.endsWith('@lid'),
-      nome: payload.pushName ?? payload.pushname ?? payload.notifyName ?? null,
+      // PushName pode vir vazio em mensagens de empresa/template; nesse caso o
+      // nome verificado (_data.Info.VerifiedName) é a melhor fonte disponível.
+      nome: primeiraString([
+        payload.pushName,
+        payload.pushname,
+        payload.notifyName,
+        payload._data?.Info?.PushName,
+        payload._data?.Info?.VerifiedName?.Details?.verifiedName,
+        payload.verifiedName,
+      ]),
+      telefone_alt: extrairTelefoneAlt(payload),
       conteudo: payload.body || '',
       tipo_midia: payload.hasMedia ? mapTipoMidia(media?.mimetype) : null,
       url_midia: media?.url || null,

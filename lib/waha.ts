@@ -522,7 +522,45 @@ export async function resolverLid(
 }
 
 /**
- * Busca o nome do contato no WhatsApp (WAHA GET /api/{session}/contacts/{id}).
+ /**
+  * Resolve um LID tentando PRIMEIRO a sessão que recebeu o evento e depois as
+  * demais sessões. Bug 26/09: o conhecimento lid→pn é POR SESSÃO (a mesma sessão
+  * STK-1 devolvia pn=null para um lid que a STK-3 conhecia), e o resolvedor usava
+  * a sessão global do env (WAHA_SESSION) — por isso o atendimento nascia com o
+  * LID cru no lugar do número.
+  */
+ export async function resolverLidMultiSessao(
+   lid: string,
+   sessionPrincipal: string,
+   options: WahaOptions = {}
+ ): Promise<string | null> {
+   const configBase = options.config || getWahaConfig()
+
+   // 1) Sessão do evento — a mais provável de conhecer o lid
+   const direto = await resolverLid(lid, {
+     ...options,
+     config: { ...configBase, session: sessionPrincipal },
+   })
+   if (direto) return direto
+
+   // 2) Melhor esforço: demais sessões conectadas
+   try {
+     const sessoes = await listarSessoes(options)
+     for (const s of sessoes) {
+       if (!s.name || s.name === sessionPrincipal) continue
+       const achou = await resolverLid(lid, {
+         ...options,
+         config: { ...configBase, session: s.name },
+       })
+       if (achou) return achou
+     }
+   } catch {
+     // best-effort: sem lista de sessões, para por aqui
+   }
+   return null
+ }
+
+ /** Busca o nome do contato no WhatsApp (WAHA GET /api/{session}/contacts/{id}).
  * Prefere `pushname` (nome do WhatsApp); fallback para `name` (nome salvo).
  */
 export async function buscarNomeContato(

@@ -33,7 +33,7 @@ import { gerarRespostaIA, verificarIAAtivada } from "@/lib/ai-assistant";
 import { processarMensagemChatbot } from "@/lib/chatbot/engine";
 import { resolveLidToPhone, saveLidMapping } from "@/lib/lid-resolver";
 import { parseEventoWaha, montarConteudo, type MensagemWaha } from "@/lib/waha-webhook";
-import { buscarNomeContato, enviarTexto, getWahaConfig, resolverLid, resolverUrlMidia } from "@/lib/waha";
+import { buscarNomeContato, enviarTexto, getWahaConfig, resolverLidMultiSessao, resolverUrlMidia } from "@/lib/waha";
 
 export const dynamic = "force-dynamic";
 
@@ -183,22 +183,38 @@ export async function POST(request: NextRequest) {
     // enquanto a resolução ainda falhava
     const telefoneLid = dados.de_lid ? telefoneParaDigitos(dados.telefone) : null;
     if (dados.de_lid) {
-      const resolvido = await resolverLid(dados.jid);
+      // 1) número alternativo que JÁ VEM NO PAYLOAD (_data.Info.SenderAlt) — zero chamadas
+      let resolvido: string | null = dados.telefone_alt
+        ? telefoneParaDigitos(dados.telefone_alt)
+        : null;
+      // 2) WAHA: sessão DO EVENTO primeiro, depois as demais — conhecimento de
+      //    lid→pn é POR SESSÃO (bug 26/09: a sessão errada devolvia pn=null e o
+      //    atendimento nascia com o LID cru no lugar do número)
+      if (!resolvido) {
+        resolvido = await resolverLidMultiSessao(dados.jid, sessionName);
+      }
       if (resolvido) {
         telefoneLimpo = telefoneParaDigitos(resolvido);
         await saveLidMapping(dados.jid, telefoneLimpo, sessionName, dados.nome);
       } else {
+        // 3) cache/DB da instância como última tentativa
         const viaCache = await resolveLidToPhone(dados.jid, sessionName);
         if (viaCache) {
           telefoneLimpo = telefoneParaDigitos(viaCache);
         } else {
-          console.warn(`[Webhook WAHA] LID sem mapeamento: ${dados.jid}`);
+          // NUNCA grava o LID como se fosse telefone do cliente
+          console.warn(`[Webhook WAHA] LID sem número conhecido — evento não gerou atendimento: ${dados.jid}`);
+          telefoneLimpo = "";
         }
       }
     }
     if (!telefoneLimpo) {
       return NextResponse.json(
-        { error: "Telefone não encontrado no payload" },
+        {
+          error: dados.de_lid
+            ? "LID não resolveu para número — atendimento não criado"
+            : "Telefone não encontrado no payload",
+        },
         { status: 400 }
       );
     }

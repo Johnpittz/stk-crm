@@ -2,6 +2,63 @@ import { describe, it, expect } from 'vitest'
 import fixtures from './__fixtures__/waha-webhook.json'
 import { parseEventoWaha, mapearTipoMidiaDb, mapearCheckmark, montarConteudo, ehPlaceholderConteudo, type MensagemWaha, type AckWaha, type StatusWaha } from './waha-webhook'
 
+describe('parseEventoWaha — LID: telefone alternativo + nome verificado (bug 26/09)', () => {
+  // Payload REAL capturado via GET /api/STK-3/chats/.../messages em 26/09:
+  // from=@lid, PushName vazio, telefone em _data.Info.SenderAlt e nome de
+  // empresa em _data.Info.VerifiedName (Vivo Comunica).
+  const payloadVivo = {
+    event: 'message.any',
+    session: 'STK-3',
+    payload: {
+      id: 'false_183095059849432@lid_2EE475ED119BBF43C4',
+      timestamp: 1790419552,
+      from: '183095059849432@lid',
+      fromMe: false,
+      body: 'Seu saldo de recarga acabou.',
+      pushName: '',
+      _data: {
+        Info: {
+          SenderAlt: '5511919351515@s.whatsapp.net',
+          PushName: '',
+          VerifiedName: { Details: { verifiedName: 'Vivo Comunica' } },
+        },
+      },
+    },
+  }
+
+  it('extrai SenderAlt do _data: número real mesmo com from=@lid', () => {
+    const r = parseEventoWaha(payloadVivo) as MensagemWaha
+    expect(r.evento).toBe('message')
+    expect(r.de_lid).toBe(true)
+    expect(r.telefone_alt).toBe('5511919351515')
+  })
+
+  it('usa VerifiedName quando o PushName vem vazio (não pode cair em Cliente)', () => {
+    const r = parseEventoWaha(payloadVivo) as MensagemWaha
+    expect(r.nome).toBe('Vivo Comunica')
+  })
+
+  it('aceita variação flat (senderAlt/fromAlt no payload)', () => {
+    const r = parseEventoWaha({
+      event: 'message.any',
+      session: 'STK-3',
+      payload: {
+        id: 'x', from: '171288010219688@lid', fromMe: false, body: 'oi',
+        senderAlt: '5562988887777@s.whatsapp.net',
+      },
+    }) as MensagemWaha
+    expect(r.telefone_alt).toBe('5562988887777')
+  })
+
+  it('pushName vazio vira null (sempre permite fallback)', () => {
+    const r = parseEventoWaha({
+      event: 'message.any', session: 'STK-3',
+      payload: { id: 'x', from: '5562999990000@c.us', fromMe: false, body: 'oi', pushName: '' },
+    }) as MensagemWaha
+    expect(r.nome).toBeNull()
+  })
+})
+
 describe('parseEventoWaha', () => {
   it('extrai os campos de uma mensagem de texto', () => {
     const resultado = parseEventoWaha(fixtures.message_text) as MensagemWaha

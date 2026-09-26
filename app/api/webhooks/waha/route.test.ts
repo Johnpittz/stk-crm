@@ -58,7 +58,7 @@ vi.mock('@/lib/chatbot/engine', () => ({
 vi.mock('@/lib/waha', () => ({
   getWahaConfig: () => ({ baseUrl: 'http://waha.test:3000', session: 'STK-1', ...{ ['a' + 'pi' + 'Key']: '' } }),
   enviarTexto: vi.fn(async () => ({ success: true, message_id: 'waha-1' })),
-  resolverLid: vi.fn(async () => null),
+  resolverLidMultiSessao: vi.fn(async () => null),
   resolverUrlMidia: vi.fn(async () => null),
   buscarNomeContato: vi.fn(async () => null),
 }))
@@ -72,7 +72,8 @@ vi.mock('@/lib/lid-resolver', () => ({
 }))
 
 import { POST } from './route'
-import { resolverLid, buscarNomeContato } from '@/lib/waha'
+import { resolverLidMultiSessao, buscarNomeContato } from '@/lib/waha'
+import { saveLidMapping } from '@/lib/lid-resolver'
 
 // O getSupabase() da rota exige as env vars (o cliente é mockado; só a validação importa)
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://supabase.test'
@@ -94,7 +95,8 @@ beforeEach(() => {
   for (const k of Object.keys(filas)) delete filas[k]
   inserts.length = 0
   updates.length = 0
-  vi.mocked(resolverLid).mockReset().mockResolvedValue(null)
+  vi.mocked(resolverLidMultiSessao).mockReset().mockResolvedValue(null)
+  vi.mocked(saveLidMapping).mockReset().mockResolvedValue(undefined as any)
   vi.mocked(buscarNomeContato).mockReset().mockResolvedValue(null)
 })
 
@@ -248,7 +250,7 @@ describe('POST /api/webhooks/waha', () => {
   })
 
   it('funde atendimento criado com LID quando a resolução passa a funcionar', async () => {
-    vi.mocked(resolverLid).mockResolvedValueOnce('556282735286')
+    vi.mocked(resolverLidMultiSessao).mockResolvedValueOnce('556282735286')
     const payload = {
       ...fixtures.message_text,
       payload: {
@@ -359,5 +361,79 @@ describe('POST /api/webhooks/waha', () => {
 
     expect(json.action).toBe('updated')
     expect(inserts.filter((i) => i.tabela === 'atendimento_mensagens')).toHaveLength(1)
+  })
+
+  it('LID sem número conhecido → 400 e NÃO cria atendimento com o lid (bug 26/09)', async () => {
+    const payload = {
+      ...fixtures.message_text,
+      payload: {
+        ...fixtures.message_text.payload,
+        from: '199999999999999@lid',
+        fromMe: false,
+        body: 'mensagem de lid sem numero',
+        pushName: '',
+      },
+    }
+    filas['atendimento_mensagens'] = [{ list: [] }] // só o dedup por id
+
+    const res = await POST(req(payload))
+    const json = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(String(json.error || '')).toContain('LID')
+    expect(inserts).toHaveLength(0)
+    // resolvedor consultado com a SESSÃO DO EVENTO (não a global do env)
+    expect(resolverLidMultiSessao).toHaveBeenCalledWith('199999999999999@lid', 'STK-1')
+    expect(saveLidMapping).not.toHaveBeenCalled()
+  })
+
+  it('LID com SenderAlt no payload → número real SEM chamar a API (e nome vem do VerifiedName)', async () => {
+    const payload = {
+      ...fixtures.message_text,
+      payload: {
+        ...fixtures.message_text.payload,
+        from: '171288010219688@lid',
+        fromMe: false,
+        body: 'mensagem com sender alt',
+        pushName: '',
+        _data: {
+          Info: {
+            SenderAlt: '5562988887777@s.whatsapp.net',
+            PushName: '',
+            VerifiedName: { Details: { verifiedName: 'Vivo Comunica' } },
+          },
+        },
+      },
+    }
+
+    // coreografia: fundir(LID vazio → sai) | dedup | exato | ampla | insert
+    filas['atendimento_mensagens'] = [{ list: [] }, { list: [] }]
+    filas['clientes'] = [{ list: [] }]
+    filas['atendimentos'] = [
+      { list: [] },                      // fundir: atendimentos com telefone = LID (vazio → retorna)
+      { single: null },                  // buscarAtendimentoAberto (exato)
+      { list: [] },                      // busca ampla
+      { single: { id: 'novo-lid-at' } }, // insert
+    ]
+    filas['chatbot_sessions'] = [{ single: null }, { single: null }]
+    filas['chatbot_flows'] = [{ single: null }]
+
+    const res = await POST(req(payload))
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.action).toBe('created')
+
+    const at = inserts.filter((i) => i.tabela === 'atendimentos')
+    expect(at).toHaveLength(1)
+    expect(at[0].row.telefone_cliente).toBe('5562988887777')
+    expect(at[0].row.instancia).toBe('STK-1')
+    expect(at[0].row.nome_cliente).toBe('Vivo Comunica')
+
+    // veio do próprio payload → não gastou chamada no WAHA, mas gravou o mapeamento
+    expect(resolverLidMultiSessao).not.toHaveBeenCalled()
+    expect(saveLidMapping).toHaveBeenCalledWith(
+      '171288010219688@lid', '5562988887777', 'STK-1', 'Vivo Comunica'
+    )
   })
 })
