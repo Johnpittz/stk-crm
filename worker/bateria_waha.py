@@ -4,11 +4,14 @@ bateria_waha.py — Bateria de testes E2E do pipeline WAHA do STK-CRM.
 
 Para cada tipo de mídia/texto:
   1. ENVIO real pela API de produção (Vercel → WAHA → WhatsApp)
-  2. RECEBIDO real no outro aparelho (WAHA → webhook → Supabase Storage/DB)
+  2. ECO de ida e volta pelo webhook (WAHA → webhook → Supabase Storage/DB)
 
-O envio vai da sessão STK-1 para o número da STK-2; a mensagem recebida chega
-na sessão STK-2 e é gravada pelo webhook — logo, cada caso valida os dois
-sentidos de uma vez, com assert no banco (não só HTTP 200).
+REGRA (João Pedro): a bateria envia APENAS para 6282735286 (556282735286) —
+número externo, sem espelhamento — para não poluir a produção. A validação
+de "chegada" é o eco fromMe gravado pelo webhook no chat de destino
+(remetente=vendedor, com media_url/file_name nas mídias); a chegada física
+no aparelho é conferida visualmente pelo cliente. Após a execução, apagar
+as linhas com o marcador do chat (ele é uma conversa real).
 
 Cobertura: texto, imagem, áudio (ptt), vídeo, pdf, docx, xlsx, pptx, txt.
 
@@ -35,8 +38,8 @@ SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 PRODUCAO = os.environ.get("BATERIA_URL", "https://stk-crm-amber-delta.vercel.app").rstrip("/")
 
 ORIGEM = "STK-1"                       # sessão que envia
-DESTINO_NUM = "556299961553"           # número da STK-2 (aparelho receptor)
-DESTINO_INST = "STK-2"
+DESTINO_NUM = "556282735286"           # REGRA: único destino da bateria (62) 82735-286
+DESTINO_INST = "STK-1"                 # destino externo → chat vive na sessão de envio
 ORIGEM_NUM = "556295094949"            # número da STK-1 (constelação p/ cleanup)
 SKIP_SEND = "--skip-send" in sys.argv
 
@@ -268,12 +271,12 @@ def casos() -> list:
 
 def atendimento_receptor():
     st, rows = sb("GET", "atendimentos",
-                  f"?telefone_cliente=eq.{ORIGEM_NUM}&instancia=eq.{DESTINO_INST}&select=id,nome_cliente&limit=1")
+                  f"?telefone_cliente=eq.{DESTINO_NUM}&instancia=eq.{DESTINO_INST}&select=id,nome_cliente&limit=1")
     return rows[0] if rows else None
 
 
 def espera_chegada(at_id, alvo, esperado, consumidas, timeout=75):
-    """Espera a mensagem NO RECEPTOR (webhook da STK-2 gravou no banco).
+    """Espera o ECO da mensagem gravado pelo webhook no chat de destino (STK-1).
 
     Na recepção, mídia image/audio/video chega como "[image]" etc. SEM
     file_name (o filename só vem em documentos) — a asserção casa por
@@ -296,7 +299,7 @@ def espera_chegada(at_id, alvo, esperado, consumidas, timeout=75):
         if not isinstance(rows, list):
             rows = []
         for m in rows:
-            if m.get("remetente") != "cliente" or m["id"] in consumidas:
+            if m.get("remetente") != "vendedor" or m["id"] in consumidas:
                 continue
             conteudo = m.get("conteudo") or ""
             file_name = m.get("file_name") or ""
