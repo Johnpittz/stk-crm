@@ -12,6 +12,28 @@ import { uploadMediaToStorage } from "@/lib/media-storage";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Colunas da LISTA: todas menos `fluxo_mensagens`.
+ *
+ * `fluxo_mensagens` guarda as imagens dos passos em BASE64 no banco — 28,46 MB
+ * das 28,6 MB de `bulk_campaigns`, o que deixava o GET em 9,9–11,9 s (a tela só
+ * lê essa coluna quando o detalhe abre, buscando-a à parte).
+ */
+const COLUNAS_LISTA = [
+  "id", "name", "message", "mensagem", "status", "numbers",
+  "instancia", "instance_name", "intervalo", "intervalo_passos",
+  "delay_inicial", "delay_min", "delay_max", "phone_from",
+  "campanha_id", "promocao_id", "imagem_url",
+  "sent", "failed", "delivered", "read_count", "error_log",
+  "tipo", "tipo_envio", "contatos", "nome", "regra",
+  "created_at", "updated_at",
+].join(", ");
+
+const JOINS_LISTA = `
+  campanha:campanhas(id, nome, status),
+  promocao:promocoes_marketing(id, nome, tipo, valor)
+`;
+
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -26,11 +48,7 @@ export async function GET(request: NextRequest) {
     
     const { data, error } = await supabase
       .from("bulk_campaigns")
-      .select(`
-        *,
-        campanha:campanhas(id, nome, status),
-        promocao:promocoes_marketing(id, nome, tipo, valor)
-      `)
+      .select(`${COLUNAS_LISTA}, ${JOINS_LISTA}`)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -110,11 +128,7 @@ export async function POST(request: NextRequest) {
         imagem_url,
         fluxo_mensagens: fluxoFinal,
       })
-      .select(`
-        *,
-        campanha:campanhas(id, nome, status),
-        promocao:promocoes_marketing(id, nome, tipo, valor)
-      `)
+      .select(`${COLUNAS_LISTA}, ${JOINS_LISTA}`)
       .single();
 
     if (error) {
