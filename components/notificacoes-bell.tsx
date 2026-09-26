@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Bell, Check, Trash2, MessageCircle, Mail, AlertTriangle, Target, UserCheck } from "lucide-react";
+import { Bell, Check, Trash2, MessageCircle, Mail, AlertTriangle, Target, UserCheck, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -33,6 +33,7 @@ const iconesPorTipo: Record<string, any> = {
   tarefa_nova: Mail,
   transbordo: AlertTriangle,
   meta_alcancada: Target,
+  kanban_parado: Clock,      // C2 — oportunidade parada no funil
 };
 
 const coresPorTipo: Record<string, string> = {
@@ -41,6 +42,7 @@ const coresPorTipo: Record<string, string> = {
   tarefa_nova: "bg-purple-500/20 text-purple-400",
   transbordo: "bg-amber-500/20 text-amber-400",
   meta_alcancada: "bg-emerald-500/20 text-emerald-400",
+  kanban_parado: "bg-amber-500/20 text-amber-400",
 };
 
 export function NotificacoesBell() {

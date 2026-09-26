@@ -344,12 +344,18 @@ def processar_campanha(campaign: dict) -> None:
     print(f"[Worker] Campanha {cid} finalizada: {final_status} (sent={sent}, failed={failed})")
 
 
-# ─── F0.2 — agendador único (rotinas de preparação, somente leitura) ───
-# Handlers da Fase 0 só CONTEM/IMPRIMEM. Enviar algo (remarketing, alerta,
-# arte agendada) só chega nas Fases 1/2, com corte de segurança próprio.
+# ─── F1 — agendador único (C1 conta; C2 já sabe ALERTAR, com corte próprio) ───
+# C1 (conversas sem resposta) só CONTA: o filtro fica na UI do atendimento.
+# C2 (kanban parado) insere notificação, mas só com config.dry_run = false —
+# o corte de segurança de cada rotina é a própria config, não o dry-run global.
 
 _ULTIMO_LOG_ROTINA: dict = {}
 _AVISO_TABELA_AUSENTE = {"visto": False}
+
+# Última coluna do funil = oportunidade concluída (nunca alerta).
+ETAPA_FINAL_KANBAN = "comissao_paga"
+# O alerta vai para o DONO da oportunidade + estes cargos (mesmos gestores da UI).
+CARGOS_GESTOR_KANBAN = ("admin", "diretor", "gerente_comercial")
 
 
 def _contar(table: str, query: str):
@@ -392,20 +398,173 @@ def handler_conversas_sem_resposta(rotina, agora, ctx):
 
 
 def handler_oportunidades_paradas(rotina, agora, ctx):
-    """C2 — oportunidades que não mudam de etapa há mais de X horas."""
-    cfg = rotina.get("config") or {}
-    h, corte = _janela(agora, cfg.get("parada_horas", 72))
-    n = _contar(
-        "oportunidades",
-        f"?select=id&etapa=neq.comissao_paga&updated_at=lte.{corte}",
+    """C2 — oportunidades sem mudança de etapa há mais de X horas (Fase 1).
+
+    Corte de segurança (docs/HANDOFF.md): por padrão só MOSTRA o plano
+    (config.dry_run = true). Para o alerta sair de verdade:
+
+        UPDATE worker_rotinas
+           SET config = config || '{"dry_run": false}'
+         WHERE nome = 'preparacao_alerta_kanban';
+
+    Anti-spam: a mesma oportunidade só gera outro alerta depois que MUDAR
+    (updated_at maior que a data do último alerta emitido para ela).
+    Regra espelhada em lib/oportunidades/parada.ts — mudou lá, muda aqui.
+    """
+    rest = ctx.get("rest") or supabase_rest
+    cfg = rotina.get("config") if isinstance(rotina.get("config"), dict) else {}
+
+    dry_run = agd._ativo(cfg.get("dry_run", True))        # padrão: ligado
+    padrao = _horas_alerta(cfg.get("parada_horas"))
+    por_etapa_cfg = cfg.get("por_etapa")
+    por_etapa = {k: _horas_alerta(v, padrao)
+                 for k, v in (por_etapa_cfg.items() if isinstance(por_etapa_cfg, dict) else [])}
+    max_alertas = _inteiro_alerta(cfg.get("max_alertas"), 20)
+
+    # Menor janela entre todas as etapas = superconjunto dos candidatas;
+    # o recorte por etapa é feito depois, em Python.
+    menor_janela = min([padrao] + list(por_etapa.values()))
+    _, corte = _janela(agora, menor_janela)
+    status, paradas = rest(
+        "GET", "oportunidades",
+        f"?select=id,titulo,cliente_nome,etapa,updated_at,vendedor_id"
+        f"&etapa=neq.{ETAPA_FINAL_KANBAN}&updated_at=lte.{corte}"
+        f"&order=updated_at.asc&limit=200",
     )
-    if n is None:
-        return {"resumo": "falha ao contar oportunidades", "acoes": []}
-    return {
-        "resumo": f"{n} oportunidade(s) parada(s) >{h:.0f}h",
-        "acoes": [],
-        "contagem": n,
-    }
+    if status != 200 or not isinstance(paradas, list):
+        return {"resumo": f"falha ao buscar oportunidades paradas (HTTP {status})",
+                "acoes": [], "contagem": 0, "alertas": 0, "cortadas": 0}
+
+    # Recorte por etapa (limite configurável individualmente)
+    candidatas = []
+    for o in paradas:
+        if not isinstance(o, dict):
+            continue
+        etapa = o.get("etapa") or ""
+        if etapa == ETAPA_FINAL_KANBAN:
+            continue
+        atualizado = agd._parse_quando(o.get("updated_at"))
+        if atualizado is None:
+            continue
+        horas = por_etapa.get(etapa, padrao)
+        if (agora - atualizado) >= timedelta(hours=horas):
+            candidatas.append((atualizado, horas, o))
+    candidatas.sort(key=lambda t: t[0])          # mais antigas primeiro
+
+    # Anti-spam: último alerta por oportunidade
+    avisadas = _ultimos_alertas_kanban(rest)
+    novas = [(d, h, o) for d, h, o in candidatas
+             if avisadas.get(o.get("id")) is None or avisadas[o.get("id")] < d]
+
+    total_novas = len(novas)
+    lote = novas[:max_alertas]            # o que entra no lote = o que foi alertado
+    cortadas = total_novas - len(lote)
+    alertas = len(lote)
+
+    base = f"{len(candidatas)} parada(s) >{padrao:.0f}h | {total_novas} alerta(s) novo(s)"
+    acoes = [f"{o.get('cliente_nome') or o.get('titulo') or o.get('id')}"
+             f" — {o.get('etapa')} ({h:.0f}h)" for _, h, o in lote]
+
+    if dry_run:
+        return {"resumo": f"{base} | dry_run: nada enviado",
+                "acoes": acoes, "contagem": len(candidatas),
+                "alertas": alertas, "cortadas": cortadas}
+
+    if not lote:
+        return {"resumo": f"{base} | nada a enviar", "acoes": acoes,
+                "contagem": len(candidatas), "alertas": 0,
+                "cortadas": cortadas}
+
+    # Destinatário: o DONO da oportunidade + gestores. Avisar a equipe toda
+    # transformaria o sino em ruído — cada vendedor cuida do próprio funil.
+    status, perfis = rest("GET", "profiles", "?select=id,cargo")
+    if status != 200 or not isinstance(perfis, list):
+        return {"resumo": f"{base} | sem destinatário (falha ao ler profiles)",
+                "acoes": acoes, "contagem": len(candidatas),
+                "alertas": 0, "cortadas": cortadas}
+    ids_validos = {p.get("id") for p in perfis
+                   if isinstance(p, dict) and p.get("id")}
+    gestores = {p.get("id") for p in perfis
+                if isinstance(p, dict) and p.get("cargo") in CARGOS_GESTOR_KANBAN}
+
+    linhas = []
+    for _, h, o in lote:
+        dests = set(gestores)
+        if o.get("vendedor_id") in ids_validos:
+            dests.add(o["vendedor_id"])
+        for user_id in sorted(dests):
+            linhas.append(
+                {"user_id": user_id,
+                 "tipo": "kanban_parado",
+                 "titulo": f"{len(lote)} oportunidade(s) parada(s) no funil",
+                 "mensagem": _mensagem_alerta_kanban(lote),
+                 "lida": False,
+                 "dados": {"oportunidade_id": o.get("id"),
+                           "etapa": o.get("etapa"),
+                           "cliente": o.get("cliente_nome") or o.get("titulo"),
+                           "horas_parado": round(h, 1)}})
+
+    if not linhas:
+        return {"resumo": f"{base} | sem destinatário (dono ausente e sem gestor)",
+                "acoes": acoes, "contagem": len(candidatas),
+                "alertas": 0, "cortadas": cortadas}
+
+    # Lote único com as MESMAS chaves (PostgREST: "All object keys must match")
+    status, corpo = rest("POST", "notificacoes", "", linhas)
+    if status >= 300:
+        return {"resumo": f"{base} | falha ao gravar alerta (HTTP {status}) {corpo}",
+                "acoes": acoes, "contagem": len(candidatas),
+                "alertas": 0, "cortadas": cortadas}
+
+    dests = {l["user_id"] for l in linhas}
+    return {"resumo": f"{base} | alerta enviado para {len(dests)} perfil(is)",
+            "acoes": acoes, "contagem": len(candidatas),
+            "alertas": alertas, "cortadas": cortadas}
+
+
+def _horas_alerta(valor, padrao=72.0):
+    try:
+        h = float(valor)
+    except (TypeError, ValueError):
+        return padrao
+    return h if h > 0 else padrao
+
+
+def _inteiro_alerta(valor, padrao):
+    try:
+        n = int(valor)
+    except (TypeError, ValueError):
+        return padrao
+    return n if n > 0 else padrao
+
+
+def _ultimos_alertas_kanban(rest) -> dict:
+    """{oportunidade_id: data do último alerta} — para não avisar 2x seguidas."""
+    status, alertas = rest(
+        "GET", "notificacoes",
+        "?select=dados,created_at&tipo=eq.kanban_parado"
+        "&order=created_at.desc&limit=500",
+    )
+    if status != 200 or not isinstance(alertas, list):
+        return {}
+    mapa: dict = {}
+    for a in alertas:
+        dados = a.get("dados") if isinstance(a, dict) else None
+        oid = dados.get("oportunidade_id") if isinstance(dados, dict) else None
+        quando = agd._parse_quando(a.get("created_at")) if isinstance(a, dict) else None
+        if oid and quando is not None and (oid not in mapa or quando > mapa[oid]):
+            mapa[oid] = quando
+    return mapa
+
+
+def _mensagem_alerta_kanban(lote) -> str:
+    linhas = [f"• {o.get('cliente_nome') or o.get('titulo') or o.get('id')}"
+              f" — {o.get('etapa') or 's/ etapa'} ({h:.0f}h parada)"
+              for _, h, o in lote[:3]]
+    resto = len(lote) - len(linhas)
+    if resto > 0:
+        linhas.append(f"... e mais {resto}")
+    return "\n".join(linhas)
 
 
 def registrar_rotinas() -> None:

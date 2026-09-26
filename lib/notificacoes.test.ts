@@ -112,9 +112,22 @@ describe('criarNotificacao — F0.1 (esteira de notificações)', () => {
   })
 
   it('catálogo cobre todos os tipos usados no código', () => {
-    for (const t of ['atendimento_novo', 'atendimento_mensagem', 'tarefa_nova', 'transbordo', 'meta_alcancada', 'chatbot', 'meta_atingida']) {
+    for (const t of ['atendimento_novo', 'atendimento_mensagem', 'tarefa_nova', 'transbordo', 'meta_alcancada', 'chatbot', 'meta_atingida', 'kanban_parado']) {
       expect(TIPOS_NOTIFICACAO).toContain(t as any)
     }
     expect(CARGOS_NOTIFICACAO).toEqual(['vendedor', 'admin'])
+  })
+
+  it('Fase 1/C2: aceita kanban_parado (CHECK da migration 087 já libera)', async () => {
+    const sb = supabaseStub({ perfis: [{ id: 'v1', cargo: 'vendedor' }] })
+    const r = await criarNotificacao(sb as any, {
+      tipo: 'kanban_parado',
+      titulo: '2 oportunidades paradas',
+      mensagem: 'Cliente X — Recebeu a Conta (80h)',
+      dados: { oportunidade_id: 'opp-1' },
+    })
+    expect(r.ok).toBe(true)
+    expect(sb.inserts[0][0].tipo).toBe('kanban_parado')
+    expect(sb.inserts[0][0].dados).toEqual({ oportunidade_id: 'opp-1' })
   })
 })

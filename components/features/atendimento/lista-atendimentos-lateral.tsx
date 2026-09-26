@@ -1,11 +1,12 @@
 "use client";
 
-import { Check, Loader2 } from "lucide-react";
+import { Check, Loader2, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { encontrarInstanciaConectada, type InstanciaConectavel } from "@/lib/telefone";
+import { estaSemResposta, horasDeEspera } from "@/lib/atendimentos/sem-resposta";
 
 interface Atendimento {
   id: string;
@@ -103,6 +104,9 @@ export function ListaAtendimentosLateral({
                   .substring(0, 2)
                   .toUpperCase();
                 const nome = a.clientes?.nome_razao_social || a.nome_cliente || "Cliente";
+                // C1 — cliente é o último a falar há mais de 24h? A bola está com a gente.
+                const semResposta = estaSemResposta(a);
+                const horasEspera = horasDeEspera(a);
 
                 return (
                   <div
@@ -143,6 +147,15 @@ export function ListaAtendimentosLateral({
                           <span className={cn("text-sm font-semibold truncate", isSelected || isNaoLido ? "text-white" : "text-white/80")}>
                             {nome}
                           </span>
+                          {semResposta && horasEspera !== null && (
+                            <span
+                              title={`Cliente aguardando nossa resposta há ${horasEspera}h`}
+                              className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-1.5 h-4 rounded-full whitespace-nowrap shrink-0"
+                            >
+                              <Clock className="h-2.5 w-2.5" />
+                              {horasEspera}h
+                            </span>
+                          )}
                           <span className="text-[11px] text-white/30 whitespace-nowrap shrink-0">
                             {hora}
                           </span>

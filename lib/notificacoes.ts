@@ -20,6 +20,7 @@ export const TIPOS_NOTIFICACAO = [
   'meta_alcancada',
   'chatbot',
   'meta_atingida',
+  'kanban_parado',
 ] as const
 
 export type TipoNotificacao = (typeof TIPOS_NOTIFICACAO)[number]

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Select,
   SelectContent,
@@ -22,6 +22,11 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { NovaOportunidadeModal } from "./nova-oportunidade-modal";
 import { ModalDetalhesOportunidade } from "./modal-detalhes-oportunidade";
+import {
+  contarParadasPorEtapa,
+  horasDaEtapa,
+  type RegraParada,
+} from "@/lib/oportunidades/parada";
 
 // ─── Colunas do Funil de Vendas ───
 const colunas = [
@@ -68,6 +73,8 @@ interface Oportunidade {
   ordem: number;
   origem_lead: string | null;
   created_at: string;
+  /** Régua do C2 (badge "parada") — vem de `*` na API de oportunidades */
+  updated_at?: string | null;
   clientes: { id: string; nome_razao_social: string } | null;
 }
 
@@ -113,6 +120,37 @@ export function KanbanOportunidades({
   const [modalConcluindo, setModalConcluindo] = useState(false);
   const [filtroColuna, setFiltroColuna] = useState("__TODAS__");
   const supabase = createClient();
+
+  // C2 — régua de "parada" lida da própria rotina do worker (72h por etapa,
+  // ajustável sem deploy). Falhou? Badge usa o padrão.
+  const [regraParada, setRegraParada] = useState<RegraParada>({});
+
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("worker_rotinas")
+          .select("config")
+          .eq("nome", "preparacao_alerta_kanban")
+          .maybeSingle();
+        if (vivo && data?.config && typeof data.config === "object") {
+          setRegraParada(data.config as RegraParada);
+        }
+      } catch {
+        // silencioso: badge cai no padrão de 72h
+      }
+    })();
+    return () => {
+      vivo = false;
+    };
+  }, [supabase]);
+
+  // C2 — contagem por coluna para o badge do cabeçalho
+  const paradasPorEtapa = useMemo(
+    () => contarParadasPorEtapa(oportunidades, new Date(), regraParada),
+    [oportunidades, regraParada]
+  );
 
   const fetchOportunidades = useCallback(async () => {
     setLoading(true);
@@ -332,6 +370,15 @@ export function KanbanOportunidades({
                           >
                             {coluna.titulo}
                           </h3>
+                          {paradasPorEtapa[coluna.id] > 0 && (
+                            <span
+                              title={`${paradasPorEtapa[coluna.id]} oportunidade(s) sem mudança de etapa há mais de ${horasDaEtapa(coluna.id, regraParada)}h — o aviso para a equipe sai pelo sino, 1x por dia`}
+                              className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 cursor-help"
+                            >
+                              <Clock className="h-3 w-3" />
+                              {paradasPorEtapa[coluna.id]}
+                            </span>
+                          )}
                         </div>
                         <span
                           className="text-xs font-bold px-2 py-0.5 rounded-full"

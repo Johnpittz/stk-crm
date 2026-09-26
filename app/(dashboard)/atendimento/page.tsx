@@ -9,11 +9,16 @@ import { TogglePresenca } from "@/components/features/atendimento/toggle-presenc
 import { ToggleIA } from "@/components/features/atendimento/toggle-ia";
 import { PainelContato } from "@/components/features/atendimento/painel-contato";
 import { FiltroEtiquetas } from "@/components/features/atendimento/filtro-etiquetas";
-import { Search, Calendar, HelpCircle, Bell, Smartphone, UserPlus } from "lucide-react";
+import { Search, Calendar, HelpCircle, Bell, Smartphone, UserPlus, Clock } from "lucide-react";
 import { SimularWhatsAppModal } from "@/components/features/atendimento/simular-whatsapp-modal";
 import { BuscarContatosWhatsApp } from "@/components/features/atendimento/buscar-contatos-whatsapp";
 import { createClient } from "@/lib/supabase/client";
 import { useUserProfile } from "@/lib/user-profile-context";
+import {
+  estaSemResposta,
+  contarSemResposta,
+  JANELA_SEM_RESPOSTA_HORAS,
+} from "@/lib/atendimentos/sem-resposta";
 
 interface Atendimento {
   id: string;
@@ -54,6 +59,8 @@ export default function AtendimentoPage() {
   const [atendimentoChat, setAtendimentoChat] = useState<Atendimento | null>(null);
   const [painelContatoAberto, setPainelContatoAberto] = useState(true);
   const [etiquetaFiltro, setEtiquetaFiltro] = useState<string | null>(null);
+  // C1 (Fase 1) — mostrar só as conversas em que o cliente está há 24h+ esperando
+  const [apenasSemResposta, setApenasSemResposta] = useState(false);
   const [atendimentosComEtiquetas, setAtendimentosComEtiquetas] = useState<Record<string, string[]>>({});
 
   // Mensagens do chat aberto (carregadas junto com o polling)
@@ -147,6 +154,12 @@ export default function AtendimentoPage() {
     fetchPageData(true);
   }, [atendimentoChat?.id, fetchPageData]);
 
+  // C1 — quantas conversas estão com a bola com a gente (24h+)
+  const totalSemResposta = useMemo(
+    () => contarSemResposta(atendimentos),
+    [atendimentos]
+  );
+
   // Filtrar atendimentos com useMemo para estabilidade
   const atendimentosFiltrados = useMemo(() => {
     return atendimentos.filter((a) => {
@@ -184,9 +197,12 @@ export default function AtendimentoPage() {
         matchInstancia = a.instancia === instanciaSelecionada;
       }
 
-      return matchBusca && matchData && matchEtiqueta && matchInstancia;
+      // Filtro "Sem resposta (24h)"
+      const matchSemResposta = !apenasSemResposta || estaSemResposta(a);
+
+      return matchBusca && matchData && matchEtiqueta && matchInstancia && matchSemResposta;
     });
-  }, [atendimentos, busca, dataInicio, dataFim, etiquetaFiltro, atendimentosComEtiquetas, instanciaSelecionada]);
+  }, [atendimentos, busca, dataInicio, dataFim, etiquetaFiltro, atendimentosComEtiquetas, instanciaSelecionada, apenasSemResposta]);
 
   // Polling: atualiza lista a cada 15s em background (sem loading visual)
   useEffect(() => {
@@ -415,6 +431,31 @@ export default function AtendimentoPage() {
               etiquetaSelecionada={etiquetaFiltro}
               onSelecionar={setEtiquetaFiltro}
             />
+            {/* C1 — filtro de conversa sem resposta (24h) */}
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setApenasSemResposta(false)}
+                className={`px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-all ${
+                  !apenasSemResposta
+                    ? "bg-[#3B64CF] text-white"
+                    : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70"
+                }`}
+              >
+                Todas ({atendimentos.length})
+              </button>
+              <button
+                onClick={() => setApenasSemResposta((v) => !v)}
+                title={`Conversas em que o cliente é o último a falar há mais de ${JANELA_SEM_RESPOSTA_HORAS}h`}
+                className={`px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-all inline-flex items-center gap-1 ${
+                  apenasSemResposta
+                    ? "bg-amber-500 text-[#0f1d32]"
+                    : "bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+                }`}
+              >
+                <Clock className="h-3 w-3" />
+                Sem resposta ({totalSemResposta})
+              </button>
+            </div>
           </div>
           {/* Lista */}
           <div className="flex-1 min-h-0 overflow-hidden">
