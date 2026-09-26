@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { rateLimit } from '@/lib/rate-limit';
+import { criarNotificacao } from '@/lib/notificacoes';
 
 // Cliente Supabase criado lazy para não quebrar o build
 let supabaseInstance: any = null;
@@ -297,12 +298,13 @@ async function verificarMetaAtingida(vendedorId: string | null) {
     });
   
   if (meta?.atingiu) {
-    // Cria notificação
-    await getSupabase().from('notificacoes').insert({
-      vendedor_id: vendedorId,
+    // Cria notificação (F0.1: coluna é user_id, não vendedor_id)
+    await criarNotificacao(getSupabase(), {
+      userId: vendedorId,
       tipo: 'meta_atingida',
       titulo: '🎉 Meta Atingida!',
       mensagem: `Parabéns! Você atingiu ${meta.percentual}% da meta mensal.`,
+      dados: { percentual: meta.percentual },
     });
   }
 }

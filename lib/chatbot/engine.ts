@@ -9,6 +9,7 @@
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { enviarTexto } from "@/lib/waha";
+import { criarNotificacao } from "@/lib/notificacoes";
 
 // ─── Tipos ───
 
@@ -666,14 +667,14 @@ export async function mensagemFallback(
       .update({ status: 'encaminhada' })
       .eq('id', sessao.id);
 
-    // Criar notificação para vendedor
+    // Criar notificação para vendedor (F0.1: user_id + tipo do catálogo)
     if (sessao.instancia) {
-      await supabase.from('notificacoes').insert({
+      await criarNotificacao(supabase, {
+        tipo: 'chatbot',
         titulo: 'Lead encaminhado para atendimento manual',
         mensagem: `O lead ${sessao.nome_lead || telefone} foi encaminhado. Motivo: ${motivo}`,
-        tipo: 'chatbot',
-        lida: false,
-      });
+        dados: { telefone, instancia: sessao.instancia, motivo },
+      })
     }
   }
 

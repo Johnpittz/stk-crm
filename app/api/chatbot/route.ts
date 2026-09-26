@@ -17,6 +17,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { processarMensagemChatbot, mensagemFallback } from "@/lib/chatbot/engine";
+import { criarNotificacao } from "@/lib/notificacoes";
 
 export const dynamic = "force-dynamic";
 
@@ -79,13 +80,13 @@ export async function POST(request: NextRequest) {
         console.error('[Chatbot] Erro ao criar lead:', leadError);
       }
 
-      // Criar notificação para vendedor
-      await supabase.from('notificacoes').insert({
+      // Criar notificação para vendedor (F0.1: user_id + tipo do catálogo)
+      await criarNotificacao(supabase, {
+        tipo: 'chatbot',
         titulo: `Novo lead qualificado (Classificação ${resultado.classificacao})`,
         mensagem: `Lead: ${respostas.nome || 'Desconhecido'} - ${telefone}\nClassificação: ${resultado.classificacao}\nRespostas: ${JSON.stringify(respostas).substring(0, 200)}`,
-        tipo: 'chatbot',
-        lida: false,
-      });
+        dados: { telefone, classificacao: resultado.classificacao, instancia },
+      })
     }
 
     return NextResponse.json({
