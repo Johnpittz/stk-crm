@@ -10,6 +10,7 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { enviarTexto } from "@/lib/waha";
 import { criarNotificacao } from "@/lib/notificacoes";
+import { registrarOptOut } from "@/lib/marketing/remarketing";
 
 // ─── Tipos ───
 
@@ -426,6 +427,9 @@ async function processarRespostaExistente(
 ): Promise<ProcessMessageResult> {
   // 0. Verificar se pediu pra parar
   if (ehPedidoDeParada(mensagemCliente)) {
+    // M1 — quem pediu para parar sai do público de remarketing para sempre
+    // (mesma detecção que o chatbot já usava; nunca lança exceção).
+    await registrarOptOut(supabase, sessao.telefone, 'chatbot:pedido_de_parada');
     await supabase.from('chatbot_sessions').update({ status: 'cancelada' }).eq('id', sessao.id);
     await enviarMensagem(sessao.telefone, 'Tudo bem! Encaminhando para um especialista. Obrigado pelo contato! 😊', sessao.instancia || 'STK-3');
     return { action: 'sessao_concluida', session: sessao };

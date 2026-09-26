@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Megaphone, Trash2, ChevronDown, ChevronUp, Send, Loader2, Upload, FileSpreadsheet, X, Image, Square, FileText } from 'lucide-react';
+import { Plus, Megaphone, Trash2, ChevronDown, ChevronUp, Send, Loader2, Upload, FileSpreadsheet, X, Image, Square, FileText, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -40,6 +40,9 @@ interface Disparo {
   created_at: string;
   updated_at?: string;
   error_log?: string;
+  /** M1 — 'remarketing' = público sem resposta 24h (auditoria fica em `regra`) */
+  tipo?: 'avulso' | 'remarketing';
+  regra?: Record<string, any>;
   fluxo_mensagens?: any;
   instancia?: string;
   intervalo?: number;
@@ -70,7 +73,10 @@ export default function CampanhasPage() {
   const [instances, setInstances] = useState<any[]>([]);
   const [promocoes, setPromocoes] = useState<any[]>([]);
   const [sending, setSending] = useState(false);
-  const [tipoEnvio, setTipoEnvio] = useState<'avulso' | 'massa'>('avulso');
+  const [tipoEnvio, setTipoEnvio] = useState<'avulso' | 'massa' | 'remarketing'>('avulso');
+  // M1 — preview do público de remarketing (calculado pelo servidor com a regra única)
+  const [publicoRemarketing, setPublicoRemarketing] = useState<any>(null);
+  const [carregandoPublico, setCarregandoPublico] = useState(false);
   const [contatosImportados, setContatosImportados] = useState<ContatoPlanilha[]>([]);
   const [fileName, setFileName] = useState('');
   const supabase = createClient();
@@ -78,6 +84,8 @@ export default function CampanhasPage() {
   const [disparoLogs, setDisparoLogs] = useState<any[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [detalheDisparo, setDetalheDisparo] = useState<any>(null);
+  // M1.6 — taxa de resposta pós-remarketing do disparo aberto nos logs
+  const [resultadoRemarketing, setResultadoRemarketing] = useState<any>(null);
   const [carregandoFluxo, setCarregandoFluxo] = useState(false);
   const abrirDetalheDisparo = async (disparo: any) => {
     try {
@@ -305,6 +313,17 @@ export default function CampanhasPage() {
     }
   }, [supabase]);
 
+  const loadResultadoRemarketing = useCallback(async (id: string) => {
+    setResultadoRemarketing(null);
+    try {
+      const res = await fetch(`/api/bulk/resultado-remarketing?id=${id}`);
+      const data = await res.json();
+      if (res.ok) setResultadoRemarketing(data);
+    } catch (err) {
+      console.error('Erro ao carregar taxa de resposta:', err);
+    }
+  }, []);
+
   // Auto-refresh logs when viewing a running campaign
   useEffect(() => {
     if (!logsDisparoId) return;
@@ -451,6 +470,17 @@ export default function CampanhasPage() {
       return;
     }
 
+    if (tipoEnvio === 'remarketing') {
+      if (!publicoRemarketing) {
+        toast.error("Calcule o público de remarketing antes de criar");
+        return;
+      }
+      if (publicoRemarketing.contatos.length === 0) {
+        toast.error("Ninguém está nessa condição agora (24h sem responder)");
+        return;
+      }
+    }
+
     // Validar passos do fluxo
     if (temFluxo) {
       for (const step of fluxoSteps) {
@@ -492,10 +522,18 @@ export default function CampanhasPage() {
             .map(n => ({ nome: '', telefone: n }))
         : [];
 
-      const contatosFinais = tipoEnvio === 'massa' ? contatosImportados : contatosAvulso;
-      const numbersWithInstance = novoDisparo.instanceName
-        ? [novoDisparo.instanceName, ...contatosFinais.map(c => ({ nome: c.nome || '', telefone: c.telefone || c }))]
-        : contatosFinais.map(c => ({ nome: c.nome || '', telefone: c.telefone || c }));
+      const contatosFinais = tipoEnvio === 'massa'
+        ? contatosImportados
+        : tipoEnvio === 'remarketing'
+          ? (publicoRemarketing?.contatos ?? [])
+          : contatosAvulso;
+      // remarketing: NÃO prefixa a instância no array — o robô usa a coluna
+      // `instancia` (prefixar colocava um "contato" inválido na lista).
+      const numbersWithInstance = tipoEnvio === 'remarketing'
+        ? contatosFinais.map((c: any) => ({ nome: c.nome || '', telefone: c.telefone || '' }))
+        : novoDisparo.instanceName
+          ? [novoDisparo.instanceName, ...contatosFinais.map((c: any) => ({ nome: c.nome || '', telefone: c.telefone || c }))]
+          : contatosFinais.map((c: any) => ({ nome: c.nome || '', telefone: c.telefone || c }));
 
       // Upload da imagem antiga (compatibilidade)
       let imagem_url: string | null = null;
@@ -536,6 +574,22 @@ export default function CampanhasPage() {
         imagem_url,
       };
 
+      // M1.3 — auditoria: de onde veio a lista (fica gravado na campanha)
+      if (tipoEnvio === 'remarketing') {
+        body.tipo = 'remarketing';
+        body.regra = {
+          origem: 'publico_sem_resposta_24h',
+          janela_horas: publicoRemarketing.janela_horas ?? 24,
+          total_no_publico: publicoRemarketing.total,
+          contatos_enviados: contatosFinais.length,
+          cortes: publicoRemarketing.cortes,
+          nao_rematar_dias: publicoRemarketing.nao_rematar_dias ?? 7,
+          criado_por: 'ui:marketing/campanhas',
+        };
+      } else {
+        body.tipo = 'avulso';
+      }
+
       if (fluxo_mensagens) {
         body.fluxo_mensagens = fluxo_mensagens;
       }
@@ -544,9 +598,11 @@ export default function CampanhasPage() {
 
       if (error) throw error;
 
-      const msg = tipoEnvio === 'avulso'
-        ? "Disparo avulso criado!"
-        : `Disparo em massa criado! ${contatosImportados.length} contatos.`;
+      const msg = tipoEnvio === 'remarketing'
+        ? `Remarketing criado! ${contatosFinais.length} conversa(s) de 24h sem resposta.`
+        : tipoEnvio === 'avulso'
+          ? "Disparo avulso criado!"
+          : `Disparo em massa criado! ${contatosImportados.length} contatos.`;
       toast.success(msg);
 
       resetarDialog();
@@ -557,6 +613,29 @@ export default function CampanhasPage() {
     }
   };
 
+  const carregarPublicoRemarketing = async () => {
+    setCarregandoPublico(true);
+    try {
+      const res = await fetch('/api/bulk/publico-remarketing?limite=200');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Falha ao calcular o público');
+      setPublicoRemarketing(data);
+    } catch (err) {
+      console.error('Erro ao carregar público de remarketing:', err);
+      setPublicoRemarketing(null);
+      toast.error('Não consegui montar o público de remarketing.');
+    } finally {
+      setCarregandoPublico(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tipoEnvio === 'remarketing' && !publicoRemarketing && !carregandoPublico) {
+      carregarPublicoRemarketing();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tipoEnvio]);
+
   const resetarDialog = () => {
     setShowDisparoDialog(false);
     setNovoDisparo({ nome: '', mensagem: '', instanceName: '', phone_from: '', intervalo: 5, intervalo_passos: 2, delay_inicial: 0, promocao_id: '', telefone_avulso: '' });
@@ -565,6 +644,8 @@ export default function CampanhasPage() {
     setContatosImportados([]);
     setFileName('');
     setTipoEnvio('avulso');
+    setPublicoRemarketing(null);
+    setCarregandoPublico(false);
   };
 
   const enviarDisparo = async (disparoId: string) => {
@@ -749,7 +830,7 @@ export default function CampanhasPage() {
               <Card key={campanha.id} className="bg-gray-800/50 border-gray-700">
                 <CardHeader className="cursor-pointer hover:bg-gray-700/30 transition-colors" onClick={() => {
                   setExpandedCampanha(isExpanded ? null : campanha.id);
-                  if (!isExpanded) setLogsDisparoId(null); // Close log panel when expanding a different campaign
+                  if (!isExpanded) { setLogsDisparoId(null); setResultadoRemarketing(null); } // Close log panel when expanding a different campaign
                 }}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
@@ -801,7 +882,14 @@ export default function CampanhasPage() {
                           <TableBody>
                             {campanha.disparos.map((disparo) => (
                               <TableRow key={disparo.id} className="border-gray-700">
-                                <TableCell className="text-white font-medium cursor-pointer hover:text-emerald-400 transition-colors" onClick={() => abrirDetalheDisparo(disparo)}>{disparo.name}</TableCell>
+                                <TableCell className="text-white font-medium cursor-pointer hover:text-emerald-400 transition-colors" onClick={() => abrirDetalheDisparo(disparo)}>
+                                  {disparo.name}
+                                  {disparo.tipo === 'remarketing' && (
+                                    <span className="ml-2 inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 align-middle">
+                                      Remarketing
+                                    </span>
+                                  )}
+                                </TableCell>
                                 <TableCell className="text-gray-300">
                                   {Array.isArray(disparo.numbers) ? disparo.numbers.length - (typeof disparo.numbers[0] === 'string' ? 1 : 0) : 1}
                                 </TableCell>
@@ -828,7 +916,12 @@ export default function CampanhasPage() {
                                       </Button>
                                     )}
                                     {(disparo.status === 'running' || disparo.status === 'processing' || disparo.status === 'completed' || disparo.status === 'cancelled') && (
-                                      <Button size="sm" variant="ghost" onClick={() => { setLogsDisparoId(disparo.id); loadDisparoLogs(disparo.id); }} className="text-blue-400 hover:text-blue-300">
+                                      <Button size="sm" variant="ghost" onClick={() => {
+                                        setLogsDisparoId(disparo.id);
+                                        loadDisparoLogs(disparo.id);
+                                        if (disparo.tipo === 'remarketing') loadResultadoRemarketing(disparo.id);
+                                        else setResultadoRemarketing(null);
+                                      }} className="text-blue-400 hover:text-blue-300">
                                         <FileText className="h-4 w-4" />
                                       </Button>
                                     )}
@@ -868,11 +961,26 @@ export default function CampanhasPage() {
                           </div>
                         </div>
                       )}
+                      {logsDisparoId && resultadoRemarketing && (
+                        <div className="mt-4 mb-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">
+                          <p className="text-emerald-300 text-sm">
+                            <strong>Taxa de resposta:</strong>{' '}
+                            {resultadoRemarketing.taxa === null
+                              ? 'sem base ainda (ninguém enviado)'
+                              : `${resultadoRemarketing.taxa}%`}
+                            {' — '}{resultadoRemarketing.respostas} de {resultadoRemarketing.enviados}{' '}
+                            falaram de novo depois da mensagem
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            Regra: cliente foi o último a falar desde a criação do disparo.
+                          </p>
+                        </div>
+                      )}
                       {logsDisparoId && (
                         <div className="mt-4">
                           <div className="flex items-center justify-between mb-2">
                             <h4 className="text-white text-sm font-medium">📋 Logs do Disparo</h4>
-                            <Button size="sm" variant="ghost" onClick={() => setLogsDisparoId(null)} className="text-gray-400">
+                            <Button size="sm" variant="ghost" onClick={() => { setLogsDisparoId(null); setResultadoRemarketing(null); }} className="text-gray-400">
                               <X className="h-4 w-4" />
                             </Button>
                           </div>
@@ -1029,13 +1137,16 @@ export default function CampanhasPage() {
             <DialogTitle className="text-white">Criar Disparo - {campanhaSelecionada?.nome}</DialogTitle>
           </DialogHeader>
           
-          <Tabs value={tipoEnvio} onValueChange={(v) => setTipoEnvio(v as 'avulso' | 'massa')}>
+          <Tabs value={tipoEnvio} onValueChange={(v) => setTipoEnvio(v as 'avulso' | 'massa' | 'remarketing')}>
             <TabsList className="bg-gray-700 w-full">
               <TabsTrigger value="avulso" className="flex-1 data-[state=active]:bg-emerald-600">
                 <Send className="h-4 w-4 mr-2" /> Avulso
               </TabsTrigger>
               <TabsTrigger value="massa" className="flex-1 data-[state=active]:bg-emerald-600">
                 <FileSpreadsheet className="h-4 w-4 mr-2" /> Em Massa
+              </TabsTrigger>
+              <TabsTrigger value="remarketing" className="flex-1 data-[state=active]:bg-emerald-600">
+                <RefreshCw className="h-4 w-4 mr-2" /> Remarketing
               </TabsTrigger>
             </TabsList>
 
@@ -1420,6 +1531,74 @@ export default function CampanhasPage() {
                 </div>
               </TabsContent>
 
+              <TabsContent value="remarketing" className="space-y-4 mt-0">
+                <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label className="text-gray-300">Público — cliente sem responder há 24h</Label>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={carregarPublicoRemarketing}
+                      disabled={carregandoPublico}
+                      className="h-7 border-gray-600 text-gray-300 hover:bg-gray-700"
+                    >
+                      {carregandoPublico
+                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        : <RefreshCw className="h-3.5 w-3.5" />}
+                      Recalcular
+                    </Button>
+                  </div>
+
+                  {carregandoPublico ? (
+                    <p className="text-xs text-gray-400">Calculando o público...</p>
+                  ) : publicoRemarketing ? (
+                    publicoRemarketing.contatos.length === 0 ? (
+                      <p className="text-sm text-gray-400">
+                        Ninguém está nessa condição agora: ou o cliente respondeu, ou a conversa está fechada.
+                      </p>
+                    ) : (
+                      <>
+                        <p className="text-emerald-400 text-sm">
+                          <strong>{publicoRemarketing.contatos.length}</strong> de{' '}
+                          {publicoRemarketing.total} conversa(s) receberão esta mensagem
+                        </p>
+                        <p className="text-xs text-gray-500 leading-relaxed">
+                          Regra: nós falamos por último e o cliente não respondeu em 24h, com a conversa aberta.
+                          Fora do envio: {publicoRemarketing.cortes?.opt_out ?? 0} pediu para parar e{' '}
+                          {publicoRemarketing.cortes?.recencia ?? 0} já recebeu remarketing nos últimos{' '}
+                          {publicoRemarketing.nao_rematar_dias ?? 7} dias.
+                          {publicoRemarketing.limitado
+                            ? ` Corte de segurança: máximo ${publicoRemarketing.limite} por disparo.`
+                            : ''}
+                        </p>
+                        <ul className="max-h-36 overflow-y-auto space-y-1 pr-1">
+                          {publicoRemarketing.contatos.slice(0, 12).map((c: any) => (
+                            <li key={c.telefone} className="text-xs text-gray-400 flex justify-between gap-2">
+                              <span className="truncate">{c.nome || 'Sem nome'}</span>
+                              <span className="text-gray-500 shrink-0">{c.telefone}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        {publicoRemarketing.contatos.length > 12 && (
+                          <p className="text-xs text-gray-500">
+                            +{publicoRemarketing.contatos.length - 12} outros
+                          </p>
+                        )}
+                      </>
+                    )
+                  ) : (
+                    <p className="text-xs text-gray-400">
+                      Não consegui calcular o público. Clique em recalcular.
+                    </p>
+                  )}
+
+                  <p className="text-xs text-gray-500">
+                    Dica: use <code className="text-gray-400">{'{{nome}}'}</code> na mensagem para personalizar.
+                    Quem responder já sai da próxima leva (a bola passa a ser do cliente).
+                  </p>
+                </div>
+              </TabsContent>
+
               {/* DELAY ANTES DO PRIMEIRO DISPARO */}
               <div>
                 <Label className="text-gray-300">Aguuardar antes do 1º disparo (segundos)</Label>
@@ -1446,6 +1625,11 @@ export default function CampanhasPage() {
               {/* RESUMO */}
               <div className="bg-gray-700/50 rounded-lg p-4">
                 <p className="text-gray-300 text-sm"><strong>Vinculado à campanha:</strong> {campanhaSelecionada?.nome}</p>
+                {tipoEnvio === 'remarketing' && publicoRemarketing && (
+                  <p className="text-emerald-400 text-sm mt-1">
+                    <strong>{publicoRemarketing.contatos.length}</strong> conversa(s) sem resposta serão retomadas
+                  </p>
+                )}
                 {tipoEnvio === 'massa' && contatosImportados.length > 0 && (
                   <p className="text-emerald-400 text-sm mt-1"><strong>{contatosImportados.length}</strong> mensagens serão enviadas</p>
                 )}
@@ -1461,7 +1645,11 @@ export default function CampanhasPage() {
               </div>
 
               <Button onClick={criarDisparo} className="w-full bg-emerald-600 hover:bg-emerald-700">
-                {tipoEnvio === 'massa' ? `Criar Disparo (${contatosImportados.length} contatos)` : 'Criar Disparo'}
+                {tipoEnvio === 'massa'
+                  ? `Criar Disparo (${contatosImportados.length} contatos)`
+                  : tipoEnvio === 'remarketing'
+                    ? `Criar Disparo (${publicoRemarketing?.contatos.length ?? 0} contatos)`
+                    : 'Criar Disparo'}
               </Button>
             </div>
           </Tabs>

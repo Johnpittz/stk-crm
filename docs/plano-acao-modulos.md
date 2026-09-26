@@ -130,6 +130,15 @@ Sem isso, C2, M1 e M4 ficam no ar.
   6. **Métrica:** taxa de resposta pós-remarketing (`disparo_logs` + resposta em `atendimento_mensagens`).
 - **Depende de:** C1 (consulta compartilhada), F0.2, F0.3.
 - **Risco real:** banimento de número por volume — começar com lote pequeno.
+- **Status 26/09 (Fase 2):** itens 1 a 6 **implementados e testados** (18 testes novos). Pendente só
+  do lado humano: aplicar as migrations `089`/`090` no SQL Editor (a 090 é obrigatória — sem ela a
+  rotina não existe e recusa rodar) e decidir quando **ligar** (template + `dry_run=false` +
+  `AGENDADOR_DRY_RUN=0` no worker).
+- **Definido na implementação** (tudo por config em `worker_rotinas`, muda sem deploy): teto de
+  **20 contatos/dia**; **7 dias** sem remarcar o mesmo telefone; **24h** de cadência entre campanhas;
+  corte de **200 contatos** na criação manual; **opt-out eterno** em `remarketing_opt_out` gravado
+  pelo chatbot quando ele detecta pedido de parada (mesma lista de palavras já existente).
+  Enquanto `dry_run=true` (padrão) **nada é enviado**.
 
 ### M2 — Chatbot "trata qualquer assunto?"
 - **Estado atual (verdade crua):** **não trata.** Hoje: fluxo fixo de qualificação (14 passos GD) → "não consegui entender" → fallback encaminha pro vendedor. A IA (Gemini) responde como "atendente virtual" usando só as últimas 10 mensagens — **não conhece preço, plano, área de atendimento nem nada da empresa** (o prompt proíbe inventar, mas não tem nada pra consultar).

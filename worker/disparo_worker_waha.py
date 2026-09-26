@@ -567,6 +567,178 @@ def _mensagem_alerta_kanban(lote) -> str:
     return "\n".join(linhas)
 
 
+def handler_remarketing_diario(rotina, agora, ctx):
+    """M1 — cria e roda a campanha diária de remarketing (Fase 2).
+
+    Público (decisão D1, NÃO confundir com o C1): NÓS falamos por último e o
+    cliente não respondeu em 24h. O C1 é a fila do CRM (cliente esperando).
+
+    Corte de segurança: config.dry_run = True é o PADRÃO. Para valer é preciso
+    editar a linha em worker_rotinas (dry_run: false) E religar o worker com
+    AGENDADOR_DRY_RUN=0 — senão o agendador reexecuta a rotina a cada poll.
+
+    Guardas (risco real: número banido por volume):
+      1. cadência — 1 campanha a cada intervalo_horas_min (padrão 24h);
+      2. template obrigatório;
+      3. teto_diario (padrão 20 contatos);
+      4. não remarcar o mesmo telefone em nao_rematar_dias (padrão 7);
+      5. opt-out (remarketing_opt_out) — inegociável, sai sempre.
+    """
+    rest = ctx.get("rest") or supabase_rest
+    cfg = rotina.get("config") or {}
+    if not isinstance(cfg, dict):
+        cfg = {}
+
+    dry_run = agd._ativo(cfg.get("dry_run", True))
+    janela = _horas_alerta(cfg.get("janela_horas"), 24.0)
+    teto = _inteiro_alerta(cfg.get("teto_diario"), 20)
+    cadencia_h = _horas_alerta(cfg.get("intervalo_horas_min"), 24.0)
+    rematar_dias = _horas_alerta(cfg.get("nao_rematar_dias"), 7.0)
+    template = str(cfg.get("template") or "").strip()
+    instancia = str(cfg.get("instancia") or "") or os.environ.get("WAHA_SESSION") or "STK-3"
+    intervalo = _inteiro_alerta(cfg.get("intervalo"), 60)
+    intervalo_passos = _inteiro_alerta(cfg.get("intervalo_passos"), 10)
+    try:
+        delay_inicial = max(int(cfg.get("delay_inicial", 0)), 0)
+    except (TypeError, ValueError):
+        delay_inicial = 60
+
+    # 1) público — a MESMA regra do preview do marketing (lib/marketing/remarketing)
+    corte = _janela(agora, janela)[1]
+    status, publico = rest(
+        "GET", "atendimentos",
+        "?select=telefone_cliente,nome_cliente,instancia"
+        "&status=in.(aberto,em_andamento)"
+        "&ultima_mensagem_remetente=neq.cliente"
+        f"&ultima_mensagem_data=lte.{corte}"
+        "&order=ultima_mensagem_data.asc"
+        f"&limit={max(teto * 5, 500)}",
+    )
+    if status != 200 or not isinstance(publico, list):
+        return {"resumo": f"falha ao buscar público (HTTP {status})",
+                "acoes": [], "contagem": 0, "enviados": 0,
+                "cortados": 0, "ignorados_opt_out": 0}
+    publico = [a for a in publico if isinstance(a, dict)]
+
+    # 2) opt-out — quem pediu para parar nunca mais recebe
+    bloqueados: set = set()
+    st_opt, optouts = rest("GET", "remarketing_opt_out", "?select=telefone")
+    if st_opt == 200 and isinstance(optouts, list):
+        for o in optouts:
+            if isinstance(o, dict):
+                tel = _telefone_canonico(o.get("telefone"))
+                if tel:
+                    bloqueados.add(tel)
+
+    # 3) o que já foi remarketing (cadência + não remarcar)
+    corte_rematar = (agora - timedelta(days=rematar_dias)).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    st_cam, recentes = rest(
+        "GET", "bulk_campaigns",
+        "?select=id,created_at,numbers&tipo=eq.remarketing"
+        f"&created_at=gte.{corte_rematar}&order=created_at.desc&limit=100",
+    )
+    if st_cam != 200 or not isinstance(recentes, list):
+        # sem histórico não dá pra garantir cadência → não envia (seguro)
+        return {"resumo": f"falha ao ler histórico de remarketing (HTTP {st_cam})",
+                "acoes": [], "contagem": len(publico), "enviados": 0,
+                "cortados": 0, "ignorados_opt_out": 0}
+    recentes = [c for c in recentes if isinstance(c, dict)]
+
+    rematados: set = set()
+    for c in recentes:
+        for n in (c.get("numbers") or []):
+            tel = _telefone_canonico(n.get("telefone") if isinstance(n, dict) else n)
+            if tel:
+                rematados.add(tel)
+
+    # 4) monta o lote (dedup por telefone, opt-out e já-rematados saem)
+    lote: list = []
+    vistos: set = set()
+    ignorados_opt = 0
+    for a in publico:
+        tel = _telefone_canonico(a.get("telefone_cliente"))
+        if not tel or tel in vistos:
+            continue
+        if tel in bloqueados:
+            ignorados_opt += 1
+            continue
+        if tel in rematados:
+            continue
+        vistos.add(tel)
+        lote.append({"nome": a.get("nome_cliente") or "",
+                     "telefone": a.get("telefone_cliente")})
+
+    total_elegiveis = len(lote)
+    cortados = max(total_elegiveis - teto, 0)
+    lote = lote[:teto]
+    base = f"{len(publico)} no público | {len(lote)} elegíveis"
+    acoes = [f"{c['nome'] or c['telefone']} ({c['telefone']})" for c in lote]
+
+    # 5) guardas
+    if any((agd._parse_quando(c.get("created_at")) or datetime.min.replace(tzinfo=timezone.utc))
+           >= agora - timedelta(hours=cadencia_h) for c in recentes):
+        return {"resumo": f"{base} | cadência: já houve remarketing nas últimas "
+                          f"{cadencia_h:.0f}h",
+                "acoes": acoes, "contagem": len(publico), "enviados": 0,
+                "cortados": cortados, "ignorados_opt_out": ignorados_opt}
+
+    if not template:
+        return {"resumo": f"{base} | template vazio — nada a enviar",
+                "acoes": [], "contagem": len(publico), "enviados": 0,
+                "cortados": cortados, "ignorados_opt_out": ignorados_opt}
+
+    if not lote:
+        return {"resumo": f"{base} | público vazio (após opt-out/recência/teto)",
+                "acoes": [], "contagem": len(publico), "enviados": 0,
+                "cortados": cortados, "ignorados_opt_out": ignorados_opt}
+
+    if dry_run:
+        return {"resumo": f"{base} | dry_run: nada enviado",
+                "acoes": acoes, "contagem": len(publico), "enviados": 0,
+                "cortados": cortados, "ignorados_opt_out": ignorados_opt}
+
+    # 6) cria a campanha — o MESMO worker de sempre entrega (status running)
+    campanha = {
+        "name": f"Remarketing {agora.strftime('%d/%m/%Y %H:%M')}",
+        "message": template,
+        "numbers": lote,
+        "status": "running",
+        "sent": 0,
+        "failed": 0,
+        "tipo": "remarketing",
+        "regra": {
+            "origem": "publico_sem_resposta_24h",
+            "janela_horas": janela,
+            "teto_diario": teto,
+            "nao_rematar_dias": rematar_dias,
+            "intervalo_horas_min": cadencia_h,
+            "dry_run": dry_run,
+            "criado_por": "rotina:remarketing_diario",
+        },
+        "instancia": instancia,
+        "intervalo": intervalo,
+        "intervalo_passos": intervalo_passos,
+        "delay_inicial": delay_inicial,
+    }
+    st_post, corpo = rest("POST", "bulk_campaigns", "", campanha)
+    if st_post >= 300:
+        return {"resumo": f"{base} | falha ao criar campanha (HTTP {st_post}) {corpo}",
+                "acoes": acoes, "contagem": len(publico), "enviados": 0,
+                "cortados": cortados, "ignorados_opt_out": ignorados_opt}
+
+    return {"resumo": f"{base} | campanha criada e rodando",
+            "acoes": acoes, "contagem": len(publico), "enviados": len(lote),
+            "cortados": cortados, "ignorados_opt_out": ignorados_opt}
+
+
+def _telefone_canonico(valor) -> str:
+    """Só dígitos, sem o 55 inicial — '(62) 91111-1111' e '5562911111111' são o mesmo."""
+    d = normalizar_digits(valor)
+    if len(d) > 12 and d.startswith("55"):
+        d = d[2:]
+    return d
+
+
 def registrar_rotinas() -> None:
     agd.registrar("preparacao_remarketing",
                   "Conta conversas >24h com o cliente aguardando resposta (C1)",
@@ -574,6 +746,9 @@ def registrar_rotinas() -> None:
     agd.registrar("preparacao_alerta_kanban",
                   "Conta oportunidades paradas >72h (C2)",
                   handler_oportunidades_paradas)
+    agd.registrar("remarketing_diario",
+                  "M1 — cria e roda a campanha diária de remarketing (corte próprio)",
+                  handler_remarketing_diario)
 
 
 def _buscar_rotinas():

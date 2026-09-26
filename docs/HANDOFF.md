@@ -73,9 +73,32 @@ Histórico:
   `UPDATE worker_rotinas SET config = config || '{"dry_run": false}' WHERE nome = 'preparacao_alerta_kanban';`
   (ele já foi testado a frio contra produção em modo leitura: 3 oportunidades hoje.)
 
-**Próxima fase: Fase 2 — M1 (Disparo canônico + remarketing)**, que bebe da régua do C1
-(`lib/atendimentos/sem-resposta.ts`) e do agendador (uma rotina nova em `worker_rotinas` +
-handler com o MESMO corte `dry_run` por config). Depois: Fase 3 — C3 fila AXS.
+~~Fase 2 (M1 — Disparo canônico + remarketing)~~ — **CODIFICADA e TESTADA em 26/09**.
+O que já está pronto:
+1. ✅ **Regra única do público** (`lib/marketing/remarketing.ts`): NÓS falamos por último e o cliente
+   não respondeu em 24h — é o INVERSO do C1 de propósito (não confundir: C1 = fila de quem nos
+   deve resposta; M1 = quem não nos respondeu). Espelho em Python no worker; 17 testes.
+2. ✅ **Origem "Remarketing" na tela de disparo** (3ª aba): o servidor calcula o público e a tela
+   mostra o preview (quem entra, quem sai por opt-out/recência, corte de 200) ANTES de criar.
+3. ✅ **Auditoria**: `bulk_campaigns.tipo ('avulso'|'remarketing')` + `regra JSONB` (migration 090).
+4. ✅ **Gatilho diário**: rotina `remarketing_diario` monta a campanha e grava como `running` —
+   o loop de envio existente entrega. Mensagem vem de `config.template` (editável sem deploy).
+5. ✅ **Guardas** (cada uma com teste): `dry_run` por config (**padrão LIGADO/mudo**), teto diário 20,
+   cadência mínima de 24h entre campanhas, não remarcar o mesmo telefone em 7 dias, opt-out eterno
+   (tabela `remarketing_opt_out` — o chatbot grava ali quando o cliente pede para parar).
+6. ✅ **Métrica** (M1.6): rota `resultado-remarketing` calcula enviados x respostas e a taxa (%),
+   exibida junto dos logs do disparo de remarketing.
+
+**Pendências da Fase 2 (3 itens, só do lado humano):**
+- **aplicar `supabase/migrations/090_m1_remarketing.sql` no SQL Editor — OBRIGATÓRIA**: sem ela a
+  rotina não existe no banco e a própria rotina recusa rodar (HTTP 400 no histórico = falha fechada,
+  nada é enviado). Testada a frio em produção: **15 conversas no público hoje**;
+- aplicar também a `089` da Fase 1 (índices);
+- só então decidir **LIGAR**: escrever o `template` da rotina `remarketing_diario`, trocar
+  `dry_run` para `false` e subir o worker com `AGENDADOR_DRY_RUN=0` no `/app/stk-worker/env`
+  (sem isso o agendador não persiste a agenda e a rotina reexecutaria a cada poll).
+
+**Próxima fase (depois dessas pendências): Fase 3 — C3, fila "cadastrar no CRM → criar na AXS" (D4).**
 
 ## 4. Protocolo de checkpoint (como o doc se mantém vivo)
 
@@ -95,13 +118,13 @@ handler com o MESMO corte `dry_run` por config). Depois: Fase 3 — C3 fila AXS.
 ```bash
 cd /root/stk-crm
 
-# Suíte de testes (137 casos, sem rede) — OBRIGATÓRIO antes de dizer "pronto"
+# Suíte de testes (159 casos, sem rede) — OBRIGATÓRIO antes de dizer "pronto"
 npm test
 
 # Type check
 npx tsc --noEmit
 
-# Testes do worker (46 casos, sem rede: disparo + agendador + rotinas da Fase 1)
+# Testes do worker (59 casos, sem rede: disparo + agendador + rotinas Fase 1 + remarketing Fase 2)
 cd worker && python3 -m unittest && cd ..
 
 # Rodar o worker de disparo (só quando for testar de verdade)
@@ -113,7 +136,7 @@ curl -s -H "X-Api-Key: $K" http://172.16.1.1:3000/api/sessions
 ```
 
 - Env do worker/banco: `/root/.stk-worker.env` (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `WAHA_API_URL=http://172.16.1.1:3000`).
-- Migrations: `supabase/migrations/` — **087 e 088 aplicadas; 089 escrita, falta aplicar** no SQL Editor (a `scripts/aplicar-migracao.js` NÃO serve: ela chama a RPC `exec_sql`, que não existe neste projeto; não há `psql`/token de gestão aqui dentro — aplicação é manual, no painel do Supabase).
+- Migrations: `supabase/migrations/` — **087 e 088 aplicadas; 089 (índices Fase 1) e 090 (M1: `tipo`/`regra`/opt-out/seed da rotina) escritas, falta aplicar as duas** no SQL Editor (a `scripts/aplicar-migracao.js` NÃO serve: ela chama a RPC `exec_sql`, que não existe neste projeto; não há `psql`/token de gestão aqui dentro — aplicação é manual, no painel do Supabase).
 - Deploy: `git push origin master` → build automático na Vercel. Confirmar `git remote -v` antes de push.
 - code-server: `https://srv1745477.hstgr.cloud:8080/?folder=/root/stk-crm`
 
@@ -136,6 +159,7 @@ curl -s -H "X-Api-Key: $K" http://172.16.1.1:3000/api/sessions
 | 26/09/2026 | Fase 0 (código) | F0.1 notificações (helper + 7 testes + migração 087) e F0.2 agendador (worker + 15 testes + migração 088), com TDD; causa-raiz do sino mudo encontrada (3 inserts inválidos + `scripts/limpar-atendimentos-teste.sql:40`); bug `+00:00` na query string corrigido e testado; dry-run ao vivo do agendador | ✅ código pronto |
 | 26/09/2026 | Fase 0 (deploy) | migrations 087/088 aplicadas + smoke do sino (insert/lê/apaga); 4 commits e push com deploy Vercel **success**; F0.3 sidebar; worker novo publicado em `/app/stk-worker` e no ar com o agendador (ciclo real gravou agenda +24h) | ✅ Fase 0 encerrada |
 | 26/09/2026 | Fase 1 (C1 + C2) | TDD de ponta a ponta: **42 testes novos** (14 em `lib/atendimentos/sem-resposta.test.ts`, 10 em `lib/oportunidades/parada.test.ts`, 1 em `lib/notificacoes.test.ts`, 17 em `worker/test_rotinas_fase1.py`) — RED confirmado antes do código. C1: régua única exportável + filtro "Sem resposta" + badge por linha com as horas reais (resposta automática conta como nossa). C2: régua por etapa configurável sem deploy + badge de coluna lendo a config do worker + produtor de alerta com anti-spam, destinatário = **dono + gestores** e corte próprio (`config.dry_run`). migration **089 escrita** (índices, falta aplicar); worker publicado em `/app/stk-worker` (sha idêntico ao repo, processo reiniciado) e leitura real em produção: **8 conversas >24h / 3 paradas >72h** (dry_run: nada enviado); commit `609660a` pushado e **build da Vercel (`stk-crm-amber`) passou** — o projeto `stk-crm-edit` já falhava antes, é outro | ✅ **Fase 1 ENCERRADA — falta aplicar 089 no SQL Editor** |
+| 26/09/2026 | Fase 2 (M1 Disparo + remarketing) | TDD de ponta a ponta: **18 testes novos** (17 em `lib/marketing/remarketing.test.ts`, 5 em `app/api/bulk/resultado-remarketing/route.test.ts`, 13 em `worker/test_remarketing.py` — RED confirmado antes do código). Entregue: regra única do público (inversa do C1), aba "Remarketing" com preview no servidor, auditoria `tipo`+`regra`, rotina diária `remarketing_diario` com 5 guardas (dry_run padrão ligado, teto 20, cadência 24h, não remarcar 7 dias, opt-out eterno gravado pelo chatbot) e métrica de taxa de resposta na tela. Worker publicado em `/app/stk-worker` (sha idêntico) e reiniciado; rotina testada a frio em produção (15 no público; falha fechada HTTP 400 enquanto a 090 não rodar). migrations 089 e 090 escritas | ✅ **código pronto — falta aplicar 090 (+089) e decidir quando LIGAR** |
 
 ## 8. Frase de início para a próxima conversa (para o humano)
 
