@@ -50,11 +50,13 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { atendimento_id, conteudo, remetente = "vendedor", instance, media_url, media_type, file_name } = body;
+  const { atendimento_id, conteudo, remetente = "vendedor", instance, media_url, media_type, file_name, whatsapp_message_id } = body;
 
   if (!atendimento_id || !conteudo) {
     return NextResponse.json({ error: "atendimento_id e conteudo são obrigatórios" }, { status: 400 });
   }
+
+  const ehMidia = Boolean(media_url);
 
   const { data: mensagem, error } = await supabase
     .from("atendimento_mensagens")
@@ -66,6 +68,9 @@ export async function POST(request: NextRequest) {
       ...(media_url ? { media_url } : {}),
       ...(media_type ? { media_type } : {}),
       ...(file_name ? { file_name } : {}),
+      // id real do envio (o cliente lê a resposta do /api/send/media) —
+      // permite ao webhook deduplicar o eco por ID exato, sem depender de corrida
+      ...(whatsapp_message_id ? { whatsapp_message_id } : {}),
     })
     .select()
     .single();
@@ -89,8 +94,11 @@ export async function POST(request: NextRequest) {
     .update(updateData)
     .eq("id", atendimento_id);
 
-  // Se é vendedor enviando, envia via WAHA para o WhatsApp do cliente
-  if (remetente === "vendedor" && process.env.WAHA_API_URL) {
+  // Se é vendedor enviando, envia via WAHA para o WhatsApp do cliente.
+  // Mídia (media_url) NÃO reenvia aqui: o arquivo já saiu em /api/send/media.
+  // Chamar enviarTexto aqui mandava "[document]"/"[Áudio]" como texto de verdade
+  // para o cliente + gerava linha duplicada no banco.
+  if (remetente === "vendedor" && !ehMidia && process.env.WAHA_API_URL) {
     try {
       // Busca telefone do cliente no atendimento
       const { data: atendimento } = await supabase

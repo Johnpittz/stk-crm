@@ -400,7 +400,6 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
       if (res.ok) {
         setNovaMensagem("");
         onMensagemEnviada?.();
-        onMensagemEnviada?.();
       }
     } catch (err) {
       console.error(err);
@@ -462,10 +461,11 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
                 media_url: mediaUrlArq,
                 media_type: mediatype,
                 file_name: file.name,
+                // id real do envio → dedup exato do eco no webhook
+                whatsapp_message_id: resDataArq.message_id || undefined,
               }),
             });
           }
-          onMensagemEnviada?.();
           onMensagemEnviada?.();
         }
         setEnviando(false);
@@ -533,10 +533,10 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
                       remetente: "vendedor",
                       media_type: "audio",
                       media_url: mediaUrlSalvo,
+                      whatsapp_message_id: resData.message_id || undefined,
                     }),
                   });
                 }
-                onMensagemEnviada?.();
                 onMensagemEnviada?.();
               }
             } catch (err) {
@@ -651,8 +651,13 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
         return <div className="flex items-center gap-2 text-white/40 text-xs"><span className="text-lg">🎬</span>Vídeo recebido</div>;
       case "document":
         if (mediaUrl && !mediaUrl.includes("[media_proxy_needed]")) {
+          // Rota de download serve com Content-Disposition = file_name original
+          // (a URL direta do Storage baixava como "…-r7mxiu.bin")
+          const href = msg.id && !String(msg.id).startsWith("virtual-")
+            ? `/api/media-download?msg_id=${msg.id}&type=document`
+            : mediaUrl;
           return (
-            <a href={mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-blue-400 hover:text-blue-300">
+            <a href={href} className="flex items-center gap-2 text-blue-400 hover:text-blue-300">
               <span className="text-2xl">📄</span>
               <span className="text-sm truncate">{msg.file_name || "Documento"}</span>
             </a>

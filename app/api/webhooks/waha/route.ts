@@ -88,7 +88,9 @@ async function processarMidia(m: MensagemWaha): Promise<string | null> {
     }
     const buffer = Buffer.from(await resp.arrayBuffer());
     const mime = MIME_POR_TIPO[m.tipo_midia] || "application/octet-stream";
-    return await uploadMediaToStorage(buffer.toString("base64"), mime, m.tipo_midia);
+    // file_name como fallback de extensão: documento recebido chega como
+    // application/octet-stream e virava .bin no Storage.
+    return await uploadMediaToStorage(buffer.toString("base64"), mime, m.tipo_midia, m.file_name || undefined);
   } catch (err: any) {
     console.error("[Webhook WAHA] Erro processar mídia:", err.message);
     return null;
@@ -253,6 +255,30 @@ export async function POST(request: NextRequest) {
     // ==================== BUSCA CLIENTE / ATENDIMENTO ====================
     const cliente = await buscarClientePorTelefone(telefoneLimpo);
     const atendimentoExistente = await buscarAtendimentoAberto(telefoneLimpo, sessionName);
+
+    // Dedup por CONTEÚDO (eco fromMe): a rota de envio insere a linha sem o
+    // whatsapp_message_id, envia e só depois grava o id — o eco do WAHA costuma
+    // chegar nessa janela e o dedup por id não acha nada → linha duplicada.
+    // Só para saída própria, com candidato recente (≤60s) e id vazio/igual.
+    if (atendimentoExistente && dados.from_me && dados.whatsapp_message_id && conteudoMensagem) {
+      const { data: candidatos } = await getSupabase()
+        .from("atendimento_mensagens")
+        .select("id, whatsapp_message_id, created_at")
+        .eq("atendimento_id", atendimentoExistente.id)
+        .eq("remetente", "vendedor")
+        .eq("conteudo", conteudoMensagem)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      const base = createdAt ? new Date(createdAt).getTime() : Date.now();
+      const eco = (candidatos || []).find((c: any) => {
+        const ts = c.created_at ? new Date(c.created_at).getTime() : 0;
+        if (!ts || Math.abs(base - ts) > 60_000) return false;
+        return !c.whatsapp_message_id || c.whatsapp_message_id === dados.whatsapp_message_id;
+      });
+      if (eco) {
+        return NextResponse.json({ received: true, action: "duplicate_content" });
+      }
+    }
 
     if (atendimentoExistente) {
       // Se atendimento não tem vendedor, tenta atribuir (cliente ou padrão)

@@ -36,10 +36,14 @@ export async function POST(request: NextRequest) {
         const prefix = mediatype === "audio" ? "audio"
           : mediatype === "video" ? "video"
           : mediatype === "sticker" ? "sticker"
+          : mediatype === "document" ? "document"
           : "image";
 
-        const mime = mimetype || (mediatype === "audio" ? "audio/ogg; codecs=opus" : "image/jpeg");
-        mediaUrl = await uploadMediaToStorage(media, mime, prefix);
+        // Sem mimetype (alguns SOs não informam a do xlsx) não defaulta para
+        // image/jpeg — octet-stream deixa a extensão sair do fileName.
+        const mime = mimetype || (mediatype === "audio" ? "audio/ogg; codecs=opus"
+          : mediatype === "document" ? "application/octet-stream" : "image/jpeg");
+        mediaUrl = await uploadMediaToStorage(media, mime, prefix, fileName);
 
         if (mediaUrl) {
           console.log(`[Send Media] Mídia salva no Storage: ${mediaUrl}`);

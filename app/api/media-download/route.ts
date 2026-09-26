@@ -37,6 +37,25 @@ const MIME_MAP: Record<string, string> = {
   sticker: "image/webp",
 };
 
+// Nome do objeto na URL (fallback quando a mensagem não tem file_name)
+function ultimoSegmento(url: string): string {
+  try {
+    const parte = url.split("?")[0];
+    const seg = parte.substring(parte.lastIndexOf("/") + 1);
+    return decodeURIComponent(seg || "arquivo");
+  } catch {
+    return "arquivo";
+  }
+}
+
+// Content-Disposition seguro: ASCII limpo vai em filename="…";
+// nome com acento/espaço exótico vai em filename*=UTF-8''…
+function headerNome(nome: string): string {
+  const limpo = nome.replace(/[\r\n"]/g, "_").trim() || "arquivo";
+  if (/^[\x20-\x7E]+$/.test(limpo)) return `filename="${limpo}"`;
+  return `filename*=UTF-8''${encodeURIComponent(limpo)}`;
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const msgId = searchParams.get("msg_id");
@@ -56,7 +75,7 @@ export async function GET(request: NextRequest) {
     // Fetch message from DB
     const { data: msg, error } = await supabase
       .from("atendimento_mensagens")
-      .select("media_url, media_type, whatsapp_message_id")
+      .select("media_url, media_type, file_name, whatsapp_message_id")
       .eq("id", msgId)
       .single();
     
@@ -68,10 +87,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "No media URL" }, { status: 404 });
     }
     
-    // If URL is already a Supabase Storage URL (not WhatsApp CDN), serve directly
+    // Arquivo já no Supabase Storage: SERVE o binário com o nome original.
+    // (Redirecionar fazia o navegador baixar com o nome do objeto —
+    // "1790391732596-r7mxiu.bin" — perdendo extensão e nome do arquivo.)
     if (!msg.media_url.includes("mmg.whatsapp.net") && !msg.media_url.includes("media.whatsapp.com")) {
-      const redirectRes = await fetch(msg.media_url, { method: "HEAD" });
-      return NextResponse.redirect(msg.media_url);
+      const resp = await fetch(msg.media_url);
+      if (!resp.ok) {
+        return NextResponse.json({ error: `Falha ao baixar arquivo (${resp.status})` }, { status: 502 });
+      }
+      const buf = await resp.arrayBuffer();
+      const nome = msg.file_name || ultimoSegmento(msg.media_url);
+      // Documento = download (attachment); áudio/imagem = inline (player do chat)
+      const disposition = mediaType === "document" ? "attachment" : "inline";
+      return new NextResponse(new Uint8Array(buf), {
+        headers: {
+          "Content-Type": MIME_MAP[mediaType] || "application/octet-stream",
+          "Content-Disposition": `${disposition}; ${headerNome(nome)}`,
+          "Cache-Control": "private, max-age=3600",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
     }
     
     // For WhatsApp CDN URLs, use Evolution API to decrypt

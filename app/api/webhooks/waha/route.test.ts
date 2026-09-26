@@ -295,4 +295,69 @@ describe('POST /api/webhooks/waha', () => {
     expect(msg).toHaveLength(1)
     expect(msg[0].row.atendimento_id).toBe('alvo-at')
   })
+
+  it('dedup por conteúdo: eco fromMe não duplica quando a rota de envio ainda não gravou o id', async () => {
+    // Corrida real: POST /api/atendimentos/mensagens insere a linha SEM o
+    // whatsapp_message_id, envia, e só depois grava o id. O echo do WAHA chega
+    // ANTES da gravação → dedup por id não encontra nada → linha duplicada.
+    const agora = Math.floor(Date.now() / 1000)
+    const payload = {
+      ...fixtures.message_text,
+      payload: {
+        ...fixtures.message_text.payload,
+        fromMe: true,
+        body: 'Olá, tudo bem?',
+        timestamp: agora,
+      },
+    }
+
+    // 1. dedup por id → nada  2. dedup por conteúdo → ACHA a linha da rota (id ainda nulo)
+    filas['atendimento_mensagens'] = [
+      { list: [] },
+      { list: [{ id: 'linha-rota', whatsapp_message_id: null, conteudo: 'Olá, tudo bem?', created_at: new Date().toISOString() }] },
+    ]
+    filas['clientes'] = [{ list: [] }]
+    filas['atendimentos'] = [
+      { single: { id: 'atend-race', nome_cliente: 'Cliente', cliente_id: null, vendedor_id: 'vend-1', instancia: 'STK-1' } },
+    ]
+
+    const res = await POST(req(payload))
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.action).toBe('duplicate_content')
+    expect(inserts.filter((i) => i.tabela === 'atendimento_mensagens')).toHaveLength(0)
+    // não mexe no atendimento quando é só eco
+    expect(updates.filter((u) => u.tabela === 'atendimentos')).toHaveLength(0)
+  })
+
+  it('não dedup por conteúdo quando o candidato é antigo (janela de 60s)', async () => {
+    const agora = Math.floor(Date.now() / 1000)
+    const payload = {
+      ...fixtures.message_text,
+      payload: {
+        ...fixtures.message_text.payload,
+        fromMe: true,
+        body: 'Olá, tudo bem?',
+        timestamp: agora,
+      },
+    }
+
+    // mesma linha, mas criada há 10 minutos → envio legítimo repetido
+    filas['atendimento_mensagens'] = [
+      { list: [] },
+      { list: [{ id: 'linha-velha', whatsapp_message_id: null, conteudo: 'Olá, tudo bem?', created_at: new Date(Date.now() - 10 * 60 * 1000).toISOString() }] },
+      { list: [] },
+    ]
+    filas['clientes'] = [{ list: [] }]
+    filas['atendimentos'] = [
+      { single: { id: 'atend-ok', nome_cliente: 'Cliente', cliente_id: null, vendedor_id: 'vend-1', instancia: 'STK-1' } },
+    ]
+
+    const res = await POST(req(payload))
+    const json = await res.json()
+
+    expect(json.action).toBe('updated')
+    expect(inserts.filter((i) => i.tabela === 'atendimento_mensagens')).toHaveLength(1)
+  })
 })
