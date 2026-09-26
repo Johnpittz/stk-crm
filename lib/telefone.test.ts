@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatarTelefone, extrairTelefoneJid, urlWaMe, telefoneInternacional, telefoneParaJid } from './telefone'
+import { formatarTelefone, extrairTelefoneJid, urlWaMe, telefoneInternacional, telefoneParaJid, encontrarInstanciaConectada } from './telefone'
 
 describe('formatarTelefone', () => {
   it('remove caracteres não numéricos de formatos brasileiros', () => {
@@ -53,6 +53,34 @@ describe('urlWaMe', () => {
     expect(urlWaMe('')).toBe('')
     expect(urlWaMe(null)).toBe('')
     expect(urlWaMe('abc')).toBe('')
+  })
+})
+
+describe('encontrarInstanciaConectada (badge de espelho)', () => {
+  const instancias = [
+    { id: '1', name: 'STK-1', number: '556295094949@c.us', status: 'WORKING' },
+    { id: '2', name: 'STK-3', number: '+55 62 9919-0117', status: 'WORKING' },
+    { id: '3', name: 'STK-2', number: '556299961553', status: 'STOPPED' },
+  ]
+
+  it('acha a sessão dona do número mesmo com formatos diferentes', () => {
+    expect(encontrarInstanciaConectada('556295094949', instancias)?.name).toBe('STK-1')
+    expect(encontrarInstanciaConectada('(62) 9919-0117', instancias)?.name).toBe('STK-3')
+    expect(encontrarInstanciaConectada('556299190117', instancias)?.name).toBe('STK-3')
+  })
+
+  it('casa por sufixo quando o número vem sem DDI', () => {
+    expect(encontrarInstanciaConectada('6295094949', instancias)?.name).toBe('STK-1')
+  })
+
+  it('ignora sessão parada (não recebe espelho)', () => {
+    expect(encontrarInstanciaConectada('556299961553', instancias)).toBeNull()
+  })
+
+  it('não falso-positiva em número de cliente comum', () => {
+    expect(encontrarInstanciaConectada('5562988887777', instancias)).toBeNull()
+    expect(encontrarInstanciaConectada('', instancias)).toBeNull()
+    expect(encontrarInstanciaConectada(null, instancias)).toBeNull()
   })
 })
 

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { encontrarInstanciaConectada, type InstanciaConectavel } from "@/lib/telefone";
 
 interface Atendimento {
   id: string;
@@ -29,6 +30,8 @@ interface ListaAtendimentosLateralProps {
   onAbrirChat: (a: Atendimento) => void;
   etiquetas?: Record<string, string[]>;
   selectedId?: string | null;
+  /** Sessões WAHA — para o badge de número conectado (conversa-espelho) */
+  instancias?: InstanciaConectavel[];
 }
 
 export function ListaAtendimentosLateral({
@@ -38,6 +41,7 @@ export function ListaAtendimentosLateral({
   onAbrirChat,
   etiquetas = {},
   selectedId,
+  instancias,
 }: ListaAtendimentosLateralProps) {
   const supabase = createClient();
 
@@ -166,6 +170,18 @@ export function ListaAtendimentosLateral({
                          )}
                          <span className="text-[10px] text-white/25 block">
                            {a.telefone_cliente}
+                           {(() => {
+                             const espelho = encontrarInstanciaConectada(a.telefone_cliente, instancias);
+                             if (!espelho) return null;
+                             return (
+                               <span
+                                 className="ml-1.5 inline-flex items-center px-1 py-0 rounded bg-amber-500/15 text-amber-300 text-[8px] font-medium align-middle cursor-help"
+                                 title={`Número conectado no WAHA (${espelho.name}) — o que você enviar aqui aparece também na conversa-espelho dele`}
+                               >
+                                 🔗 {espelho.name}
+                               </span>
+                             );
+                           })()}
                          </span>
                       </div>
                     </div>

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Phone, Send, Check, User, MessageCircle, X, ArrowRightLeft, Paperclip, Mic, Square } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { encontrarInstanciaConectada } from "@/lib/telefone";
 import { cn } from "@/lib/utils";
 import { AlertaContaDetectada } from "./alerta-conta-detectada";
 
@@ -99,6 +100,9 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
 
   // Encontrar info da instância ativa para exibir no header
   const instanciaInfo = instancias?.find(i => i.name === instanciaAtivo);
+  // Conversa com um número que TAMBÉM é sessão conectada = espelho:
+  // o envio aqui aparece como recebido na conversa-espelho do outro lado.
+  const espelhoConectado = encontrarInstanciaConectada(atendimento?.telefone_cliente, instancias);
 
 
   // Busca vendedores para transferência
@@ -716,6 +720,14 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
                   {instanciaInfo && (
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#3B64CF]/20 text-[#3B64CF] font-medium">
                       {instanciaInfo.number ? `(${instanciaInfo.number.slice(-4)})` : instanciaInfo.name}
+                    </span>
+                  )}
+                  {espelhoConectado && (
+                    <span
+                      className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 font-medium cursor-help"
+                      title={`Número conectado no WAHA (${espelhoConectado.name}) — o que você enviar aqui aparece também na conversa-espelho dele`}
+                    >
+                      🔗 {espelhoConectado.name}
                     </span>
                   )}
                 </div>

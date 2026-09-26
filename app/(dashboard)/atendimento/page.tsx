@@ -425,6 +425,7 @@ export default function AtendimentoPage() {
               onAbrirChat={handleAbrirChat}
               etiquetas={atendimentosComEtiquetas}
               selectedId={atendimentoChat?.id}
+              instancias={instancias}
             />
           </div>
         </div>
