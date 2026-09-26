@@ -21,7 +21,10 @@ export async function GET(request: NextRequest) {
       status: s.status,
     }));
 
-    return NextResponse.json({ instancias: data });
+    return NextResponse.json(
+      { instancias: data },
+      { headers: { "Cache-Control": "no-store" } }
+    );
   } catch (error: any) {
     console.error("[Instances] Erro:", error);
     return NextResponse.json(

@@ -522,7 +522,8 @@ describe('listarSessoes', () => {
 
     const sessoes = await listarSessoes({ fetchImpl: impl, config: CONFIG })
 
-    expect(calls[0].url).toBe('http://waha.test:3000/api/sessions')
+    expect(calls[0].url).toMatch(/^http:\/\/waha\.test:3000\/api\/sessions\?cb=\d+$/)
+    expect(calls[0].init.cache).toBe('no-store')
     expect(sessoes).toEqual([
       { id: 'STK-1', name: 'STK-1', number: '5562999991111', status: 'open', state: 'WORKING' },
       { id: 'STK-3', name: 'STK-3', number: '', status: 'close', state: 'STOPPED' },

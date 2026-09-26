@@ -621,9 +621,10 @@ export async function listarSessoes(opts?: WahaOptions): Promise<SessaoResumo[]>
   const doFetch: FetchImpl = opts?.fetchImpl ?? fetch
 
   try {
-    const response = await doFetch(`${config.baseUrl}/api/sessions`, {
+    const response = await doFetch(`${config.baseUrl}/api/sessions?cb=${Date.now()}`, {
       headers: { 'X-Api-Key': config.apiKey },
-    })
+      cache: 'no-store',
+    } as RequestInit)
     if (!response.ok) {
       console.error(`[WAHA] listarSessoes HTTP ${response.status}`)
       return []
