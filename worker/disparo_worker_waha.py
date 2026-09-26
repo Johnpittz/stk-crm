@@ -29,7 +29,9 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+
+import agendador as agd
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -37,6 +39,11 @@ WAHA_URL = os.environ.get("WAHA_API_URL", "").rstrip("/")
 WAHA_KEY = os.environ.get("WAHA_API_KEY", "")
 POLL_SECONDS = float(os.environ.get("DISPARO_POLL_SECONDS", "5"))
 REQUEST_TIMEOUT = float(os.environ.get("DISPARO_TIMEOUT", "30"))
+# F0.2 — agendador único (docs/plano-acao-modulos.md)
+AGENDADOR_POLL_SECONDS = float(os.environ.get("DISPARO_AGENDADOR_POLL", "60"))
+# Padrão 1 = dry-run (só imprime). Na Fase 0 os handlers são somente-leitura;
+# nas Fases 1/2 cada handler ganha o próprio corte de segurança.
+AGENDADOR_DRY_RUN = os.environ.get("AGENDADOR_DRY_RUN", "1").strip().lower() not in ("0", "false", "no")
 
 
 # ─── HTTP helpers (stdlib) ────────────────────────────────────────────
@@ -337,6 +344,125 @@ def processar_campanha(campaign: dict) -> None:
     print(f"[Worker] Campanha {cid} finalizada: {final_status} (sent={sent}, failed={failed})")
 
 
+# ─── F0.2 — agendador único (rotinas de preparação, somente leitura) ───
+# Handlers da Fase 0 só CONTEM/IMPRIMEM. Enviar algo (remarketing, alerta,
+# arte agendada) só chega nas Fases 1/2, com corte de segurança próprio.
+
+_ULTIMO_LOG_ROTINA: dict = {}
+_AVISO_TABELA_AUSENTE = {"visto": False}
+
+
+def _contar(table: str, query: str):
+    status, data = supabase_rest("GET", table, query)
+    if status != 200 or not isinstance(data, list):
+        print(f"[Agendador] falha ao contar {table}: HTTP {status} {data}", file=sys.stderr)
+        return None
+    return len(data)
+
+
+def _janela(agora, horas):
+    """Corte ISO em UTC. Sai com 'Z' e nunca com '+00:00': '+' na query string
+    vira espaço no urllib e o PostgREST responde 400 (bug visto em 26/09)."""
+    try:
+        h = float(horas)
+    except (TypeError, ValueError):
+        h = 24.0
+    if h <= 0:
+        h = 24.0
+    corte = (agora - timedelta(hours=h)).astimezone(timezone.utc)
+    return h, corte.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+
+def handler_conversas_sem_resposta(rotina, agora, ctx):
+    """C1 — conversas em que o CLIENTE foi o último a falar há mais de X horas."""
+    cfg = rotina.get("config") or {}
+    h, corte = _janela(agora, cfg.get("janela_horas", 24))
+    n = _contar(
+        "atendimentos",
+        "?select=id&status=in.(aberto,em_andamento)"
+        f"&ultima_mensagem_remetente=eq.cliente&ultima_mensagem_data=lte.{corte}",
+    )
+    if n is None:
+        return {"resumo": "falha ao contar atendimentos", "acoes": []}
+    return {
+        "resumo": f"{n} conversa(s) >{h:.0f}h sem resposta nossa",
+        "acoes": [],
+        "contagem": n,
+    }
+
+
+def handler_oportunidades_paradas(rotina, agora, ctx):
+    """C2 — oportunidades que não mudam de etapa há mais de X horas."""
+    cfg = rotina.get("config") or {}
+    h, corte = _janela(agora, cfg.get("parada_horas", 72))
+    n = _contar(
+        "oportunidades",
+        f"?select=id&etapa=neq.comissao_paga&updated_at=lte.{corte}",
+    )
+    if n is None:
+        return {"resumo": "falha ao contar oportunidades", "acoes": []}
+    return {
+        "resumo": f"{n} oportunidade(s) parada(s) >{h:.0f}h",
+        "acoes": [],
+        "contagem": n,
+    }
+
+
+def registrar_rotinas() -> None:
+    agd.registrar("preparacao_remarketing",
+                  "Conta conversas >24h com o cliente aguardando resposta (C1)",
+                  handler_conversas_sem_resposta)
+    agd.registrar("preparacao_alerta_kanban",
+                  "Conta oportunidades paradas >72h (C2)",
+                  handler_oportunidades_paradas)
+
+
+def _buscar_rotinas():
+    status, data = supabase_rest("GET", "worker_rotinas", "?select=*&order=nome.asc")
+    if status == 200 and isinstance(data, list):
+        return data
+    if not _AVISO_TABELA_AUSENTE["visto"]:
+        _AVISO_TABELA_AUSENTE["visto"] = True
+        print("[Agendador] worker_rotinas indisponível "
+              f"(HTTP {status}) — aplicar supabase/migrations/088 no SQL Editor.",
+              file=sys.stderr)
+    return None
+
+
+def _salvar_rotina(rotina_id, patch):
+    if not rotina_id:
+        return
+    supabase_rest("PATCH", "worker_rotinas", f"?id=eq.{rotina_id}", patch)
+
+
+def loop_agendador(dry_run: bool = AGENDADOR_DRY_RUN) -> list:
+    """Um ciclo do agendador. Nunca lança exceção. Retorna o relatório."""
+    rotinas = _buscar_rotinas()
+    if rotinas is None:
+        return []
+    agora = datetime.now(timezone.utc)
+    relatorio = agd.executar_rotinas(
+        rotinas, agora, handlers=agd.ROTINAS, dry_run=dry_run, salvar=_salvar_rotina
+    )
+    agora_ts = time.time()
+    linhas = []
+    for r in relatorio:
+        if dry_run and r.get("status") == "dry_run":
+            # dry-run não persiste, então a rotina continua "vencida": loga 1x/hora
+            if agora_ts - _ULTIMO_LOG_ROTINA.get(r.get("nome") or "", 0) < 3600:
+                continue
+            _ULTIMO_LOG_ROTINA[r.get("nome") or ""] = agora_ts
+        linha = f"[Agendador] {r.get('nome')} -> {r.get('status')}"
+        if r.get("resumo"):
+            linha += f" | {r['resumo']}"
+        if r.get("erro"):
+            linha += f" | ERRO: {r['erro']}"
+        linhas.append(linha)
+    if linhas:
+        print("\n".join(linhas))
+    return relatorio
+
+
 def main() -> None:
     faltando = [n for n, v in (("SUPABASE_URL", SUPABASE_URL),
                                ("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY),
@@ -346,13 +472,23 @@ def main() -> None:
         print(f"[Worker] Env vars obrigatórias faltando: {', '.join(faltando)}", file=sys.stderr)
         sys.exit(2)
 
-    print(f"[Worker] Iniciado. Supabase={SUPABASE_URL} WAHA={WAHA_URL} poll={POLL_SECONDS}s")
+    registrar_rotinas()
+    print(f"[Worker] Iniciado. Supabase={SUPABASE_URL} WAHA={WAHA_URL} poll={POLL_SECONDS}s "
+          f"| agendador: poll={AGENDADOR_POLL_SECONDS}s dry_run={AGENDADOR_DRY_RUN}")
+
+    ultimo_agendador = 0.0
     while True:
         try:
             for campaign in buscar_campanhas_running():
                 processar_campanha(campaign)
         except Exception as e:  # nunca morrer por 1 erro
             print(f"[Worker] Erro no loop: {e}", file=sys.stderr)
+        try:
+            if time.time() - ultimo_agendador >= AGENDADOR_POLL_SECONDS:
+                ultimo_agendador = time.time()
+                loop_agendador()
+        except Exception as e:
+            print(f"[Worker] Erro no agendador: {e}", file=sys.stderr)
         time.sleep(POLL_SECONDS)
 
 

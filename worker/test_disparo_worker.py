@@ -79,5 +79,26 @@ class TestRetomada(unittest.TestCase):
         self.assertEqual(w.offset_retomada({}), 0)
 
 
+class TestJanela(unittest.TestCase):
+    """F0.2 — corte do agendador entra na query string do PostgREST."""
+
+    def test_corte_nao_tem_sinal_mais(self):
+        # '+' em query string vira espaço no urllib → PostgREST 400 (bug 26/09)
+        from datetime import datetime, timezone
+        agora = datetime(2026, 9, 26, 12, 0, 0, tzinfo=timezone.utc)
+        h, corte = w._janela(agora, 24)
+        self.assertEqual(h, 24.0)
+        self.assertNotIn("+", corte)
+        self.assertTrue(corte.endswith("Z"))
+        self.assertTrue(corte.startswith("2026-09-25"))
+
+    def test_horas_invalido_vira_padrao_24(self):
+        from datetime import datetime, timezone
+        agora = datetime(2026, 9, 26, 12, 0, 0, tzinfo=timezone.utc)
+        for valor in (None, 0, -3, "abc"):
+            h, _ = w._janela(agora, valor)
+            self.assertEqual(h, 24.0)
+
+
 if __name__ == "__main__":
     unittest.main()
