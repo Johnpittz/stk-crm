@@ -99,6 +99,13 @@ const navItemsPorPerfil: Record<PerfilAtivo, Array<{
       description: "Criar campanhas e disparos",
     },
     {
+      // F0.3 — o Disparo é do MARKETING (decisão D3). Tela canônica: BulkSender.
+      href: "/disparo",
+      label: "Disparo",
+      icon: Zap,
+      description: "Disparo em massa (e remarketing na Fase 1)",
+    },
+    {
       href: "/marketing/leads",
       label: "Leads",
       icon: Target,
