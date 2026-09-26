@@ -4,8 +4,8 @@
 > Ele existe para que a próxima IA comece a implementar **sem** precisar releer o projeto inteiro nem depender
 > da memória de conversas anteriores. Se este doc e o código divergirem, **vale o código** — e você corrige este doc.
 
-**Última atualização:** 26/09/2026 (Fase 0 — código concluído)
-**Fase atual:** **Fase 0 concluída no código.** Faltam 3 pendências externas (migrations no SQL Editor, push/deploy, pergunta 6) antes do GO da Fase 1.
+**Última atualização:** 26/09/2026 — **FASE 0 ENCERRADA (tudo aplicado e no ar)**
+**Fase atual:** aguardando **GO da Fase 1** (C1 conversas sem resposta 24h → C2 alerta de kanban parado).
 
 ---
 
@@ -30,14 +30,26 @@
 
 ## 3. Próxima ação (de onde parar)
 
-**Fechar a Fase 0**, nesta ordem (o código já está pronto e verificado):
-1. ~~**F0.1** — notificações~~ ✅ `lib/notificacoes.ts` + 7 testes; os 3 inserts quebrados trocados pelo helper; `supabase/migrations/087_notificacoes_tipos.sql` **pronta, não aplicada**.
-2. ~~**F0.2** — agendador** ✅ `worker/agendador.py` + 15 testes; `loop_agendador` ligado no worker (poll 60s); `supabase/migrations/088_worker_rotinas.sql` **pronta, não aplicada**; dry-run ao vivo: 8 conversas >24h · 3 oportunidades paradas >72h.
-3. **F0.3** — item "Disparo" na sidebar de Marketing → **travado na pergunta 6** (tela canônica: `/disparo` BulkSender ou `/marketing/campanhas`) → perguntar ao João.
+~~**Fechar a Fase 0**~~ — **CONCLUÍDA em 26/09** (migrations aplicadas, push feito, F0.3 no ar,
+worker publicado). Abaixo fica o histórico do que foi feito:
+1. ✅ **F0.1 — notificações**: `lib/notificacoes.ts` + 7 testes; os 3 inserts quebrados trocados
+   pelo helper; migração `087` **aplicada** e **smoke OK** (insert `tipo='chatbot'` entrou, foi lido
+   de volta e apagado — tabela em 0 linhas).
+2. ✅ **F0.2 — agendador**: `worker/agendador.py` + 15 testes; `loop_agendador` no worker (poll 60s);
+   migração `088` **aplicada** (2 rotinas semeadas); ciclo real gravou `ultima_execucao` e
+   `proxima_execucao = +24h`; contagens atuais: **8 conversas >24h · 3 oportunidades paradas >72h**.
+3. ✅ **F0.3 — Disparo no menu de Marketing** → `/disparo` (BulkSender, tela canônica escolhida pelo João).
 
-**Pendências externas:** (a) aplicar `087` + `088` no SQL Editor do Supabase; (b) `git push` (dispara deploy Vercel — não subir `worker/__pycache__/*.pyc`); (c) resposta da pergunta 6.
+**Deploy:** 4 commits no `master` (`c7b367e`…`5afbf47`), deploy **Vercel stk-crm-amber = success**,
+produção de pé (`/api/health`=200, webhook=401). Worker publicado em `/app/stk-worker/` e **no ar**
+(log: `agendador: poll=60.0s dry_run=True`). ⚠️ Projeto `stk-crm-edit` falha no build **desde antes**
+desta leva — é problema pré-existente, não é desta sessão.
 
-Depois: Fase 1 (C1 sem resposta 24h → C2 alerta de kanban parado).
+**Próxima fase (a partir de agora): Fase 1** — C1 (conversas >24h com o cliente como último
+falante: filtro/badge no atendimento) → C2 (alerta de oportunidade parada: produtor de
+notificação no agendador, que já tem a rotina `preparacao_alerta_kanban` pronta para virar
+handler de verdade). TDD obrigatório; os handlers da Fase 1 passam a escrever notificações,
+então **cada um ganha o próprio corte de segurança antes de sair do `dry_run`**.
 
 ## 4. Protocolo de checkpoint (como o doc se mantém vivo)
 
@@ -88,7 +100,8 @@ curl -s -H "X-Api-Key: $K" http://172.16.1.1:3000/api/sessions
 | Data | Fase | O que foi feito | Situação |
 |---|---|---|---|
 | 26/09/2026 | Planejamento | Imersão no codebase (66 rotas, 35 telas, 46 migrations), verificação de estado real, 5 perguntas respondidas, plano aprovado em `docs/plano-acao-modulos.md`, criação deste handoff | ✅ concluída |
-| 26/09/2026 | Fase 0 (código) | F0.1 notificações (helper + 7 testes + migração 087) e F0.2 agendador (worker + 15 testes + migração 088), com TDD; causa-raiz do sino mudo encontrada (3 inserts inválidos + `scripts/limpar-atendimentos-teste.sql:40`); bug `+00:00` na query string corrigido e testado; dry-run ao vivo do agendador | ⚠️ código pronto; faltam migrations, push e pergunta 6 |
+| 26/09/2026 | Fase 0 (código) | F0.1 notificações (helper + 7 testes + migração 087) e F0.2 agendador (worker + 15 testes + migração 088), com TDD; causa-raiz do sino mudo encontrada (3 inserts inválidos + `scripts/limpar-atendimentos-teste.sql:40`); bug `+00:00` na query string corrigido e testado; dry-run ao vivo do agendador | ✅ código pronto |
+| 26/09/2026 | Fase 0 (deploy) | migrations 087/088 aplicadas + smoke do sino (insert/lê/apaga); 4 commits e push com deploy Vercel **success**; F0.3 sidebar; worker novo publicado em `/app/stk-worker` e no ar com o agendador (ciclo real gravou agenda +24h) | ✅ **Fase 0 ENCERRADA — aguardando GO da Fase 1** |
 
 ## 8. Frase de início para a próxima conversa (para o humano)
 

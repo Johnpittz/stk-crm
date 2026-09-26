@@ -1,6 +1,7 @@
 # Plano de Ação — Módulos CRM / MARKETING (STK-CRM)
 
-> **Status:** plano fechado na Fase 0 — aguardando "GO" para codar (nenhum código escrito ainda).
+> **Status:** **Fase 0 CONCLUÍDA e no ar em 26/09/2026** (F0.1+F0.2+F0.3, migrations 087/088
+> aplicadas, deploy, worker publicado). Próxima: **Fase 1** (C1 + C2), aguardando GO.
 > **Verificação:** 26/09/2026 (checado no código/banco/repositório, não em docs). **Respostas do João incorporadas:** 26/09/2026.
 > **Método:** TDD (RED → GREEN → REFACTOR). **Sem prazos aqui:** escopo, dependências e ordem — prazo é outra coisa.
 > **Documento divisor (obrigatório ler ao iniciar qualquer sessão):** `docs/HANDOFF.md`
