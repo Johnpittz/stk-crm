@@ -19,6 +19,7 @@ import {
   contarSemResposta,
   JANELA_SEM_RESPOSTA_HORAS,
 } from "@/lib/atendimentos/sem-resposta";
+import { silenciosoNaRecarga } from "@/lib/performance/regras-recarga";
 
 interface Atendimento {
   id: string;
@@ -82,6 +83,8 @@ export default function AtendimentoPage() {
   const atendimentosMapRef = useRef<Map<string, Atendimento>>(new Map());
   const chatIdRef = useRef<string>("");
   const mountedRef = useRef(true);
+  // Primeira carga já pedida? (para mostrar loading só uma vez)
+  const primeiraCargaRef = useRef(false);
 
   // Manter ref do chatId atualizado
   useEffect(() => {
@@ -144,15 +147,13 @@ export default function AtendimentoPage() {
     }
   }, []);
 
-  // Carregar dados na montagem
+  // Carregar dados na montagem E ao abrir/fechar chat — UM efeito só.
+  // Antes eram DOIS e o `page-data` saía 2× a cada entrada (medido: 1.655 ms +
+  // 1.092 ms, com as duas chamadas da mesma função se enfileirando).
   useEffect(() => {
-    fetchPageData();
-  }, [fetchPageData]);
-
-  // Buscar imediato ao abrir/fechar chat
-  useEffect(() => {
-    fetchPageData(true);
-  }, [atendimentoChat?.id, fetchPageData]);
+    fetchPageData(silenciosoNaRecarga(primeiraCargaRef.current));
+    primeiraCargaRef.current = true;
+  }, [fetchPageData, atendimentoChat?.id]);
 
   // C1 — quantas conversas estão com a bola com a gente (24h+)
   const totalSemResposta = useMemo(

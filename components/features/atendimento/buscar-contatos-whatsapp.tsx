@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Search, Loader2, UserPlus, Phone, MessageSquare, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { deveBuscarContatos } from "@/lib/performance/regras-recarga";
 
 interface WhatsAppContact {
   id: string;
@@ -70,6 +71,10 @@ export function BuscarContatosWhatsApp({
       clearTimeout(debounceRef.current);
     }
 
+    // Modal fechado: não busca. O efeito abaixo rodava na montagem mesmo sem
+    // exibir nada — medido 786 ms no meio do carregamento do Atendimento.
+    if (!deveBuscarContatos(open)) return;
+
     debounceRef.current = setTimeout(() => {
       fetchContacts(search);
     }, 300);
@@ -79,16 +84,15 @@ export function BuscarContatosWhatsApp({
         clearTimeout(debounceRef.current);
       }
     };
-  }, [search, fetchContacts]);
+  }, [search, fetchContacts, open]);
 
-  // Fetch initial contacts when modal opens
+  // Ao abrir: busca os contatos (o debounce acima também cobre, com o mesmo
+  // atraso) e foca o campo
   useEffect(() => {
     if (open) {
-      fetchContacts("");
-      // Focus input after a short delay
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [open, fetchContacts]);
+  }, [open]);
 
   // Extract phone number from JID
   const extractPhone = (jid: string): string => {

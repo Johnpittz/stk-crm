@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Select,
   SelectContent,
@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { deveRefazerOportunidades } from "@/lib/performance/regras-recarga";
 import { NovaOportunidadeModal } from "./nova-oportunidade-modal";
 import { ModalDetalhesOportunidade } from "./modal-detalhes-oportunidade";
 import {
@@ -179,8 +180,14 @@ export function KanbanOportunidades({
     fetchOportunidades();
   }, [fetchOportunidades]);
 
+  // Refaz só quando a lista de conversas muda DE VERDADE. Montagem e primeira
+  // chegada de dados já cobrem o início — antes eram 3 chamadas (759/632/328 ms).
+  const atendimentosAnterioresRef = useRef(atendimentos);
   useEffect(() => {
-    if (onRefresh) fetchOportunidades();
+    const anteriores = atendimentosAnterioresRef.current;
+    atendimentosAnterioresRef.current = atendimentos;
+    if (!deveRefazerOportunidades(anteriores, atendimentos, onRefresh)) return;
+    fetchOportunidades();
   }, [atendimentos, onRefresh, fetchOportunidades]);
 
   const onDragEnd = async (result: DropResult) => {
