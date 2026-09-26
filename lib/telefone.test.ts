@@ -84,6 +84,36 @@ describe('encontrarInstanciaConectada (badge de espelho)', () => {
   })
 })
 
+describe('resolveLidToPhone — fallback por lid ignorando instância (bug 26/09)', () => {
+  it('acha pelo lid mesmo quando instance_name antiga não bate (ROMA_2 vs STK-3)', async () => {
+    // linha real do mapa antigo: gravada como ROMA_2, sessão hoje é STK-3
+    const { resolveLidToPhone } = await import('./lid-resolver')
+    const supabaseFake = {
+      from: (t: string) => {
+        const b: any = {
+          _modo: 'eq2',
+          select: () => b,
+          eq: (col: string, val: string) => { b._modo = col === 'instance_name' ? 'eq2' : 'eq1'; return b },
+          maybeSingle: async () => {
+            // primeira tentativa (com instance) → miss; segunda (só lid) → hit
+            if (b._modo === 'eq2' && b._eq2) return { data: null }
+            return { data: { phone: '5511919351515' } }
+          },
+        }
+        // rastreia a ordem: sem instance_name = fallback
+        const orig = b.eq
+        b.eq = (c: string, v: string) => { if (c === 'instance_name') b._eq2 = true; return orig.call(b, c, v) }
+        return b
+      },
+    }
+    const mod = await import('./lid-resolver')
+    mod.__setSupabaseParaTeste(supabaseFake)
+    const tel = await resolveLidToPhone('183095059849432@lid', 'STK-3')
+    expect(tel).toBe('5511919351515')
+    mod.__setSupabaseParaTeste(null)
+  })
+})
+
 describe('telefoneInternacional / telefoneParaJid', () => {
   it('normaliza para DDI 55 por comprimento', () => {
     expect(telefoneInternacional('(62) 98888-7777')).toBe('5562988887777')

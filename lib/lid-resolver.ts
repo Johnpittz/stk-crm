@@ -19,6 +19,10 @@ const cache = new Map<string, { phone: string; ts: number }>();
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hora
 
 let supabaseInstance: any = null;
+/** Injeção de cliente fake nos testes (padrão usado nas rotas). */
+export function __setSupabaseParaTeste(client: any) {
+  supabaseInstance = client;
+}
 function getSupabase() {
   if (supabaseInstance) return supabaseInstance;
   try {
@@ -65,14 +69,28 @@ export async function resolveLidToPhone(
         cache.set(lid, { phone: data.phone, ts: Date.now() });
         return data.phone;
       }
+
+      // Fallback: o LID é global (não por sessão). Linhas antigas gravadas com
+      // instance_name desatualizada (ex.: ROMA_2 hoje é STK-3) continuam
+      // valendo — todas as linhas do mapa são verificadas contra o WAHA.
+      const { data: dataPorLid } = await supabase
+        .from("lid_phone_map")
+        .select("phone")
+        .eq("lid", lid)
+        .maybeSingle();
+      if (dataPorLid?.phone) {
+        console.log(`[LID Resolver] DB hit (sem instância): ${lid} → ${dataPorLid.phone}`);
+        cache.set(lid, { phone: dataPorLid.phone, ts: Date.now() });
+        return dataPorLid.phone;
+      }
     } catch (err: any) {
       // Tabela pode não existir ainda — não é erro
       if (!err.message?.includes("does not exist")) {
-        console.error("[LID Resolver] Erro ao consultar Supabase:", err.message);
+        console.error(`[LID Resolver] Erro ao consultar Supabase:`, err.message);
       }
     }
   }
-  
+
   return null;
 }
 
