@@ -66,7 +66,10 @@ function extrairTelefoneAlt(payload: any): string | null {
   ]
   for (const c of candidatos) {
     if (typeof c !== 'string') continue
-    const digitos = c.replace(/\D/g, '')
+    // Jid alternativo pode trazer o sufixo de dispositivo ("556295094949:23@…");
+    // ele NÃO faz parte do número do cliente (bug 26/09: virava "55629509494923").
+    const base = c.split('@')[0].split(':')[0]
+    const digitos = base.replace(/\D/g, '')
     if (digitos.length >= 10) return digitos
   }
   return null

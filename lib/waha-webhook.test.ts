@@ -50,6 +50,23 @@ describe('parseEventoWaha — LID: telefone alternativo + nome verificado (bug 2
     expect(r.telefone_alt).toBe('5562988887777')
   })
 
+  it('strip do sufixo de dispositivo no SenderAlt (556295094949:23 → 556295094949)', () => {
+    const r = parseEventoWaha({
+      event: 'message.any',
+      session: 'STK-2',
+      payload: {
+        id: 'false_38195379097631@lid_3EB0X',
+        timestamp: 1790426000,
+        from: '38195379097631@lid',
+        fromMe: false,
+        body: 'oi',
+        pushName: 'Sustentalski Ltda',
+        _data: { Info: { SenderAlt: '556295094949:23@s.whatsapp.net' } },
+      },
+    }) as MensagemWaha
+    expect(r.telefone_alt).toBe('556295094949')
+  })
+
   it('pushName vazio vira null (sempre permite fallback)', () => {
     const r = parseEventoWaha({
       event: 'message.any', session: 'STK-3',
