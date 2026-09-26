@@ -158,6 +158,14 @@ Só a fase opcional de checkmarks mexe no chat.
 
 ---
 
+### 6.0 Lições do cutover real (25-26/09) — lê antes de operar
+1. **Token do webhook tem que ser o mesmo em dois lugares**: o valor na URL registrada no WAHA (`?token=`) e o env `WAHA_WEBHOOK_TOKEN` do Vercel. Se divergem, TODOS os eventos voltam 401 e nada cai no banco — silenciosamente.
+2. **`fetch()` do Next pode congelar em cache mesmo com `force-dynamic`**: `listarSessoes` travou numa lista `[ROMA_1]` de quando as sessões STK ainda estavam paradas. Correção: `cache: 'no-store'` + `?cb=` no fetch e `Cache-Control: no-store` na resposta.
+3. **WAHA/GOWS ignora `start_date`** em `GET /api/{sessao}/chats/{chat}/messages` e devolve o histórico inteiro — filtre a janela pelo timestamp do payload no cliente.
+4. **IDs da GOWS (`true_<chat>_<hash>`) ≠ IDs da Evolution (só hash)** — dedup por igualdade exata insere duplicatas; normalize comparando o trecho final do id em minúsculas.
+5. **PostgREST exige chaves idênticas em todo lote** (`All object keys must match`) — todos os objetos do array precisam dos mesmos campos, com `null` onde não houver.
+6. **WAHA só lista sessões STARTED/WORKING** — sessões STOPPED não aparecem em `/api/sessions`.
+
 ## 6. Riscos e rollback
 
 | Risco | Mitigação |
