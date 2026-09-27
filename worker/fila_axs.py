@@ -38,7 +38,8 @@ import axs_api
 
 # ─── configuração ─────────────────────────────────────────────────────
 
-AXS_REPRESENTANTE = os.environ.get("AXS_REPRESENTANTE", "").strip()
+AXS_ARP_EMAIL = os.environ.get("AXS_ARP_EMAIL", "").strip()
+AXS_ARP_SENHA = os.environ.get("AXS_ARP_SENHA", "").strip()
 APP_URL = (
     os.environ.get("STK_APP_URL") or "https://stk-crm-amber-delta.vercel.app"
 ).rstrip("/")
@@ -466,10 +467,12 @@ def _buscar(agora: datetime, limite: int) -> list:
 
 
 def _enviar(item: dict) -> tuple[int, dict]:
-    """Cria a proposta na AXS pela API de verdade (axs_api), sem Playwright."""
-    if not AXS_REPRESENTANTE:
-        return 500, {"error": "AXS_REPRESENTANTE não configurado no env do worker"}
-    return axs_api.criar_da_fila(item, AXS_REPRESENTANTE)
+    """Cria a proposta na AXS pelo fluxo ARP (login + criar/card)."""
+    if not AXS_ARP_EMAIL or not AXS_ARP_SENHA:
+        return 500, {"error": "AXS_ARP_EMAIL/AXS_ARP_SENHA não configurados "
+                              "no env do worker"}
+    credenciais = {"email": AXS_ARP_EMAIL, "senha": AXS_ARP_SENHA}
+    return axs_api.criar_da_fila(item, credenciais)
 
 
 def _consultar(job_id: str) -> tuple[int, dict]:

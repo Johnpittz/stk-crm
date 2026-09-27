@@ -351,39 +351,40 @@ class TestRespostaDaApiAxs(unittest.TestCase):
 
 class TestEnvioReal(unittest.TestCase):
 
-    def test_sem_representante_nao_envia(self):
-        antigo = fila_axs.AXS_REPRESENTANTE
-        fila_axs.AXS_REPRESENTANTE = ""
+    def test_sem_credenciais_nao_envia(self):
+        email, senha = fila_axs.AXS_ARP_EMAIL, fila_axs.AXS_ARP_SENHA
+        fila_axs.AXS_ARP_EMAIL, fila_axs.AXS_ARP_SENHA = "", ""
         try:
             status, corpo = fila_axs._enviar(item())
             self.assertGreaterEqual(status, 400)
-            self.assertIn("AXS_REPRESENTANTE", corpo.get("error", ""))
+            self.assertIn("AXS_ARP", corpo.get("error", ""))
         finally:
-            fila_axs.AXS_REPRESENTANTE = antigo
+            fila_axs.AXS_ARP_EMAIL, fila_axs.AXS_ARP_SENHA = email, senha
 
-    def test_enviar_repassa_representante_e_idcard(self):
-        antigo = fila_axs.AXS_REPRESENTANTE
-        fila_axs.AXS_REPRESENTANTE = "REP-123"
+    def test_enviar_repassa_credenciais_e_idcard(self):
+        email, senha = fila_axs.AXS_ARP_EMAIL, fila_axs.AXS_ARP_SENHA
+        fila_axs.AXS_ARP_EMAIL, fila_axs.AXS_ARP_SENHA = "m@x.com", "segredo"
         original = fila_axs.axs_api.criar_da_fila
         chamado = {}
 
-        def falso(dados, representante, http=None):
-            chamado["rep"] = representante
+        def falso(dados, credenciais, http=None):
+            chamado["credenciais"] = credenciais
             chamado["dados"] = dados
-            return 200, {"idCard": "c1"}
+            return 201, {"idCard": "c1"}
 
         fila_axs.axs_api.criar_da_fila = falso
         try:
             status, corpo = fila_axs._enviar(item())
-            self.assertEqual(status, 200)
-            self.assertEqual(chamado["rep"], "REP-123")
+            self.assertEqual(status, 201)
+            self.assertEqual(chamado["credenciais"],
+                             {"email": "m@x.com", "senha": "segredo"})
             # criar_da_fila recebe a LINHA da fila e puxa o payload
             self.assertEqual(chamado["dados"]["payload"], {"nome": "João da Silva"})
             self.assertEqual(chamado["dados"]["cliente_id"], "cli-1")
             self.assertEqual(corpo["idCard"], "c1")
         finally:
             fila_axs.axs_api.criar_da_fila = original
-            fila_axs.AXS_REPRESENTANTE = antigo
+            fila_axs.AXS_ARP_EMAIL, fila_axs.AXS_ARP_SENHA = email, senha
 
 
 if __name__ == "__main__":
