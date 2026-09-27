@@ -102,13 +102,25 @@ Sem isso, C2, M1 e M4 ficam no ar.
   6. Retroalimentação do funil: proposta criada → oportunidade avança para `proposta_feita` (automático ou botão — a decidir).
 - **Ponto de atenção:** automação com Playwright é frágil por natureza (mudança na AXS quebra). Por isso `status='erro'` + caminho manual são obrigatórios, não opcionais.
 - **Teste:** fila com payload fake → processador chama stub HTTP (sem rede), transiciona estado, erro incrementa `tentativas` e preenche `erro`.
-- **Status: IMPLEMENTADO em 27/09/2026** (código + testes; ver `docs/HANDOFF.md` → Fase 3). Desvios do desenho acima, todos deliberados:
-  - **Mecanismo: API, não Playwright** (o `axs-api` da VPS nunca foi publicado e não precisa mais): `worker/axs_api.py` faz `POST https://iris.axsenergia.com.br/csp/usuario/criar/` → `{idCard}` + 5 etapas (`dadosContratante/{pf|pj}`, `enderecoConsumo`, `dadosFatura`, `historicoConsumo`, `aceiteProposta/`). O axios do portal não manda `Authorization` — a chamada é pública e identificada pelo `representante` (`AXS_REPRESENTANTE` no env do worker). Confirmado ao vivo por GET (`estadoconce/consultar`).
+- **Status: CONCLUÍDO em 27/09/2026** (fila + criação real na AXS com mensalidade; ver `docs/HANDOFF.md` → Fase 3 e **`docs/axs-fluxo-oficial.md`**). Desvios do desenho acima, todos deliberados:
+  - **Mecanismo: API, não Playwright** (o `axs-api` da VPS nunca foi publicado e não precisa mais).
+  - **Rota final: fluxo ARP, não o fluxo público.** A primeira versão usava `POST /csp/usuario/criar/`
+    (público, sem `Authorization`) e gravava **sem cálculo** — proposta nascia com
+    **Mensalidade R$ 0,00** e fase travada. A rota certa é a da área do representante (`/arp/`):
+    `POST /csp/representante/login/` (Bearer) → `POST /csp/representante/criar/card/` → **201
+    com `idCard` e mensalidade calculada**. Causa-raiz dos erros de validação: `fatura.classe` =
+    **Monofásico/Bifásico/Trifásico** (tipo de conexão) e `fatura.subClasse` = grupo
+    (Residencial/Comercial/...); mais `observacoes` como objeto, `estado` por extenso, CEP com
+    traço e CPF mascarado. Credenciais: `AXS_ARP_EMAIL`/`AXS_ARP_SENHA` no env do worker
+    (token em cache, relogin automático se expirar).
+  - **Prova real**: `1451381557` (rota antiga) = R$ 0,00 × `1451384681` (rota ARP) = **R$ 4.015,79**
+    de mensalidade / **R$ 21.964,61** de economia anual.
   - **Confirmação**: o `axs_card_id` passa a vir da própria criação (`idCard`); `/api/axs/sync` e `GET /api/axs/send` (legado) continuam para espelhar status depois.
   - **Retroalimentação do funil** ficou automática dos dois lados: no worker quando vira `criada`, e na rota quando o vendedor clica "marcar como feita manualmente" — sempre só para frente (`recebeu_conta`/`proposta_a_fazer` → `proposta_feita`), nunca regressa.
   - **Um item pendente por cliente** (índice único parcial) para não gerar proposta duplicada; se o `criar/` falhou a fila repete com backoff, mas se o card já existe (falha numa etapa posterior) a linha vira `criada` **com `erro` preenchido** — repetir o criar duplicaria a proposta.
   - Arquivos: `supabase/migrations/091_fila_propostas_axs.sql`, `lib/axs/fila.ts` (+testes), `app/api/axs/fila/route.ts` (+testes), `worker/fila_axs.py` e **`worker/axs_api.py`** (+testes), tela `app/(dashboard)/fila-axs/page.tsx`, entrada "Fila AXS" no sidebar.
-  - **Pendente:** aplicar a migration `091` no SQL Editor e o **aval do João para 1 criação real de teste** (o único passo que gera registro no sistema da AXS).
+  - **Pendente:** **`AXS_ARP_SENHA`** no env do worker (só o João preenche — sem ela a fila
+    devolve erro visível em `/fila-axs`) e a migration `089` (Fase 1). A `091` já foi aplicada.
 
 ### C4 — Proposta finalizada gera documento (padrão RECIEE) — **por último (seu pedido)**
 - **Objetivo:** oportunidade fechada gera PDF de proposta como o RECIEE gera.

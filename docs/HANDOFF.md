@@ -4,11 +4,13 @@
 > Ele existe para que a próxima IA comece a implementar **sem** precisar releer o projeto inteiro nem depender
 > da memória de conversas anteriores. Se este doc e o código divergirem, **vale o código** — e você corrige este doc.
 
-**Última atualização:** 27/09/2026 — **FASE 3 (C3) CODIFICADA, TESTADA E PUBLICADA** (fila AXS no CRM → AXS)
-**Fase atual:** Fase 0 ✅, Fase 1 ✅, Fase 2 ✅ (código) e **Fase 3 ✅ (código + worker no ar)**.
+**Última atualização:** 27/09/2026 — **FASE 3 (C3) CONCLUÍDA**: a proposta agora é criada na AXS
+pelo fluxo oficial (**ARP**) e nasce **com mensalidade calculada** (1 criação real de teste deu
+**R$ 4.015,79**, comprovado na tela de propostas). Detalhe técnico em **`docs/axs-fluxo-oficial.md`**.
+**Fase atual:** Fase 0 ✅, Fase 1 ✅, Fase 2 ✅, **Fase 3 ✅ (fila + criação real na AXS)**.
 **Próxima fase: 4 — M2 (chatbot com base de conhecimento).**
-Pendências da Fase 3 (só do lado humano): aplicar `supabase/migrations/091_fila_propostas_axs.sql` no SQL Editor
-**e** publicar o serviço `axs-api` (Playwright) na VPS — hoje ele responde 401, detalhe na seção 3.
+Pendência da Fase 3 (só do lado humano): preencher **`AXS_ARP_SENHA`** no env do worker
+(`/app/stk-worker/env`) — sem ela o worker não loga e devolve erro visível na tela `/fila-axs`.
 Continuam pendentes as migrations da Fase 1 (`089`) e da Fase 2 (`090`).
 
 ---
@@ -25,12 +27,14 @@ Continuam pendentes as migrations da Fase 1 (`089`) e da Fase 2 (`090`).
   já aplicada em produção** (verificado: coluna `tipo`, tabela `remarketing_opt_out`, rotina ativa
   com `dry_run: true` e template escrito) — ou seja, **está no modo ensaio, não envia nada**; a 089
   (índices) não dá para conferir de fora (rodar de novo é seguro, é `IF NOT EXISTS`).
-- **Fase 3 (C3) codificada e publicada em 27/09:** fila `fila_propostas_axs` (migration 091),
+- **Fase 3 (C3) CONCLUÍDA em 27/09:** fila `fila_propostas_axs` (migration **091 já aplicada**),
   rota `POST/GET/PATCH /api/axs/fila`, form `axs-novo` **enfileirando** em vez de disparar,
   processador `worker/fila_axs.py` no worker (poll de 15 s, backoff, sino no erro,
   retroalimentação do funil) e tela **`/fila-axs`** com "tentar de novo" e "feito manualmente".
-  Worker publicado em `/app/stk-worker` e reiniciado (fila logando). **Bloqueio: o backend
-  `axs-api` (Playwright) não está no ar** — ver a seção 3; e falta a migration `091`.
+  **A criação na AXS funciona e nasce com mensalidade**: migrou do fluxo público (que gravava
+  sem cálculo) para o **fluxo ARP** — `login` (Bearer) → `criar/card` → proposta com
+  **mensalidade e economia calculadas**. Payload exato, mapeamentos e armadilhas em
+  **`docs/axs-fluxo-oficial.md`**. Worker publicado e reiniciado com o código novo.
 - **Performance 26/09:** lentidão relatada em todas as abas → mapeada (medição externa + navegador
   logado com sessão temporária, já apagada) e **duas rodadas de correção aplicadas**:
   (1) Marketing/Disparo: lista de campanhas 28,6 MB/10 s → **142 KB/0,43 s**; (2) CRM: recargas
@@ -143,35 +147,47 @@ em 27/09**. O que está pronto:
    `next build` compila** (o prerender falha só por env, pré-existente).
    Worker publicado em `/app/stk-worker` (backup do anterior) e reiniciado.
 
-**✅ Playwright descartado — a criação virou API pura (27/09, mesmo dia).**
-O robô que o plano imaginava (`2.25.192.248:8080/axs-api`) **nunca foi publicado** — essa
-porta é do code-server. Em vez de publicá-lo, li o JS do portal (`portal.axsenergia.com.br`,
-bundle `/onboarding/assets/index-B9fgXBnn.js`) e o axios de lá é criado **só com
-`Content-Type`** (interceptor `e => e`, **sem `Authorization`**): criar proposta é HTTP puro
-contra `https://iris.axsenergia.com.br/`. Leituras ao vivo (GET, sem efeito) confirmaram:
-`/csp/estadoconce/consultar` → 200 com `estados` (só MG/PR/SP/MT/GO) e
-`/csp/estadoconce/consultar/GO` → `EQUATORIAL GO`.
-Sequência extraída do bundle e implementada em **`worker/axs_api.py`** (18 testes):
-`POST /csp/usuario/criar/` → **`{idCard}`** e depois `dadosContratante/{pf|pj}`,
-`enderecoConsumo`, `dadosFatura`, `historicoConsumo`, `aceiteProposta/`.
-Regras de mapeamento: estado **por extenso** ("GO" → "Goiás"), `tipoResi` ∈
-`Casa/apto|Comércio|Indústria|Rural`, telefone normalizado `(62) 99999-9999`.
-Falha no `criar/` → fila repete com backoff; falha em etapa **depois** do card existir →
-linha vira `criada` **com `erro` preenchido** (a tela mostra a pendência), porque repetir o
-criar geraria proposta duplicada. `AXS_REPRESENTANTE=6OQ36BHO60Q2SE1J64MJ6D0` já está no env
-do worker; `POST /api/axs/send` virou **legado**.
+**✅ Fluxo ARP descoberto e implementado (27/09) — a criação agora nasce COM mensalidade.**
+
+Resumo em português do que aconteceu (detalhe técnico em **`docs/axs-fluxo-oficial.md`**):
+
+1. **O primeiro caminho criava a proposta "morta".** A sequência pública que extraí do portal
+   gravava os dados (contratante, endereço, fatura, histórico), mas **não passava pelo cálculo**:
+   a proposta aparecia com **Mensalidade R$ 0,00** e a fase ficava travada em "Aguardando cadastro".
+2. **A área onde o João cria proposta é outra aplicação**, servida em `/arp/`
+   (`/arp/assets/index-C0vAx3jo.js`, título "AXS-ARP", 61 endpoints, login com **Bearer**).
+3. **Causa raiz de todos os erros de validação**: `fatura.classe` **não** é
+   Residencial/Comercial — é **Monofásico/Bifásico/Trifásico** (tipo de conexão), e o grupo vai em
+   `fatura.subClasse`. Mandar o inverso fazia o cálculo de consumo nunca passar
+   ("Consumo mínimo não atingido"). Junto disso: `observacoes` é **objeto**, `endereco.estado` vai
+   **por extenso** ("Goiás"), CEP **com traço**, CPF **mascarado**, `representante` só com os
+   campos da sessão (sem `gestor3`/`equipe`/`regional`).
+4. **Prova**: dois cards lado a lado na tela de propostas deles — `1451381557` (fluxo antigo)
+   **R$ 0,00** e `1451384681` (fluxo ARP, criado pela interface com captura de rede)
+   **R$ 4.015,79** de mensalidade e **R$ 21.964,61** de economia anual.
+5. **Reescrito com TDD** `worker/axs_api.py`: `montar_login` → `logar` (token com cache por
+   sessão) → `montar_proposta` (payload exato de 1655 bytes) → `criar_proposta` (201 + `idCard`),
+   com retentativa de login se o token expirar no meio do lote. `worker/fila_axs.py` passou a
+   ler **`AXS_ARP_EMAIL`/`AXS_ARP_SENHA`** do env (o código de representante virou lixo).
+   **GATES: `npm test` 200/200 · `tsc --noEmit` limpo · `python3 -m unittest` 138/138.**
+6. **Leituras ao vivo sem efeito** que ajudaram e continuam úteis:
+   `GET /csp/cliente/consultar/card/{id}` funciona **sem token** (mostra o card inteiro),
+   `POST /csp/representante/validar/uc` diz se a UC está livre, e
+   `POST /csp/representante/coletaDados/fatura` **está quebrado do lado deles**
+   (`<CLASS DOES NOT EXIST>`) — ou seja, nem no fluxo manual a AXS lê a imagem da fatura:
+   **o cálculo vem dos números, não do arquivo**.
+7. ⚠️ `POST /api/axs/send` continua **legado** (pode ser removido depois).
 
 **Pendências da Fase 3 (só do lado humano):**
-- aplicar **`supabase/migrations/091_fila_propostas_axs.sql`** no SQL Editor — sem ela a tela
-  `/fila-axs` mostra "erro ao carregar" e o worker loga **uma linha** pedindo a migration;
-- aplicar a `089` (Fase 1) — a `090` já está aplicada;
-- **aprovado pelo João: 1 criação real de teste** na AXS (payload de teste, apagado em
-  seguida). É o único passo que eu não executo sozinho: gera registro no sistema deles;
-- (opcional, depois) remover o `POST /api/axs/send` legado.
+- preencher **`AXS_ARP_SENHA`** em `/app/stk-worker/env` (o e-mail já está gravado; a senha é
+  do acesso ARP — nunca passa pelo chat; depois disso é só me avisar que eu reinicio o worker);
+- aplicar a `089` (Fase 1) — a `090` e a `091` já estão aplicadas;
+- apagar os 2 cards de teste quando quiser: `1451381557` e `1451384681`
+  (nome fictício *Teste Automatizado Stkcrm*);
+- (opcional) remover o `POST /api/axs/send` legado.
 
-**Próxima fase: Fase 4 — M2 (chatbot com base de conhecimento).** A outra opção é C4
-(documento de proposta), deixado por último no plano e que só faz sentido com o C3
-**rodando de verdade** (1 criação real confirmada — pendente do aval do João).
+**Próxima fase: Fase 4 — M2 (chatbot com base de conhecimento).** C4 (documento de proposta)
+pode ser desempatado agora que o C3 **roda de verdade**.
 
 ## 4. Protocolo de checkpoint (como o doc se mantém vivo)
 
@@ -209,7 +225,7 @@ curl -s -H "X-Api-Key: $K" http://172.16.1.1:3000/api/sessions
 ```
 
 - Env do worker/banco: `/root/.stk-worker.env` (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `WAHA_API_URL=http://172.16.1.1:3000`).
-- Migrations: `supabase/migrations/` — **087, 088 e 090 aplicadas; 089 (índices Fase 1) e 091 (fila AXS, Fase 3) escritas, falta aplicar as duas** no SQL Editor (a `scripts/aplicar-migracao.js` NÃO serve: ela chama a RPC `exec_sql`, que não existe neste projeto; não há `psql`/token de gestão aqui dentro — aplicação é manual, no painel do Supabase).
+- Migrations: `supabase/migrations/` — **087, 088, 090 e 091 aplicadas; 089 (índices Fase 1) escrita, falta aplicar** no SQL Editor (a `scripts/aplicar-migracao.js` NÃO serve: ela chama a RPC `exec_sql`, que não existe neste projeto; não há `psql`/token de gestão aqui dentro — aplicação é manual, no painel do Supabase).
 - Deploy: `git push origin master` → build automático na Vercel. Confirmar `git remote -v` antes de push.
 - code-server: `https://srv1745477.hstgr.cloud:8080/?folder=/root/stk-crm`
 
@@ -236,6 +252,8 @@ curl -s -H "X-Api-Key: $K" http://172.16.1.1:3000/api/sessions
 | 26/09/2026 | Performance (fora das fases) | Mapeamento da lentidão relatada: medido em produção que `GET /api/bulk/campaigns` devolvia 28,6 MB/10 s (imagens em base64 em `fluxo_mensagens`) e que funções paradas custam 1–4 s (tempo frio). Conserto do item 1 aplicado com TDD (3 testes) e publicado (`15216ad`): **142 KB/0,43 s**. Estão saudáveis: banco (28 atendimentos), consultas 0,1–0,5 s, WAHA 95 ms, mídia com cache. Depois entrou em produção com sessão temporária (apagada ao final) para medir a troca de aba no navegador: RSC 84–250 ms, páginas prontas em 0,5–2,0 s, achando a **chamada duplicada de `page-data`** no Atendimento e as 3 de `oportunidades` no Kanban. Detalhes e próximos passos na seção 8. | ✅ Marketing corrigido e CRM medido; correções (a)–(e) da seção 8 a decidir |
 | 27/09/2026 | Fase 3 (C3 fila AXS) | TDD de ponta a ponta: **63 testes novos** (12 em `lib/axs/fila.test.ts`, 18 em `app/api/axs/fila/route.test.ts`, 33 em `worker/test_fila_axs.py`) — RED confirmado antes do código. Entregue: migration **091** (fila + 1 item não-finalizado por cliente + RLS + sino `fila_proposta_axs`), rota `/api/axs/fila` (validação, 409 de duplicidade, permissão vendedor×gestor, retry, "feito manualmente"), form `axs-novo` enfileirando em vez de disparar, processador `worker/fila_axs.py` (backoff 60 s×2ⁿ, retoma o job antigo antes de reenviar, sino no erro, funil → `proposta_feita` só para frente) e tela `/fila-axs` com botões. Worker publicado em `/app/stk-worker` (backup do anterior) e reiniciado. **Descoberta: `2.25.192.248:8080/axs-api` devolve 401 — o serviço Playwright não está publicado.** | ✅ **código pronto — falta aplicar 091 e publicar o axs-api** |
 | 26/09/2026 | Fase 2 (M1 Disparo + remarketing) | TDD de ponta a ponta: **18 testes novos** (17 em `lib/marketing/remarketing.test.ts`, 5 em `app/api/bulk/resultado-remarketing/route.test.ts`, 13 em `worker/test_remarketing.py` — RED confirmado antes do código). Entregue: regra única do público (inversa do C1), aba "Remarketing" com preview no servidor, auditoria `tipo`+`regra`, rotina diária `remarketing_diario` com 5 guardas (dry_run padrão ligado, teto 20, cadência 24h, não remarcar 7 dias, opt-out eterno gravado pelo chatbot) e métrica de taxa de resposta na tela. Worker publicado em `/app/stk-worker` (sha idêntico) e reiniciado; rotina testada a frio em produção (15 no público; falha fechada HTTP 400 enquanto a 090 não rodar). migrations 089 e 090 escritas | ✅ **código pronto — falta aplicar 090 (+089) e decidir quando LIGAR** |
+
+| 27/09/2026 | Fase 3 (criação real na AXS) | **Vitória:** a proposta passou a nascer com mensalidade. Causa-raiz achada na interface deles com captura de rede: `classe` é tipo de conexão (Mono/Bi/**Trifásico**) e o grupo vai em `subClasse` — mandar invertido travava tudo em "Consumo mínimo não atingido". Payload exato (1655 bytes) documentado em `docs/axs-fluxo-oficial.md`. `worker/axs_api.py` reescrito com TDD para o fluxo ARP (login Bearer + `criar/card`, token com cache e retentativa), `fila_axs.py` agora lê `AXS_ARP_EMAIL`/`AXS_ARP_SENHA`. **Gates: 200 vitest + 138 unittest + tsc limpo**; worker publicado (`sha256` conferido) e reiniciado. Prova em produção: card `1451384681` com **mensalidade R$ 4.015,79** (o antigo `1451381557` ficou R$ 0,00). Também: `git add -A` derrubou arquivos de trabalho com dados de clientes no repo público → **commit refazido com force-push e `.gitignore` reforçado**; `AXS_ARP_SENHA` pendente (só o João preenche). | ✅ Fase 3 concluída |
 
 ## 8. Diagnóstico de performance (26/09)
 
