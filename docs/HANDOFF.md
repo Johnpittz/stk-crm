@@ -47,7 +47,13 @@ Continuam pendentes as migrations da Fase 1 (`089`) e da Fase 2 (`090`).
   ordem **chatbot > IA > humano** virou uma única função usada pelos 2 webhooks. Decisão **D7**
   registrada no plano (dúvidas **E** puxar assunto). Bateria de 16 conversas em
   `docs/relatorios/bateria-ia-cobertura.md` (16/16 ✅). Migration `092` **aplicada em 27/09**
-  (tabela confirmada no banco, 0 linhas). **Pendente: preencher a base.**
+  (tabela confirmada no banco, 0 linhas).
+  **Estado combinado em 27/09: a base fica VAZIA por enquanto — decisão do João, não é pendência.**
+  Hoje isso não tem efeito nenhum na produção: a chave `ia_atendimento` está **false** e o único
+  fluxo do chatbot está **inativo**, ou seja, hoje **nada responde sozinho** no WhatsApp. Ela só
+  passa a ser necessária no dia em que ele decidir **ligar** a IA — aí é preencher em
+  `/configuracoes/base-conhecimento` **antes** de ligar (base vazia + IA ligada = encaminha todo
+  mundo pro vendedor). Não cobrar essa tarefa nas próximas sessões, exceto quando ele for ligar a IA.
 - Pós-vendas: **congelado** (decisão do dono do projeto).
 
 ## 2. Onde ler — hierarquia de leitura
@@ -212,13 +218,14 @@ O que está pronto:
    conversa com o Gemini de verdade roda só com `GEMINI_API_KEY` no ambiente.
    **GATES: `npm test` 240/240 (1 skip de rede) · `tsc --noEmit` limpo · `next build` compila.**
 
-**Pendências da Fase 4 (só do lado humano):**
-- ~~aplicar `supabase/migrations/092_base_conhecimento.sql`~~ — ✅ aplicada e confirmada (tabela
-  `base_conhecimento` existe, 0 linhas);
-- **preencher a base** em `/configuracoes/base-conhecimento` (produtos, preços, prazos, área,
-  horário, política) — enquanto estiver vazia a IA encaminha **todo mundo** pro vendedor (é o
-  guardrail funcionando, não bug);
-- decidir se a 2ª camada da bateria (resposta real do Gemini) roda na CI — precisa da chave lá.
+**Fase 4 — tudo encerrado do lado humano:**
+- migration `092` ✅ aplicada e confirmada (tabela `base_conhecimento` existe);
+- **base fica vazia por decisão do João (27/09)** — não é pendência, não cobrar: hoje a IA está
+  desligada e o único fluxo do chatbot está inativo, então nada muda. Preencher só no dia em que
+  ele decidir **ligar** a IA (e preencher ANTES de ligar: base vazia + IA ligada = encaminha todo
+  mundo pro vendedor);
+- só se ele pedir: fazer a 2ª camada da bateria (resposta real do Gemini) rodar na CI — precisa da
+  chave da IA lá.
 
 **Próxima fase: Fase 6 do plano — C4 (documento de proposta).** A Fase 5 do plano (M3 artes com IA
 + M4 Instagram) **não é executável agora**: M3 está adiado e M4 é só estudo, ambos pela **D6**.
@@ -359,9 +366,10 @@ na corrida de carregamento — são pequenos, mas é o próximo degrau se quiser
 
 > **"Leia `/root/stk-crm/docs/HANDOFF.md`, confirme a fase atual e comece a Fase 6 do plano (C4 — documento de proposta)."**
 
-Antes disso, uma pendência da Fase 4: **preencher a base** em
-**/configuracoes/base-conhecimento** (a migration `092` já foi aplicada) — enquanto a base estiver
-vazia, o chatbot encaminha todo cliente pro vendedor.
+Protocolo: **a cada nova fase é só mandar esta frase num chat novo** — quem receber lê o HANDOFF e
+já começa a implementar. Sem pendência nenhuma antes de começar (a base de conhecimento fica vazia
+por enquanto, por decisão do João de 27/09; hoje a IA está desligada e o fluxo do chatbot está
+inativo, então nada muda).
 
 Variantes úteis:
 - Só para revisar: *"Leia o HANDOFF do STK-CRM e me diga em que ponto estamos."*
