@@ -128,7 +128,7 @@ em 27/09**. O que está pronto:
    sozinha a oportunidade do cliente; **409** se já existir item `pendente`/`enviando` do mesmo
    cliente). O form `axs-novo` **não dispara mais** — grava na fila e mostra "Proposta na fila!".
 3. ✅ **Processador no worker** (`worker/fila_axs.py`, poll de 15 s dentro do loop existente):
-   chama `POST /api/axs/send` → acompanha `GET /api/axs/send?job_id=` → backoff `60 s × 2ⁿ`
+   chama `worker/axs_api.py` → **API da AXS** (6 POSTs) → backoff `60 s × 2ⁿ`
    (teto 15 min), 6 tentativas → `erro` + sino para o vendedor. Antes de reenviar ele
    **retoma o job antigo** (evita criar a mesma proposta 2× na AXS).
 4. ✅ **Tela `/fila-axs`** (menu CRM): contadores por status, detalhe do erro, botões
@@ -137,28 +137,41 @@ em 27/09**. O que está pronto:
    oportunidade ligada vai para `proposta_feita` **só para frente** (nunca regride) e grava
    `oportunidade_historico`.
 6. ✅ **TDD**: 12 + 18 casos vitest (`lib/axs/fila.test.ts`, `app/api/axs/fila/route.test.ts`)
-   e 33 unittest (`worker/test_fila_axs.py`), RED confirmado antes do código.
-   **GATES: `npm test` 200/200 · `tsc --noEmit` limpo · `python3 -m unittest` 92/92 ·
+   33 + 5 unittest (`worker/test_fila_axs.py`) e 18 unittest da API da AXS
+   (`worker/test_axs_api.py`), RED confirmado antes do código.
+   **GATES: `npm test` 200/200 · `tsc --noEmit` limpo · `python3 -m unittest` 115/115 ·
    `next build` compila** (o prerender falha só por env, pré-existente).
    Worker publicado em `/app/stk-worker` (backup do anterior) e reiniciado.
 
-**⚠️ Bloqueio real da Fase 3 (não é código): o backend Playwright da AXS não está no ar.**
-`http://2.25.192.248:8080/axs-api/*` devolve **401 genérico em qualquer rota** (é o auth do
-code-server que ocupa a porta 8080) e a varredura de portas (3000/4000/5000/8000/8081/8888/
-9000/9090) não achou serviço nenhum. Consequência prática: enquanto isso, todo item da fila
-vai terminar em `erro` com "HTTP 401/502" e o **caminho manual** é o que resolve. Para a
-automação de verdade: publicar o `axs-api` na VPS e fazer `/api/axs/send` apontar para ele.
-A fila já cumpre o papel dela: erro vira estado visível + retry, não falha silenciosa.
+**✅ Playwright descartado — a criação virou API pura (27/09, mesmo dia).**
+O robô que o plano imaginava (`2.25.192.248:8080/axs-api`) **nunca foi publicado** — essa
+porta é do code-server. Em vez de publicá-lo, li o JS do portal (`portal.axsenergia.com.br`,
+bundle `/onboarding/assets/index-B9fgXBnn.js`) e o axios de lá é criado **só com
+`Content-Type`** (interceptor `e => e`, **sem `Authorization`**): criar proposta é HTTP puro
+contra `https://iris.axsenergia.com.br/`. Leituras ao vivo (GET, sem efeito) confirmaram:
+`/csp/estadoconce/consultar` → 200 com `estados` (só MG/PR/SP/MT/GO) e
+`/csp/estadoconce/consultar/GO` → `EQUATORIAL GO`.
+Sequência extraída do bundle e implementada em **`worker/axs_api.py`** (18 testes):
+`POST /csp/usuario/criar/` → **`{idCard}`** e depois `dadosContratante/{pf|pj}`,
+`enderecoConsumo`, `dadosFatura`, `historicoConsumo`, `aceiteProposta/`.
+Regras de mapeamento: estado **por extenso** ("GO" → "Goiás"), `tipoResi` ∈
+`Casa/apto|Comércio|Indústria|Rural`, telefone normalizado `(62) 99999-9999`.
+Falha no `criar/` → fila repete com backoff; falha em etapa **depois** do card existir →
+linha vira `criada` **com `erro` preenchido** (a tela mostra a pendência), porque repetir o
+criar geraria proposta duplicada. `AXS_REPRESENTANTE=6OQ36BHO60Q2SE1J64MJ6D0` já está no env
+do worker; `POST /api/axs/send` virou **legado**.
 
 **Pendências da Fase 3 (só do lado humano):**
 - aplicar **`supabase/migrations/091_fila_propostas_axs.sql`** no SQL Editor — sem ela a tela
   `/fila-axs` mostra "erro ao carregar" e o worker loga **uma linha** pedindo a migration;
-- aplicar as `089` (Fase 1) e `090` (Fase 2) que continuam pendentes;
-- publicar o serviço `axs-api` (bloqueio acima).
+- aplicar a `089` (Fase 1) — a `090` já está aplicada;
+- **aprovado pelo João: 1 criação real de teste** na AXS (payload de teste, apagado em
+  seguida). É o único passo que eu não executo sozinho: gera registro no sistema deles;
+- (opcional, depois) remover o `POST /api/axs/send` legado.
 
 **Próxima fase: Fase 4 — M2 (chatbot com base de conhecimento).** A outra opção é C4
-(documento de proposta), deixado por último no plano e que **só faz sentido com o C3
-rodando de verdade** (ou seja, com o `axs-api` no ar).
+(documento de proposta), deixado por último no plano e que só faz sentido com o C3
+**rodando de verdade** (1 criação real confirmada — pendente do aval do João).
 
 ## 4. Protocolo de checkpoint (como o doc se mantém vivo)
 

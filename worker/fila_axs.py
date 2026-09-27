@@ -34,8 +34,11 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
+import axs_api
+
 # ─── configuração ─────────────────────────────────────────────────────
 
+AXS_REPRESENTANTE = os.environ.get("AXS_REPRESENTANTE", "").strip()
 APP_URL = (
     os.environ.get("STK_APP_URL") or "https://stk-crm-amber-delta.vercel.app"
 ).rstrip("/")
@@ -144,7 +147,7 @@ def ler_resultado_job(corpo) -> str:
                 return "falhou"
             if v:
                 return "rodando"
-    if corpo.get("card_id") or corpo.get("axs_card_id"):
+    if corpo.get("card_id") or corpo.get("axs_card_id") or corpo.get("idCard"):
         return "ok"
     return "rodando"
 
@@ -192,12 +195,16 @@ def transicao_envio(item: dict, http: int, corpo, agora: datetime) -> dict:
                 "ultima_tentativa_em": _iso(agora),
             }
         if ler_resultado_job(corpo) == "ok":
+            # API da AXS devolve {idCard}; o robô antigo devolvia card_id.
+            # `parcial` (criado mas etapa falhou) fica no campo `erro` de propósito:
+            # é para a tela mostrar "criada, com pendência" — não repetir o criar.
             return {
                 "status": "criada",
                 "criada_em": _iso(agora),
-                "axs_card_id": str(corpo.get("card_id") or corpo.get("axs_card_id") or ""),
+                "axs_card_id": str(corpo.get("card_id") or corpo.get("axs_card_id")
+                                   or corpo.get("idCard") or ""),
                 "tentativas": novas,
-                "erro": None,
+                "erro": (str(corpo["erro"])[:500] if corpo.get("erro") else None),
                 "ultima_tentativa_em": _iso(agora),
             }
 
@@ -407,7 +414,7 @@ def _supa_status(metodo: str, tabela: str, params: dict | None = None,
     """PostgREST com service role. (status, linhas) — 0 = bloqueio."""
 
     if not SUPABASE_URL or not SUPABASE_KEY:
-        return []
+        return 0, []
     url = f"{SUPABASE_URL}/rest/v1/{tabela}"
     if params:
         url = f"{url}?{urllib.parse.urlencode(params)}"
@@ -459,10 +466,10 @@ def _buscar(agora: datetime, limite: int) -> list:
 
 
 def _enviar(item: dict) -> tuple[int, dict]:
-    return _requisitar(f"{APP_URL}/api/axs/send", "POST", {
-        "cliente_id": item.get("cliente_id"),
-        "dados_proposta": item.get("payload") or {},
-    })
+    """Cria a proposta na AXS pela API de verdade (axs_api), sem Playwright."""
+    if not AXS_REPRESENTANTE:
+        return 500, {"error": "AXS_REPRESENTANTE não configurado no env do worker"}
+    return axs_api.criar_da_fila(item, AXS_REPRESENTANTE)
 
 
 def _consultar(job_id: str) -> tuple[int, dict]:

@@ -323,5 +323,68 @@ class TestProcessarFila(unittest.TestCase):
         self.assertEqual(relatorio[0]["status"], "erro_ciclo")
 
 
+class TestRespostaDaApiAxs(unittest.TestCase):
+    """Fila x axs_api: {idCard} na resposta da API real (sem Playwright)."""
+
+    def test_idcard_vira_criada(self):
+        p = fila_axs.transicao_envio(item(), 201, {"idCard": "card-42"}, AGORA)
+        self.assertEqual(p["status"], "criada")
+        self.assertEqual(p["axs_card_id"], "card-42")
+        self.assertIsNone(p["erro"])
+
+    def test_parcial_fica_criada_com_erro_visivel(self):
+        p = fila_axs.transicao_envio(
+            item(), 200,
+            {"idCard": "card-42", "parcial": True, "etapa": "endereco",
+             "erro": "endereco: CEP inválido"},
+            AGORA)
+        self.assertEqual(p["status"], "criada")
+        self.assertEqual(p["axs_card_id"], "card-42")
+        self.assertIn("CEP inválido", p["erro"])
+
+    def test_criar_falhou_repete_com_backoff(self):
+        p = fila_axs.transicao_envio(item(), 400, {"erro": "criar: dados inválidos"}, AGORA)
+        self.assertEqual(p["status"], "pendente")
+        self.assertIn("criar", p["erro"])
+        self.assertEqual(p["tentativas"], 1)
+
+
+class TestEnvioReal(unittest.TestCase):
+
+    def test_sem_representante_nao_envia(self):
+        antigo = fila_axs.AXS_REPRESENTANTE
+        fila_axs.AXS_REPRESENTANTE = ""
+        try:
+            status, corpo = fila_axs._enviar(item())
+            self.assertGreaterEqual(status, 400)
+            self.assertIn("AXS_REPRESENTANTE", corpo.get("error", ""))
+        finally:
+            fila_axs.AXS_REPRESENTANTE = antigo
+
+    def test_enviar_repassa_representante_e_idcard(self):
+        antigo = fila_axs.AXS_REPRESENTANTE
+        fila_axs.AXS_REPRESENTANTE = "REP-123"
+        original = fila_axs.axs_api.criar_da_fila
+        chamado = {}
+
+        def falso(dados, representante, http=None):
+            chamado["rep"] = representante
+            chamado["dados"] = dados
+            return 200, {"idCard": "c1"}
+
+        fila_axs.axs_api.criar_da_fila = falso
+        try:
+            status, corpo = fila_axs._enviar(item())
+            self.assertEqual(status, 200)
+            self.assertEqual(chamado["rep"], "REP-123")
+            # criar_da_fila recebe a LINHA da fila e puxa o payload
+            self.assertEqual(chamado["dados"]["payload"], {"nome": "João da Silva"})
+            self.assertEqual(chamado["dados"]["cliente_id"], "cli-1")
+            self.assertEqual(corpo["idCard"], "c1")
+        finally:
+            fila_axs.axs_api.criar_da_fila = original
+            fila_axs.AXS_REPRESENTANTE = antigo
+
+
 if __name__ == "__main__":
     unittest.main()
