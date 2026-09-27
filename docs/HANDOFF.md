@@ -46,7 +46,8 @@ Continuam pendentes as migrations da Fase 1 (`089`) e da Fase 2 (`090`).
   fora dela ela devolve `[[ENCAMINHAR]]` → recado pro cliente + sino com motivo e pergunta, e a
   ordem **chatbot > IA > humano** virou uma única função usada pelos 2 webhooks. Decisão **D7**
   registrada no plano (dúvidas **E** puxar assunto). Bateria de 16 conversas em
-  `docs/relatorios/bateria-ia-cobertura.md` (16/16 ✅). **Pendente: migration `092` + preencher a base.**
+  `docs/relatorios/bateria-ia-cobertura.md` (16/16 ✅). Migration `092` **aplicada em 27/09**
+  (tabela confirmada no banco, 0 linhas). **Pendente: preencher a base.**
 - Pós-vendas: **congelado** (decisão do dono do projeto).
 
 ## 2. Onde ler — hierarquia de leitura
@@ -212,14 +213,16 @@ O que está pronto:
    **GATES: `npm test` 240/240 (1 skip de rede) · `tsc --noEmit` limpo · `next build` compila.**
 
 **Pendências da Fase 4 (só do lado humano):**
-- aplicar **`supabase/migrations/092_base_conhecimento.sql`** no SQL Editor;
+- ~~aplicar `supabase/migrations/092_base_conhecimento.sql`~~ — ✅ aplicada e confirmada (tabela
+  `base_conhecimento` existe, 0 linhas);
 - **preencher a base** em `/configuracoes/base-conhecimento` (produtos, preços, prazos, área,
   horário, política) — enquanto estiver vazia a IA encaminha **todo mundo** pro vendedor (é o
   guardrail funcionando, não bug);
 - decidir se a 2ª camada da bateria (resposta real do Gemini) roda na CI — precisa da chave lá.
 
-**Próxima fase: Fase 5 — C4 (documento de proposta)** ou o que o João escolher; M3/M4 seguem
-adiados/estudo conforme D6.
+**Próxima fase: Fase 6 do plano — C4 (documento de proposta).** A Fase 5 do plano (M3 artes com IA
++ M4 Instagram) **não é executável agora**: M3 está adiado e M4 é só estudo, ambos pela **D6**.
+Ou seja, o único item pronto pra rodar é o C4 (depende do C3, que está fechado).
 
 ## 4. Protocolo de checkpoint (como o doc se mantém vivo)
 
@@ -354,12 +357,11 @@ na corrida de carregamento — são pequenos, mas é o próximo degrau se quiser
 
 ## 9. Frase de início para a próxima conversa (para o humano)
 
-> **"Leia `/root/stk-crm/docs/HANDOFF.md`, confirme a fase atual e comece a Fase 5 (C4 — documento de proposta)."**
+> **"Leia `/root/stk-crm/docs/HANDOFF.md`, confirme a fase atual e comece a Fase 6 do plano (C4 — documento de proposta)."**
 
-Antes disso, as pendências da Fase 4 (só seu, 5 minutos): aplicar
-`supabase/migrations/092_base_conhecimento.sql` no SQL Editor do Supabase e preencher a base em
-**/configuracoes/base-conhecimento** — enquanto ela estiver vazia, o chatbot encaminha todo
-cliente pro vendedor.
+Antes disso, uma pendência da Fase 4: **preencher a base** em
+**/configuracoes/base-conhecimento** (a migration `092` já foi aplicada) — enquanto a base estiver
+vazia, o chatbot encaminha todo cliente pro vendedor.
 
 Variantes úteis:
 - Só para revisar: *"Leia o HANDOFF do STK-CRM e me diga em que ponto estamos."*
