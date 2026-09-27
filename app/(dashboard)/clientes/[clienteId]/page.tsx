@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { BotaoProposta } from "@/components/features/propostas/botao-proposta";
 import {
   ArrowLeft,
   User,
@@ -744,23 +745,29 @@ function TabGD({
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-3 mt-2 text-[10px] text-white/40">
-                {p.uc && (
+              <div className="flex items-center justify-between gap-3 mt-2">
+                <div className="flex items-center gap-3 text-[10px] text-white/40">
+                  {p.uc && (
+                    <span className="flex items-center gap-1">
+                      <Zap className="h-3 w-3" />
+                      UC: {p.uc}
+                    </span>
+                  )}
+                  {p.consumo != null && (
+                    <span className="flex items-center gap-1">
+                      <BarChart3 className="h-3 w-3" />
+                      {p.consumo.toLocaleString("pt-BR")} kWh
+                    </span>
+                  )}
                   <span className="flex items-center gap-1">
-                    <Zap className="h-3 w-3" />
-                    UC: {p.uc}
+                    <Calendar className="h-3 w-3" />
+                    {formatDate(p.data)}
                   </span>
+                </div>
+                {/* Fase 6 / C4 — documento de proposta (só para oportunidade) */}
+                {p.origem === "oportunidades" && (
+                  <BotaoProposta oportunidadeId={p.id} />
                 )}
-                {p.consumo != null && (
-                  <span className="flex items-center gap-1">
-                    <BarChart3 className="h-3 w-3" />
-                    {p.consumo.toLocaleString("pt-BR")} kWh
-                  </span>
-                )}
-                <span className="flex items-center gap-1">
-                  <Calendar className="h-3 w-3" />
-                  {formatDate(p.data)}
-                </span>
               </div>
             </div>
           ))}

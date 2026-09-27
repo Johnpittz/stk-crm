@@ -1,4 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  gerarDocumentoProposta,
+  ETAPA_GERA_PROPOSTA_AUTOMATICA,
+} from "@/lib/propostas/gerar";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -215,7 +220,45 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Oportunidade não encontrada ou sem permissão", details: error?.message }, { status: 404 });
   }
 
-  return NextResponse.json({ success: true, oportunidade });
+  // ─── Fase 6 / C4 — gatilho automático do documento de proposta (D8) ───
+  // Entrou em "contrato_enviado" vindo de outra etapa → gera o PDF agora.
+  // Falha aqui NUNCA bloqueia a mudança de etapa: devolve `proposta_erros`
+  // e o vendedor pode usar o botão "Gerar proposta" depois.
+  let proposta: Record<string, any> | null = null;
+  let propostaErros: string[] | null = null;
+
+  if (
+    etapa === ETAPA_GERA_PROPOSTA_AUTOMATICA &&
+    oportunidadeAtual?.etapa !== ETAPA_GERA_PROPOSTA_AUTOMATICA
+  ) {
+    const resultado = await gerarDocumentoProposta({
+      supabase,
+      admin: createAdminClient(),
+      usuario: user,
+      oportunidadeId: id,
+    });
+
+    if (resultado.status === 201) {
+      proposta = resultado.proposta ?? null;
+    } else {
+      propostaErros = resultado.erros ?? [
+        resultado.error || "Não consegui gerar a proposta",
+      ];
+      console.warn(
+        "[API PATCH oportunidades] proposta não gerada em",
+        id,
+        ":",
+        propostaErros.join(" | ")
+      );
+    }
+  }
+
+  return NextResponse.json({
+    success: true,
+    oportunidade,
+    proposta,
+    proposta_erros: propostaErros,
+  });
 }
 
 // DELETE - Deletar oportunidade

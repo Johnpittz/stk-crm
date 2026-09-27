@@ -4,14 +4,17 @@
 > Ele existe para que a próxima IA comece a implementar **sem** precisar releer o projeto inteiro nem depender
 > da memória de conversas anteriores. Se este doc e o código divergirem, **vale o código** — e você corrige este doc.
 
-**Última atualização:** 27/09/2026 — **FASE 3 (C3) CONCLUÍDA**: a proposta agora é criada na AXS
-pelo fluxo oficial (**ARP**) e nasce **com mensalidade calculada** (1 criação real de teste deu
-**R$ 4.015,79**, comprovado na tela de propostas). Detalhe técnico em **`docs/axs-fluxo-oficial.md`**.
-**Fase atual:** Fase 0 ✅, Fase 1 ✅, Fase 2 ✅, **Fase 3 ✅ (fila + criação real na AXS)**.
-**Próxima fase: 4 — M2 (chatbot com base de conhecimento).**
-Pendência da Fase 3 (só do lado humano): preencher **`AXS_ARP_SENHA`** no env do worker
-(`/app/stk-worker/env`) — sem ela o worker não loga e devolve erro visível na tela `/fila-axs`.
-Continuam pendentes as migrations da Fase 1 (`089`) e da Fase 2 (`090`).
+**Última atualização:** 27/09/2026 — **FASE 6 (C4) CONCLUÍDA**: a oportunidade agora gera o
+**documento de proposta em PDF** (botão "Gerar/Baixar proposta" na pasta do cliente e no modal da
+oportunidade, mais gatilho automático quando a etapa vira **Contrato Enviado**), gravado no Storage
+privado e registrado na tabela `propostas`. Decisões **D8** e **D9** no plano.
+**Fase atual:** Fase 0 ✅, Fase 1 ✅, Fase 2 ✅, Fase 3 ✅, Fase 4 ✅, **Fase 6 ✅ (C4)**.
+**Próxima fase: NENHUMA — as fases executáveis do plano acabaram** (Fase 5 do plano = M3/M4 é
+adiada/estudo por **D6**; Pós-Vendas congelado por **D5**).
+Pendência da Fase 6 (só do lado humano): aplicar **`supabase/migrations/093_propostas_documento.sql`**
+no SQL Editor — sem ela o botão responde com a mensagem pedindo a migration (tabela `propostas` +
+bucket `propostas`).
+Continuam pendentes: migration da Fase 1 (`089`) e **`AXS_ARP_SENHA`** no env do worker (Fase 3).
 
 ---
 
@@ -19,7 +22,7 @@ Continuam pendentes as migrations da Fase 1 (`089`) e da Fase 2 (`090`).
 
 - Sistema no ar em produção (Vercel + Supabase + WAHA na VPS), 4 números conectados (`STK-1/2/3`, `ROMA_1`), webhook único `/api/webhooks/waha`.
 - Migração Evolution → WAHA **concluída**; defeitos pós-cutover corrigidos (`docs/plano-migracao-waha.md` §6 tem as causas-raiz — ler só se mexer em webhook/mídia/LID).
-- Testes verdes na última sessão: **241 casos vitest (1 deles pulado sem `GEMINI_API_KEY`) + 138 unittest do worker**, `tsc --noEmit` limpo.
+- Testes verdes na última sessão: **297 casos vitest (1 deles pulado sem `GEMINI_API_KEY`) + 138 unittest do worker**, `tsc --noEmit` limpo.
 - `next build` local: **compila, linta e tipa tudo**, mas o prerender falha nas 47 páginas porque `.env.production` está com os valores virados para `[SENSITIVE]` (sem `NEXT_PUBLIC_SUPABASE_URL` real) — é pré-existente e não afeta o deploy: a **Vercel constrói com o env dela e o build do commit `609660a` passou**.
 - **Fase 1 no ar:** C1 (filtro "Sem resposta" + badge com as horas reais, régua única `lib/atendimentos/sem-resposta.ts`) e C2 (badge de coluna lendo a config do worker + produtor de alerta `kanban_parado` com anti-spam, indo para o **dono da oportunidade + gestores**, no agendador). Worker publicado em `/app/stk-worker` e reiniciado — leitura real em produção: **8 conversas >24h sem resposta, 3 oportunidades paradas >72h**.
 - **Fase 2 (M1) codificada e publicada:** aba "Remarketing" com preview, auditoria `tipo`/`regra`,
@@ -54,6 +57,24 @@ Continuam pendentes as migrations da Fase 1 (`089`) e da Fase 2 (`090`).
   passa a ser necessária no dia em que ele decidir **ligar** a IA — aí é preencher em
   `/configuracoes/base-conhecimento` **antes** de ligar (base vazia + IA ligada = encaminha todo
   mundo pro vendedor). Não cobrar essa tarefa nas próximas sessões, exceto quando ele for ligar a IA.
+- **Fase 6 (C4) CONCLUÍDA em 27/09 — documento de proposta em PDF:**
+  - **Entidade nova** (antes não existia "proposta", só a oportunidade): migration `093` cria a
+    tabela **`propostas`** — 1 por oportunidade, `dados JSONB` com o snapshot do que foi impresso,
+    número `PROP-AAAAMMDD-XXXX`, emissão e validade (**30 dias**) — e o **bucket privado
+    `propostas`**. Caminho do arquivo é **estável por oportunidade**, então "gerar de novo"
+    sobrescreve em vez de deixar PDF órfão.
+  - **Fonte dos dados (D9):** payload da proposta na fila AXS (C3) → cadastro do cliente →
+    oportunidade (única fonte de valores). Obrigatório: nome/razão, CPF/CNPJ, logradouro+número,
+    cidade+UF, UC, concessionária e **ao menos um valor** — o que faltar volta como lista em
+    português no botão.
+  - **Dois gatilhos (D8):** automático no `PATCH /api/oportunidades` quando a etapa vira
+    `contrato_enviado` (falha nunca bloqueia a mudança de etapa, só devolve `proposta_erros`) e
+    **botão manual** `components/features/propostas/botao-proposta.tsx` em (a) cada oportunidade
+    da aba **GD da pasta do cliente** e (b) **modal da oportunidade**.
+  - **PDF:** `lib/propostas/pdf.ts` (pdf-lib, layout próprio em código — o template de
+    `public/templates/` é do RECIEE, outra proposta); servidor: `lib/propostas/gerar.ts` +
+    `app/api/propostas/route.ts` (gerar/listar) + `app/api/propostas/[id]/arquivo/route.ts` (baixar).
+  - **GATES: `npm test` 296/296 (1 skip) · `tsc --noEmit` limpo · `next build` compila · worker 138 unittest.**
 - Pós-vendas: **congelado** (decisão do dono do projeto).
 
 ## 2. Onde ler — hierarquia de leitura
@@ -227,9 +248,25 @@ O que está pronto:
 - só se ele pedir: fazer a 2ª camada da bateria (resposta real do Gemini) rodar na CI — precisa da
   chave da IA lá.
 
-**Próxima fase: Fase 6 do plano — C4 (documento de proposta).** A Fase 5 do plano (M3 artes com IA
-+ M4 Instagram) **não é executável agora**: M3 está adiado e M4 é só estudo, ambos pela **D6**.
-Ou seja, o único item pronto pra rodar é o C4 (depende do C3, que está fechado).
+~~Fase 6 do plano — C4 (documento de proposta)~~ — **CONCLUÍDA em 27/09** (detalhe na seção 1 e
+histórico na seção 7). O que ficou pronto:
+1. ✅ migration `093_propostas_documento.sql` — tabela `propostas` + bucket privado `propostas`;
+2. ✅ `lib/propostas/documento.ts` (monta e valida o conteúdo, fontes C3→cliente→oportunidade);
+3. ✅ `lib/propostas/pdf.ts` (PDF A4 com pdf-lib, texto sanitizado, metadados com o número);
+4. ✅ `lib/propostas/gerar.ts` (gerar uma vez, servir dois: botão e gatilho);
+5. ✅ rotas `POST/GET /api/propostas` e `GET /api/propostas/[id]/arquivo`;
+6. ✅ gatilho automático em `PATCH /api/oportunidades` (etapa `contrato_enviado`, **D8**);
+7. ✅ botão "Gerar/Baixar proposta" no modal da oportunidade e na aba GD da pasta do cliente.
+
+**Pendências da Fase 6 (só do lado humano):** aplicar **`supabase/migrations/093_propostas_documento.sql`**
+no SQL Editor do Supabase. Enquanto ela não rodar, o botão mostra a mensagem pedindo a migration
+(nada quebra no resto do sistema).
+
+**Próxima fase: NÃO EXISTE.** Todas as fases executáveis do plano foram: a Fase 5 do plano (M3
+artes com IA + M4 Instagram) **não é executável** — M3 adiado e M4 só estudo, ambos pela **D6** —
+e o Pós-Vendas está congelado (**D5**). O que resta são as pendências humanas acima (093, 089,
+`AXS_ARP_SENHA`) e as correções de performance (c)(d)(e) da seção 8, além do que o João decidir
+como novo item no plano.
 
 ## 4. Protocolo de checkpoint (como o doc se mantém vivo)
 
@@ -249,7 +286,7 @@ Ou seja, o único item pronto pra rodar é o C4 (depende do C3, que está fechad
 ```bash
 cd /root/stk-crm
 
-# Suíte de testes (200 casos, sem rede) — OBRIGATÓRIO antes de dizer "pronto"
+# Suíte de testes (296 casos, sem rede) — OBRIGATÓRIO antes de dizer "pronto"
 npm test
 
 # Type check
@@ -267,7 +304,7 @@ curl -s -H "X-Api-Key: $K" http://172.16.1.1:3000/api/sessions
 ```
 
 - Env do worker/banco: `/root/.stk-worker.env` (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `WAHA_API_URL=http://172.16.1.1:3000`).
-- Migrations: `supabase/migrations/` — **087, 088, 090 e 091 aplicadas; 089 (índices Fase 1) escrita, falta aplicar** no SQL Editor (a `scripts/aplicar-migracao.js` NÃO serve: ela chama a RPC `exec_sql`, que não existe neste projeto; não há `psql`/token de gestão aqui dentro — aplicação é manual, no painel do Supabase).
+- Migrations: `supabase/migrations/` — **087, 088, 090, 091 e 092 aplicadas; 093 (Fase 6 — `propostas` + bucket de PDFs) e 089 (índices Fase 1) escritas, falta aplicar as duas** no SQL Editor (a `scripts/aplicar-migracao.js` NÃO serve: ela chama a RPC `exec_sql`, que não existe neste projeto; não há `psql`/token de gestão aqui dentro — aplicação é manual, no painel do Supabase).
 - Deploy: `git push origin master` → build automático na Vercel. Confirmar `git remote -v` antes de push.
 - code-server: `https://srv1745477.hstgr.cloud:8080/?folder=/root/stk-crm`
 
@@ -296,6 +333,7 @@ curl -s -H "X-Api-Key: $K" http://172.16.1.1:3000/api/sessions
 | 26/09/2026 | Fase 2 (M1 Disparo + remarketing) | TDD de ponta a ponta: **18 testes novos** (17 em `lib/marketing/remarketing.test.ts`, 5 em `app/api/bulk/resultado-remarketing/route.test.ts`, 13 em `worker/test_remarketing.py` — RED confirmado antes do código). Entregue: regra única do público (inversa do C1), aba "Remarketing" com preview no servidor, auditoria `tipo`+`regra`, rotina diária `remarketing_diario` com 5 guardas (dry_run padrão ligado, teto 20, cadência 24h, não remarcar 7 dias, opt-out eterno gravado pelo chatbot) e métrica de taxa de resposta na tela. Worker publicado em `/app/stk-worker` (sha idêntico) e reiniciado; rotina testada a frio em produção (15 no público; falha fechada HTTP 400 enquanto a 090 não rodar). migrations 089 e 090 escritas | ✅ **código pronto — falta aplicar 090 (+089) e decidir quando LIGAR** |
 
 | 27/09/2026 | **Fase 4 (M2 — chatbot com base)** | TDD de ponta a ponta: **41 testes novos** (15 em `lib/base-conhecimento.test.ts`, 6 em `lib/ai-assistant.test.ts`, 5 em `lib/atendimentos/orquestrador.test.ts`, 4 novos no webhook WAHA + 3 da bateria de 16 casos) — RED confirmado antes do código. Entregue: migration **092** (tabela + RLS + trigger), tela `/configuracoes/base-conhecimento` (CRUD + aviso de base vazia), prompt `montarPromptIA()` com bloco da base e a regra **D7** (dúvidas **E** puxar assunto), guardrail `[[ENCAMINHAR]]` → fallback + sino com motivo/pergunta, ordem **chatbot > IA > humano** centralizada em `executarAutomacao()` (usada pelos 2 webhooks) e `integrarChatbot()` compartilhado (3 cópias → 1). Bateria com relatório em `docs/relatorios/bateria-ia-cobertura.md`. **Gates: 240 vitest + tsc limpo + `next build` compila.** | ✅ **código pronto — falta aplicar 092 e preencher a base** |
+| 27/09/2026 | **Fase 6 (C4 — documento de proposta)** | TDD de ponta a ponta: **56 testes novos** (21 em `lib/propostas/documento.test.ts`, 8 em `lib/propostas/pdf.test.ts` — leem o PDF de volta, descomprimindo os content streams, para conferir que o dado entrou na página, 20 em `app/api/propostas/route.test.ts` e 7 em `app/api/oportunidades/route.test.ts`) — RED confirmado antes do código. Entregue: migration **093** (tabela `propostas` 1:1 com a oportunidade + snapshot do conteúdo + bucket privado `propostas`), `lib/propostas/documento.ts` (fontes C3→cliente→oportunidade, validação D9, validade 30 dias), `lib/propostas/pdf.ts` (A4 com pdf-lib, sanitização de texto), serviço `lib/propostas/gerar.ts`, rotas `POST/GET /api/propostas` + `GET /api/propostas/[id]/arquivo`, **gatilho automático** no `PATCH /api/oportunidades` quando a etapa vira `contrato_enviado` (**D8**, falha nunca bloqueia a etapa) e botão `botao-proposta.tsx` (gerar→baixar, número e validade visíveis, "gerar de novo") no **modal da oportunidade** e na **aba GD da pasta do cliente**. Fake de Supabase (builder + storage) extraído para `lib/testes/supabase-fake.ts` e compartilhado pelos 2 testes de rota. **Gates: 296 vitest + 138 unittest + tsc limpo + `next build` compila.** | ✅ **código pronto — falta aplicar 093** |
 | 27/09/2026 | Fase 3 (criação real na AXS) | **Vitória:** a proposta passou a nascer com mensalidade. Causa-raiz achada na interface deles com captura de rede: `classe` é tipo de conexão (Mono/Bi/**Trifásico**) e o grupo vai em `subClasse` — mandar invertido travava tudo em "Consumo mínimo não atingido". Payload exato (1655 bytes) documentado em `docs/axs-fluxo-oficial.md`. `worker/axs_api.py` reescrito com TDD para o fluxo ARP (login Bearer + `criar/card`, token com cache e retentativa), `fila_axs.py` agora lê `AXS_ARP_EMAIL`/`AXS_ARP_SENHA`. **Gates: 200 vitest + 138 unittest + tsc limpo**; worker publicado (`sha256` conferido) e reiniciado. Prova em produção: card `1451384681` com **mensalidade R$ 4.015,79** (o antigo `1451381557` ficou R$ 0,00). Também: `git add -A` derrubou arquivos de trabalho com dados de clientes no repo público → **commit refazido com force-push e `.gitignore` reforçado**; `AXS_ARP_SENHA` pendente (só o João preenche). | ✅ Fase 3 concluída |
 
 ## 8. Diagnóstico de performance (26/09)
@@ -364,12 +402,16 @@ na corrida de carregamento — são pequenos, mas é o próximo degrau se quiser
 
 ## 9. Frase de início para a próxima conversa (para o humano)
 
-> **"Leia `/root/stk-crm/docs/HANDOFF.md`, confirme a fase atual e comece a Fase 6 do plano (C4 — documento de proposta)."**
+> **"Leia `/root/stk-crm/docs/HANDOFF.md` e me diga em que ponto o STK-CRM está."**
 
-Protocolo: **a cada nova fase é só mandar esta frase num chat novo** — quem receber lê o HANDOFF e
-já começa a implementar. Sem pendência nenhuma antes de começar (a base de conhecimento fica vazia
-por enquanto, por decisão do João de 27/09; hoje a IA está desligada e o fluxo do chatbot está
-inativo, então nada muda).
+Protocolo: **toda sessão nova começa em chat novo com uma frase assim** — quem receber lê o HANDOFF
+e já sabe onde parou. As fases executáveis do plano acabaram (Fase 6/C4 concluída em 27/09); para
+continuar é uma destas duas:
+- **pendências humanas**: aplicar a migration `093` (documentos de proposta) e a `089` (índices),
+  e preencher `AXS_ARP_SENHA` no env do worker;
+- **novo item**: *"Leia o HANDOFF e o plano de ação; quero adicionar o item Z — onde ele entra?"*
+A base de conhecimento fica vazia por decisão do João de 27/09 (hoje a IA está desligada e o fluxo
+do chatbot está inativo, então nada muda).
 
 Variantes úteis:
 - Só para revisar: *"Leia o HANDOFF do STK-CRM e me diga em que ponto estamos."*

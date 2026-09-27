@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { BotaoProposta } from "@/components/features/propostas/botao-proposta";
 
 // ─── Colunas do Funil de Vendas (mesmo do Kanban) ───
 const colunas = [
@@ -632,6 +633,9 @@ export function ModalDetalhesOportunidade({
                       Concluir
                     </Button>
                   )}
+
+                  {/* Fase 6 / C4 — documento de proposta */}
+                  <BotaoProposta oportunidadeId={oportunidade.id} />
 
                   <Button
                     size="sm"

@@ -1,8 +1,9 @@
 # Plano de Ação — Módulos CRM / MARKETING (STK-CRM)
 
-> **Status:** **Fase 0 CONCLUÍDA e no ar em 26/09/2026** (F0.1+F0.2+F0.3, migrations 087/088
-> aplicadas, deploy, worker publicado). Próxima: **Fase 1** (C1 + C2), aguardando GO.
-> **Verificação:** 26/09/2026 (checado no código/banco/repositório, não em docs). **Respostas do João incorporadas:** 26/09/2026.
+> **Status:** **Fase 6 (C4 — documento de proposta) CONCLUÍDA em 27/09/2026**. Fases 0–4 já
+> entregues; Fase 5 (M3/M4) adiada/estudo por D6. Pendente do lado humano: aplicar as migrations
+> `089` e `093` no SQL Editor (ver §Pendências).
+> **Verificação:** 27/09/2026 (checado no código/repositório, não em docs). **Respostas do João incorporadas:** 26/09/2026.
 > **Método:** TDD (RED → GREEN → REFACTOR). **Sem prazos aqui:** escopo, dependências e ordem — prazo é outra coisa.
 > **Documento divisor (obrigatório ler ao iniciar qualquer sessão):** `docs/HANDOFF.md`
 
@@ -28,7 +29,7 @@
 | Chatbot: fluxo sequencial fixo + "não entendi" + fallback que encaminha ao vendedor. IA (Gemini) responde com persona genérica e **zero base de conhecimento** (só histórico de 10 msgs) | `lib/chatbot/engine.ts`, `lib/ai-assistant.ts` |
 | Gerador de PDF de proposta já pronto: `pdf-lib` + template `public/templates/proposta_template.pdf` (RECIEE) | `app/api/reciee/clientes/[clienteId]/proposta/route.ts` |
 | Instagram: nada além de cor de gráfico/opção de origem de lead. Zero publicação | grep `instagram` |
-| Testes hoje: 105 casos vitest + 12 unittest worker (verdes), `tsc --noEmit` limpo | `npm test`, `python3 -m unittest test_disparo_worker` |
+| Testes hoje: 296 casos vitest + 14 unittest worker (verdes), `tsc --noEmit` limpo | `npm test`, `python3 -m unittest test_disparo_worker` |
 
 ---
 
@@ -43,6 +44,8 @@
 | **D5** | Pós-vendas **congelado** nesta leva. | pedido explícito |
 | **D6** | M3 (artes com IA) **adiado, mas mapeado** (custo na tabela do M3). M4 Instagram: **só estudo de possibilidade** por enquanto. | respostas 3 e 4 |
 | **D7** | Chatbot "qualquer assunto" = **tirar dúvida E puxar assunto**: a IA responde perguntas da base e pode sugerir produtos/serviços cadastrados (máx. 1-2 sugestões por mensagem), nunca preço/prazo fora da base. | resposta do João (pergunta 7), 27/09 |
+| **D8** | Gatilho do documento de proposta = **os dois**: automático quando a etapa vira `contrato_enviado` (a rota do PATCH gera e devolve `proposta` na resposta) **e** botão manual na pasta do cliente e no modal. Falha de geração **nunca** bloqueia a mudança de etapa — ela só devolve `proposta_erros` e o botão explica o que falta. | decidido na implementação, 27/09 |
+| **D9** | Obrigatório do PDF: nome/razão, CPF/CNPJ (11 ou 14 dígitos), logradouro + número, cidade + UF, UC, concessionária e **ao menos um dos valores** (`valor_proposta` ou `valor_venda`). Fonte dos dados em ordem: **payload da fila AXS (C3) → cadastro do cliente → oportunidade (única fonte de valores)**. Validade de **30 dias** a partir da emissão. | decidido na implementação, 27/09 |
 
 ---
 
@@ -128,8 +131,31 @@ Sem isso, C2, M1 e M4 ficam no ar.
 - **Escopo:** gatilho na etapa (provável `contrato_enviado`) → PDF com `pdf-lib` (mesma base: `app/api/reciee/.../proposta/route.ts`) com dados do cliente + oportunidade → salva no Storage → botão "Baixar proposta" na pasta do cliente e no modal da oportunidade.
 - **Depende de:** modelo de dados da proposta GD (campos, valores, validade) — hoje não existe "proposta" como entidade, só a oportunidade — e de C3 existir (é lá que a proposta vira objeto concreto).
 - **A decidir na implementação:** conteúdo obrigatório do PDF; gatilho automático ou botão manual.
-
----
+- **Status: CONCLUÍDO em 27/09/2026** (TDD, 56 testes novos; ver `docs/HANDOFF.md` → Fase 6).
+  Decisões tomadas aqui: **D8** (gatilho automático + botão manual) e **D9** (obrigatórios,
+  fontes dos dados e validade de 30 dias).
+  O que ficou de diferente do desenho, deliberado:
+  - **Entidade nova:** migration `093_propostas_documento.sql` cria a tabela **`propostas`**
+    (uma por oportunidade, `dados JSONB` = snapshot do conteúdo do PDF, `arquivo_path`
+    **estável** por oportunidade para regerar sem deixar PDF órfão) + bucket privado
+    **`propostas`**. Sem ela a rota responde 500 citando a migration.
+  - **Layout próprio, não o template do RECIEE:** `public/templates/proposta_template.pdf` é a
+    proposta de recuperação do RECIEE (5 MB, outra proposta comercial). O de GD é uma ficha
+    (contratante / endereço / unidade / condições / observações) desenhada em código em
+    `lib/propostas/pdf.ts`, com sanitização de texto (emoji/caractere fora do WinAnsi quebraria
+    o pdf-lib no meio da geração).
+  - **Serviço compartilhado:** `lib/propostas/gerar.ts` é usado pela rota do botão E pelo
+    gatilho do `PATCH /api/oportunidades` — mesma validação, mesmo PDF, mesma gravação.
+  - **Botão único com dois estados** (`components/features/propostas/botao-proposta.tsx`):
+    "Gerar proposta" → gera e baixa; depois vira "Baixar proposta" (número + validade visíveis)
+    com "gerar de novo". Colocado no **modal da oportunidade** e em cada oportunidade da aba
+    **GD da pasta do cliente**.
+  - Arquivos: `supabase/migrations/093_propostas_documento.sql`, `lib/propostas/documento.ts`
+    (+testes), `lib/propostas/pdf.ts` (+testes), `lib/propostas/gerar.ts`, `lib/testes/supabase-fake.ts`,
+    `app/api/propostas/route.ts` (+testes), `app/api/propostas/[id]/arquivo/route.ts` (+testes),
+    gancho em `app/api/oportunidades/route.ts` (+testes).
+  - **Pendente do lado humano:** aplicar a migration `093` no SQL Editor — sem ela o botão
+    responde com a mensagem citando o arquivo (a tabela e o bucket é que faltam).
 
 ## BLOCO MARKETING
 
@@ -233,7 +259,7 @@ Congelado por decisão (D5). Nada de código nesse bloco nesta leva.
 | **3** | C3 fila AXS | desenho fechado (D4); é a maior peça |
 | **4** | M2 chatbot com base de conhecimento | corre paralelo ao 3 |
 | **5** | M3 (se liberado) + M4 WhatsApp agendado / Instagram em estudo | depende de custo (M3) e conta Meta (M4) |
-| **6** | C4 documento de proposta | você colocou por último |
+| **6** | C4 documento de proposta | você colocou por último — ✅ **entregue em 27/09/2026** |
 
 ## Perguntas — situação
 
@@ -251,6 +277,7 @@ Congelado por decisão (D5). Nada de código nesse bloco nesta leva.
 - Worker Python só-stdlib, poll no Supabase, envio via WAHA; testes `python3 -m unittest test_disparo_worker`.
 - Bateria E2E de atendimento **só envia para 6282735286** (556282735286) — nunca trocar o destino.
 - WhatsApp: sessões `STK-1/2/3` (+ `ROMA_1`) todas WORKING; webhook único `/api/webhooks/waha`.
-- PDF: `pdf-lib` (mesma base do RECIEE), template em `public/templates/`.
-- Deploy: push em `master` → Vercel build automático; migrations numeradas em `supabase/migrations/` (próxima: **087**).
-- Gate de qualquer fase: `npm test` (105 casos) verde + `tsc --noEmit` limpo.
+- PDF: `pdf-lib` — RECIEE usa o template de `public/templates/`; a proposta **GD** (C4) desenha o
+  próprio layout em `lib/propostas/pdf.ts` (o template RECIEE é de outra proposta).
+- Deploy: push em `master` → Vercel build automático; migrations numeradas em `supabase/migrations/` (próxima: **094**).
+- Gate de qualquer fase: `npm test` (296 casos) verde + `tsc --noEmit` limpo + `python3 -m unittest test_disparo_worker` (14) verde.
