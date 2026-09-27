@@ -51,6 +51,8 @@ vi.mock('@supabase/supabase-js', () => ({ createClient: () => supabaseFake }))
 vi.mock('@/lib/ai-assistant', () => ({
   verificarIAAtivada: vi.fn(async () => false),
   gerarRespostaIA: vi.fn(async () => null),
+  responderComBase: vi.fn(async () => ({ texto: null, encaminhar: false })),
+  carregarBaseConhecimento: vi.fn(async () => []),
 }))
 vi.mock('@/lib/chatbot/engine', () => ({
   processarMensagemChatbot: vi.fn(async () => ({ action: 'chatbot_started' })),
@@ -72,8 +74,11 @@ vi.mock('@/lib/lid-resolver', () => ({
 }))
 
 import { POST } from './route'
-import { resolverLidMultiSessao, buscarNomeContato } from '@/lib/waha'
+import { resolverLidMultiSessao, buscarNomeContato, enviarTexto } from '@/lib/waha'
 import { saveLidMapping } from '@/lib/lid-resolver'
+import { verificarIAAtivada, responderComBase } from '@/lib/ai-assistant'
+import { processarMensagemChatbot } from '@/lib/chatbot/engine'
+import { MENSAGEM_ENCAMINHAMENTO_IA } from '@/lib/atendimentos/orquestrador'
 
 // O getSupabase() da rota exige as env vars (o cliente é mockado; só a validação importa)
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://supabase.test'
@@ -435,5 +440,111 @@ describe('POST /api/webhooks/waha', () => {
     expect(saveLidMapping).toHaveBeenCalledWith(
       '171288010219688@lid', '5562988887777', 'STK-1', 'Vivo Comunica'
     )
+  })
+})
+
+// ==================== M2 — ORDEM CENTRALIZADA + GUARDRAIL DA BASE ====================
+
+describe('M2 — chatbot > IA > humano com base de conhecimento', () => {
+  beforeEach(() => {
+    vi.mocked(verificarIAAtivada).mockReset().mockResolvedValue(false)
+    vi.mocked(responderComBase)
+      .mockReset()
+      .mockResolvedValue({ texto: null, encaminhar: false })
+    vi.mocked(processarMensagemChatbot).mockReset().mockResolvedValue({ action: 'chatbot_started' } as any)
+    vi.mocked(enviarTexto).mockClear()
+  })
+
+  /** Coreografia de um cliente respondendo num atendimento já aberto. */
+  function coreografiaAtendimentoAberto() {
+    filas['atendimento_mensagens'] = [{ list: [] }] // dedup por id
+    filas['clientes'] = [{ list: [] }]
+    filas['atendimentos'] = [
+      { single: { id: 'at-aberto', nome_cliente: 'Ana', cliente_id: null, vendedor_id: 'vend-1', instancia: 'STK-1' } },
+    ]
+    filas['chatbot_sessions'] = [{ single: null }, { single: null }, { single: null }]
+    filas['chatbot_flows'] = [{ single: null }]
+    filas['profiles'] = [{ list: [{ id: 'vend-1' }] }]
+  }
+
+  function payloadCliente(body: string) {
+    return {
+      ...fixtures.message_text,
+      payload: { ...fixtures.message_text.payload, fromMe: false, body },
+    }
+  }
+
+  it('chatbot lida a mensagem → a IA NÃO responde junto (precedência)', async () => {
+    coreografiaAtendimentoAberto()
+    filas['chatbot_sessions'] = [
+      { single: { id: 'sess-1', status: 'ativa', instancia: 'STK-1', telefone: '5562999990000' } },
+      { single: null },
+      { single: null },
+    ]
+    vi.mocked(verificarIAAtivada).mockResolvedValue(true)
+
+    const res = await POST(req(payloadCliente('oi, preciso de ajuda')))
+    const json = await res.json()
+
+    expect(json.action).toBe('chatbot')
+    expect(processarMensagemChatbot).toHaveBeenCalledTimes(1)
+    expect(responderComBase).not.toHaveBeenCalled()
+    expect(enviarTexto).not.toHaveBeenCalled()
+  })
+
+  it('IA ligada e sem chatbot → responde a partir da base', async () => {
+    coreografiaAtendimentoAberto()
+    vi.mocked(verificarIAAtivada).mockResolvedValue(true)
+    vi.mocked(responderComBase).mockResolvedValue({ texto: 'Sim! A entrega sai em 48h.', encaminhar: false })
+
+    const res = await POST(req(payloadCliente('Qual o prazo de entrega?')))
+    const json = await res.json()
+
+    expect(json.action).toBe('updated')
+    expect(enviarTexto).toHaveBeenCalledWith(
+      expect.objectContaining({ mensagem: 'Sim! A entrega sai em 48h.' }),
+    )
+    // histórico: a mensagem do cliente + a resposta da IA
+    const msgs = inserts.filter((i) => i.tabela === 'atendimento_mensagens')
+    expect(msgs).toHaveLength(2)
+    expect(msgs[1].row.remetente).toBe('vendedor')
+    expect(msgs[1].row.conteudo).toContain('48h')
+    expect(inserts.filter((i) => i.tabela === 'notificacoes')).toHaveLength(0)
+  })
+
+  it('guardrail: fora da base → fallback ao cliente + notificação com motivo e pergunta', async () => {
+    coreografiaAtendimentoAberto()
+    vi.mocked(verificarIAAtivada).mockResolvedValue(true)
+    vi.mocked(responderComBase).mockResolvedValue({ texto: null, encaminhar: true, motivo: 'fora_da_base' })
+
+    const res = await POST(req(payloadCliente('Vocês fazem instalação de alarme condominial?')))
+    const json = await res.json()
+
+    expect(json.action).toBe('updated')
+
+    // cliente recebe o fallback (vendedor assume)
+    const envios = vi.mocked(enviarTexto).mock.calls.map((c) => c[0].mensagem)
+    expect(envios).toContain(MENSAGEM_ENCAMINHAMENTO_IA)
+
+    // registro do motivo para o vendedor ver o porquê
+    const notifs = inserts.filter((i) => i.tabela === 'notificacoes')
+    expect(notifs).toHaveLength(1)
+    const linha = Array.isArray(notifs[0].row) ? notifs[0].row[0] : notifs[0].row
+    expect(linha.tipo).toBe('chatbot')
+    expect(linha.mensagem).toContain('fora_da_base')
+    expect(String(linha.dados.pergunta)).toContain('alarme')
+    expect(linha.dados.origem).toBe('ia_base_conhecimento')
+  })
+
+  it('IA desligada e chatbot fora → ninguém responde (humano assume, sem mensagem automática)', async () => {
+    coreografiaAtendimentoAberto()
+
+    const res = await POST(req(payloadCliente('só teste de silêncio')))
+    const json = await res.json()
+
+    expect(json.action).toBe('updated')
+    expect(enviarTexto).not.toHaveBeenCalled()
+    expect(responderComBase).not.toHaveBeenCalled()
+    expect(inserts.filter((i) => i.tabela === 'notificacoes')).toHaveLength(0)
   })
 })

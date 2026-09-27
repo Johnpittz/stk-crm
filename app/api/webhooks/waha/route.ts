@@ -29,7 +29,8 @@ import { rateLimit } from "@/lib/rate-limit";
 import { telefoneParaDigitos } from "@/lib/telefone";
 import { buscarVendedorPadrao } from "@/lib/roteamento";
 import { uploadMediaToStorage } from "@/lib/media-storage";
-import { gerarRespostaIA, verificarIAAtivada } from "@/lib/ai-assistant";
+import { executarAutomacao } from "@/lib/atendimentos/resposta-automatica";
+import { integrarChatbot } from "@/lib/atendimentos/integrar-chatbot";
 import { processarMensagemChatbot } from "@/lib/chatbot/engine";
 import { resolveLidToPhone, saveLidMapping } from "@/lib/lid-resolver";
 import { parseEventoWaha, montarConteudo, type MensagemWaha } from "@/lib/waha-webhook";
@@ -342,68 +343,37 @@ export async function POST(request: NextRequest) {
 
       console.log(`[Webhook WAHA] Mensagem adicionada ao atendimento ${atendimentoExistente.id}`);
 
-      // ===== INTEGRAÇÃO CHATBOT =====
+      // ===== AUTOMAÇÃO (M2): chatbot > IA > humano — ordem centralizada =====
       if (!dados.from_me && conteudoMensagem) {
-        try {
-          const acao = await integrarChatbot({
-            telefoneLimpo,
-            mensagem: conteudoMensagem,
-            instancia: sessionName || "STK-3",
-            nomeCliente: nomeCliente || undefined,
-            verificarSessaoAtiva: true,
-          });
-          if (acao) {
-            if (acao === "chatbot_fora_horario") {
-              return NextResponse.json({ success: true, atendimento_id: atendimentoExistente.id, action: acao });
-            }
-            return NextResponse.json({ success: true, atendimento_id: atendimentoExistente.id, action: acao });
-          }
-        } catch (err: any) {
-          console.error("[Chatbot] Erro:", err.message);
-        }
-      }
-
-      // ===== INTEGRAÇÃO IA =====
-      if (!dados.from_me && conteudoMensagem) {
-        const iaAtivada = await verificarIAAtivada(getSupabase());
-        if (iaAtivada) {
-          try {
-            const { data: historico } = await getSupabase()
+        const automacao = await executarAutomacao({
+          supabase: getSupabase(),
+          telefone: telefoneLimpo,
+          mensagem: conteudoMensagem,
+          instancia: sessionName || "STK-3",
+          nomeCliente: nomeCliente || undefined,
+          atendimentoId: atendimentoExistente.id,
+          buscarHistorico: async () => {
+            const { data } = await getSupabase()
               .from("atendimento_mensagens")
               .select("remetente, conteudo")
               .eq("atendimento_id", atendimentoExistente.id)
               .order("created_at", { ascending: true })
               .limit(20);
-
-            const respostaIA = await gerarRespostaIA({
-              mensagemCliente: conteudoMensagem,
-              nomeCliente: nomeCliente || undefined,
-              historico: historico || [],
-            });
-
-            if (respostaIA) {
-              const resultado = await enviarTexto({
-                telefone: telefoneLimpo,
-                mensagem: respostaIA,
-                session: sessionName || undefined,
-              });
-
-              if (resultado.success) {
-                console.log(`[Webhook WAHA] IA respondeu para ${telefoneLimpo}: ${respostaIA.substring(0, 50)}...`);
-                await getSupabase().from("atendimento_mensagens").insert({
-                  atendimento_id: atendimentoExistente.id,
-                  remetente: "vendedor",
-                  conteudo: respostaIA,
-                  enviada_por: null, // IA não é um vendedor específico
-                  whatsapp_message_id: resultado.message_id || null,
-                });
-              } else {
-                console.error(`[Webhook WAHA] Erro ao enviar resposta IA:`, resultado.error);
-              }
-            }
-          } catch (err: any) {
-            console.error("[Webhook WAHA] Erro na integração IA:", err.message);
-          }
+            return data || [];
+          },
+          tentarChatbot: () => integrarChatbot({
+            supabase: getSupabase(),
+            telefone: telefoneLimpo,
+            mensagem: conteudoMensagem,
+            instancia: sessionName || "STK-3",
+            nomeCliente: nomeCliente || undefined,
+            verificarSessaoAtiva: true,
+          }),
+          enviar: (texto) =>
+            enviarTexto({ telefone: telefoneLimpo, mensagem: texto, session: sessionName || undefined }),
+        });
+        if (automacao.action) {
+          return NextResponse.json({ success: true, atendimento_id: atendimentoExistente.id, action: automacao.action });
         }
       }
 
@@ -457,55 +427,28 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Webhook WAHA] Novo atendimento criado: ${novoAtendimento.id}`);
 
-    // ===== INTEGRAÇÃO CHATBOT (novo atendimento) =====
+    // ===== AUTOMAÇÃO (M2): chatbot > IA > humano — mesma ordem do bloco acima =====
     if (!dados.from_me && conteudoMensagem) {
-      try {
-        const acao = await integrarChatbot({
-          telefoneLimpo,
+      const automacao = await executarAutomacao({
+        supabase: getSupabase(),
+        telefone: telefoneLimpo,
+        mensagem: conteudoMensagem,
+        instancia: sessionName || "STK-3",
+        nomeCliente: nomeCliente || undefined,
+        atendimentoId: novoAtendimento.id,
+        tentarChatbot: () => integrarChatbot({
+          supabase: getSupabase(),
+          telefone: telefoneLimpo,
           mensagem: conteudoMensagem,
           instancia: sessionName || "STK-3",
           nomeCliente: nomeCliente || undefined,
           verificarSessaoAtiva: false,
-        });
-        if (acao) {
-          return NextResponse.json({ success: true, atendimento_id: novoAtendimento.id, action: acao });
-        }
-      } catch (err: any) {
-        console.error("[Chatbot] Erro (novo):", err.message);
-      }
-    }
-
-    // ===== INTEGRAÇÃO IA (novo atendimento) =====
-    if (!dados.from_me && conteudoMensagem) {
-      const iaAtivada = await verificarIAAtivada(getSupabase());
-      if (iaAtivada) {
-        try {
-          const respostaIA = await gerarRespostaIA({
-            mensagemCliente: conteudoMensagem,
-            nomeCliente: nomeCliente || undefined,
-          });
-
-          if (respostaIA) {
-            const resultado = await enviarTexto({
-              telefone: telefoneLimpo,
-              mensagem: respostaIA,
-              session: sessionName || undefined,
-            });
-
-            if (resultado.success) {
-              console.log(`[Webhook WAHA] IA respondeu (novo atendimento) para ${telefoneLimpo}`);
-              await getSupabase().from("atendimento_mensagens").insert({
-                atendimento_id: novoAtendimento.id,
-                remetente: "vendedor",
-                conteudo: respostaIA,
-                enviada_por: null,
-                whatsapp_message_id: resultado.message_id || null,
-              });
-            }
-          }
-        } catch (err: any) {
-          console.error("[Webhook WAHA] Erro IA (novo atendimento):", err.message);
-        }
+        }),
+        enviar: (texto) =>
+          enviarTexto({ telefone: telefoneLimpo, mensagem: texto, session: sessionName || undefined }),
+      });
+      if (automacao.action) {
+        return NextResponse.json({ success: true, atendimento_id: novoAtendimento.id, action: automacao.action });
       }
     }
 
@@ -517,103 +460,6 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-// ==================== INTEGRAÇÃO CHATBOT ====================
-
-/**
- * Fluxo de ativação do chatbot — port fiel do webhook da Evolution:
- * - sessão ativa → processa a mensagem (só quando verificarSessaoAtiva, caso do atendimento existente)
- * - sessão concluída/encaminhada → nunca reativa ("already_completed")
- * - sessão cancelada nas últimas 24h → bloqueada ("blocked_cancelled")
- * - fluxo ativo + gatilho (todos | disparo) → inicia/processa
- * Retorna a action ou null se o chatbot não deve responder.
- */
-async function integrarChatbot(params: {
-  telefoneLimpo: string;
-  mensagem: string;
-  instancia: string;
-  nomeCliente?: string;
-  verificarSessaoAtiva: boolean;
-}): Promise<string | null> {
-  const { telefoneLimpo, mensagem, instancia, nomeCliente, verificarSessaoAtiva } = params;
-
-  if (verificarSessaoAtiva) {
-    const { data: sessaoChatbot } = await getSupabase()
-      .from("chatbot_sessions")
-      .select("*")
-      .eq("telefone", telefoneLimpo)
-      .eq("status", "ativa")
-      .maybeSingle();
-
-    if (sessaoChatbot) {
-      await processarMensagemChatbot(telefoneLimpo, mensagem, instancia, nomeCliente);
-      return "chatbot";
-    }
-  }
-
-  // Sessão já finalizada — não reativar
-  const { data: sessaoFinalizada } = await getSupabase()
-    .from("chatbot_sessions")
-    .select("id")
-    .eq("telefone", telefoneLimpo)
-    .in("status", ["concluida", "encaminhada"])
-    .limit(1)
-    .maybeSingle();
-
-  if (sessaoFinalizada) {
-    return "already_completed";
-  }
-
-  // Cancelada nas últimas 24h — não reativar
-  const { data: sessaoCancelada } = await getSupabase()
-    .from("chatbot_sessions")
-    .select("id")
-    .eq("telefone", telefoneLimpo)
-    .eq("status", "cancelada")
-    .gte("updated_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-    .limit(1)
-    .maybeSingle();
-
-  if (sessaoCancelada) {
-    return "blocked_cancelled";
-  }
-
-  const { data: fluxoChatbot } = await getSupabase()
-    .from("chatbot_flows")
-    .select("*")
-    .eq("ativo", true)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (!fluxoChatbot) return null;
-
-  // Gatilho: 'disparo' só ativa para números na tabela de gatilho
-  let podeAtivar = fluxoChatbot.gatilho === "todos";
-  if (fluxoChatbot.gatilho === "disparo") {
-    const { data: noGatilho } = await getSupabase()
-      .from("chatbot_gatilho_numeros")
-      .select("id")
-      .eq("flow_id", fluxoChatbot.id)
-      .eq("telefone", telefoneLimpo)
-      .maybeSingle();
-    podeAtivar = !!noGatilho;
-  }
-
-  if (!podeAtivar) return null;
-
-  const resultadoChatbot = await processarMensagemChatbot(
-    telefoneLimpo,
-    mensagem,
-    instancia || fluxoChatbot.instancia || "STK-3",
-    nomeCliente
-  );
-  console.log(`[Chatbot] Resultado: ${resultadoChatbot.action}`);
-  if (resultadoChatbot.action === "fora_horario") {
-    return "chatbot_fora_horario";
-  }
-  return "chatbot_started";
 }
 
 // ==================== FUNÇÕES AUXILIARES ====================

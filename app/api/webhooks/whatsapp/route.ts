@@ -16,8 +16,8 @@ import { rateLimit } from "@/lib/rate-limit";
 import { telefoneParaDigitos, enviarMensagemWhatsApp } from "@/lib/evolution-api";
 import { buscarVendedorPadrao } from "@/lib/roteamento";
 import { uploadMediaToStorage } from "@/lib/media-storage";
-import { gerarRespostaIA, verificarIAAtivada } from "@/lib/ai-assistant";
-import { processarMensagemChatbot } from "@/lib/chatbot/engine";
+import { executarAutomacao } from "@/lib/atendimentos/resposta-automatica";
+import { integrarChatbot } from "@/lib/atendimentos/integrar-chatbot";
 import { resolveLidToPhone, saveLidMapping } from "@/lib/lid-resolver";
 import { validateWebhookSecret } from "@/lib/webhook-secret";
 
@@ -194,135 +194,40 @@ export async function POST(request: NextRequest) {
 
       console.log(`[Webhook WhatsApp] Mensagem adicionada ao atendimento ${atendimentoExistente.id}`);
 
-      // ===== INTEGRAÇÃO CHATBOT =====
+      // ===== AUTOMAÇÃO (M2): chatbot > IA > humano — ordem centralizada =====
       if (!dados.fromMe && mensagem) {
-        try {
-          // Verificar se há sessão ativa
-          const { data: sessaoChatbot } = await getSupabase()
-            .from('chatbot_sessions')
-            .select('*')
-            .eq('telefone', telefoneLimpo)
-            .eq('status', 'ativa')
-            .maybeSingle();
-
-          if (sessaoChatbot) {
-            await processarMensagemChatbot(telefoneLimpo, mensagem, dados.instance || 'ROMA_2', nomeCliente || undefined);
-            return NextResponse.json({ success: true, atendimento_id: atendimentoExistente.id, action: "chatbot" });
-          }
-
-          // Verificar se já recebeu o script antes (concluída/encaminhada) — não reativar
-          const { data: sessaoFinalizada } = await getSupabase()
-            .from('chatbot_sessions')
-            .select('id')
-            .eq('telefone', telefoneLimpo)
-            .in('status', ['concluida', 'encaminhada'])
-            .limit(1)
-            .maybeSingle();
-
-          if (sessaoFinalizada) {
-            return NextResponse.json({ success: true, action: "already_completed" });
-          }
-
-          // Verificar se foi cancelada nas últimas 24h (não reativar)
-          const { data: sessaoCancelada } = await getSupabase()
-            .from('chatbot_sessions')
-            .select('id')
-            .eq('telefone', telefoneLimpo)
-            .eq('status', 'cancelada')
-            .gte('updated_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-            .limit(1)
-            .maybeSingle();
-
-          if (sessaoCancelada) {
-            return NextResponse.json({ success: true, action: "blocked_cancelled" });
-          }
-
-          const { data: fluxoChatbot } = await getSupabase()
-            .from('chatbot_flows')
-            .select('*')
-            .eq('ativo', true)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          if (fluxoChatbot) {
-            // Checar gatilho: se 'disparo', só ativa pra números na tabela
-            let podeAtivar = fluxoChatbot.gatilho === 'todos';
-            if (fluxoChatbot.gatilho === 'disparo') {
-              const { data: noGatilho } = await getSupabase()
-                .from('chatbot_gatilho_numeros')
-                .select('id')
-                .eq('flow_id', fluxoChatbot.id)
-                .eq('telefone', telefoneLimpo)
-                .maybeSingle();
-              podeAtivar = !!noGatilho;
-            }
-
-            if (podeAtivar) {
-              const resultadoChatbot = await processarMensagemChatbot(telefoneLimpo, mensagem, dados.instance || fluxoChatbot.instancia || 'ROMA_2', nomeCliente || undefined);
-              console.log(`[Chatbot] Resultado: ${resultadoChatbot.action}`);
-              if (resultadoChatbot.action === 'fora_horario') {
-                // Fora do horário, não cria sessão — retorna mensagem de erro
-                return NextResponse.json({ success: true, atendimento_id: atendimentoExistente.id, action: "chatbot_fora_horario" });
-              }
-              return NextResponse.json({ success: true, atendimento_id: atendimentoExistente.id, action: "chatbot_started" });
-            }
-          }
-        } catch (err: any) {
-          console.error('[Chatbot] Erro:', err.message);
-        }
-      }
-      // ===== FIM INTEGRAÇÃO CHATBOT =====
-
-      // ===== INTEGRAÇÃO IA =====
-      // Se a IA está ativada e a mensagem é do cliente, gera e envia resposta automática
-      if (!dados.fromMe && mensagem) {
-        const iaAtivada = await verificarIAAtivada(getSupabase());
-        if (iaAtivada) {
-          try {
-            // Buscar histórico recente do atendimento
-            const { data: historico } = await getSupabase()
+        const automacao = await executarAutomacao({
+          supabase: getSupabase(),
+          telefone: telefoneLimpo,
+          mensagem,
+          instancia: dados.instance || 'ROMA_2',
+          nomeCliente: nomeCliente || undefined,
+          atendimentoId: atendimentoExistente.id,
+          buscarHistorico: async () => {
+            const { data } = await getSupabase()
               .from('atendimento_mensagens')
               .select('remetente, conteudo')
               .eq('atendimento_id', atendimentoExistente.id)
               .order('created_at', { ascending: true })
               .limit(20);
-
-            // Gerar resposta da IA
-            const respostaIA = await gerarRespostaIA({
-              mensagemCliente: mensagem,
-              nomeCliente: nomeCliente || undefined,
-              historico: historico || [],
-            });
-
-            if (respostaIA) {
-              // Enviar resposta via Evolution API
-              const resultado = await enviarMensagemWhatsApp({
-                telefone: telefoneLimpo,
-                mensagem: respostaIA,
-                instance: dados.instance || undefined,
-              });
-
-              if (resultado.success) {
-                console.log(`[Webhook WhatsApp] IA respondeu para ${telefoneLimpo}: ${respostaIA.substring(0, 50)}...`);
-                // Salvar resposta da IA no chat
-                await getSupabase().from('atendimento_mensagens').insert({
-                  atendimento_id: atendimentoExistente.id,
-                  remetente: 'vendedor',
-                  conteudo: respostaIA,
-                  enviada_por: null, // IA não é um vendedor específico
-                  whatsapp_message_id: resultado.message_id,
-                });
-              } else {
-                console.error(`[Webhook WhatsApp] Erro ao enviar resposta IA:`, resultado.error);
-              }
-            }
-          } catch (err: any) {
-            console.error('[Webhook WhatsApp] Erro na integração IA:', err.message);
-          }
+            return data || [];
+          },
+          tentarChatbot: () => integrarChatbot({
+            supabase: getSupabase(),
+            telefone: telefoneLimpo,
+            mensagem,
+            instancia: dados.instance || 'ROMA_2',
+            nomeCliente: nomeCliente || undefined,
+            verificarSessaoAtiva: true,
+            instanciaPadrao: 'ROMA_2',
+          }),
+          enviar: (texto) =>
+            enviarMensagemWhatsApp({ telefone: telefoneLimpo, mensagem: texto, instance: dados.instance || undefined }),
+        });
+        if (automacao.action) {
+          return NextResponse.json({ success: true, atendimento_id: atendimentoExistente.id, action: automacao.action });
         }
       }
-      // ===== FIM INTEGRAÇÃO IA =====
 
       return NextResponse.json({ success: true, atendimento_id: atendimentoExistente.id, action: "updated" });
     }
@@ -388,104 +293,31 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Webhook WhatsApp] Novo atendimento criado: ${novoAtendimento.id}`);
 
-    // ===== INTEGRAÇÃO CHATBOT (novo atendimento) =====
+    // ===== AUTOMAÇÃO (M2): chatbot > IA > humano — mesma ordem do bloco acima =====
     if (!dados.fromMe && mensagem) {
-      try {
-        // Verificar se já recebeu o script antes (concluída/encaminhada) — não reativar
-        const { data: sessaoFinalizadaNovo } = await getSupabase()
-          .from('chatbot_sessions')
-          .select('id')
-          .eq('telefone', telefoneLimpo)
-          .in('status', ['concluida', 'encaminhada'])
-          .limit(1)
-          .maybeSingle();
-
-        if (sessaoFinalizadaNovo) {
-          return NextResponse.json({ success: true, action: "already_completed" });
-        }
-
-        // Verificar se foi cancelada nas últimas 24h
-        const { data: sessaoCanceladaNovo } = await getSupabase()
-          .from('chatbot_sessions')
-          .select('id')
-          .eq('telefone', telefoneLimpo)
-          .eq('status', 'cancelada')
-          .gte('updated_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-          .limit(1)
-          .maybeSingle();
-
-        if (sessaoCanceladaNovo) {
-          return NextResponse.json({ success: true, action: "blocked_cancelled" });
-        }
-
-        const { data: fluxoChatbotNovo } = await getSupabase()
-          .from('chatbot_flows')
-          .select('*')
-          .eq('ativo', true)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (fluxoChatbotNovo) {
-          let podeAtivar = fluxoChatbotNovo.gatilho === 'todos';
-          if (fluxoChatbotNovo.gatilho === 'disparo') {
-            const { data: noGatilho } = await getSupabase()
-              .from('chatbot_gatilho_numeros')
-              .select('id')
-              .eq('flow_id', fluxoChatbotNovo.id)
-              .eq('telefone', telefoneLimpo)
-              .maybeSingle();
-            podeAtivar = !!noGatilho;
-          }
-          if (podeAtivar) {
-            const resultadoChatbotNovo = await processarMensagemChatbot(telefoneLimpo, mensagem, dados.instance || fluxoChatbotNovo.instancia || 'ROMA_2', nomeCliente || undefined);
-            console.log(`[Chatbot] Resultado (novo): ${resultadoChatbotNovo.action}`);
-            if (resultadoChatbotNovo.action === 'fora_horario') {
-              return NextResponse.json({ success: true, atendimento_id: novoAtendimento.id, action: "chatbot_fora_horario" });
-            }
-            return NextResponse.json({ success: true, atendimento_id: novoAtendimento.id, action: "chatbot_started" });
-          }
-        }
-      } catch (err: any) {
-        console.error('[Chatbot] Erro (novo):', err.message);
+      const automacao = await executarAutomacao({
+        supabase: getSupabase(),
+        telefone: telefoneLimpo,
+        mensagem,
+        instancia: dados.instance || 'ROMA_2',
+        nomeCliente: nomeCliente || undefined,
+        atendimentoId: novoAtendimento.id,
+        tentarChatbot: () => integrarChatbot({
+          supabase: getSupabase(),
+          telefone: telefoneLimpo,
+          mensagem,
+          instancia: dados.instance || 'ROMA_2',
+          nomeCliente: nomeCliente || undefined,
+          verificarSessaoAtiva: false,
+          instanciaPadrao: 'ROMA_2',
+        }),
+        enviar: (texto) =>
+          enviarMensagemWhatsApp({ telefone: telefoneLimpo, mensagem: texto, instance: dados.instance || undefined }),
+      });
+      if (automacao.action) {
+        return NextResponse.json({ success: true, atendimento_id: novoAtendimento.id, action: automacao.action });
       }
     }
-    // ===== FIM INTEGRAÇÃO CHATBOT (novo atendimento) =====
-
-    // ===== INTEGRAÇÃO IA (novo atendimento) =====
-    if (!dados.fromMe && mensagem) {
-      const iaAtivada = await verificarIAAtivada(getSupabase());
-      if (iaAtivada) {
-        try {
-          const respostaIA = await gerarRespostaIA({
-            mensagemCliente: mensagem,
-            nomeCliente: nomeCliente || undefined,
-          });
-
-          if (respostaIA) {
-            const resultado = await enviarMensagemWhatsApp({
-              telefone: telefoneLimpo,
-              mensagem: respostaIA,
-              instance: dados.instance || undefined,
-            });
-
-            if (resultado.success) {
-              console.log(`[Webhook WhatsApp] IA respondeu (novo atendimento) para ${telefoneLimpo}`);
-              await getSupabase().from('atendimento_mensagens').insert({
-                atendimento_id: novoAtendimento.id,
-                remetente: 'vendedor',
-                conteudo: respostaIA,
-                enviada_por: null,
-                whatsapp_message_id: resultado.message_id,
-              });
-            }
-          }
-        } catch (err: any) {
-          console.error('[Webhook WhatsApp] Erro IA (novo atendimento):', err.message);
-        }
-      }
-    }
-    // ===== FIM INTEGRAÇÃO IA =====
 
     return NextResponse.json({ success: true, atendimento_id: novoAtendimento.id, action: "created" });
 

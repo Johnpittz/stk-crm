@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +29,7 @@ import {
   Trash2,
   Plus,
   Search,
+  BookOpen,
   Filter,
 } from "lucide-react";
 
@@ -192,6 +194,12 @@ export default function ChatbotPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Link href="/configuracoes/base-conhecimento">
+            <Button variant="outline" size="sm" className="h-8 text-xs border-[#1c2e4a] text-slate-400">
+              <BookOpen className="h-3 w-3 mr-1" />
+              Base de conhecimento
+            </Button>
+          </Link>
           <Button
             variant="outline"
             size="sm"

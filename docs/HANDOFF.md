@@ -19,7 +19,7 @@ Continuam pendentes as migrations da Fase 1 (`089`) e da Fase 2 (`090`).
 
 - Sistema no ar em produção (Vercel + Supabase + WAHA na VPS), 4 números conectados (`STK-1/2/3`, `ROMA_1`), webhook único `/api/webhooks/waha`.
 - Migração Evolution → WAHA **concluída**; defeitos pós-cutover corrigidos (`docs/plano-migracao-waha.md` §6 tem as causas-raiz — ler só se mexer em webhook/mídia/LID).
-- Testes verdes na última sessão: **200 casos vitest + 92 unittest do worker**, `tsc --noEmit` limpo.
+- Testes verdes na última sessão: **241 casos vitest (1 deles pulado sem `GEMINI_API_KEY`) + 138 unittest do worker**, `tsc --noEmit` limpo.
 - `next build` local: **compila, linta e tipa tudo**, mas o prerender falha nas 47 páginas porque `.env.production` está com os valores virados para `[SENSITIVE]` (sem `NEXT_PUBLIC_SUPABASE_URL` real) — é pré-existente e não afeta o deploy: a **Vercel constrói com o env dela e o build do commit `609660a` passou**.
 - **Fase 1 no ar:** C1 (filtro "Sem resposta" + badge com as horas reais, régua única `lib/atendimentos/sem-resposta.ts`) e C2 (badge de coluna lendo a config do worker + produtor de alerta `kanban_parado` com anti-spam, indo para o **dono da oportunidade + gestores**, no agendador). Worker publicado em `/app/stk-worker` e reiniciado — leitura real em produção: **8 conversas >24h sem resposta, 3 oportunidades paradas >72h**.
 - **Fase 2 (M1) codificada e publicada:** aba "Remarketing" com preview, auditoria `tipo`/`regra`,
@@ -41,6 +41,12 @@ Continuam pendentes as migrations da Fase 1 (`089`) e da Fase 2 (`090`).
   duplicadas — **Atendimento 2,0→0,8 s**, **Kanban 1,6→0,6 s**. Faltam (c) base64→Storage,
   (d) cache de navegação e (e) polls. **Ver seção 8.**
 - Plano das próximas features aprovado e detalhado em **`docs/plano-acao-modulos.md`** (CRM + Marketing, com decisões D1–D6 fechadas).
+- **Fase 4 (M2) CODIFICADA em 27/09:** chatbot com **base de conhecimento**. A IA agora só fala o
+  que está na base (editável em `/configuracoes/base-conhecimento`, botão também no `/chatbot`),
+  fora dela ela devolve `[[ENCAMINHAR]]` → recado pro cliente + sino com motivo e pergunta, e a
+  ordem **chatbot > IA > humano** virou uma única função usada pelos 2 webhooks. Decisão **D7**
+  registrada no plano (dúvidas **E** puxar assunto). Bateria de 16 conversas em
+  `docs/relatorios/bateria-ia-cobertura.md` (16/16 ✅). **Pendente: migration `092` + preencher a base.**
 - Pós-vendas: **congelado** (decisão do dono do projeto).
 
 ## 2. Onde ler — hierarquia de leitura
@@ -186,8 +192,34 @@ Resumo em português do que aconteceu (detalhe técnico em **`docs/axs-fluxo-ofi
   (nome fictício *Teste Automatizado Stkcrm*);
 - (opcional) remover o `POST /api/axs/send` legado.
 
-**Próxima fase: Fase 4 — M2 (chatbot com base de conhecimento).** C4 (documento de proposta)
-pode ser desempatado agora que o C3 **roda de verdade**.
+~~Fase 4 (M2 — chatbot com base de conhecimento)~~ — **CODIFICADA E TESTADA em 27/09**.
+O que está pronto:
+1. ✅ **Migration `092_base_conhecimento.sql`**: tabela `base_conhecimento` (categoria, título,
+   conteúdo, `palavras_chave text[]`, `ativo`), trigger de `updated_at`, RLS no padrão do projeto.
+2. ✅ **Tela `/configuracoes/base-conhecimento`**: CRUD completo (criar, editar, apagar, ligar/desligar
+   entrada) com aviso quando a base está vazia; botão de acesso no cabeçalho do `/chatbot`.
+3. ✅ **Prompt com fonte única**: `montarPromptIA()` puro em `lib/ai-assistant.ts` injeta o bloco da
+   base, proíbe inventar e dá a regra **D7** (responder dúvida + puxar assunto, máx. 1–2 sugestões).
+   `responderComBase()` carrega a base do banco e devolve `{ texto, encaminhar, motivo }`.
+4. ✅ **Guardrail (item 2)**: fora da base (ou base vazia, ou erro da IA) → mensagem de fallback pro
+   cliente + notificação `chatbot` com **motivo e pergunta** (`lib/atendimentos/orquestrador.ts`).
+5. ✅ **Ordem centralizada (item 3)**: `decidirOrdemResposta()` + `executarAutomacao()` em
+   `lib/atendimentos/`, usado pelo webhook WAHA (2 blocos → 1) e pelo legado Evolution (2 blocos → 1);
+   a regra de ativação do chatbot saiu de 3 cópias inline para `lib/atendimentos/integrar-chatbot.ts`.
+6. ✅ **Bateria (item 4)**: `lib/bateria-ia.test.ts` com 16 casos (9 devem ser cobertos, 7 devem ir
+   pro vendedor), relatório gravado em `docs/relatorios/bateria-ia-cobertura.md`; 2ª camada que
+   conversa com o Gemini de verdade roda só com `GEMINI_API_KEY` no ambiente.
+   **GATES: `npm test` 240/240 (1 skip de rede) · `tsc --noEmit` limpo · `next build` compila.**
+
+**Pendências da Fase 4 (só do lado humano):**
+- aplicar **`supabase/migrations/092_base_conhecimento.sql`** no SQL Editor;
+- **preencher a base** em `/configuracoes/base-conhecimento` (produtos, preços, prazos, área,
+  horário, política) — enquanto estiver vazia a IA encaminha **todo mundo** pro vendedor (é o
+  guardrail funcionando, não bug);
+- decidir se a 2ª camada da bateria (resposta real do Gemini) roda na CI — precisa da chave lá.
+
+**Próxima fase: Fase 5 — C4 (documento de proposta)** ou o que o João escolher; M3/M4 seguem
+adiados/estudo conforme D6.
 
 ## 4. Protocolo de checkpoint (como o doc se mantém vivo)
 
@@ -253,6 +285,7 @@ curl -s -H "X-Api-Key: $K" http://172.16.1.1:3000/api/sessions
 | 27/09/2026 | Fase 3 (C3 fila AXS) | TDD de ponta a ponta: **63 testes novos** (12 em `lib/axs/fila.test.ts`, 18 em `app/api/axs/fila/route.test.ts`, 33 em `worker/test_fila_axs.py`) — RED confirmado antes do código. Entregue: migration **091** (fila + 1 item não-finalizado por cliente + RLS + sino `fila_proposta_axs`), rota `/api/axs/fila` (validação, 409 de duplicidade, permissão vendedor×gestor, retry, "feito manualmente"), form `axs-novo` enfileirando em vez de disparar, processador `worker/fila_axs.py` (backoff 60 s×2ⁿ, retoma o job antigo antes de reenviar, sino no erro, funil → `proposta_feita` só para frente) e tela `/fila-axs` com botões. Worker publicado em `/app/stk-worker` (backup do anterior) e reiniciado. **Descoberta: `2.25.192.248:8080/axs-api` devolve 401 — o serviço Playwright não está publicado.** | ✅ **código pronto — falta aplicar 091 e publicar o axs-api** |
 | 26/09/2026 | Fase 2 (M1 Disparo + remarketing) | TDD de ponta a ponta: **18 testes novos** (17 em `lib/marketing/remarketing.test.ts`, 5 em `app/api/bulk/resultado-remarketing/route.test.ts`, 13 em `worker/test_remarketing.py` — RED confirmado antes do código). Entregue: regra única do público (inversa do C1), aba "Remarketing" com preview no servidor, auditoria `tipo`+`regra`, rotina diária `remarketing_diario` com 5 guardas (dry_run padrão ligado, teto 20, cadência 24h, não remarcar 7 dias, opt-out eterno gravado pelo chatbot) e métrica de taxa de resposta na tela. Worker publicado em `/app/stk-worker` (sha idêntico) e reiniciado; rotina testada a frio em produção (15 no público; falha fechada HTTP 400 enquanto a 090 não rodar). migrations 089 e 090 escritas | ✅ **código pronto — falta aplicar 090 (+089) e decidir quando LIGAR** |
 
+| 27/09/2026 | **Fase 4 (M2 — chatbot com base)** | TDD de ponta a ponta: **41 testes novos** (15 em `lib/base-conhecimento.test.ts`, 6 em `lib/ai-assistant.test.ts`, 5 em `lib/atendimentos/orquestrador.test.ts`, 4 novos no webhook WAHA + 3 da bateria de 16 casos) — RED confirmado antes do código. Entregue: migration **092** (tabela + RLS + trigger), tela `/configuracoes/base-conhecimento` (CRUD + aviso de base vazia), prompt `montarPromptIA()` com bloco da base e a regra **D7** (dúvidas **E** puxar assunto), guardrail `[[ENCAMINHAR]]` → fallback + sino com motivo/pergunta, ordem **chatbot > IA > humano** centralizada em `executarAutomacao()` (usada pelos 2 webhooks) e `integrarChatbot()` compartilhado (3 cópias → 1). Bateria com relatório em `docs/relatorios/bateria-ia-cobertura.md`. **Gates: 240 vitest + tsc limpo + `next build` compila.** | ✅ **código pronto — falta aplicar 092 e preencher a base** |
 | 27/09/2026 | Fase 3 (criação real na AXS) | **Vitória:** a proposta passou a nascer com mensalidade. Causa-raiz achada na interface deles com captura de rede: `classe` é tipo de conexão (Mono/Bi/**Trifásico**) e o grupo vai em `subClasse` — mandar invertido travava tudo em "Consumo mínimo não atingido". Payload exato (1655 bytes) documentado em `docs/axs-fluxo-oficial.md`. `worker/axs_api.py` reescrito com TDD para o fluxo ARP (login Bearer + `criar/card`, token com cache e retentativa), `fila_axs.py` agora lê `AXS_ARP_EMAIL`/`AXS_ARP_SENHA`. **Gates: 200 vitest + 138 unittest + tsc limpo**; worker publicado (`sha256` conferido) e reiniciado. Prova em produção: card `1451384681` com **mensalidade R$ 4.015,79** (o antigo `1451381557` ficou R$ 0,00). Também: `git add -A` derrubou arquivos de trabalho com dados de clientes no repo público → **commit refazido com force-push e `.gitignore` reforçado**; `AXS_ARP_SENHA` pendente (só o João preenche). | ✅ Fase 3 concluída |
 
 ## 8. Diagnóstico de performance (26/09)
@@ -321,9 +354,15 @@ na corrida de carregamento — são pequenos, mas é o próximo degrau se quiser
 
 ## 9. Frase de início para a próxima conversa (para o humano)
 
-> **"Leia `/root/stk-crm/docs/HANDOFF.md`, confirme a fase atual e comece a Fase 4 (M2 — chatbot com base de conhecimento)."**
+> **"Leia `/root/stk-crm/docs/HANDOFF.md`, confirme a fase atual e comece a Fase 5 (C4 — documento de proposta)."**
+
+Antes disso, as pendências da Fase 4 (só seu, 5 minutos): aplicar
+`supabase/migrations/092_base_conhecimento.sql` no SQL Editor do Supabase e preencher a base em
+**/configuracoes/base-conhecimento** — enquanto ela estiver vazia, o chatbot encaminha todo
+cliente pro vendedor.
 
 Variantes úteis:
 - Só para revisar: *"Leia o HANDOFF do STK-CRM e me diga em que ponto estamos."*
 - Para pular etapa: *"Leia o HANDOFF, pule a Fase 0 e ataque a Fase 1."*
 - Para nova ideia: *"Leia o HANDOFF e o plano de ação; quero adicionar o item Z — onde ele entra?"*
+- Depois de preencher a base: *"Rode a bateria de conversas-teste com resposta real do Gemini e me mostra o relatório."*

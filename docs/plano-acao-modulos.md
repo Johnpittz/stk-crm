@@ -42,6 +42,7 @@
 | **D4** | Fila AXS = **cadastrar a proposta no CRM → ela ser criada na AXS**. Não é "acompanhar o que alguém já fez lá fora". | resposta 1 do João |
 | **D5** | Pós-vendas **congelado** nesta leva. | pedido explícito |
 | **D6** | M3 (artes com IA) **adiado, mas mapeado** (custo na tabela do M3). M4 Instagram: **só estudo de possibilidade** por enquanto. | respostas 3 e 4 |
+| **D7** | Chatbot "qualquer assunto" = **tirar dúvida E puxar assunto**: a IA responde perguntas da base e pode sugerir produtos/serviços cadastrados (máx. 1-2 sugestões por mensagem), nunca preço/prazo fora da base. | resposta do João (pergunta 7), 27/09 |
 
 ---
 
@@ -166,7 +167,24 @@ Sem isso, C2, M1 e M4 ficam no ar.
   2. **Guardrails:** assunto fora da base → encaminha pro vendedor (`mensagemFallback` já existe), com registro do motivo.
   3. **Ordem centralizada:** chatbot (qualificação) > IA (tira-dúvidas) > humano — hoje está espalhada no webhook.
   4. **Bateria de conversas-teste:** perguntas reais de cliente com resposta esperada → "trata qualquer assunto" vira teste, não achismo.
-- **A decidir antes da Fase 4 (pergunta 7):** o que entra em "qualquer assunto" — só tirar dúvida, ou também puxar assunto/vender?
+- **Decidido (D7, 27/09):** tirar dúvida **E** puxar assunto — dentro do que a base permite.
+- **Status 27/09 (Fase 4):** itens 1 a 4 **implementados com TDD** (240 testes vitest verdes):
+  1. `supabase/migrations/092_base_conhecimento.sql` + tela `/configuracoes/base-conhecimento`
+     (CRUD com categoria, título, conteúdo, palavras-chave e switch de ativo; botão de acesso no
+     cabeçalho do `/chatbot`). O prompt de `lib/ai-assistant.ts` virou `montarPromptIA()` puro e
+     injeta o bloco da base — com a base vazia ele ordena **não responder**.
+  2. Guardrail: `responderComBase()` devolve `{ texto, encaminhar, motivo }`; fora da base o
+     marcador `[[ENCAMINHAR]]` vira mensagem de fallback pro cliente + notificação `chatbot` com
+     motivo e pergunta (`montarEncaminhamentoIA`, comprovado por teste no webhook).
+  3. Ordem centralizada: `lib/atendimentos/orquestrador.ts` (`decidirOrdemResposta`: chatbot > IA >
+     humano) + `lib/atendimentos/resposta-automatica.ts` (`executarAutomacao`, usado pelos DOIS
+     webhooks) + `lib/atendimentos/integrar-chatbot.ts` (regra de ativação em um só lugar — antes
+     era cópia inline em cada arquivo).
+  4. Bateria: `lib/bateria-ia.test.ts` + `lib/__fixtures__/base-conhecimento-fixture.json` —
+     16 casos com relatório em `docs/relatorios/bateria-ia-cobertura.md` (16/16 ✅). Segunda
+     camada (resposta real do Gemini) roda só quando `GEMINI_API_KEY` está no ambiente.
+- **Pendente do lado humano:** aplicar a migration `092` no SQL Editor e **preencher a base** —
+  sem entrada ativa a IA encaminha todo mundo pro vendedor (é o guardrail funcionando, não bug).
 
 ### M3 — IA criando artes — **adiado, mapeado (D6)**
 - **Objetivo de produto:** vendedor preenche 2-3 campos (produto, preço, frase), escolhe template e gera — sem tocar em IA.
@@ -227,7 +245,7 @@ Congelado por decisão (D5). Nada de código nesse bloco nesta leva.
 | 4 | Conta Business no Instagram | ⏸️ estudo feito, **mapeado no M4** (bloqueia só a fase c) |
 | 5 | Agendador único | ✅ **D2** — worker da VPS |
 | 6 | Disparo canônico: BulkSender ou Campanhas? | ❓ aberta — resolve na Fase 0 (F0.3) |
-| 7 | O que é "qualquer assunto" no chatbot? | ❓ aberta — resolve antes da Fase 4 |
+| 7 | O que é "qualquer assunto" no chatbot? | ✅ **D7** — dúvidas da base **E** puxar assunto |
 
 ## Precedentes técnicos já decididos (não refazer)
 - Worker Python só-stdlib, poll no Supabase, envio via WAHA; testes `python3 -m unittest test_disparo_worker`.

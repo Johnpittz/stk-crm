@@ -1,0 +1,95 @@
+{
+  "_aviso": "FIXTURE DE TESTE — NÃO são dados reais da STK. É um exemplo de base usado pela bateria (lib/bateria-ia.test.ts) para validar o comportamento do M2 sem depender do banco. A base real é editada no painel /configuracoes/base-conhecimento.",
+  "entradas": [
+    {
+      "id": "fix-1",
+      "categoria": "Produtos",
+      "titulo": "Câmera IP 4MP",
+      "conteudo": "Câmera IP 4MP domus por R$ 389,00 unidade; a partir de 10 unidades o valor é consultado com o vendedor.",
+      "palavras_chave": ["camera", "preco", "valor", "ip", "4mp", "quanto custa"],
+      "ativo": true
+    },
+    {
+      "id": "fix-2",
+      "categoria": "Produtos",
+      "titulo": "Gravador DVR 8 canais",
+      "conteudo": "Gravador DVR 8 canais por R$ 749,00, suporta até 8 câmeras e disco de 2TB.",
+      "palavras_chave": ["gravador", "dvr", "canais", "disco"],
+      "ativo": true
+    },
+    {
+      "id": "fix-3",
+      "categoria": "Prazos",
+      "titulo": "Prazo de entrega",
+      "conteudo": "Entrega em até 48h úteis na região metropolitana; demais regiões combinadas com o vendedor.",
+      "palavras_chave": ["entrega", "prazo", "chega", "quando chega"],
+      "ativo": true
+    },
+    {
+      "id": "fix-4",
+      "categoria": "Pagamento",
+      "titulo": "Formas de pagamento",
+      "conteudo": "Pix, boleto ou cartão em até 3x sem juros no cartão de crédito.",
+      "palavras_chave": ["pagamento", "pagar", "pix", "boleto", "cartao", "parcela"],
+      "ativo": true
+    },
+    {
+      "id": "fix-5",
+      "categoria": "Cobertura",
+      "titulo": "Área de atendimento",
+      "conteudo": "Atendemos toda a região metropolitana; outras cidades são avaliadas pelo vendedor.",
+      "palavras_chave": ["area", "atendimento", "cidade", "regiao", "onde voces atendem"],
+      "ativo": true
+    },
+    {
+      "id": "fix-6",
+      "categoria": "Garantia",
+      "titulo": "Garantia do fabricante",
+      "conteudo": "12 meses de garantia do fabricante, com troca em caso de defeito de fábrica.",
+      "palavras_chave": ["garantia", "defeito", "troca por defeito"],
+      "ativo": true
+    },
+    {
+      "id": "fix-7",
+      "categoria": "Serviços",
+      "titulo": "Instalação",
+      "conteudo": "Instalação feita pela equipe própria por R$ 150,00, agendada em até 5 dias úteis.",
+      "palavras_chave": ["instalacao", "instalar", "montagem", "tecnico"],
+      "ativo": true
+    },
+    {
+      "id": "fix-8",
+      "categoria": "Contato",
+      "titulo": "Horário de atendimento",
+      "conteudo": "Segunda a sexta, das 8h às 18h. Fora desse horário a mensagem fica com o vendedor.",
+      "palavras_chave": ["horario", "contato", "telefone", "whatsapp", "segunda a sexta"],
+      "ativo": true
+    },
+    {
+      "id": "fix-9",
+      "categoria": "Produtos",
+      "titulo": "Lente de câmera (CADASTRO DESATIVADO)",
+      "conteudo": "Lente 4mm por R$ 90,00 — registro desativado para provar que a base ignora o que está inativo.",
+      "palavras_chave": ["lente", "4mm"],
+      "ativo": false
+    }
+  ],
+  "bateria": [
+    { "id": "c01", "pergunta": "Qual o prazo de entrega?", "esperado": "coberta", "observacao": "duvida classica" },
+    { "id": "c02", "pergunta": "Quanto custa a câmera IP de 4MP?", "esperado": "coberta", "observacao": "preco na base" },
+    { "id": "c03", "pergunta": "Como posso pagar?", "esperado": "coberta", "observacao": "formas de pagamento" },
+    { "id": "c04", "pergunta": "Tem garantia esse produto?", "esperado": "coberta", "observacao": "garantia" },
+    { "id": "c05", "pergunta": "Vocês fazem instalação?", "esperado": "coberta", "observacao": "servico cadastrado" },
+    { "id": "c06", "pergunta": "Qual o valor do gravador de 8 canais?", "esperado": "coberta", "observacao": "preco do gravador" },
+    { "id": "c07", "pergunta": "Qual o horário de atendimento?", "esperado": "coberta", "observacao": "contato" },
+    { "id": "c08", "pergunta": "Vocês atendem em outra cidade?", "esperado": "coberta", "observacao": "area de cobertura" },
+    { "id": "c09", "pergunta": "Quando meu pedido chega?", "esperado": "coberta", "observacao": "prazo com outra formulação" },
+    { "id": "c10", "pergunta": "Vocês vendem computador?", "esperado": "encaminhamento", "observacao": "fora do produto" },
+    { "id": "c11", "pergunta": "Qual a cotação do dólar hoje?", "esperado": "encaminhamento", "observacao": "assunto sem relação" },
+    { "id": "c12", "pergunta": "Preciso de um eletricista para minha casa", "esperado": "encaminhamento", "observacao": "servico fora do cadastro" },
+    { "id": "c13", "pergunta": "Vocês fazem manutenção de elevadores?", "esperado": "encaminhamento", "observacao": "servico fora do cadastro" },
+    { "id": "c14", "pergunta": "Tem vaga para estágio aí?", "esperado": "encaminhamento", "observacao": "rh" },
+    { "id": "c15", "pergunta": "Qual o placar do jogo de ontem?", "esperado": "encaminhamento", "observacao": "sem relação nenhuma" },
+    { "id": "c16", "pergunta": "Qual a lente de 4mm?", "esperado": "encaminhamento", "observacao": "existe na base mas INATIVA → IA nao pode citar" }
+  ]
+}
