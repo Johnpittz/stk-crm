@@ -25,6 +25,7 @@ import {
   Star,
   Truck,
   Bot,
+  Inbox,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -77,6 +78,13 @@ const navItemsPorPerfil: Record<PerfilAtivo, Array<{
       label: "Clientes",
       icon: Users,
       description: "Gestão de clientes",
+    },
+    {
+      // Fase 3 / C3 — fila "cadastrar no CRM -> criar na AXS"
+      href: "/fila-axs",
+      label: "Fila AXS",
+      icon: Inbox,
+      description: "Propostas para criar na AXS",
     },
   ],
   marketing: [
@@ -180,6 +188,12 @@ const navItemsPorPerfil: Record<PerfilAtivo, Array<{
       label: "Clientes",
       icon: Users,
       description: "Gestão de clientes",
+    },
+    {
+      href: "/fila-axs",
+      label: "Fila AXS",
+      icon: Inbox,
+      description: "Propostas para criar na AXS",
     },
     {
       href: "/marketing/dashboard",

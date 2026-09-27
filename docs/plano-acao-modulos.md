@@ -102,6 +102,11 @@ Sem isso, C2, M1 e M4 ficam no ar.
   6. Retroalimentação do funil: proposta criada → oportunidade avança para `proposta_feita` (automático ou botão — a decidir).
 - **Ponto de atenção:** automação com Playwright é frágil por natureza (mudança na AXS quebra). Por isso `status='erro'` + caminho manual são obrigatórios, não opcionais.
 - **Teste:** fila com payload fake → processador chama stub HTTP (sem rede), transiciona estado, erro incrementa `tentativas` e preenche `erro`.
+- **Status: IMPLEMENTADO em 27/09/2026** (código + testes; ver `docs/HANDOFF.md` → Fase 3). Desvios do desenho acima, todos deliberados:
+  - **Confirmação** é `GET /api/axs/send?job_id=` e não `/api/axs/sync`: o worker não tem credencial da IRIS, então `axs_card_id` continua vindo do sync manual (rota já existente). O que a fila garante é a máquina de estados + retry.
+  - **Retroalimentação do funil** ficou automática dos dois lados: no worker quando vira `criada`, e na rota quando o vendedor clica "marcar como feita manualmente" — sempre só para frente (`recebeu_conta`/`proposta_a_fazer` → `proposta_feita`), nunca regressa.
+  - **Um item pendente por cliente** (índice único parcial) para não gerar proposta duplicada; "tentar de novo" **mantém** o `job_id` para retomar o job aberto em vez de reenviar às cegas.
+  - Arquivos: `supabase/migrations/091_fila_propostas_axs.sql`, `lib/axs/fila.ts` (+testes), `app/api/axs/fila/route.ts` (+testes), `worker/fila_axs.py` (+testes), tela `app/(dashboard)/fila-axs/page.tsx`, entrada "Fila AXS" no sidebar.
 
 ### C4 — Proposta finalizada gera documento (padrão RECIEE) — **por último (seu pedido)**
 - **Objetivo:** oportunidade fechada gera PDF de proposta como o RECIEE gera.

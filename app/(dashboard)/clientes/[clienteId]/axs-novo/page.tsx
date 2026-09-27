@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
+import { montarDadosProposta } from "@/lib/axs/fila";
 
 // ─── Types ───
 
@@ -386,35 +387,11 @@ export default function AxSNovoPage() {
         console.warn("Could not save to clientes table:", saveErr.message, "- continuing to AXS send");
       }
 
-      // Step 2: Send to AXS
-      const dadosProposta = {
-        tipo_imovel: form.tipo_imovel,
-        tipo_pessoa: form.tipo_pessoa,
-        cpf_cnpj: form.cpf_cnpj.replace(/\D/g, ""),
-        nome: form.nome_razao_social.trim(),
-        data_nascimento: form.data_nascimento,
-        email: form.email.trim(),
-        telefone: form.telefone.trim(),
-        whatsapp: form.whatsapp.trim(),
-        cep: form.cep.replace(/\D/g, ""),
-        logradouro: form.logradouro.trim(),
-        numero: form.numero.trim(),
-        complemento: form.complemento.trim(),
-        bairro: form.bairro.trim(),
-        cidade: form.cidade.trim(),
-        estado: form.estado,
-        classe: form.classe,
-        subgrupo: form.subgrupo,
-        uc_instalacao: form.uc_instalacao.trim(),
-        vencimento_dia: form.vencimento_dia,
-        concessionaria: form.concessionaria,
-        consumo_meses: form.consumo_meses,
-        geracao_propria: form.geracao_propria,
-        geracao_meses: form.geracao_meses,
-        observacoes: form.observacoes.trim(),
-      };
+      // Step 2: Enfileira (Fase 3 / C3) — quem cria na AXS agora é o worker,
+      // com retry e estado visível na tela /fila-axs.
+      const dadosProposta = montarDadosProposta(form);
 
-      const axsRes = await fetch("/api/axs/send", {
+      const axsRes = await fetch("/api/axs/fila", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -426,12 +403,18 @@ export default function AxSNovoPage() {
       const axsData = await axsRes.json();
 
       if (!axsRes.ok) {
-        throw new Error(axsData.error || "Erro ao enviar para AXS");
+        throw new Error(
+          Array.isArray(axsData.erros) && axsData.erros.length
+            ? axsData.erros.join(" — ")
+            : axsData.error || "Erro ao enfileirar proposta"
+        );
       }
 
       setResult({
         success: true,
-        message: axsData.message || "Proposta enviada com sucesso!",
+        message:
+          axsData.message ||
+          "Proposta na fila! O sistema cria na AXS em seguida — acompanhe em Fila AXS.",
       });
     } catch (err: any) {
       setResult({
@@ -473,7 +456,7 @@ export default function AxSNovoPage() {
               <AlertCircle className="h-16 w-16 mx-auto mb-4 text-red-400" />
             )}
             <h2 className="text-xl font-bold text-white mb-2">
-              {result.success ? "Proposta Enviada!" : "Erro ao Enviar"}
+              {result.success ? "Proposta na fila!" : "Erro ao Enviar"}
             </h2>
             <p className="text-sm text-slate-400 mb-6 max-w-md mx-auto">
               {result.message}
@@ -488,13 +471,22 @@ export default function AxSNovoPage() {
                 Voltar ao Cliente
               </Button>
               {result.success && (
-                <Button
-                  className="bg-[#3B64CF] hover:bg-[#2d50a8] text-white"
-                  onClick={() => router.push(`/clientes/${clienteId}/axs`)}
-                >
-                  <Zap className="h-4 w-4 mr-2" />
-                  Ver AXS
-                </Button>
+                <>
+                  <Button
+                    className="bg-[#3B64CF] hover:bg-[#2d50a8] text-white"
+                    onClick={() => router.push("/fila-axs")}
+                  >
+                    <Zap className="h-4 w-4 mr-2" />
+                    Ver Fila AXS
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="border-[#1c2e4a] text-slate-400 hover:text-white hover:bg-white/5"
+                    onClick={() => router.push(`/clientes/${clienteId}/axs`)}
+                  >
+                    Ver AXS
+                  </Button>
+                </>
               )}
             </div>
           </CardContent>

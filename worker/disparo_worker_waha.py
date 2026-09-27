@@ -32,6 +32,7 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 
 import agendador as agd
+import fila_axs
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -797,6 +798,22 @@ def loop_agendador(dry_run: bool = AGENDADOR_DRY_RUN) -> list:
     return relatorio
 
 
+def loop_fila() -> list:
+    """Um ciclo da fila AXS (Fase 3 / C3). Nunca lança exceção."""
+    relatorio = fila_axs.processar_fila()
+    linhas = []
+    for r in relatorio:
+        if r.get("status") == "ignorado":
+            continue
+        linha = f"[Fila AXS] {r.get('id')} -> {r.get('status')}"
+        if r.get("erro"):
+            linha += f" | {r.get('erro')}"
+        linhas.append(linha)
+    if linhas:
+        print("\n".join(linhas))
+    return relatorio
+
+
 def main() -> None:
     faltando = [n for n, v in (("SUPABASE_URL", SUPABASE_URL),
                                ("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY),
@@ -808,9 +825,11 @@ def main() -> None:
 
     registrar_rotinas()
     print(f"[Worker] Iniciado. Supabase={SUPABASE_URL} WAHA={WAHA_URL} poll={POLL_SECONDS}s "
-          f"| agendador: poll={AGENDADOR_POLL_SECONDS}s dry_run={AGENDADOR_DRY_RUN}")
+          f"| agendador: poll={AGENDADOR_POLL_SECONDS}s dry_run={AGENDADOR_DRY_RUN} "
+          f"| fila AXS: poll={fila_axs.INTERVALO_CICLO_SEG}s max_tentativas={fila_axs.MAX_TENTATIVAS_PADRAO}")
 
     ultimo_agendador = 0.0
+    ultimo_fila_axs = 0.0
     while True:
         try:
             for campaign in buscar_campanhas_running():
@@ -823,6 +842,15 @@ def main() -> None:
                 loop_agendador()
         except Exception as e:
             print(f"[Worker] Erro no agendador: {e}", file=sys.stderr)
+        # Fase 3 / C3 — fila "cadastrar no CRM -> criar na AXS"
+        # kill switch: FILA_POLL_SECONDS=0 desliga o loop sem deploy
+        try:
+            if fila_axs.INTERVALO_CICLO_SEG > 0 and \
+                    time.time() - ultimo_fila_axs >= fila_axs.INTERVALO_CICLO_SEG:
+                ultimo_fila_axs = time.time()
+                loop_fila()
+        except Exception as e:
+            print(f"[Worker] Erro na fila AXS: {e}", file=sys.stderr)
         time.sleep(POLL_SECONDS)
 
 

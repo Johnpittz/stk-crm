@@ -4,9 +4,12 @@
 > Ele existe para que a próxima IA comece a implementar **sem** precisar releer o projeto inteiro nem depender
 > da memória de conversas anteriores. Se este doc e o código divergirem, **vale o código** — e você corrige este doc.
 
-**Última atualização:** 26/09/2026 — **FASE 1 ENCERRADA (C1 + C2 no ar; falta a migration 089 no SQL Editor)**
-**Fase atual:** **Fase 1 concluída**. Próxima: **Fase 2 — M1 (Disparo + remarketing)**.
-Pendências da Fase 1 (só do lado humano): aplicar `supabase/migrations/089_indices_fase1.sql` e, quando quiser o alerta real no sino, ligar `config.dry_run = false` da rotina `preparacao_alerta_kanban`.
+**Última atualização:** 27/09/2026 — **FASE 3 (C3) CODIFICADA, TESTADA E PUBLICADA** (fila AXS no CRM → AXS)
+**Fase atual:** Fase 0 ✅, Fase 1 ✅, Fase 2 ✅ (código) e **Fase 3 ✅ (código + worker no ar)**.
+**Próxima fase: 4 — M2 (chatbot com base de conhecimento).**
+Pendências da Fase 3 (só do lado humano): aplicar `supabase/migrations/091_fila_propostas_axs.sql` no SQL Editor
+**e** publicar o serviço `axs-api` (Playwright) na VPS — hoje ele responde 401, detalhe na seção 3.
+Continuam pendentes as migrations da Fase 1 (`089`) e da Fase 2 (`090`).
 
 ---
 
@@ -14,7 +17,7 @@ Pendências da Fase 1 (só do lado humano): aplicar `supabase/migrations/089_ind
 
 - Sistema no ar em produção (Vercel + Supabase + WAHA na VPS), 4 números conectados (`STK-1/2/3`, `ROMA_1`), webhook único `/api/webhooks/waha`.
 - Migração Evolution → WAHA **concluída**; defeitos pós-cutover corrigidos (`docs/plano-migracao-waha.md` §6 tem as causas-raiz — ler só se mexer em webhook/mídia/LID).
-- Testes verdes na última sessão: **170 casos vitest + 59 unittest do worker**, `tsc --noEmit` limpo.
+- Testes verdes na última sessão: **200 casos vitest + 92 unittest do worker**, `tsc --noEmit` limpo.
 - `next build` local: **compila, linta e tipa tudo**, mas o prerender falha nas 47 páginas porque `.env.production` está com os valores virados para `[SENSITIVE]` (sem `NEXT_PUBLIC_SUPABASE_URL` real) — é pré-existente e não afeta o deploy: a **Vercel constrói com o env dela e o build do commit `609660a` passou**.
 - **Fase 1 no ar:** C1 (filtro "Sem resposta" + badge com as horas reais, régua única `lib/atendimentos/sem-resposta.ts`) e C2 (badge de coluna lendo a config do worker + produtor de alerta `kanban_parado` com anti-spam, indo para o **dono da oportunidade + gestores**, no agendador). Worker publicado em `/app/stk-worker` e reiniciado — leitura real em produção: **8 conversas >24h sem resposta, 3 oportunidades paradas >72h**.
 - **Fase 2 (M1) codificada e publicada:** aba "Remarketing" com preview, auditoria `tipo`/`regra`,
@@ -22,6 +25,12 @@ Pendências da Fase 1 (só do lado humano): aplicar `supabase/migrations/089_ind
   já aplicada em produção** (verificado: coluna `tipo`, tabela `remarketing_opt_out`, rotina ativa
   com `dry_run: true` e template escrito) — ou seja, **está no modo ensaio, não envia nada**; a 089
   (índices) não dá para conferir de fora (rodar de novo é seguro, é `IF NOT EXISTS`).
+- **Fase 3 (C3) codificada e publicada em 27/09:** fila `fila_propostas_axs` (migration 091),
+  rota `POST/GET/PATCH /api/axs/fila`, form `axs-novo` **enfileirando** em vez de disparar,
+  processador `worker/fila_axs.py` no worker (poll de 15 s, backoff, sino no erro,
+  retroalimentação do funil) e tela **`/fila-axs`** com "tentar de novo" e "feito manualmente".
+  Worker publicado em `/app/stk-worker` e reiniciado (fila logando). **Bloqueio: o backend
+  `axs-api` (Playwright) não está no ar** — ver a seção 3; e falta a migration `091`.
 - **Performance 26/09:** lentidão relatada em todas as abas → mapeada (medição externa + navegador
   logado com sessão temporária, já apagada) e **duas rodadas de correção aplicadas**:
   (1) Marketing/Disparo: lista de campanhas 28,6 MB/10 s → **142 KB/0,43 s**; (2) CRM: recargas
@@ -108,7 +117,48 @@ O que já está pronto:
   `dry_run` para `false` e subir o worker com `AGENDADOR_DRY_RUN=0` no `/app/stk-worker/env`
   (sem isso o agendador não persiste a agenda e a rotina reexecutaria a cada poll).
 
-**Próxima fase (depois dessas pendências): Fase 3 — C3, fila "cadastrar no CRM → criar na AXS" (D4).**
+~~Fase 3 (C3 — fila "cadastrar no CRM → criar na AXS", D4)~~ — **CODIFICADA, TESTADA E PUBLICADA
+em 27/09**. O que está pronto:
+1. ✅ **Migration `091_fila_propostas_axs.sql`**: tabela da fila (`pendente → enviando →
+   criada | erro | manual`, `tentativas`, `proxima_tentativa`, `job_id`, `erro`, `axs_card_id`,
+   `payload JSONB`), **índice parcial que só permite 1 item não-finalizado por cliente**
+   (não dá para enfileirar a mesma proposta 2×), RLS só para service role, trigger de
+   `updated_at` e liberação do tipo de notificação `fila_proposta_axs` no sino.
+2. ✅ **Enfileirar**: `POST /api/axs/fila` (sessão obrigatória + validação do payload + resolve
+   sozinha a oportunidade do cliente; **409** se já existir item `pendente`/`enviando` do mesmo
+   cliente). O form `axs-novo` **não dispara mais** — grava na fila e mostra "Proposta na fila!".
+3. ✅ **Processador no worker** (`worker/fila_axs.py`, poll de 15 s dentro do loop existente):
+   chama `POST /api/axs/send` → acompanha `GET /api/axs/send?job_id=` → backoff `60 s × 2ⁿ`
+   (teto 15 min), 6 tentativas → `erro` + sino para o vendedor. Antes de reenviar ele
+   **retoma o job antigo** (evita criar a mesma proposta 2× na AXS).
+4. ✅ **Tela `/fila-axs`** (menu CRM): contadores por status, detalhe do erro, botões
+   **"Tentar de novo"** e **"Marcar como feita manualmente"**.
+5. ✅ **Retroalimentação do funil**: `criada` (no worker) ou `manual` (no botão) → a
+   oportunidade ligada vai para `proposta_feita` **só para frente** (nunca regride) e grava
+   `oportunidade_historico`.
+6. ✅ **TDD**: 12 + 18 casos vitest (`lib/axs/fila.test.ts`, `app/api/axs/fila/route.test.ts`)
+   e 33 unittest (`worker/test_fila_axs.py`), RED confirmado antes do código.
+   **GATES: `npm test` 200/200 · `tsc --noEmit` limpo · `python3 -m unittest` 92/92 ·
+   `next build` compila** (o prerender falha só por env, pré-existente).
+   Worker publicado em `/app/stk-worker` (backup do anterior) e reiniciado.
+
+**⚠️ Bloqueio real da Fase 3 (não é código): o backend Playwright da AXS não está no ar.**
+`http://2.25.192.248:8080/axs-api/*` devolve **401 genérico em qualquer rota** (é o auth do
+code-server que ocupa a porta 8080) e a varredura de portas (3000/4000/5000/8000/8081/8888/
+9000/9090) não achou serviço nenhum. Consequência prática: enquanto isso, todo item da fila
+vai terminar em `erro` com "HTTP 401/502" e o **caminho manual** é o que resolve. Para a
+automação de verdade: publicar o `axs-api` na VPS e fazer `/api/axs/send` apontar para ele.
+A fila já cumpre o papel dela: erro vira estado visível + retry, não falha silenciosa.
+
+**Pendências da Fase 3 (só do lado humano):**
+- aplicar **`supabase/migrations/091_fila_propostas_axs.sql`** no SQL Editor — sem ela a tela
+  `/fila-axs` mostra "erro ao carregar" e o worker loga **uma linha** pedindo a migration;
+- aplicar as `089` (Fase 1) e `090` (Fase 2) que continuam pendentes;
+- publicar o serviço `axs-api` (bloqueio acima).
+
+**Próxima fase: Fase 4 — M2 (chatbot com base de conhecimento).** A outra opção é C4
+(documento de proposta), deixado por último no plano e que **só faz sentido com o C3
+rodando de verdade** (ou seja, com o `axs-api` no ar).
 
 ## 4. Protocolo de checkpoint (como o doc se mantém vivo)
 
@@ -128,13 +178,13 @@ O que já está pronto:
 ```bash
 cd /root/stk-crm
 
-# Suíte de testes (170 casos, sem rede) — OBRIGATÓRIO antes de dizer "pronto"
+# Suíte de testes (200 casos, sem rede) — OBRIGATÓRIO antes de dizer "pronto"
 npm test
 
 # Type check
 npx tsc --noEmit
 
-# Testes do worker (59 casos, sem rede: disparo + agendador + rotinas Fase 1 + remarketing Fase 2)
+# Testes do worker (92 casos, sem rede: disparo + agendador + rotinas Fase 1 + remarketing Fase 2 + fila AXS)
 cd worker && python3 -m unittest && cd ..
 
 # Rodar o worker de disparo (só quando for testar de verdade)
@@ -146,7 +196,7 @@ curl -s -H "X-Api-Key: $K" http://172.16.1.1:3000/api/sessions
 ```
 
 - Env do worker/banco: `/root/.stk-worker.env` (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `WAHA_API_URL=http://172.16.1.1:3000`).
-- Migrations: `supabase/migrations/` — **087 e 088 aplicadas; 089 (índices Fase 1) e 090 (M1: `tipo`/`regra`/opt-out/seed da rotina) escritas, falta aplicar as duas** no SQL Editor (a `scripts/aplicar-migracao.js` NÃO serve: ela chama a RPC `exec_sql`, que não existe neste projeto; não há `psql`/token de gestão aqui dentro — aplicação é manual, no painel do Supabase).
+- Migrations: `supabase/migrations/` — **087, 088 e 090 aplicadas; 089 (índices Fase 1) e 091 (fila AXS, Fase 3) escritas, falta aplicar as duas** no SQL Editor (a `scripts/aplicar-migracao.js` NÃO serve: ela chama a RPC `exec_sql`, que não existe neste projeto; não há `psql`/token de gestão aqui dentro — aplicação é manual, no painel do Supabase).
 - Deploy: `git push origin master` → build automático na Vercel. Confirmar `git remote -v` antes de push.
 - code-server: `https://srv1745477.hstgr.cloud:8080/?folder=/root/stk-crm`
 
@@ -171,6 +221,7 @@ curl -s -H "X-Api-Key: $K" http://172.16.1.1:3000/api/sessions
 | 26/09/2026 | Fase 1 (C1 + C2) | TDD de ponta a ponta: **42 testes novos** (14 em `lib/atendimentos/sem-resposta.test.ts`, 10 em `lib/oportunidades/parada.test.ts`, 1 em `lib/notificacoes.test.ts`, 17 em `worker/test_rotinas_fase1.py`) — RED confirmado antes do código. C1: régua única exportável + filtro "Sem resposta" + badge por linha com as horas reais (resposta automática conta como nossa). C2: régua por etapa configurável sem deploy + badge de coluna lendo a config do worker + produtor de alerta com anti-spam, destinatário = **dono + gestores** e corte próprio (`config.dry_run`). migration **089 escrita** (índices, falta aplicar); worker publicado em `/app/stk-worker` (sha idêntico ao repo, processo reiniciado) e leitura real em produção: **8 conversas >24h / 3 paradas >72h** (dry_run: nada enviado); commit `609660a` pushado e **build da Vercel (`stk-crm-amber`) passou** — o projeto `stk-crm-edit` já falhava antes, é outro | ✅ **Fase 1 ENCERRADA — falta aplicar 089 no SQL Editor** |
 | 26/09/2026 | Performance — correções (a)+(b) | Aplicado com TDD o conserto das recargas duplicadas: regras puras em `lib/performance/regras-recarga.ts` (8 testes novos, RED antes), efeito único no Atendimento, guarda de mudança real no Kanban e modal de contatos que só busca aberto. Verificado no navegador (sessão temporária, apagada): `page-data` 2→1 e `oportunidades` 3→1; Atendimento 2,0→0,8 s e Kanban 1,6→0,6 s. 170 vitest + 59 unittest, tsc limpo, build compila, Vercel verde (`3bf2276`). | ✅ aplicado e medido |
 | 26/09/2026 | Performance (fora das fases) | Mapeamento da lentidão relatada: medido em produção que `GET /api/bulk/campaigns` devolvia 28,6 MB/10 s (imagens em base64 em `fluxo_mensagens`) e que funções paradas custam 1–4 s (tempo frio). Conserto do item 1 aplicado com TDD (3 testes) e publicado (`15216ad`): **142 KB/0,43 s**. Estão saudáveis: banco (28 atendimentos), consultas 0,1–0,5 s, WAHA 95 ms, mídia com cache. Depois entrou em produção com sessão temporária (apagada ao final) para medir a troca de aba no navegador: RSC 84–250 ms, páginas prontas em 0,5–2,0 s, achando a **chamada duplicada de `page-data`** no Atendimento e as 3 de `oportunidades` no Kanban. Detalhes e próximos passos na seção 8. | ✅ Marketing corrigido e CRM medido; correções (a)–(e) da seção 8 a decidir |
+| 27/09/2026 | Fase 3 (C3 fila AXS) | TDD de ponta a ponta: **63 testes novos** (12 em `lib/axs/fila.test.ts`, 18 em `app/api/axs/fila/route.test.ts`, 33 em `worker/test_fila_axs.py`) — RED confirmado antes do código. Entregue: migration **091** (fila + 1 item não-finalizado por cliente + RLS + sino `fila_proposta_axs`), rota `/api/axs/fila` (validação, 409 de duplicidade, permissão vendedor×gestor, retry, "feito manualmente"), form `axs-novo` enfileirando em vez de disparar, processador `worker/fila_axs.py` (backoff 60 s×2ⁿ, retoma o job antigo antes de reenviar, sino no erro, funil → `proposta_feita` só para frente) e tela `/fila-axs` com botões. Worker publicado em `/app/stk-worker` (backup do anterior) e reiniciado. **Descoberta: `2.25.192.248:8080/axs-api` devolve 401 — o serviço Playwright não está publicado.** | ✅ **código pronto — falta aplicar 091 e publicar o axs-api** |
 | 26/09/2026 | Fase 2 (M1 Disparo + remarketing) | TDD de ponta a ponta: **18 testes novos** (17 em `lib/marketing/remarketing.test.ts`, 5 em `app/api/bulk/resultado-remarketing/route.test.ts`, 13 em `worker/test_remarketing.py` — RED confirmado antes do código). Entregue: regra única do público (inversa do C1), aba "Remarketing" com preview no servidor, auditoria `tipo`+`regra`, rotina diária `remarketing_diario` com 5 guardas (dry_run padrão ligado, teto 20, cadência 24h, não remarcar 7 dias, opt-out eterno gravado pelo chatbot) e métrica de taxa de resposta na tela. Worker publicado em `/app/stk-worker` (sha idêntico) e reiniciado; rotina testada a frio em produção (15 no público; falha fechada HTTP 400 enquanto a 090 não rodar). migrations 089 e 090 escritas | ✅ **código pronto — falta aplicar 090 (+089) e decidir quando LIGAR** |
 
 ## 8. Diagnóstico de performance (26/09)
@@ -239,7 +290,7 @@ na corrida de carregamento — são pequenos, mas é o próximo degrau se quiser
 
 ## 9. Frase de início para a próxima conversa (para o humano)
 
-> **"Leia `/root/stk-crm/docs/HANDOFF.md`, confirme a fase atual e comece a Fase 2 (M1 — Disparo + remarketing)."**
+> **"Leia `/root/stk-crm/docs/HANDOFF.md`, confirme a fase atual e comece a Fase 4 (M2 — chatbot com base de conhecimento)."**
 
 Variantes úteis:
 - Só para revisar: *"Leia o HANDOFF do STK-CRM e me diga em que ponto estamos."*
