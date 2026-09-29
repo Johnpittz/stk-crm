@@ -75,7 +75,7 @@
 | C03 | 5 | Ligar alerta do Kanban e voltar ao ensaio | ✅ APROVADO (28/09 03:15) | `config.dry_run=false` → em <75s o robô criou **3 notificações reais** (`tipo=kanban_parado`, `3 oportunidade(s) parada(s) no funil`, com as 3 oportunidades listadas, `lida=false`). Depois: `dry_run=true` restaurado e conferido no banco |
 | C01 | 7 | Card na AXS pela fila | ✅ **APROVADO (28/09 23:51)** | robô criou **`1452248820`** na **1ª tentativa**: `status=criada`, `criada_em 23:51:29`, card lido sem token → **mensalidade 767,88**, economia anual **4.157,54**, consumo médio **1000**, UC `241500978701257`, EQUATORIAL GO, Casa/apto · Monofásico · Residencial, status **Aguardando Aceite**. Payload: 1000×12 + UC sem pontuação + endereço do CEP |
 | B10 | 11 | Abrir imagem e baixar documento no chat | ✅ **APROVADO (29/09 00:0x)** | conversa **"Teste" (`0b6ab1eb…`)**: clique na foto abriu o **lightbox** (`z-50 bg-black/90`) com a imagem carregada **1055×1491** + botão "Fechar" ✓; o xlsx é `<a href="/api/media-download?msg_id=c0b9e70e…&type=document">` → **200**, `content-disposition: attachment; filename="Acougues_Goiania_250.xlsx"`, **13.781 bytes** ✓ |
-| B11 | 11 | Badge 🔗 STK-x em conversa entre números conectados | ❌ **REPROVADO — defeito (não aparece em produção)** | contato `556299190117` **é** a sessão `STK-3` (número idêntico ao de `page-data`), a badge está implementada (`components/features/atendimento/lista-atendimentos-lateral.tsx:194` e `chat-inline.tsx:105`) e o teste unitário passa — mas **nenhum 🔗 renderiza** (lista nem cabeçalho). **Causa: contrato quebrado.** `app/api/atendimentos/page-data/route.ts` devolve as sessões como `{id, name, number, status}` **sem `state`**, com `status` **mapeado** (`lib/waha.ts:645` `WORKING→'open'`); `encontrarInstanciaConectada` (`lib/telefone.ts:91`) exige `status === 'WORKING' \|\| 'STARTED'` → sempre `null`. Os testes passam porque as fixtures usam `status: 'WORKING'` (`lib/telefone.test.ts:61`). *Conserto (TDD): repassar `state` no `page-data` + aceitar `state`/`'open'` no helper + teste de contrato com a forma real.* |
+| B11 | 11 | Badge 🔗 STK-x em conversa entre números conectados | ✅ **APROVADO APÓS CONCERTO (29/09 01:3x)** | *Teste inicial REPROVOU:* a badge nunca nascia (lista nem cabeçalho) por **contrato quebrado** — `page-data` devolvia `{id,name,number,status}` **sem `state`**, com `status` **mapeado** (`lib/waha.ts` `WORKING→'open'`), enquanto `encontrarInstanciaConectada` exigia `status === 'WORKING' \|\| 'STARTED'` → sempre `null`; os testes passavam porque as fixtures usavam o vocabulário bruto. **Conserto TDD:** 4 testes vermelhos com a forma real → `sessaoAtiva()` aceitando as **duas** vocabularias (`'open'` + `WORKING/STARTED`, `continue` fora) + nova `sessoesParaResposta()` preservando `state` + rota usando-a. **Gates:** 300 testes ✅ / `tsc --noEmit` ✅ → commit **`b6f713d`** → deploy → **verificado em produção:** `page-data` com `4/4` instâncias com `state: WORKING` e **`🔗 STK-3` renderizando em 3 linhas da lista + no cabeçalho do chat** da conversa `556299190117` |
 | B07b | 8 | Editar entrada, interruptor ligar/desligar e apagar | ✅ **APROVADO (29/09 00:4x)** | ícone lápis preencheu o formulário com a entrada e o botão virou **"Salvar alterações"** → salvei e **persistiu após reload** (texto novo no lugar do antigo); **interruptor** desligou → contagem **"0 ativas"** + selo `inativa`, religou → "1 ativas"; lixeira apagou → **"0 ativas"** + o aviso **"Base sem nenhuma entrada ativa"** voltou. **Base vazia de novo** ✓ *(Achado A-02 abaixo)* |
 | A09e | 9 | **Gatilho automático** ao virar "Contrato Enviado" | ✅ **APROVADO (29/09 00:4x)** | 3 caminhos (dados criados e apagados no fim): **(a) sem cliente** → HTTP 200, etapa **mudou mesmo assim** (não travou) + `proposta_erros: ["Vincule um cliente à oportunidade antes de gerar a proposta"]`; **(b) com cliente sem UC/valor** → etapa mudou + lista `["UC de instalação", "Valor da proposta (valor_proposta ou valor_venda na oportunidade)"]`; **(c) completo UC+valor e reentrei na etapa** → **`proposta` 201 `PROP-20260929-Q9EM` válida até 29/10/2026**. Limpeza: 2 oportunidades + 1 cliente + 1 proposta + histórico apagados e o PDF do Storage removido — banco voltou às **3 oportunidades originais**, 0 propostas |
 | A10d | 11 | Nome do contato não aparece como "Cliente" | ✅ **APROVADO (29/09)** | desde o fix (26/09) nasceram **5 atendimentos**: **4 de mensagem recebida e os 4 com nome real** (Vivo Comunica, Agnus, Alan Marchesi, Banco de Negócios Brasil - Fortaleza). Dos 7 históricos com nome `Cliente`, **6 nasceram de envio nosso** — pushName é o do operador e o código ignora de propósito (`route.ts:396-397`) — e 1 é número de teste `5500000000000`. Caso-limite documentado, **não é regressão** |
@@ -292,20 +292,20 @@ endereço completo) — **pronto para o replay assim que a sessão ARP liberar**
 
 | ID | Item | O que falta | Bloqueio |
 |---|---|---|---|
-| — | 11 | Conserto do B11 (badge 🔗) | aguarda aprovação: TDD (teste vermelho → repassar `state` no `page-data` + aceitar `state`/`'open'` em `encontrarInstanciaConectada` → verde) |
 | — | 7 | Decisões do parecer §7 (auto-liberação no 203 da ARP; validação de consumo/UC/CEP na rota) | decisão do João |
 
-## Resumo do placar (contado do arquivo, 29/09 00:5x)
+## Resumo do placar (contado do arquivo, 29/09 01:4x)
 
-- **Aprovados na tabela de resultados: 33** — A01, A01b, A02, A03, A04, A05, A06, A07, A08,
-  A08b, A09a–e, A10a–d, A11 · B01–B08, B07b, B10 · C01, C02, C03, C04
+- **Aprovados na tabela de resultados: 34** — A01, A01b, A02, A03, A04, A05, A06, A07, A08,
+  A08b, A09a–e, A10a–d, A11 · B01–B08, B07b, B10, **B11 (após conserto)** · C01, C02, C03, C04
 - **Aprovados em seção própria (performance): 3** — D01 (base externa), D02/B09 (6 telas),
   D03 (comparativo com a seção 8)
-- **Reprovado: 1** — **B11** (badge 🔗 nunca renderiza: contrato `status × state`)
-- **Achados menores: 3** — A-01 (sino sem aria), A-02 (botões da base sem aria), DOC-1
-  (o Word manda olhar `ultima_execucao`, que em ensaio não sobe — é o log do robô)
+- **Reprovados: 0** — B11 reprovou no teste e foi **consertado em TDD** (commit `b6f713d`,
+  gates verdes, badge `🔗 STK-3` verificada em produção — lista **e** cabeçalho)
+- **Achados menores abertos: 3** — A-01 (sino sem aria), A-02 (botões da base sem aria),
+  DOC-1 (o Word manda olhar `ultima_execucao`, que em ensaio não sobe — é o log do robô)
 - **Incidentes próprios: 1** (linha de `bulk_campaigns` apagada por filtro malformado) + 1 alerta falso corrigido
-- **Ações do Word:** 093 ✅ · **089 ✅ (aplicada pelo João em 29/09)** · senha AXS ✅
+- **Ações do Word:** 093 ✅ · 089 ✅ (aplicada pelo João em 29/09) · senha AXS ✅
 
 ## Pendências que bloqueiam teste
 
