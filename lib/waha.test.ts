@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { enviarTexto, enviarMidia, enviarAudio, enviarLido, verificarSessao, checkNumbers, findContacts, resolverLid, resolverLidMultiSessao, buscarNomeContato, montarUrlArquivo, buscarUrlMidiaHistoria, resolverUrlMidia, listarSessoes, mapearStatusSessao, type FetchImpl, type Mediatype } from './waha'
+import { enviarTexto, enviarMidia, enviarAudio, enviarLido, verificarSessao, checkNumbers, findContacts, resolverLid, resolverLidMultiSessao, buscarNomeContato, montarUrlArquivo, buscarUrlMidiaHistoria, resolverUrlMidia, listarSessoes, mapearStatusSessao, sessoesParaResposta, type FetchImpl, type Mediatype } from './waha'
 
 function fakeFetch(status: number, body: unknown) {
   const calls: Array<{ url: string; init: RequestInit }> = []
@@ -511,6 +511,18 @@ describe('enviarLido', () => {
   })
 })
 
+
+describe('sessoesParaResposta — contrato de /api/atendimentos/page-data (bug B11)', () => {
+  it('repassa o state bruto junto do status mapeado', () => {
+    const saida = sessoesParaResposta([
+      { id: 'STK-3', name: 'STK-3', number: '556299190117', status: 'open', state: 'WORKING' },
+    ])
+    expect(saida).toEqual([
+      { id: 'STK-3', name: 'STK-3', number: '556299190117', status: 'open', state: 'WORKING' },
+    ])
+    expect(saida[0].state).toBe('WORKING')
+  })
+})
 
 describe('listarSessoes', () => {
   it('lista sessões e mapeia status WAHA para o contrato da UI (open/close/connecting)', async () => {

@@ -84,6 +84,33 @@ describe('encontrarInstanciaConectada (badge de espelho)', () => {
   })
 })
 
+describe('badge de espelho — forma REAL de /api/atendimentos/page-data (bug B11)', () => {
+  // Resposta real em produção (29/09): {id,name,number,status} — SEM `state`, porque a
+  // rota serializa só 4 campos e mapearStatusSessao converte WORKING → 'open'.
+  const reais = [
+    { id: 'STK-1', name: 'STK-1', number: '556295094949', status: 'open' },
+    { id: 'STK-3', name: 'STK-3', number: '556299190117', status: 'open' },
+    { id: 'STK-2', name: 'STK-2', number: '556299961553', status: 'close' },
+  ]
+
+  it('reconhece o status mapeado "open" como sessão ativa', () => {
+    expect(encontrarInstanciaConectada('556299190117', reais)?.name).toBe('STK-3')
+    expect(encontrarInstanciaConectada('556295094949', reais)?.name).toBe('STK-1')
+    expect(encontrarInstanciaConectada('(62) 9919-0117', reais)?.name).toBe('STK-3')
+  })
+
+  it('ainda ignora sessão fechada ("close") — não falso-positiva', () => {
+    expect(encontrarInstanciaConectada('556299961553', reais)).toBeNull()
+  })
+
+  it('aceita o state bruto quando a rota repassa (forma de listarSessoes)', () => {
+    const ativa = [{ id: 'STK-3', name: 'STK-3', number: '556299190117', status: 'open', state: 'WORKING' }]
+    expect(encontrarInstanciaConectada('556299190117', ativa)?.name).toBe('STK-3')
+    const parada = [{ id: 'STK-2', name: 'STK-2', number: '556299961553', status: 'close', state: 'STOPPED' }]
+    expect(encontrarInstanciaConectada('556299961553', parada)).toBeNull()
+  })
+})
+
 describe('resolveLidToPhone — fallback por lid ignorando instância (bug 26/09)', () => {
   it('acha pelo lid mesmo quando instance_name antiga não bate (ROMA_2 vs STK-3)', async () => {
     // linha real do mapa antigo: gravada como ROMA_2, sessão hoje é STK-3

@@ -681,3 +681,25 @@ export async function listarSessoes(opts?: WahaOptions): Promise<SessaoResumo[]>
     return []
   }
 }
+
+/**
+ * Forma entregue ao front pela `/api/atendimentos/page-data`.
+ * Mantém o `state` BRUTO (WORKING/STOPPED/…) junto do `status` da UI: o badge 🔗
+ * de número conectado (`encontrarInstanciaConectada`) depende dessa informação —
+ * a rota antiga serializava só 4 campos e o badge nunca nascia (bug B11).
+ */
+export function sessoesParaResposta(sessoes: SessaoResumo[]): Array<{
+  id: string
+  name: string
+  number: string
+  status: string
+  state: string
+}> {
+  return sessoes.map((s) => ({
+    id: s.id,
+    name: s.name,
+    number: s.number,
+    status: s.status,
+    state: s.state,
+  }))
+}

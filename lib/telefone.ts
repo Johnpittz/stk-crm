@@ -69,6 +69,11 @@ export interface InstanciaConectavel {
   name: string;
   number?: string | null;
   status?: string | null;
+  /**
+   * Status BRUTO do WAHA (WORKING, STOPPED, …). `status` acima é o contrato
+   * legado da UI ('open' | 'connecting' | 'close') — as duas formas contam.
+   */
+  state?: string | null;
 }
 
 /**
@@ -76,7 +81,11 @@ export interface InstanciaConectavel {
  * sessão dona. Serve para o badge de "espelho": quando os dois extremos de uma
  * conversa são contas conectadas, o envio de um lado aparece como recebido no
  * outro (entrega real do WhatsApp) — o badge avisa antes de confundir.
- * Só conta sessões ativas (WORKING/STARTED): parada não recebe nada.
+ * Só conta sessões ativas: parada não recebe nada.
+ *
+ * ATENÇÃO (bug B11): a `/api/atendimentos/page-data` entrega o contrato da UI
+ * (`status: 'open'`) e antigamente nem passava o `state` — checar só
+ * 'WORKING' fazia o badge nunca nascer. Aceita as DUAS vocabularias.
  */
 export function encontrarInstanciaConectada(
   telefone: string | null | undefined,
@@ -87,8 +96,7 @@ export function encontrarInstanciaConectada(
   if (alvo.length < 10) return null;
 
   for (const inst of instancias) {
-    const status = (inst.status || "").toUpperCase();
-    if (status !== "WORKING" && status !== "STARTED") continue;
+    if (!sessaoAtiva(inst)) continue;
     const num = telefoneParaDigitos(inst.number || "");
     if (!num) continue;
     if (num === alvo) return inst;
@@ -98,6 +106,14 @@ export function encontrarInstanciaConectada(
     if (alvo.length >= 10 && num.endsWith(alvo)) return inst;
   }
   return null;
+}
+
+/** Sessão ligada? Aceita a UI ('open') e o WAHA bruto (WORKING/STARTED). */
+function sessaoAtiva(inst: InstanciaConectavel): boolean {
+  const status = (inst.status || "").toUpperCase();
+  const state = (inst.state || "").toUpperCase();
+  if (status === "OPEN" || status === "WORKING" || status === "STARTED") return true;
+  return state === "WORKING" || state === "STARTED";
 }
 
 export function telefoneParaJid(telefone: string | null | undefined): string | null {

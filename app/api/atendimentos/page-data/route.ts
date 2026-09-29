@@ -91,14 +91,12 @@ export async function GET(request: NextRequest) {
         }),
       
       // 3. Sessões WhatsApp (WAHA — plano-migracao-waha.md Fase 6)
-      (await import("@/lib/waha")).listarSessoes().then((sessoes) =>
-        sessoes.map((s) => ({
-          id: s.id,
-          name: s.name,
-          number: s.number,
-          status: s.status,
-        }))
-      ).catch(() => []),
+      //    sessoesParaResposta mantém o `state` BRUTO junto do `status` da UI —
+      //    o badge 🔗 de número conectado depende dele (bug B11).
+      (async () => {
+        const { listarSessoes, sessoesParaResposta } = await import("@/lib/waha")
+        return sessoesParaResposta(await listarSessoes())
+      })().catch(() => []),
       
       // 4. Notificações (count não lidas)
       supabaseAdmin
