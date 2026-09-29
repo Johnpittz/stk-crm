@@ -119,6 +119,18 @@ Resposta que interessa (o app guarda como "resultado"):
    `GET /csp/representante/validar/uc?uc=<digits>` → "disponível".
 9. CEP precisa ser coberto: `GET /csp/consultacep/cep/<8 digits>` → `valido: 1`
    (devolve logradouro/bairro/cidade prontos).
+10. **UC de teste vem de gerador** (site que gera UC usável) — regra do João. O
+    validador aceita com ou sem pontuação (`2.415.009.787.012-57` e
+    `241500978701257` passaram em 28/09), mas **no payload vai sem pontuação**.
+11. **Existe consumo mínimo de verdade.** Para **teste**, usar **1000 kWh em cada
+    um dos 12 meses** (`consumo_meses: {jan:1000 … dez:1000}`). Com os meses
+    **zerados** a chamada devolve `500 {"retorno":"Erro ao gerar proposta"}` —
+    vivido em 28/09; o `202 Consumo mínimo não atingido` da regra 1 é a variante
+    "quase lá" (enum), o `500` é a de dado ausente.
+12. **Fatura válida** é parte do critério do João (ele reenvia a mesma fatura de
+    sábado quando precisa). No fluxo API capturado o card nasceu com
+    `"faturas": []` — ou seja, a criação aceita sem arquivo, mas **confirmar com a
+    AXS se o aceite/finalização exige a fatura anexada**.
 
 ---
 
@@ -139,8 +151,17 @@ Os dois são de teste (nome *Teste Automatizado Stkcrm*) e serão apagados à m�
 ## 7. Mapa de endpoints ARP (iris.axsenergia.com.br)
 
 **Escrita**
-- `POST /csp/representante/login/` → token
+- `POST /csp/representante/login/` → token (**200**) ou `203 {"retorno":"sessao ativa",
+  "chaveVerificaSessao":…}` quando já tem sessão — **é de sessão única**.
+- `POST /csp/representante/sessao/derrubar` `{email, chaveValidadeSessao}` → **200 e já
+  devolve `acessToken`** (é o "forçar login" do front deles; o campo **muda de nome**
+  entre a resposta e o envio: chega `chaveVerificaSessao` e sai `chaveValidadeSessao`).
+  **Se você logar de novo logo depois, volta 203** — usar o token que o `derrubar` devolveu.
+- `DELETE /csp/representante/sessao/excluir` (Bearer) → **200** = sair/liberar a sessão.
+  É o único caminho para o robô conseguir logar quando alguém ficou preso.
 - `POST /csp/representante/criar/card/` → **201 + idCard** (o que interessa)
+- `POST /csp/representante/excluir/card/` **com corpo `{"idCard": …}`** → 200
+  (o doc antigo dizia `DELETE /csp/representante/excluir/card/{id}` — dá **404**)
 - `POST /csp/fatura/salvar` (bytes do arquivo; params `idCard`, `nomeArquivo`)
 - `POST /csp/fatura/excluir`
 - `POST /csp/representante/fase/analise-financeira` `{idCard, motivo}`

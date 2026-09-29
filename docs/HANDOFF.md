@@ -4,7 +4,22 @@
 > Ele existe para que a próxima IA comece a implementar **sem** precisar releer o projeto inteiro nem depender
 > da memória de conversas anteriores. Se este doc e o código divergirem, **vale o código** — e você corrige este doc.
 
-**Última atualização:** 27/09/2026 — **FASE 6 (C4) CONCLUÍDA**: a oportunidade agora gera o
+**Última atualização:** 28/09/2026 — **TESTES DE LIBERAÇÃO (bloco C01)**: o robô criou o card
+na AXS pelo caminho oficial (fila → `criar/card` → **`1452248820`**, mensalidade **767,88**,
+consumo 1000, 28/09 23:51). **PARECER COMPLETO E NÃO-PERDÍVEL: `docs/PARECER-ARP-28-09-2026.md`**
+— resumo: a AXS **não** mudou nada desde domingo; eram **3 causas nossas empilhadas**:
+**(1)** payload sem consumo mínimo (1000×12) → `500 Erro ao gerar proposta`;
+**(2)** ARP é de **sessão única** → `203 sessao ativa`/`403`, com receita de emergência
+`login(203)` → `POST /csp/representante/sessao/derrubar {email, chaveValidadeSessao}` →
+`DELETE /csp/representante/sessao/excluir` → `login(200)` (o campo **muda de nome** no envio;
+o `derrubar` já devolve token — logar logo depois volta 203);
+**(3)** `fila_propostas_axs.payload` é **plano**: o robô manda `item.payload` para
+`montar_proposta`, que lê no topo — com `{cliente_id, dados_proposta}` tudo vira `None` e a
+ARP responde `ERROR #5034`; **achatou → criou na 1ª tentativa**.
+Apagar card: **`POST /csp/representante/excluir/card/`** com `{"idCard": …}` (o `DELETE
+/excluir/card/{id}` dá 404). Diagnóstico em ordem no §6 do parecer.
+
+**Também em 27/09 — FASE 6 (C4) CONCLUÍDA:** a oportunidade agora gera o
 **documento de proposta em PDF** (botão "Gerar/Baixar proposta" na pasta do cliente e no modal da
 oportunidade, mais gatilho automático quando a etapa vira **Contrato Enviado**), gravado no Storage
 privado e registrado na tabela `propostas`. Decisões **D8** e **D9** no plano.
@@ -14,7 +29,8 @@ adiada/estudo por **D6**; Pós-Vendas congelado por **D5**).
 Pendência da Fase 6 (só do lado humano): aplicar **`supabase/migrations/093_propostas_documento.sql`**
 no SQL Editor — sem ela o botão responde com a mensagem pedindo a migration (tabela `propostas` +
 bucket `propostas`).
-Continuam pendentes: migration da Fase 1 (`089`) e **`AXS_ARP_SENHA`** no env do worker (Fase 3).
+Continua pendente: migration da Fase 1 (`089`, índices de performance). `AXS_ARP_SENHA` **já
+está** no env do worker (verificado por tamanho, 28/09) — não é mais pendência.
 
 ---
 
