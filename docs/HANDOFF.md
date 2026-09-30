@@ -4,7 +4,22 @@
 > Ele existe para que a próxima IA comece a implementar **sem** precisar releer o projeto inteiro nem depender
 > da memória de conversas anteriores. Se este doc e o código divergirem, **vale o código** — e você corrige este doc.
 
-**Última atualização:** 28/09/2026 — **TESTES DE LIBERAÇÃO (bloco C01)**: o robô criou o card
+**Última atualização:** 30/09/2026 — **SINCRONIA DE MENSAGENS (relato do João: "o que eu
+mando fora do CRM não aparece dentro") — 2 BUGS ACHADOS E CONSERTEADOS**: **S-01** mensagem
+`fromMe` era arquivada **na conversa errada** porque o parser lia os campos de REMETENTE
+(`senderAlt`/`fromAlt`/`participantAlt`) — numa mensagem nossa o remetente somos nós; o chat
+`@lid` era gravado apontando para o **nosso número** e todo o histórico enviado parava no
+atendimento do nosso número (10 mensagens de Alan, de 28/09 13:57 a 30/09 16:09). Conserto TDD
+(`RecipientAlt` para `fromMe`; sem ele, cai na resolução do LID) em **`4555880`**, provado em
+produção por replay (veneno → **400**; `RecipientAlt` → **200** no atendimento certo).
+**S-02** vCard/localização viravam conteúdo vazio → rota **400 "Mensagem vazia"** e a mensagem
+sumia → agora `[contato]`/`[localização]` (**`66e2d84`**). **Reparo:** 10 mensagens movidas para
+o atendimento certo, mapa do LID corrigido (`279885889175741` → `554784227161`), conversa errada
+apagada, **7 mensagens repostas** por replay. **Auditoria final por id: Alan 26/26, espelho 9/9,
+0 fora do CRM** (sobra 1 de 14/09, pré-migração WAHA). Gates: **305 testes** + `tsc` ✅.
+Procedimento completo: seção "Sincronização de mensagens" em `docs/TESTES-SISTEMA.MD`.
+
+**Registro anterior — 28/09/2026 (C01):** o robô criou o card
 na AXS pelo caminho oficial (fila → `criar/card` → **`1452248820`**, mensalidade **767,88**,
 consumo 1000, 28/09 23:51). **PARECER COMPLETO E NÃO-PERDÍVEL: `docs/PARECER-ARP-28-09-2026.md`**
 — resumo: a AXS **não** mudou nada desde domingo; eram **3 causas nossas empilhadas**:

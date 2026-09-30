@@ -3,7 +3,8 @@
 > **Para quem chegar em sessão nova:** leia isto antes de qualquer coisa. É o
 > controle de testes do sistema (itens 1–11 do `docs/notas-atualizacao-26-27-set-2026.docx`).
 > Atualize **a cada teste** que executar. HANDOFF do projeto: `docs/HANDOFF.md`.
-> Última atualização: 28/09/2026 02:0x (UTC) — sessão de testes.
+> Última atualização: 30/09/2026 ~23:4x (UTC) — investigação de **sincronização de
+> mensagens** (2 bugs achados e corrigidos, dados reparados; ver seção própria).
 
 ## Regras de ouro (combinadas com o João)
 
@@ -288,6 +289,86 @@ endereço completo) — **pronto para o replay assim que a sessão ARP liberar**
    `item.payload` inteiro para `montar_proposta`, que lê no topo → proposta vazia →
    `ERROR #5034` no gerador deles. **Ao achatar, o robô criou o card na 1ª tentativa.**
 
+## Sincronização de mensagens (30/09) — relato do João e o que achei
+
+**Relato:** "as mensagens parecem não estar sincronizadas — o que eu mando **fora**
+do CRM não aparece **dentro** do CRM. Isso não pode acontecer."
+
+**Método de conferência:** puxar o histórico **real** do WhatsApp (WAHA
+`GET /api/messages`) e comparar com `atendimento_mensagens` **por id** da mensagem
+(`whatsapp_message_id`) — nunca por texto/hora (mídia vem com corpo vazio e gera
+falso positivo).
+
+**Resultado da auditoria inicial:** conversa com Alan Marchesi = **26 no WhatsApp,
+11 no CRM**; das 15 que não batiam, **10 existiam no banco — só que na conversa ERRADA**.
+
+### S-01 — mensagem enviada por nós era arquivada na conversa errada (CORRIGIDO)
+
+- **Sintoma:** todas as mensagens que **eu envio** (`fromMe`) para conversas `@lid`
+  paravam no atendimento **"Cliente / 556295094949"** (= o NOSSO número da STK-1),
+  desde 28/09 13:57. O cliente via o histórico normalmente; **quem olhava o CRM
+  via a conversa certa não via o que foi enviado**. As mensagens recebidas iam
+  bem — por isso parecia "meio sincronizado".
+- **Causa:** `extrairTelefoneAlt` (`lib/waha-webhook.ts`) lia os campos de
+  **REMETENTE** (`senderAlt`, `fromAlt`, `participantAlt`, `_data.Info.SenderAlt`).
+  Numa mensagem **nossa**, o remetente **é nós** → o chat `@lid` era gravado no
+  mapa apontando para o nosso número (`saveLidMapping`), e todo o chat era
+  arquivado no atendimento do nosso número. O telefone do cliente está em
+  **`_data.Info.RecipientAlt`**, que ninguém lia.
+- **Prova:** payload real capturado no WAHA em 30/09: `SenderAlt: ""`,
+  `RecipientAlt: "554784227161"` (= Alan) e, no lado plano, o remetente = nós;
+  e a linha envenenada `lid 279885889175741@lid → 556295094949` criada em
+  28/09 13:57:41 com `push_name = Sustentalski Ltda` (o nosso nome).
+- **Conserto (TDD):** 3 testes **RED** com a forma real → `fromMe` lê **só**
+  `RecipientAlt`/`recipientAlt`/`toAlt`; sem eles, **não inventa** e a rota cai na
+  resolução do LID (que devolve o par). Mensagem recebida continua lendo o
+  remetente (1 teste garantindo). **Gates:** 303 testes ✅ / `tsc` ✅ →
+  commit **`4555880`** → deploy produção ✅ (`Vercel – stk-crm-amber` success).
+- **Prova em produção (replay controlado, sem enviar mensagem ao mundo):**
+  1. evento `fromMe` só com o veneno (`senderAlt` = nosso número, LID desconhecido)
+     → **HTTP 400** "LID não resolveu — atendimento não criado" (**nada foi
+     arquivado no lugar errado**);
+  2. mesmo evento com `RecipientAlt` = `556282735286` (número de teste) → **200**
+     gravado **no atendimento certo**. Mensagem de teste e linha de mapa apagados
+     ao final (0 resíduo).
+- **Reparo dos dados:** 10 mensagens movidas de `70fa5148…` (conversa errada) para
+  `7e204325…` (Alan); mapa do LID corrigido para `554784227161`; atendimento
+  errado **apagado** (0 mensagens restantes nele). Alan: **11 → 21 mensagens**,
+  `ultima_mensagem_data` recalculado (30/09 16:09).
+- **Nenhuma outra conversa afetada:** as 4 conversas com telefone = número nosso
+  são espelhos/testes legítimos (têm os **dois** sentidos — o defeito só deixava
+  um).
+
+### S-02 — cartão de contato e localização eram descartados (CORRIGIDO)
+
+- **Sintoma:** mensagem sem texto e sem mídia (`body: null`, `hasMedia: false`)
+  gerava conteúdo vazio → rota respondia **400 "Mensagem vazia"** → **sumia
+  silenciosamente**. Exemplo real: vCard recebido de Alan em **30/09 15:43:41**
+  (`MediaType: vcard`, `vCards: 1`) que não aparecia no CRM.
+- **Conserto (TDD):** 2 testes RED → `conteudoSemTexto()` devolve `[contato]`
+  (vCard) e `[localização]` (location). **Gates:** 305 testes ✅ / `tsc` ✅ →
+  commit **`66e2d84`** → deploy ✅. Replay do vCard real em produção → **200** e
+  apareceu na conversa.
+
+### Reposição das mensagens que faltavam (backfill)
+
+Replay dos payloads reais do WAHA (ordem cronológica) — todos `200`:
+
+| período | qtd | motivo da perda |
+|---|---|---|
+| 25/09 20:10–20:59 | 4 | falha antiga de resolução de LID (o "bug 26/09", já corrigido) |
+| 30/09 15:43 | 1 | vCard descartado (S-02) |
+| 26/09 03:02 (conversa espelho) | 2 | janela de migração WAHA (webhook ainda trocando) |
+
+**Auditoria final (por id):** Alan **26/26** ✅ · espelho João Pedro **9/9** ✅ ·
+**0 mensagens fora do CRM** nas conversas ativas.
+Único resíduo conhecido: **1 mensagem de 14/09** (Vivo Comunica) — anterior à
+migração para o WAHA (26/09), história do motor antigo; não é vazamento atual.
+
+**Como retestar depois (regra):** para qualquer conversa, comparar
+`GET /api/messages?session=…&chatId=…` com
+`atendimento_mensagens?whatsapp_message_id=…` **por id**; diferença ≠ 0 é bug.
+
 ## Ainda não testado (próxima sessão)
 
 | ID | Item | O que falta | Bloqueio |
@@ -300,6 +381,10 @@ endereço completo) — **pronto para o replay assim que a sessão ARP liberar**
   A08b, A09a–e, A10a–d, A11 · B01–B08, B07b, B10, **B11 (após conserto)** · C01, C02, C03, C04
 - **Aprovados em seção própria (performance): 3** — D01 (base externa), D02/B09 (6 telas),
   D03 (comparativo com a seção 8)
+- **Bugs achados e corrigidos fora da lista (30/09): 2** — S-01 (mensagem enviada por
+  nós ia para a conversa errada) e S-02 (vCard/localização sumiam). Reparo de dados:
+  10 mensagens realocadas + 7 repostas por replay; auditoria final **0 fora do CRM**.
+  Commits `4555880` e `66e2d84`; suíte de testes **305 passing**, `tsc` limpo.
 - **Reprovados: 0** — B11 reprovou no teste e foi **consertado em TDD** (commit `b6f713d`,
   gates verdes, badge `🔗 STK-3` verificada em produção — lista **e** cabeçalho)
 - **Achados menores abertos: 3** — A-01 (sino sem aria), A-02 (botões da base sem aria),
