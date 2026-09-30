@@ -314,3 +314,61 @@ describe('ehPlaceholderConteudo (evita legenda [image] duplicada na imagem)', ()
     expect(ehPlaceholderConteudo(undefined)).toBe(false)
   })
 })
+
+describe('parseEventoWaha — telefone numa mensagem MINHA (fromMe) [bug 30/09]', () => {
+  // Payload REAL do WAHA em 30/09: numa mensagem enviada por mim, `from` é o chat
+  // (lid do cliente) e os campos de REMETENTE trazem o MEU número —
+  // `_data.Info.SenderAlt` vem vazio e os campos planos (senderAlt/fromAlt/
+  // participantAlt) são o remetente (= eu). O telefone do cliente está em
+  // `_data.Info.RecipientAlt`. Antes do fix o extractor lia os campos do
+  // remetente e o chat inteiro era arquivado no atendimento do NOSSO número.
+  const payloadMinha = {
+    event: 'message.any',
+    session: 'STK-1',
+    payload: {
+      id: 'true_279885889175741@lid_ACDB99210F71E0E09C3932064D2BCA32',
+      timestamp: 1790784546,
+      from: '279885889175741@lid',
+      fromMe: true,
+      body: 'Muito grato Alan.',
+      senderAlt: '556295094949@s.whatsapp.net', // = EU (remetente)
+      _data: {
+        Info: {
+          SenderAlt: '',
+          RecipientAlt: '554784227161@s.whatsapp.net', // = o cliente
+          PushName: 'Sustentalski Ltda', // = o nosso nome
+        },
+      },
+    },
+  }
+
+  it('usa RecipientAlt (o cliente) quando a mensagem é minha', () => {
+    const r = parseEventoWaha(payloadMinha) as MensagemWaha
+    expect(r.de_lid).toBe(true)
+    expect(r.telefone_alt).toBe('554784227161')
+  })
+
+  it('NUNCA devolve o remetente (nós) como telefone do cliente', () => {
+    const r = parseEventoWaha({
+      ...payloadMinha,
+      payload: {
+        ...payloadMinha.payload,
+        _data: { Info: { SenderAlt: '556295094949:23@s.whatsapp.net' } },
+      },
+    }) as MensagemWaha
+    expect(r.telefone_alt).toBeNull()
+  })
+
+  it('mensagem recebida continua lendo o remetente (cliente) normalmente', () => {
+    const r = parseEventoWaha({
+      ...payloadMinha,
+      payload: {
+        ...payloadMinha.payload,
+        fromMe: false,
+        senderAlt: '554784227161@s.whatsapp.net',
+        _data: { Info: { SenderAlt: '554784227161@s.whatsapp.net', RecipientAlt: '' } },
+      },
+    }) as MensagemWaha
+    expect(r.telefone_alt).toBe('554784227161')
+  })
+})

@@ -56,14 +56,23 @@ function primeiraString(candidatos: unknown[]): string | null {
  * número em `_data.Info.SenderAlt` (ou variantes flat) — sem depender de API.
  */
 function extrairTelefoneAlt(payload: any): string | null {
-  const candidatos = [
-    payload?._data?.Info?.SenderAlt,
-    payload?.senderAlt,
-    payload?.fromAlt,
-    payload?.participantAlt,
-    payload?.remoteJidAlt,
-    payload?._data?.SenderAlt,
-  ]
+  // Mensagem ENVIADA por nós: `from` é o chat, mas os campos de REMETENTE
+  // (senderAlt/fromAlt/participantAlt/_data.Info.SenderAlt) vêm com o NOSSO
+  // número — lê-los fazia o chat inteiro ser arquivado no atendimento do nosso
+  // próprio número, e o cliente ficava sem ver o histórico (bug 30/09).
+  // O telefone do cliente está em RecipientAlt; se não houver, não inventa:
+  // a rota cai na resolução do LID (que devolve o par).
+  const mensagemMinha = payload?.fromMe === true
+  const candidatos = mensagemMinha
+    ? [payload?._data?.Info?.RecipientAlt, payload?.recipientAlt, payload?.toAlt]
+    : [
+        payload?._data?.Info?.SenderAlt,
+        payload?.senderAlt,
+        payload?._data?.SenderAlt,
+        payload?.fromAlt,
+        payload?.participantAlt,
+        payload?.remoteJidAlt,
+      ]
   for (const c of candidatos) {
     if (typeof c !== 'string') continue
     // Jid alternativo pode trazer o sufixo de dispositivo ("556295094949:23@…");
