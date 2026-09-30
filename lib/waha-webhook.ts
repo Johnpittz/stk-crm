@@ -122,7 +122,7 @@ export function parseEventoWaha(body: unknown): EventoWaha {
         payload.verifiedName,
       ]),
       telefone_alt: extrairTelefoneAlt(payload),
-      conteudo: payload.body || '',
+      conteudo: payload.body || conteudoSemTexto(payload),
       tipo_midia: payload.hasMedia ? mapTipoMidia(media?.mimetype) : null,
       url_midia: media?.url || null,
       file_name: media?.filename || null,
@@ -151,6 +151,21 @@ export function parseEventoWaha(body: unknown): EventoWaha {
   }
 
   return { evento: 'ignorado' }
+}
+
+/**
+ * Mensagem sem texto e sem mídia (cartão de contato, localização): devolve um
+ * placeholder — sem isso a rota respondia 400 "Mensagem vazia" e a mensagem
+ * sumia do atendimento no CRM (bug 30/09: vCard de 15:43 não apareceu).
+ */
+function conteudoSemTexto(payload: any): string {
+  const ehVcard =
+    (Array.isArray(payload?.vCards) && payload.vCards.length > 0) ||
+    payload?._data?.Info?.MediaType === 'vcard' ||
+    payload?.type === 'vcard'
+  if (ehVcard) return '[contato]'
+  if (payload?.location) return '[localização]'
+  return ''
 }
 
 /**

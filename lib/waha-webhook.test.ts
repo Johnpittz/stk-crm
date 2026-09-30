@@ -372,3 +372,45 @@ describe('parseEventoWaha — telefone numa mensagem MINHA (fromMe) [bug 30/09]'
     expect(r.telefone_alt).toBe('554784227161')
   })
 })
+
+describe('parseEventoWaha — conteúdos sem texto e sem mídia [bug 30/09]', () => {
+  // Payload REAL de 30/09 15:43 (Alan): cartão de contato — body null,
+  // hasMedia false → o CRM gravava '' e a rota respondia 400 "Mensagem vazia".
+  // A mensagem sumia do atendimento (mesma coisa com localização).
+  it('cartão de contato (vCard) vira conteúdo e não é descartado', () => {
+    const r = parseEventoWaha({
+      event: 'message.any',
+      session: 'STK-1',
+      payload: {
+        id: 'false_279885889175741@lid_AC7D94C24882527FAA787EC996E011FE',
+        timestamp: 1790783021,
+        from: '279885889175741@lid',
+        fromMe: false,
+        body: null,
+        hasMedia: false,
+        vCards: ['BEGIN:VCARD\nVERSION:3.0\nN:SISTEL;Sr;Eduardo\nEND:VCARD'],
+        _data: { Info: { SenderAlt: '554784227161@s.whatsapp.net', Type: 'media', MediaType: 'vcard' } },
+      },
+    }) as MensagemWaha
+    expect(montarConteudo(r)).not.toBe('')
+    expect(montarConteudo(r)).toBe('[contato]')
+  })
+
+  it('localização vira conteúdo e não é descartado', () => {
+    const r = parseEventoWaha({
+      event: 'message.any',
+      session: 'STK-1',
+      payload: {
+        id: 'false_279885889175741@lid_LOC123',
+        timestamp: 1790783022,
+        from: '279885889175741@lid',
+        fromMe: false,
+        body: null,
+        hasMedia: false,
+        location: { degreesLatitude: -16.7, degreesLongitude: -49.3 },
+      },
+    }) as MensagemWaha
+    expect(montarConteudo(r)).not.toBe('')
+    expect(montarConteudo(r)).toBe('[localização]')
+  })
+})
