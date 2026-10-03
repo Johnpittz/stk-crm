@@ -61,6 +61,34 @@ describe('montarBlocoConhecimento — injetado no prompt da IA', () => {
     expect(montarBlocoConhecimento(base)).not.toContain('fora de linha')
   })
 
+  it('03/10: as palavras-chave vão junto no bloco (sem elas a IA não casa a pergunta)', () => {
+    // O João cadastrou 'prazo' como palavra-chave, mas ela NÃO ia pro prompt —
+    // a IA via só 'teste viabilidade: Vai chegar amanhã' e perguntou em vez de
+    // responder (conversa real de 03/10 03:26).
+    const bloco = montarBlocoConhecimento([
+      {
+        id: 'e9',
+        categoria: 'Geral',
+        titulo: 'Teste viabilidade',
+        conteudo: 'Vai chegar amanhã',
+        palavras_chave: ['prazo', 'entrega'],
+        ativo: true,
+      },
+    ])
+    expect(bloco).toContain('Teste viabilidade')
+    expect(bloco).toContain('prazo')
+    expect(bloco).toContain('entrega')
+    expect(bloco).toContain('Vai chegar amanhã')
+  })
+
+  it('entrada sem palavra-chave continua normal (sem colchete vazio)', () => {
+    const bloco = montarBlocoConhecimento([
+      { id: 'e10', categoria: 'Geral', titulo: 'Horário', conteudo: '8h às 18h', ativo: true },
+    ])
+    expect(bloco).toContain('Horário: 8h às 18h')
+    expect(bloco).not.toContain('[]')
+  })
+
   it('lista vazia gera bloco vazio — a IA fica sem fonte', () => {
     expect(montarBlocoConhecimento([])).toBe('')
     expect(baseVazia([])).toBe(true)

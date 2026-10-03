@@ -68,6 +68,7 @@ export function montarPromptIA(params: ParamsPromptIA): string {
     ? `Base de conhecimento vazia ou indisponível: NÃO responda perguntas sobre a empresa.
 Responda SOMENTE com o marcador ${MARCADOR_ENCAMINHAR} e nada mais.`
     : `A BASE DE CONHECIMENTO abaixo é a ÚNICA FONTE de verdade desta empresa.
+- PRIORIDADE: se a pergunta do cliente casar com uma entrada da base (pelo título, conteúdo ou palavras-chave), responda DIRETAMENTE com o conteúdo dela — sem fazer perguntas de esclarecimento antes. Só pergunte se a base realmente não cobrir.
 - Use apenas o que está escrito nela; não invente preço, prazo, política, endereço ou capacidade que não conste.
 - Se a pergunta não for coberta pela base, responda exatamente com ${MARCADOR_ENCAMINHAR} (não tente adivinhar).
 - Pode puxar assunto: sugira produtos, serviços e planos que EXISTAM na base, no máximo 1 ou 2 sugestões por mensagem.

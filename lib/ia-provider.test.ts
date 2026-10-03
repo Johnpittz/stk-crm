@@ -108,6 +108,18 @@ describe('chamarModelo — MIMO (compatível OpenAI)', () => {
     expect(body.messages[0].content).toContain('Qual o prazo?')
   })
 
+  it('temperature baixa: resposta literal da base, sem improviso', async () => {
+    // 03/10: com 0.7 a IA perguntava antes de responder o que já estava
+    // cadastrado ('Prazo' virou 'qual serviço?'); 0.4 tende à resposta direta.
+    const fetchMock = vi.fn(async () => respostaMimo('ok'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await chamarModelo('oi')
+
+    const corpo = JSON.parse(String((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body))
+    expect(corpo.temperature).toBeLessThanOrEqual(0.4)
+  })
+
   it('HTTP != 200 LANÇA (vira erro_ia no guardrail, não resposta inventada)', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({
       ok: false,
@@ -178,7 +190,7 @@ describe('responderComBase via MIMO — guardrail preservado', () => {
     expect(r.motivo).toBe('erro_ia')
   })
 
-  it('sem chave nenhuma no ambiente vira erro_ia (como antes)', async () => {
+  it('sem nenhuma chave no ambiente vira erro_ia (como antes)', async () => {
     vi.stubEnv('XIAOMI_API_KEY', '')
     vi.stubEnv('GEMINI_API_KEY', '')
     const r = await responderComBase({ mensagemCliente: 'Prazo?', base })

@@ -74,7 +74,9 @@ async function chamarMimo(prompt: string, env: Env): Promise<string> {
     body: JSON.stringify({
       model: valor(env, 'XIAOMI_MODEL') || MIMO_MODEL_PADRAO,
       messages: [{ role: 'user', content: prompt }],
-      temperature: 0.7,
+      // 03/10: temperature baixa = resposta literal da base, sem improviso
+      // (com 0.7 a IA perguntava antes de responder o que já estava cadastrado)
+      temperature: 0.4,
       max_tokens: 800,
     }),
   })

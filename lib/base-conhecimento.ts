@@ -81,7 +81,12 @@ export function montarBlocoConhecimento(entradas: EntradaConhecimento[]): string
   for (const [cat, itens] of Array.from(porCategoria.entries())) {
     linhas.push(`\n[${cat}]`)
     for (const e of itens) {
-      linhas.push(`- ${e.titulo.trim()}: ${String(e.conteudo).trim()}`)
+      // 03/10: as palavras-chave vão no prompt — sem elas a IA não conseguia
+      // casar "Prazo" com a entrada (o João cadastrou 'prazo' e ela perguntou
+      // em vez de responder).
+      const kw = palavrasChaveDe(e.palavras_chave)
+      const sufixo = kw.length > 0 ? ` [${kw.join(', ')}]` : ''
+      linhas.push(`- ${e.titulo.trim()}${sufixo}: ${String(e.conteudo).trim()}`)
     }
   }
   return linhas.join('\n')

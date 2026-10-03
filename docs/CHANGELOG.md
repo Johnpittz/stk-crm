@@ -35,6 +35,20 @@
 - **Prova em produção (03:38):** imagem enviada pelo caminho corrigido leu
   `fileLength=432533` (= limpa) na API do WAHA — 1 mensagem de teste ao nº do João
 
+### IA responde o que está na base (prompt + palavras-chave)
+- Na conversa real o "Prazo" virou uma PERGUNTA ("qual serviço?") em vez de
+  "Vai chegar amanhã" — 2 defeitos: as `palavras_chave` NÃO iam pro prompt e
+  as diretrizes de "puxar assunto" não tinham regra de prioridade
+- `montarBlocoConhecimento` agora envia as palavras-chave (`- teste
+  viabilidade [prazo]: Vai chegar amanhã`)
+- Regra **PRIORIDADE** no prompt: casou com a entrada → responde DIRETO, sem
+  perguntar esclarecimento (D7 "puxar assunto" continua, só depois)
+- Temperature 0.7 → **0.4** (resposta fiel, sem improviso)
+- TDD: 4 testes novos; **gates: 341 vitest + tsc limpo**
+- **Prova ao vivo:** mesmo caso real ("Prazo" + entrada do João) →
+  *"Para o teste de viabilidade, a previsão é que chegue amanhã..."* — conteúdo
+  da base, sem perguntar (0 chamadas de encaminhamento)
+
 ---
 
 ## 1.8.0 — 30/09/2026

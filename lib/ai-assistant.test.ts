@@ -50,6 +50,16 @@ describe('montarPromptIA — fonte única de verdade', () => {
     expect(prompt).toContain('não invente')
   })
 
+  it('03/10: PRIORIDADE — responder DIRETO da base antes de perguntar', () => {
+    // Na conversa real de 03/10 a IA perguntou 'qual serviço?' em vez de
+    // responder 'Vai chegar amanhã': faltava a regra de prioridade.
+    const prompt = montarPromptIA(paramsBase)
+    expect(prompt).toContain('PRIORIDADE')
+    expect(prompt.toLowerCase()).toContain('sem fazer perguntas de esclarecimento')
+    // e ela continua podendo puxar assunto DEPOIS de responder (D7)
+    expect(prompt.toLowerCase()).toContain('puxar assunto')
+  })
+
   it('D7: instrui a puxar assunto (sugerir produtos/planos) dentro da base', () => {
     const prompt = montarPromptIA(paramsBase)
     expect(prompt.toLowerCase()).toContain('puxar assunto')
