@@ -136,6 +136,10 @@ export function ModalDetalhesOportunidade({
   const [editando, setEditando] = useState(false);
   const [concluindo, setConcluindo] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  // Anotação: espaço de notas que existe SEM entrar no fluxo de edição
+  // (que só aparece em oportunidade concluída).
+  const [salvandoAnotacao, setSalvandoAnotacao] = useState(false);
+  const [anotacaoSalva, setAnotacaoSalva] = useState(false);
   const supabase = createClient();
 
   const [form, setForm] = useState({
@@ -178,6 +182,7 @@ export function ModalDetalhesOportunidade({
       setConcluindo(false);
       setEditando(false);
       setResultadoForm({ resultado: "", observacao: "", valorVenda: "" });
+      setAnotacaoSalva(false);
     }
   }, [aberto, iniciarConcluindo, oportunidade]);
 
@@ -199,11 +204,12 @@ export function ModalDetalhesOportunidade({
         body.valor_venda = parseFloat(form.valorVenda.replace(/\./g, "").replace(",", "."));
       }
 
+      const auth = ["Bearer", session.access_token].join(" ");
       const res = await fetch("/api/oportunidades", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: auth,
         },
         body: JSON.stringify(body),
       });
@@ -217,6 +223,36 @@ export function ModalDetalhesOportunidade({
       console.error(err);
     } finally {
       setSalvando(false);
+    }
+  };
+
+  // PATCH só com a anotação — não mexe em título/prioridade nem conclui.
+  const handleSalvarAnotacao = async () => {
+    if (!oportunidade) return;
+    setSalvandoAnotacao(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const auth = ["Bearer", session.access_token].join(" ");
+      const res = await fetch("/api/oportunidades", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: auth,
+        },
+        body: JSON.stringify({ id: oportunidade.id, descricao: form.descricao }),
+      });
+
+      if (res.ok) {
+        setAnotacaoSalva(true);
+        onAtualizar();
+        setTimeout(() => setAnotacaoSalva(false), 3000);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSalvandoAnotacao(false);
     }
   };
 
@@ -338,7 +374,7 @@ export function ModalDetalhesOportunidade({
 
   return (
     <Dialog open={aberto} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto bg-[#0c1426] border-[#1c2e4a] text-white">
+      <DialogContent className="max-w-2xl w-[95vw] min-h-[480px] max-h-[92vh] overflow-y-auto bg-[#0c1426] border-[#1c2e4a] text-white">
         {/* Header */}
         <DialogHeader className="pb-0">
           <div className="flex items-center gap-3">
@@ -348,10 +384,10 @@ export function ModalDetalhesOportunidade({
                 <Input
                   value={form.titulo}
                   onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))}
-                  className="font-semibold text-lg h-9 bg-[#14233c] border-[#1c2e4a] text-white"
+                  className="font-semibold text-xl h-10 bg-[#14233c] border-[#1c2e4a] text-white"
                 />
               ) : (
-                <DialogTitle className="text-lg font-bold text-white truncate">
+                <DialogTitle className="text-xl font-bold text-white truncate">
                   {oportunidade.titulo}
                 </DialogTitle>
               )}
@@ -363,20 +399,20 @@ export function ModalDetalhesOportunidade({
           {/* Etapa + Prioridade */}
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary" className={cn(
-              "text-xs px-3 py-1 font-semibold",
+              "text-sm px-3 py-1 font-semibold",
               isConcluida ? "bg-emerald-500/20 text-emerald-400" : "bg-blue-500/20 text-blue-400"
             )}>
               {isConcluida ? "✅ Concluída" : colunas.find(c => c.id === oportunidade.etapa)?.titulo || oportunidade.etapa}
             </Badge>
             <Badge variant="secondary" className={cn(
-              "text-xs px-2 py-0.5",
+              "text-sm px-2 py-0.5",
               coresPrioridade[oportunidade.prioridade] || coresPrioridade.media
             )}>
               {oportunidade.prioridade === "urgente" && <AlertCircle className="h-3 w-3 mr-1" />}
               {oportunidade.prioridade}
             </Badge>
             {oportunidade.origem_lead && origemConfig[oportunidade.origem_lead] && (
-              <Badge variant="secondary" className={cn("text-xs px-2 py-0.5", origemConfig[oportunidade.origem_lead].cor)}>
+              <Badge variant="secondary" className={cn("text-sm px-2 py-0.5", origemConfig[oportunidade.origem_lead].cor)}>
                 {origemConfig[oportunidade.origem_lead].icone} {origemConfig[oportunidade.origem_lead].nome}
               </Badge>
             )}
@@ -389,8 +425,8 @@ export function ModalDetalhesOportunidade({
                 {(oportunidade.clientes?.nome_razao_social || oportunidade.cliente_nome || "").charAt(0).toUpperCase()}
               </div>
               <div>
-                <p className="text-sm font-semibold text-white">{oportunidade.clientes?.nome_razao_social || oportunidade.cliente_nome}</p>
-                <p className="text-xs text-slate-400">Cliente</p>
+                <p className="text-base font-semibold text-white">{oportunidade.clientes?.nome_razao_social || oportunidade.cliente_nome}</p>
+                <p className="text-sm text-slate-400">Cliente</p>
               </div>
             </div>
           )}
@@ -408,51 +444,70 @@ export function ModalDetalhesOportunidade({
           {/* Datas */}
           <div className="grid grid-cols-2 gap-3">
             <div className="p-3 bg-[#14233c] rounded-xl border border-[#1c2e4a]">
-              <span className="text-slate-400 flex items-center gap-1.5 text-xs mb-1">
+              <span className="text-slate-400 flex items-center gap-1.5 text-sm mb-1">
                 <Calendar className="h-3.5 w-3.5" /> Início
               </span>
               <span className="text-sm font-medium text-white">{formatData(oportunidade.data_inicio)}</span>
             </div>
             <div className="p-3 bg-[#14233c] rounded-xl border border-[#1c2e4a]">
-              <span className="text-slate-400 flex items-center gap-1.5 text-xs mb-1">
+              <span className="text-slate-400 flex items-center gap-1.5 text-sm mb-1">
                 <Calendar className="h-3.5 w-3.5" /> Prazo
               </span>
               <span className="text-sm font-medium text-white">{formatData(oportunidade.data_fim)}</span>
             </div>
           </div>
 
-          {/* Descrição */}
+          {/* Descrição / Anotações — SEMPRE editável (antes só virava
+              textarea no modo edição, que só existe em oportunidade
+              concluída; um card em andamento não tinha como anotar) */}
           <div>
-            <Label className="text-xs text-slate-400 mb-1 block">Descrição</Label>
-            {(editando || concluindo) ? (
-              <textarea
-                value={form.descricao}
-                onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))}
-                rows={3}
-                className="w-full rounded-xl border border-[#1c2e4a] bg-[#14233c] px-3 py-2 text-sm text-white placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500"
-              />
-            ) : (
-              <p className="text-sm text-slate-300 whitespace-pre-wrap bg-[#14233c] p-3 rounded-xl border border-[#1c2e4a]">
-                {oportunidade.descricao || "Sem descrição"}
-              </p>
-            )}
+            <Label className="text-sm text-slate-400 mb-1.5 block">
+              Descrição / Anotações
+            </Label>
+            <textarea
+              value={form.descricao}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, descricao: e.target.value }));
+                setAnotacaoSalva(false);
+              }}
+              rows={5}
+              placeholder="Escreva sua anotação sobre esta oportunidade..."
+              className="w-full rounded-xl border border-[#1c2e4a] bg-[#14233c] px-3.5 py-3 text-base text-white placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500"
+            />
+            <div className="flex items-center gap-3 mt-2">
+              <Button
+                size="sm"
+                onClick={handleSalvarAnotacao}
+                disabled={salvandoAnotacao}
+                className="gap-1 bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Save className="h-4 w-4" />
+                {salvandoAnotacao ? "Salvando..." : "Salvar anotação"}
+              </Button>
+              {anotacaoSalva && (
+                <span className="text-sm text-emerald-400 flex items-center gap-1">
+                  <Check className="h-4 w-4" />
+                  Anotação salva
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Resultado (só mostra se tiver sido concluída com resultado) */}
           {oportunidade.resultado && !concluindo && (
             <div className="bg-[#14233c] rounded-xl p-3 border border-[#1c2e4a]">
-              <Label className="text-xs text-slate-400">Resultado da execução</Label>
+              <Label className="text-sm text-slate-400">Resultado da execução</Label>
               <div className="flex items-center gap-2 mt-1 mb-2">
                 <Badge variant="secondary" className={cn(labelsResultado[oportunidade.resultado]?.cor || "bg-slate-100 text-slate-700")}>
                   {labelsResultado[oportunidade.resultado]?.label || oportunidade.resultado}
                 </Badge>
               </div>
               {oportunidade.observacao_resultado && (
-                <p className="text-sm text-slate-300 whitespace-pre-wrap">{oportunidade.observacao_resultado}</p>
+                <p className="text-base text-slate-300 whitespace-pre-wrap">{oportunidade.observacao_resultado}</p>
               )}
               {oportunidade.resultado === "sucesso" && oportunidade.valor_venda && (
                 <div className="mt-2 pt-2 border-t border-[#1c2e4a]">
-                  <span className="text-xs text-slate-400">Valor da Venda:</span>
+                  <span className="text-sm text-slate-400">Valor da Venda:</span>
                   <span className="ml-2 text-sm font-bold text-emerald-400">
                     {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(oportunidade.valor_venda)}
                   </span>
@@ -464,7 +519,7 @@ export function ModalDetalhesOportunidade({
           {/* Campo valor editável no modo edição (concluída com sucesso) */}
           {editando && oportunidade.resultado === "sucesso" && (
             <div>
-              <Label className="text-xs text-slate-400">Valor da Venda (R$)</Label>
+              <Label className="text-sm text-slate-400">Valor da Venda (R$)</Label>
               <Input
                 type="text"
                 placeholder="0,00"
@@ -492,7 +547,7 @@ export function ModalDetalhesOportunidade({
 
               {/* Prioridade */}
               <div>
-                <Label className="text-xs text-slate-400">Prioridade</Label>
+                <Label className="text-sm text-slate-400">Prioridade</Label>
                 <Select value={form.prioridade} onValueChange={(v) => setForm((f) => ({ ...f, prioridade: v }))}>
                   <SelectTrigger className="mt-1 bg-[#14233c] border-[#1c2e4a] text-white"><SelectValue /></SelectTrigger>
                   <SelectContent className="bg-[#14233c] border-[#1c2e4a]">
@@ -506,7 +561,7 @@ export function ModalDetalhesOportunidade({
 
               {/* Resultado */}
               <div>
-                <Label className="text-xs text-slate-400">Resultado *</Label>
+                <Label className="text-sm text-slate-400">Resultado *</Label>
                 <Select value={resultadoForm.resultado} onValueChange={(v) => setResultadoForm((f) => ({ ...f, resultado: v, observacao: "" }))}>
                   <SelectTrigger className="mt-1 bg-[#14233c] border-[#1c2e4a] text-white"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                   <SelectContent className="bg-[#14233c] border-[#1c2e4a]">
@@ -521,7 +576,7 @@ export function ModalDetalhesOportunidade({
 
               {/* Observação do resultado */}
               <div>
-                <Label className="text-xs text-slate-400">Observação do resultado *</Label>
+                <Label className="text-sm text-slate-400">Observação do resultado *</Label>
                 <Select
                   value={resultadoForm.observacao}
                   onValueChange={(v) => setResultadoForm((f) => ({ ...f, observacao: v }))}
@@ -541,7 +596,7 @@ export function ModalDetalhesOportunidade({
               {/* Valor da venda (só se Sucesso) */}
               {resultadoForm.resultado === "sucesso" && (
                 <div>
-                  <Label className="text-xs text-slate-400">Valor da Venda (R$) *</Label>
+                  <Label className="text-sm text-slate-400">Valor da Venda (R$) *</Label>
                   <Input
                     type="text"
                     placeholder="0,00"
