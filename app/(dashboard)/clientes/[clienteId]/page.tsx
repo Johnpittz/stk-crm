@@ -510,13 +510,13 @@ export default function ClienteDetalhePage() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all flex-1 justify-center",
+                "flex items-center gap-2 px-3 py-2.5 rounded-lg text-base font-medium whitespace-nowrap transition-all flex-1 justify-center",
                 isActive
                   ? "bg-[#3B64CF] text-white shadow-md"
                   : "text-white/50 hover:text-white/70 hover:bg-white/5"
               )}
             >
-              <Icon className="h-3.5 w-3.5" />
+              <Icon className="h-4 w-4" />
               <span className="hidden sm:inline">{tab.label}</span>
             </button>
           );
@@ -629,8 +629,8 @@ function TabDados({
             ))}
           </div>
           <div className="flex justify-between mt-2 px-1">
-            <span className="text-[10px] text-white/30">0</span>
-            <span className="text-[10px] text-white/30">{maxConsumo.toLocaleString("pt-BR")} kWh</span>
+            <span className="text-xs text-white/50">0</span>
+            <span className="text-xs text-white/50">{maxConsumo.toLocaleString("pt-BR")} kWh</span>
           </div>
         </Section>
       )}
@@ -649,8 +649,8 @@ function TabDados({
             ))}
           </div>
           <div className="flex justify-between mt-2 px-1">
-            <span className="text-[10px] text-white/30">0</span>
-            <span className="text-[10px] text-white/30">{maxGeracao.toLocaleString("pt-BR")} kWh</span>
+            <span className="text-xs text-white/50">0</span>
+            <span className="text-xs text-white/50">{maxGeracao.toLocaleString("pt-BR")} kWh</span>
           </div>
         </Section>
       )}
@@ -658,7 +658,7 @@ function TabDados({
       {/* Observações */}
       {cliente.observacoes && (
         <Section title="Observações" icon={FileText}>
-          <p className="text-xs text-white/60 whitespace-pre-wrap">{cliente.observacoes}</p>
+          <p className="text-sm text-white/60 whitespace-pre-wrap">{cliente.observacoes}</p>
         </Section>
       )}
     </div>
@@ -704,14 +704,14 @@ function TabGD({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+        <h3 className="text-base font-semibold text-white flex items-center gap-2">
           <Zap className="h-4 w-4 text-[#3B64CF]" />
           Propostas GD
-          <span className="text-[10px] text-white/40 font-normal">({allPropostas.length})</span>
+          <span className="text-xs text-white/40 font-normal">({allPropostas.length})</span>
         </h3>
         <button
           onClick={() => router.push(`/clientes/${clienteId}/axs-novo`)}
-          className="flex items-center gap-1.5 h-7 px-3 text-[11px] rounded-lg bg-[#3B64CF] text-white hover:bg-[#2d52b0] transition-colors"
+          className="flex items-center gap-1.5 h-7 px-3 text-sm rounded-lg bg-[#3B64CF] text-white hover:bg-[#2d52b0] transition-colors"
         >
           <Plus className="h-3 w-3" />
           Nova Proposta GD
@@ -733,26 +733,26 @@ function TabGD({
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium text-white truncate">{p.titulo}</p>
+                  <p className="text-sm font-medium text-white truncate">{p.titulo}</p>
                   <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                    <Badge className={cn("text-[9px] border", getEtapaColor(p.etapa))}>
+                    <Badge className={cn("text-xs border", getEtapaColor(p.etapa))}>
                       {p.etapa}
                     </Badge>
                     {p.origem === "axs" && (
-                      <Badge className="text-[9px] bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                      <Badge className="text-xs bg-purple-500/20 text-purple-400 border border-purple-500/30">
                         AXS
                       </Badge>
                     )}
                   </div>
                 </div>
                 {p.valor != null && (
-                  <span className="text-[11px] font-semibold text-[#3B64CF] whitespace-nowrap">
+                  <span className="text-sm font-semibold text-[#3B64CF] whitespace-nowrap">
                     {formatCurrency(p.valor)}
                   </span>
                 )}
               </div>
               <div className="flex items-center justify-between gap-3 mt-2">
-                <div className="flex items-center gap-3 text-[10px] text-white/40">
+                <div className="flex items-center gap-3 text-xs text-white/40">
                   {p.uc && (
                     <span className="flex items-center gap-1">
                       <Zap className="h-3 w-3" />
@@ -832,13 +832,13 @@ function TabReciee({
 
       {/* Faturas List */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+        <h3 className="text-base font-semibold text-white flex items-center gap-2">
           <Receipt className="h-4 w-4 text-[#3B64CF]" />
           Faturas RECIEE
         </h3>
         <button
           onClick={() => router.push(`/clientes/${clienteId}/editar`)}
-          className="flex items-center gap-1.5 h-7 px-3 text-[11px] rounded-lg border border-white/10 text-white/60 hover:text-white hover:bg-white/5 transition-colors"
+          className="flex items-center gap-1.5 h-7 px-3 text-sm rounded-lg border border-white/10 text-white/60 hover:text-white hover:bg-white/5 transition-colors"
         >
           <Upload className="h-3 w-3" />
           Upload Faturas
@@ -867,12 +867,12 @@ function TabReciee({
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-white">
+                      <span className="text-sm font-medium text-white">
                         {f.competencia || "Sem competência"}
                       </span>
                       {f.bandeira && (
                         <Badge className={cn(
-                          "text-[9px]",
+                          "text-xs",
                           f.bandeira.toLowerCase().includes("vermelha")
                             ? "bg-red-500/20 text-red-400"
                             : f.bandeira.toLowerCase().includes("amarela")
@@ -885,7 +885,7 @@ function TabReciee({
                         </Badge>
                       )}
                     </div>
-                    <div className="flex items-center gap-3 mt-1 text-[10px] text-white/40">
+                    <div className="flex items-center gap-3 mt-1 text-xs text-white/40">
                       {f.consumo_kwh != null && (
                         <span>{f.consumo_kwh.toLocaleString("pt-BR")} kWh</span>
                       )}
@@ -898,9 +898,9 @@ function TabReciee({
                     </div>
                   </div>
                   {isExpanded ? (
-                    <ChevronUp className="h-4 w-4 text-white/30 shrink-0" />
+                    <ChevronUp className="h-4 w-4 text-white/50 shrink-0" />
                   ) : (
-                    <ChevronDown className="h-4 w-4 text-white/30 shrink-0" />
+                    <ChevronDown className="h-4 w-4 text-white/50 shrink-0" />
                   )}
                 </button>
 
@@ -914,7 +914,7 @@ function TabReciee({
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             {a.macro_indice && (
-                              <span className="text-[10px] font-medium text-white/80">{a.macro_indice}</span>
+                              <span className="text-xs font-medium text-white/80">{a.macro_indice}</span>
                             )}
                             {a.severidade && (
                               <Badge className={cn("text-[8px]", getSeveridadeColor(a.severidade))}>
@@ -923,11 +923,11 @@ function TabReciee({
                             )}
                           </div>
                           {a.descricao && (
-                            <p className="text-[10px] text-white/50 mt-0.5">{a.descricao}</p>
+                            <p className="text-xs text-white/50 mt-0.5">{a.descricao}</p>
                           )}
                         </div>
                         {a.valor_estimado != null && a.valor_estimado > 0 && (
-                          <span className="text-[10px] font-semibold text-green-400 whitespace-nowrap">
+                          <span className="text-xs font-semibold text-green-400 whitespace-nowrap">
                             {formatCurrency(a.valor_estimado)}
                           </span>
                         )}
@@ -949,10 +949,10 @@ function TabReciee({
 function TabAtendimentos({ atendimentos }: { atendimentos: Atendimento[] }) {
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+      <h3 className="text-base font-semibold text-white flex items-center gap-2">
         <Headphones className="h-4 w-4 text-[#3B64CF]" />
         Atendimentos
-        <span className="text-[10px] text-white/40 font-normal">({atendimentos.length})</span>
+        <span className="text-xs text-white/40 font-normal">({atendimentos.length})</span>
       </h3>
 
       {atendimentos.length === 0 ? (
@@ -976,12 +976,12 @@ function TabAtendimentos({ atendimentos }: { atendimentos: Atendimento[] }) {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-white">
+                      <span className="text-sm font-medium text-white">
                         {a.canal || "Canal não informado"}
                       </span>
                       {a.status && (
                         <Badge className={cn(
-                          "text-[9px]",
+                          "text-xs",
                           a.status.toLowerCase() === "concluido" || a.status.toLowerCase() === "concluído"
                             ? "bg-green-500/20 text-green-400"
                             : a.status.toLowerCase() === "em andamento" || a.status.toLowerCase() === "ativo"
@@ -994,7 +994,7 @@ function TabAtendimentos({ atendimentos }: { atendimentos: Atendimento[] }) {
                         </Badge>
                       )}
                     </div>
-                    <div className="flex items-center gap-3 mt-1 text-[10px] text-white/40">
+                    <div className="flex items-center gap-3 mt-1 text-xs text-white/40">
                       {a.telefone_cliente && (
                         <span className="flex items-center gap-1">
                           <Phone className="h-3 w-3" />
@@ -1028,10 +1028,10 @@ function TabOportunidades({
 }) {
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+      <h3 className="text-base font-semibold text-white flex items-center gap-2">
         <TrendingUp className="h-4 w-4 text-[#3B64CF]" />
         Oportunidades
-        <span className="text-[10px] text-white/40 font-normal">({oportunidades.length})</span>
+        <span className="text-xs text-white/40 font-normal">({oportunidades.length})</span>
       </h3>
 
       {oportunidades.length === 0 ? (
@@ -1047,7 +1047,7 @@ function TabOportunidades({
             {Object.entries(oportunidadesPorEtapa).map(([etapa, items]) => (
               <Badge
                 key={etapa}
-                className={cn("text-[9px] border", getEtapaColor(etapa))}
+                className={cn("text-xs border", getEtapaColor(etapa))}
               >
                 {etapa}: {items.length}
               </Badge>
@@ -1057,11 +1057,11 @@ function TabOportunidades({
           {/* All oportunidades grouped by etapa */}
           {Object.entries(oportunidadesPorEtapa).map(([etapa, items]) => (
             <div key={etapa} className="space-y-2">
-              <h4 className="text-[11px] font-medium text-white/60 flex items-center gap-2">
-                <Badge className={cn("text-[9px] border", getEtapaColor(etapa))}>
+              <h4 className="text-sm font-medium text-white/60 flex items-center gap-2">
+                <Badge className={cn("text-xs border", getEtapaColor(etapa))}>
                   {etapa}
                 </Badge>
-                <span className="text-white/30">({items.length})</span>
+                <span className="text-white/50">({items.length})</span>
               </h4>
               <div className="space-y-1.5">
                 {items.map((o) => (
@@ -1071,22 +1071,22 @@ function TabOportunidades({
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium text-white truncate">{o.titulo}</p>
+                        <p className="text-sm font-medium text-white truncate">{o.titulo}</p>
                         <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                           {o.tipo && (
-                            <Badge className="text-[9px] bg-slate-500/20 text-slate-400 border border-slate-500/30">
+                            <Badge className="text-xs bg-slate-500/20 text-slate-400 border border-slate-500/30">
                               {o.tipo}
                             </Badge>
                           )}
                         </div>
                       </div>
                       {o.valor_proposta != null && (
-                        <span className="text-[11px] font-semibold text-[#3B64CF] whitespace-nowrap">
+                        <span className="text-sm font-semibold text-[#3B64CF] whitespace-nowrap">
                           {formatCurrency(o.valor_proposta)}
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-3 mt-2 text-[10px] text-white/40">
+                    <div className="flex items-center gap-3 mt-2 text-xs text-white/40">
                       {o.uc && (
                         <span className="flex items-center gap-1">
                           <Zap className="h-3 w-3" />
@@ -1105,7 +1105,7 @@ function TabOportunidades({
                       </span>
                     </div>
                     {o.descricao && (
-                      <p className="text-[10px] text-white/40 mt-2 line-clamp-2">{o.descricao}</p>
+                      <p className="text-xs text-white/40 mt-2 line-clamp-2">{o.descricao}</p>
                     )}
                   </div>
                 ))}
@@ -1178,8 +1178,8 @@ function EmptyState({
   return (
     <div className="text-center py-10">
       <Icon className="h-8 w-8 mx-auto mb-3 text-white/15" />
-      <p className="text-xs font-medium text-white/50">{title}</p>
-      <p className="text-[10px] text-white/30 mt-1">{description}</p>
+      <p className="text-sm font-medium text-white/50">{title}</p>
+      <p className="text-xs text-white/50 mt-1">{description}</p>
     </div>
   );
 }
@@ -1198,8 +1198,8 @@ function SummaryCard({
   return (
     <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-center">
       <Icon className={cn("h-4 w-4 mx-auto mb-1", color)} />
-      <p className="text-sm font-bold text-white">{value}</p>
-      <p className="text-[9px] text-white/40 mt-0.5">{label}</p>
+      <p className="text-lg font-bold text-white">{value}</p>
+      <p className="text-xs text-white/40 mt-0.5">{label}</p>
     </div>
   );
 }
