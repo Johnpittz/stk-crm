@@ -206,7 +206,7 @@ export default function ClientesPage() {
 
   // ─── Status badge helper ───
   function StatusBadge({ status }: { status: string | null }) {
-    if (!status) return <span className="text-[10px] text-slate-500">-</span>;
+    if (!status) return <span className="text-xs text-slate-500">-</span>;
     const s = status.toLowerCase();
     const color =
       s === "ativo" || s === "ativa"
@@ -215,7 +215,7 @@ export default function ClientesPage() {
           ? "bg-red-500/20 text-red-400"
           : "bg-slate-500/20 text-slate-400";
     return (
-      <Badge variant="secondary" className={`text-[10px] ${color}`}>
+      <Badge variant="secondary" className={`text-xs ${color}`}>
         {status}
       </Badge>
     );
@@ -233,7 +233,7 @@ export default function ClientesPage() {
     };
     const c = config[origem] || config.cadastro;
     return (
-      <Badge variant="secondary" className={`text-[9px] ${c.color}`}>
+      <Badge variant="secondary" className={`text-xs ${c.color}`}>
         {c.label}
       </Badge>
     );
@@ -244,11 +244,11 @@ export default function ClientesPage() {
       {/* Header */}
       <div className="shrink-0 flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <Users className="h-5 w-5 text-[#3B64CF]" />
             Clientes
           </h2>
-          <p className="text-xs text-slate-400">
+          <p className="text-sm text-slate-400">
             {stats.total} clientes cadastrados · {stats.gd} GD · {stats.reciee} RECIEE
           </p>
         </div>
@@ -256,7 +256,7 @@ export default function ClientesPage() {
           <Button
             variant="outline"
             size="sm"
-            className="h-8 text-xs border-[#1c2e4a] text-slate-400"
+            className="h-8 text-sm border-[#1c2e4a] text-slate-400"
             onClick={carregarClientes}
           >
             <RefreshCw className="h-3 w-3 mr-1" />
@@ -265,7 +265,7 @@ export default function ClientesPage() {
           <Link href="/clientes/novo">
             <Button
               size="sm"
-              className="h-8 text-xs bg-[#3B64CF] hover:bg-[#2d4fa0] text-white"
+              className="h-8 text-sm bg-[#3B64CF] hover:bg-[#2d4fa0] text-white"
             >
               <Plus className="h-3 w-3 mr-1" />
               Novo Cliente
@@ -282,7 +282,7 @@ export default function ClientesPage() {
             placeholder="Buscar por nome, telefone, email ou CPF/CNPJ..."
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            className="h-8 text-xs pl-7 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#3B64CF]"
+            className="h-9 text-sm pl-8 bg-white/5 border-white/10 text-white placeholder:text-white/40 focus:border-[#3B64CF]"
           />
         </div>
         <div className="flex gap-1">
@@ -298,7 +298,7 @@ export default function ClientesPage() {
             <button
               key={f.value}
               onClick={() => setFiltroOrigem(f.value)}
-              className={`px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-all ${
+              className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
                 filtroOrigem === f.value
                   ? "bg-[#3B64CF] text-white"
                   : "bg-white/5 text-white/50 hover:bg-white/10"
@@ -320,7 +320,7 @@ export default function ClientesPage() {
           <div className="flex flex-col items-center justify-center h-full text-slate-500">
             <Users className="h-12 w-12 mb-4 text-slate-600" />
             <p className="text-sm">Nenhum cliente encontrado</p>
-            <p className="text-xs text-slate-600 mt-1">
+            <p className="text-sm text-slate-600 mt-1">
               Clientes aparecem aqui quando criam atendimento, participam de chatbot ou são importados
             </p>
           </div>
@@ -329,25 +329,25 @@ export default function ClientesPage() {
             <table className="w-full text-left">
               <thead className="sticky top-0 z-10 bg-[#0a1628] border-b border-[#1c2e4a]">
                 <tr>
-                  <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                  <th className="px-4 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
                     Nome
                   </th>
-                  <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                  <th className="px-4 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
                     CPF/CNPJ
                   </th>
-                  <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                  <th className="px-4 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
                     Cidade/UF
                   </th>
-                  <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                  <th className="px-4 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
                     Telefone/WhatsApp
                   </th>
-                  <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                  <th className="px-4 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
                     Concessionária
                   </th>
-                  <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                  <th className="px-4 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider w-8" />
+                  <th className="px-4 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider w-8" />
                 </tr>
               </thead>
               <tbody>
@@ -359,21 +359,21 @@ export default function ClientesPage() {
                   >
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-xs font-medium text-white truncate">
+                        <span className="text-sm font-medium text-white truncate">
                           {cliente.nome}
                         </span>
                         <OrigemBadge origem={cliente.origem} />
                       </div>
                     </td>
-                    <td className="px-4 py-2.5 text-xs text-slate-300 whitespace-nowrap">
+                    <td className="px-4 py-2.5 text-sm text-slate-300 whitespace-nowrap">
                       {cliente.cpf_cnpj || <span className="text-slate-600">-</span>}
                     </td>
-                    <td className="px-4 py-2.5 text-xs text-slate-300 whitespace-nowrap">
+                    <td className="px-4 py-2.5 text-sm text-slate-300 whitespace-nowrap">
                       {cliente.cidade && cliente.estado
                         ? `${cliente.cidade}/${cliente.estado}`
                         : cliente.cidade || <span className="text-slate-600">-</span>}
                     </td>
-                    <td className="px-4 py-2.5 text-xs text-slate-300 whitespace-nowrap">
+                    <td className="px-4 py-2.5 text-sm text-slate-300 whitespace-nowrap">
                       <div className="flex items-center gap-3">
                         {cliente.telefone && (
                           <span className="flex items-center gap-1">
@@ -392,7 +392,7 @@ export default function ClientesPage() {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-2.5 text-xs text-slate-300 truncate max-w-[140px]">
+                    <td className="px-4 py-2.5 text-sm text-slate-300 truncate max-w-[140px]">
                       {cliente.concessionaria || <span className="text-slate-600">-</span>}
                     </td>
                     <td className="px-4 py-2.5">
@@ -434,7 +434,7 @@ export default function ClientesPage() {
             <p className="text-sm text-slate-300">
               Tem certeza que deseja excluir <strong className="text-white">{clienteParaDeletar?.nome}</strong>?
             </p>
-            <p className="text-xs text-slate-500 mt-2">
+            <p className="text-sm text-slate-500 mt-2">
               O cliente será removido, mas os atendimentos anteriores serão mantidos.
             </p>
           </div>
