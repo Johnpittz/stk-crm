@@ -477,11 +477,11 @@ export default function ClienteDetalhePage() {
             <ArrowLeft className="h-4 w-4" />
           </button>
           <div>
-            <h2 className="text-base font-bold text-white flex items-center gap-2">
-              <User className="h-4 w-4 text-[#3B64CF]" />
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <User className="h-5 w-5 text-[#3B64CF]" />
               {cliente.nome_razao_social || "Sem nome"}
             </h2>
-            <p className="text-[11px] text-white/50">
+            <p className="text-sm text-white/60 mt-0.5">
               {cliente.cnpj_cpf || "Sem CPF/CNPJ"}
               {cliente.cidade && cliente.estado
                 ? ` · ${cliente.cidade}/${cliente.estado}`
@@ -493,7 +493,7 @@ export default function ClienteDetalhePage() {
         </div>
         <button
           onClick={() => router.push(`/clientes/${clienteId}/editar`)}
-          className="flex items-center gap-1.5 h-7 px-3 text-[11px] rounded-lg border border-white/10 text-white/70 hover:text-white hover:bg-white/5 transition-colors"
+          className="flex items-center gap-1.5 h-8 px-3 text-sm rounded-lg border border-white/10 text-white/70 hover:text-white hover:bg-white/5 transition-colors"
         >
           <Pencil className="h-3 w-3" />
           Editar
@@ -1131,9 +1131,9 @@ function Section({
 }) {
   return (
     <div className="rounded-xl bg-white/5 border border-white/10 overflow-hidden">
-      <div className="px-3 py-2 border-b border-white/10 flex items-center gap-2">
-        <Icon className="h-3.5 w-3.5 text-[#3B64CF]" />
-        <span className="text-xs font-semibold text-white">{title}</span>
+      <div className="px-3 py-2.5 border-b border-white/10 flex items-center gap-2">
+        <Icon className="h-4 w-4 text-[#3B64CF]" />
+        <span className="text-base font-semibold text-white">{title}</span>
       </div>
       <div className="p-3">{children}</div>
     </div>
@@ -1141,7 +1141,7 @@ function Section({
 }
 
 function InfoGrid({ children }: { children: React.ReactNode }) {
-  return <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">{children}</div>;
+  return <div className="grid grid-cols-2 gap-x-5 gap-y-3.5">{children}</div>;
 }
 
 function InfoItem({
@@ -1155,10 +1155,10 @@ function InfoItem({
 }) {
   return (
     <div className="flex items-start gap-2">
-      <Icon className="h-3 w-3 text-white/30 mt-0.5 shrink-0" />
+      <Icon className="h-4 w-4 text-white/40 mt-0.5 shrink-0" />
       <div>
-        <p className="text-[9px] text-white/30 uppercase tracking-wider">{label}</p>
-        <p className="text-[11px] text-white/80 leading-tight mt-0.5">
+        <p className="text-xs font-medium text-white/50 uppercase tracking-wider">{label}</p>
+        <p className="text-base text-white leading-snug mt-1">
           {value || "—"}
         </p>
       </div>
