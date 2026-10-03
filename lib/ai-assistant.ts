@@ -20,9 +20,9 @@ import {
   type EntradaConhecimento,
 } from './base-conhecimento'
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || ''
-const GEMINI_API_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
+// Opção A (João, 03/10): o motor é escolhido por `lib/ia-provider`
+// (MIMO por padrão, Gemini como legado). Aqui fica só o guardrail.
+import { chamarModelo } from './ia-provider'
 
 export type MotivoEncaminhamento =
   | 'fora_da_base'
@@ -142,42 +142,13 @@ export async function responderComBase(params: ParamsRespostaIA): Promise<Result
     return { texto: null, encaminhar: true, motivo: 'erro_ia' }
   }
   if (baseVazia(base)) {
-    console.error('[Gemini AI] Base de conhecimento vazia — encaminhando ao vendedor')
+    console.error('[IA] Base de conhecimento vazia — encaminhando ao vendedor')
     return { texto: null, encaminhar: true, motivo: 'base_vazia' }
   }
 
-  if (!GEMINI_API_KEY) {
-    console.error('[Gemini AI] API Key não configurada')
-    return { texto: null, encaminhar: true, motivo: 'erro_ia' }
-  }
-
   const prompt = montarPromptIA({ mensagemCliente, nomeCliente, historico, base })
-
   try {
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 800 },
-      }),
-    })
-
-    if (!response.ok) {
-      const error = await response.text()
-      console.error('[Gemini AI] Erro na requisição:', response.status, error)
-      return { texto: null, encaminhar: true, motivo: 'erro_ia' }
-    }
-
-    const data = await response.json()
-    const texto = data?.candidates?.[0]?.content?.parts?.[0]?.text
-
-    if (!texto) {
-      console.error('[Gemini AI] Resposta vazia:', JSON.stringify(data))
-      return { texto: null, encaminhar: true, motivo: 'sem_resposta' }
-    }
-
-    const resposta = String(texto).trim()
+    const resposta = (await chamarModelo(prompt)).trim()
 
     // Guardrail: resposta fora da base → vendedor assume, com registro.
     if (detectarEncaminhamento(resposta)) {
@@ -186,7 +157,10 @@ export async function responderComBase(params: ParamsRespostaIA): Promise<Result
 
     return { texto: resposta, encaminhar: false }
   } catch (err: any) {
-    console.error('[Gemini AI] Erro:', err.message)
+    // Qualquer falha do modelo (chave, HTTP, rede, resposta vazia) vira
+    // `erro_ia` — nunca resposta inventada. É o que virou `erro_ia` na
+    // produção de 03/10 quando o Gemini estava sem chave válida.
+    console.error('[IA] Erro ao gerar resposta:', err?.message)
     return { texto: null, encaminhar: true, motivo: 'erro_ia' }
   }
 }

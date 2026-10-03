@@ -11,6 +11,8 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { enviarTexto } from "@/lib/waha";
 import { criarNotificacao } from "@/lib/notificacoes";
 import { registrarOptOut } from "@/lib/marketing/remarketing";
+// Opção A (João, 03/10): provedor único de IA (MIMO por padrão) — ver lib/ia-provider
+import { chamarModelo, temChaveIA } from "@/lib/ia-provider";
 
 // ─── Tipos ───
 
@@ -58,9 +60,7 @@ export interface ProcessMessageResult {
 }
 
 // ─── Constantes ───
-
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+// (a chave/URL do modelo saíram daqui: agora ficam em lib/ia-provider)
 
 // ─── Supabase Helper ───
 
@@ -106,12 +106,16 @@ function estaEmHorarioComercial(horarioConfig: any): boolean {
 
 // ─── IA: Interpretação de Resposta Livre ───
 
-async function interpretarRespostaIA(
+/**
+ * Interpreta resposta livre do cliente com o provedor único (MIMO).
+ * Exportada para o teste `lib/chatbot/engine-ia.test.ts` fixar o contrato.
+ */
+export async function interpretarRespostaIA(
   pergunta: string,
   respostaCliente: string,
   opcoes: Array<{ chave: string; texto: string }> | null
 ): Promise<{ chave: string; confianca: number }> {
-  if (!GEMINI_API_KEY) {
+  if (!temChaveIA()) {
     // Fallback: tentar match direto
     return matchRespostaOpcoes(respostaCliente, opcoes);
   }
@@ -133,37 +137,22 @@ ${opcoes ? `Retorne APENAS a chave da opção que mais se aproxima da resposta d
 Formato de resposta JSON: {"chave": "chave_da_opcao", "confianca": 0.0-1.0}`;
 
   try {
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 100 },
-      }),
-    });
+    const texto = await chamarModelo(prompt);
 
-    if (!response.ok) {
-      console.error('[Chatbot IA] Erro:', response.status);
-      return matchRespostaOpcoes(respostaCliente, opcoes);
-    }
-
-    const data = await response.json();
-    const texto = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    
-    if (texto) {
-      // Extrair JSON da resposta
-      const jsonMatch = texto.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        if (parsed.chave && parsed.chave !== 'nenhuma') {
-          return { chave: parsed.chave, confianca: parsed.confianca || 0.8 };
-        }
+    // Extrair JSON da resposta (o modelo às vezes embrulha em prosa)
+    const jsonMatch = texto.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed.chave && parsed.chave !== 'nenhuma') {
+        return { chave: parsed.chave, confianca: parsed.confianca || 0.8 };
       }
     }
 
     return matchRespostaOpcoes(respostaCliente, opcoes);
   } catch (err) {
-    console.error('[Chatbot IA] Erro:', err);
+    // Modelo indisponível (chave/HTTP/rede) → nunca travar o fluxo:
+    // cai no match simples, igual a quando não há credencial.
+    console.error('[Chatbot IA] Erro:', err instanceof Error ? err.message : err);
     return matchRespostaOpcoes(respostaCliente, opcoes);
   }
 }

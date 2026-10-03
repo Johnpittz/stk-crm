@@ -4,6 +4,24 @@
 
 ---
 
+## 1.8.1 — 03/10/2026
+
+### IA do atendimento passa à MIMO (Opção A) — fim do `erro_ia`
+- Em produção toda pergunta caía no fallback "Deixa comigo..." com motivo
+  `erro_ia`: a chamada ao Gemini falhava (chave ausente/inválida na Vercel)
+- Novo provedor único `lib/ia-provider.ts`: MIMO (`mimo-v2.6-flash`, API
+  OpenAI-compatível) por padrão, Gemini mantido como legado (`IA_PROVIDER`)
+- Usado pela base de conhecimento (`ai-assistant`) E pela interpretação de
+  resposta livre do chatbot (`engine.interpretarRespostaIA` — antes travava
+  em `!GEMINI_API_KEY` e caía sempre no match simples)
+- Guardrail intacto: falha do modelo continua `erro_ia` → encaminha com registro;
+  `[[ENCAMINHAR]]` e `base_vazia` não mudaram
+- TDD: 17 testes novos (RED → GREEN), gates **322 vitest + 138 unittest + tsc limpo**
+- Pendente do lado humano: colar `IA_PROVIDER`, `XIAOMI_BASE_URL` e
+  `XIAOMI_API_KEY` na Vercel + redeploy
+
+---
+
 ## 1.8.0 — 30/09/2026
 
 ### Sincronização de mensagens (fora da lista de testes)
