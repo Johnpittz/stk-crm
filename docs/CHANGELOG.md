@@ -4,6 +4,39 @@
 
 ---
 
+## 1.8.0 — 30/09/2026
+
+### Sincronização de mensagens (fora da lista de testes)
+- Mensagem enviada por nós (`fromMe`) era arquivada **na conversa errada**: o parser lia os
+  campos de remetente (somos nós) em vez de `RecipientAlt` → chat `@lid` apontava para o nosso
+  número; 10 mensagens paravam no atendimento do nosso número
+- Cartão de contato (vCard) e localização eram descartados como "mensagem vazia"
+- Conserto em TDD (5 testes RED → GREEN), commits `4555880` e `66e2d84`
+- Histórico reparado: 10 mensagens realocadas + 7 repostas por replay do payload real;
+  auditoria final por ID = 0 mensagens fora do CRM
+
+### Badge de número conectado (🔗 STK-x)
+- Nunca aparecia: a rota entregava `status` mapeado sem `state` e o helper só aceitava
+  `WORKING/STARTED`. Conserto em TDD (`b6f713d`), verificada na lista e no cabeçalho do chat
+
+### Documento de proposta em PDF (Fase 6 / C4)
+- Botão "Gerar/Baixar proposta" na pasta do cliente e no modal da oportunidade
+- Gatilho automático quando a etapa vira **Contrato Enviado**
+- Gravado no Storage privado e registrado na tabela `propostas`
+
+### Robô de fila AXS (Fase 3 / C01)
+- Card criado pelo robô pelo caminho oficial (fila → `criar/card`): `1452248820`
+- Payload da fila precisa ser **plano** (topo), senão o gerador responde `ERROR #5034`
+- Scripts `/app/start-worker.sh` e `/app/stop-worker.sh` (modo ensaio/dry-run)
+
+### Testes de liberação
+- 34 itens aprovados + 3 de performance; 0 reprovados após conserto de B11
+- Controle vivo: `docs/TESTES-SISTEMA.MD` · HANDOFF · parecer ARP em `docs/PARECER-ARP-28-09-2026.md`
+- Entregas em Word: `RESUMO-SIMPLES-como-usar-29-09-2026.docx` (guia de leigo) e
+  `relatorio-testes-26-29-set-2026.docx` (relatório técnico)
+
+---
+
 ## 1.7.0 — 20/09/2026
 
 ### Busca de Contatos WhatsApp via Evolution API
