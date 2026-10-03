@@ -100,10 +100,12 @@ export async function POST(request: NextRequest) {
         const step = fluxoFinal[i];
         if (step.type === 'image' && step.base64 && step.mimetype) {
           try {
-            const base64Clean = step.base64.replace(/^data:[^;]+;base64,/, "");
+            // base64 PURO: a WAHA rejeita o prefixo data:...;base64, (bug 03/10)
+            const base64Clean = step.base64.replace(/^data:[^;,]+;base64,/, "");
             const url = await uploadMediaToStorage(base64Clean, step.mimetype, "disparos");
             if (url) {
-              fluxoFinal[i] = { type: 'image', url };
+              // mimetype tem que viajar junto: sem ele o robô assume image/jpeg
+              fluxoFinal[i] = { type: 'image', url, mimetype: step.mimetype };
             }
           } catch (err: any) {
             console.error(`[Bulk Campaigns] Erro upload imagem step ${i}:`, err.message);

@@ -17,8 +17,23 @@
 - Guardrail intacto: falha do modelo continua `erro_ia` → encaminha com registro;
   `[[ENCAMINHAR]]` e `base_vazia` não mudaram
 - TDD: 17 testes novos (RED → GREEN), gates **322 vitest + 138 unittest + tsc limpo**
-- Pendente do lado humano: colar `IA_PROVIDER`, `XIAOMI_BASE_URL` e
-  `XIAOMI_API_KEY` na Vercel + redeploy
+- **Em produção no mesmo dia:** `Prazo` (03:26:49) → resposta da base em **9s**,
+  0 notificações de `erro_ia` (toggle IA ligado e desligado pelo João às 03:26/03:27)
+
+### Imagem do disparo deixa de virar arquivo de 422 KB
+- Causa provada: a tela gravava o passo com prefixo `data:image/jpeg;base64,`
+  (sem subir pro Storage) e o robô mandava isso pra WAHA → decodificação
+  corrompida: `fileLength` **432548** (mágica `75ab5a8a`, ≠ JPEG) vs **432533**
+  limpo — o WhatsApp mostrava quadro cinza com o ícone de ⬇ 422 KB
+- Robô: `limpar_base64()` antes de enviar + `eh_contato()` não envia mais pra
+  lixo da lista (`STK-3` virava chatId `553@c.us` e a WAHA dava timeout)
+- Tela: `lib/marketing/disparo-fluxo.ts` — imagem **sobe pro Storage** e o passo
+  vira `{type:'image', url, mimetype}`; `montarNumbers()` tira a instância da
+  lista em massa/avulso (só o remarketing estava corrigido)
+- Rota `/api/bulk/campaigns`: o passo agora guarda **também** o `mimetype`
+- TDD: 9 testes do worker + 15 vitest novos; **gates: 337 vitest + 147 unittest + tsc**
+- **Prova em produção (03:38):** imagem enviada pelo caminho corrigido leu
+  `fileLength=432533` (= limpa) na API do WAHA — 1 mensagem de teste ao nº do João
 
 ---
 

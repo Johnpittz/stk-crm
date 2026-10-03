@@ -13,6 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Megaphone, Trash2, ChevronDown, ChevronUp, Send, Loader2, Upload, FileSpreadsheet, X, Image, Square, FileText, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
+// Bug 03/10: imagem do fluxo sobe pro Storage e a lista só recebe telefones
+import { prepararPassosDoFluxo, montarNumbers } from '@/lib/marketing/disparo-fluxo';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import * as XLSX from 'xlsx';
 
@@ -496,16 +498,30 @@ export default function CampanhasPage() {
     }
 
     try {
-      // Montar fluxo_mensagens
+      // Montar fluxo_mensagens — imagem SOBE pro Storage (a WAHA exige base64
+      // puro/URL; gravar o blob com prefixo `data:` era o bug da imagem 422 KB)
       let fluxo_mensagens = null;
       if (temFluxo) {
-        fluxo_mensagens = fluxoSteps.map(step => {
-          if (step.type === 'text') {
-            return { type: 'text', content: step.content };
-          } else {
-            return { type: 'image', base64: step.base64, mimetype: step.mimetype };
-          }
-        });
+        fluxo_mensagens = await prepararPassosDoFluxo(
+          fluxoSteps.map(step =>
+            step.type === 'text'
+              ? { type: 'text' as const, content: step.content }
+              : { type: 'image' as const, base64: step.base64, mimetype: step.mimetype },
+          ),
+          async (base64, mimetype) => {
+            try {
+              const res = await fetch('/api/upload-media', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ base64, mimetype, prefix: 'disparos' }),
+              });
+              if (!res.ok) return null;
+              return (await res.json()).url ?? null;
+            } catch {
+              return null;
+            }
+          },
+        );
       }
 
       let mensagemFinal = novoDisparo.mensagem;
@@ -527,13 +543,11 @@ export default function CampanhasPage() {
         : tipoEnvio === 'remarketing'
           ? (publicoRemarketing?.contatos ?? [])
           : contatosAvulso;
-      // remarketing: NÃO prefixa a instância no array — o robô usa a coluna
-      // `instancia` (prefixar colocava um "contato" inválido na lista).
-      const numbersWithInstance = tipoEnvio === 'remarketing'
-        ? contatosFinais.map((c: any) => ({ nome: c.nome || '', telefone: c.telefone || '' }))
-        : novoDisparo.instanceName
-          ? [novoDisparo.instanceName, ...contatosFinais.map((c: any) => ({ nome: c.nome || '', telefone: c.telefone || c }))]
-          : contatosFinais.map((c: any) => ({ nome: c.nome || '', telefone: c.telefone || c }));
+      // A instância NUNCA entra na lista (o robô usa a coluna `instancia`):
+      // prefixar colocava 'STK-3' como contato → chatId '553@c.us' → timeout
+      // (bug 03/10 — o remarketing já estava corrigido, massa/avulso não).
+      // `montarNumbers` ainda filtra entradas que não são telefone.
+      const numbersWithInstance = montarNumbers(contatosFinais as any[]);
 
       // Upload da imagem antiga (compatibilidade)
       let imagem_url: string | null = null;

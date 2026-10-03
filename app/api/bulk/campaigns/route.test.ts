@@ -16,6 +16,7 @@ import { GET, POST } from './route'
  */
 
 const selects: string[] = []
+const inserts: any[] = []
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({
@@ -31,13 +32,25 @@ vi.mock('@supabase/supabase-js', () => ({
           Promise.resolve({ data: [{ id: 'c1' }], error: null }).then(ok, bad)
         return registro
       },
-      insert: () => ({
-        select: (s: string) => {
-          selects.push(s)
-          return { single: () => Promise.resolve({ data: { id: 'c1' }, error: null }) }
-        },
-      }),
+      insert: (row: any) => {
+        inserts.push(row)
+        return {
+          select: (s: string) => {
+            selects.push(s)
+            return { single: () => Promise.resolve({ data: { id: 'c1' }, error: null }) }
+          },
+        }
+      },
     }),
+  }),
+}))
+
+// Upload das imagens do fluxo (o passo vira {type:'image', url} no banco)
+const uploads: Array<{ base64: string; mimetype: string }> = []
+vi.mock('@/lib/media-storage', () => ({
+  uploadMediaToStorage: vi.fn(async (base64: string, mimetype: string) => {
+    uploads.push({ base64, mimetype })
+    return `https://cdn.supabase.co/storage/v1/object/public/media/disparos/x.${mimetype.includes('png') ? 'png' : 'jpg'}`
   }),
 }))
 
@@ -47,6 +60,8 @@ function req(url: string) {
 
 beforeEach(() => {
   selects.length = 0
+  inserts.length = 0
+  uploads.length = 0
   process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://projeto.supabase.co'
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'chave-de-teste'
 })
@@ -91,5 +106,39 @@ describe('POST /api/bulk/campaigns — retorno da criação', () => {
     expect(selects.some((s) => s.includes('fluxo_mensagens'))).toBe(false)
     const deCriacao = selects.find((s) => s.includes('name'))
     expect(deCriacao).toBeTruthy()
+  })
+})
+
+describe('POST /api/bulk/campaigns — upload das imagens do fluxo', () => {
+  it('sobe a imagem sem prefixo e guarda o passo com url + mimetype', async () => {
+    const res = await POST(
+      new NextRequest('http://localhost/api/bulk/campaigns', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Disparo com fluxo',
+          numbers: ['5562999990000'],
+          fluxo_mensagens: [
+            { type: 'text', content: 'antes' },
+            { type: 'image', base64: 'data:image/png;base64,AAAABBBB', mimetype: 'image/png' },
+          ],
+        }),
+      }),
+    )
+    expect(res.status).toBe(200)
+
+    // o upload recebe base64 PURO (a WAHA exige; com prefixo a imagem sai corrompida)
+    expect(uploads).toHaveLength(1)
+    expect(uploads[0].base64).toBe('AAAABBBB')
+    expect(uploads[0].mimetype).toBe('image/png')
+
+    // o passo gravado tem url E mimetype (mimetype não pode sumir no caminho)
+    const fluxoGravado = inserts[0].fluxo_mensagens
+    expect(fluxoGravado[0]).toEqual({ type: 'text', content: 'antes' })
+    expect(fluxoGravado[1]).toEqual({
+      type: 'image',
+      url: expect.stringContaining('/media/disparos/'),
+      mimetype: 'image/png',
+    })
   })
 })

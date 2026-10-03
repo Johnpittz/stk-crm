@@ -4,6 +4,7 @@
 import sys
 import os
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -69,6 +70,83 @@ class TestPayload(unittest.TestCase):
         )
         self.assertEqual(endpoint, "sendImage")
         self.assertEqual(payload["file"]["url"], "https://x/i.jpg")
+
+
+class TestBase64Prefisxado(unittest.TestCase):
+    """Bug 03/10: a tela grava o passo como 'data:image/jpeg;base64,...' e a
+    WAHA exige base64 PURO — com o prefixo a decodificação sai corrompida
+    (prova: fileLength 432548 com prefixo vs 432533 limpo) e o WhatsApp
+    renderiza a imagem como arquivo de 422 KB."""
+
+    IMAGEM = {"type": "image",
+              "base64": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ",
+              "mimetype": "image/jpeg"}
+
+    def test_remove_prefixo_data_uri(self):
+        endpoint, payload = w.passo_payload(
+            self.IMAGEM, "5562999990000@c.us", "STK-3", "", "")
+        self.assertEqual(endpoint, "sendImage")
+        self.assertEqual(payload["file"]["data"], "/9j/4AAQSkZJRgABAQ")
+        self.assertEqual(payload["file"]["mimetype"], "image/jpeg")
+
+    def test_prefixo_de_qualquer_mime_tambem_cai(self):
+        passo = {"type": "image",
+                 "base64": "data:application/octet-stream;base64,AAAABBBB",
+                 "mimetype": "image/png"}
+        _, payload = w.passo_payload(
+            passo, "5562999990000@c.us", "STK-3", "", "")
+        self.assertEqual(payload["file"]["data"], "AAAABBBB")
+
+    def test_base64_puro_passa_intacto(self):
+        passo = {"type": "image", "base64": "/9j/4AAQSkZJRgABAQ",
+                 "mimetype": "image/jpeg"}
+        _, payload = w.passo_payload(
+            passo, "5562999990000@c.us", "STK-3", "", "")
+        self.assertEqual(payload["file"]["data"], "/9j/4AAQSkZJRgABAQ")
+
+
+class TestContatoValido(unittest.TestCase):
+    """Bug 03/10: a lista de números vinha com a instância no topo
+    ('STK-3' → chatId '553@c.us' → ERRO sendText)."""
+
+    def test_instancia_nao_e_contato(self):
+        self.assertFalse(w.eh_contato("STK-3"))
+
+    def test_telefone_internacional(self):
+        self.assertTrue(w.eh_contato("556282735286"))
+
+    def test_telefone_formatado(self):
+        self.assertTrue(w.eh_contato("(62) 99999-0000"))
+
+    def test_curto_e_vazio(self):
+        self.assertFalse(w.eh_contato("553"))
+        self.assertFalse(w.eh_contato(""))
+        self.assertFalse(w.eh_contato(None))
+
+    def test_contato_dict_sem_telefone(self):
+        self.assertFalse(w.eh_contato(""))
+
+
+class TestProcessarPulaContatoInvalido(unittest.TestCase):
+    """processar_campanha não pode nem chamar a WAHA para lixo na lista."""
+
+    def test_nao_envia_e_conta_como_falha(self):
+        campanha = {
+            "id": "c1", "name": "teste", "status": "running",
+            "numbers": ["STK-3"], "message": "oi", "instancia": "STK-3",
+            "sent": 0, "failed": 0, "intervalo": 1, "intervalo_passos": 1,
+        }
+        with mock.patch.object(w, "reclamar_campanha", return_value=True), \
+             mock.patch.object(w, "status_atual", return_value="running"), \
+             mock.patch.object(w, "supabase_rest", return_value=(200, [])), \
+             mock.patch.object(w, "resolver_nome", return_value=""), \
+             mock.patch.object(w, "atualizar_contadores") as contadores, \
+             mock.patch.object(w, "waha_send") as envio:
+            w.processar_campanha(campanha)
+
+        envio.assert_not_called()
+        # a retomada usa sent+failed: o item inválido precisa contar como falha
+        self.assertEqual(contadores.call_args[0][1:], (0, 1))
 
 
 class TestRetomada(unittest.TestCase):

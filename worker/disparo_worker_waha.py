@@ -112,6 +112,26 @@ def formatar_chat_id(telefone: str) -> str:
     return f"{d}@c.us"
 
 
+def eh_contato(valor) -> bool:
+    """true se o valor parece um telefone (>=10 dígitos).
+
+    Bug 03/10: a tela de campanhas prefixava a instância na lista
+    ('STK-3'), o robô formatava em '553@c.us' e a WAHA respondia
+    timeout — 1 de 6 falhava no teste do João.
+    """
+    return len(normalizar_digits(str(valor) if valor is not None else "")) >= 10
+
+
+def limpar_base64(valor: str) -> str:
+    """Remove o prefixo data:...;base64, do FileReader.
+
+    Bug 03/10: a tela grava o passo de imagem COM o prefixo e a WAHA exige
+    base64 puro — com o prefixo a decodificação sai corrompida (432.548 bytes
+    sem mágica JPEG) e o WhatsApp renderiza a imagem como arquivo de 422 KB.
+    """
+    return re.sub(r"^data:[^;,]+;base64,", "", valor or "")
+
+
 def substituir_variaveis(texto: str, nome: str, telefone: str) -> str:
     """Substitui {{nome}} e {{telefone}} ({{promocao}} já vem resolvido do frontend)."""
     if not texto:
@@ -181,7 +201,7 @@ def passo_payload(passo: dict, chat_id: str, session: str, nome: str, telefone: 
     if passo.get("url"):
         file = {"url": passo["url"], "mimetype": passo["mimetype"]}
     else:
-        file = {"data": passo["base64"], "mimetype": passo["mimetype"]}
+        file = {"data": limpar_base64(passo["base64"]), "mimetype": passo["mimetype"]}
     file["filename"] = passo.get("filename") or "imagem.jpg"
     return "sendImage", {"session": session, "chatId": chat_id, "file": file}
 
@@ -312,6 +332,15 @@ def processar_campanha(campaign: dict) -> None:
         else:
             telefone = str(contato)
             nome = resolver_nome(telefone)
+
+        # Lista pode conter lixo (ex.: a própria instância 'STK-3'):
+        # não é contato — não envia, conta como falha (retomada = sent+failed).
+        if not eh_contato(telefone):
+            failed += 1
+            atualizar_contadores(cid, sent, failed)
+            print(f"[Worker] {idx + 1}/{len(numbers)} entrada inválida "
+                  f"'{telefone}' — não é telefone, pulando", file=sys.stderr)
+            continue
 
         chat_id = formatar_chat_id(telefone)
         ok_all = True
