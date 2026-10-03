@@ -287,6 +287,22 @@ describe("GET /api/axs/fila — listar", () => {
     expect(body.itens.map((i: any) => i.id)).toEqual(["f1"]);
   });
 
+  it("devolve a mensalidade do cliente junto do item (passo 9 do guia)", async () => {
+    // a AXS devolveu 767,88 na criação; o worker grava em clientes.axs_mensalidade
+    cenario.tabelas.clientes.push({
+      id: "cli-2",
+      nome_razao_social: "Maria",
+      axs_mensalidade: 767.88,
+    });
+    logar("ger-1", "gerente_comercial");
+    const res = await GET(requisicao("GET"));
+    const body = await res.json();
+    const criada = body.itens.find((i: any) => i.id === "f2");
+    expect(criada.mensalidade).toBe(767.88);
+    const erro = body.itens.find((i: any) => i.id === "f1");
+    expect(erro.mensalidade == null).toBe(true);
+  });
+
   it("recusa sem sessão (401)", async () => {
     semSessao();
     const res = await GET(requisicao("GET"));

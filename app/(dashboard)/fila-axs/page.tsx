@@ -42,6 +42,8 @@ interface ItemFila {
   max_tentativas: number;
   job_id: string | null;
   axs_card_id: string | null;
+  /** vem da rota GET: clientes.axs_mensalidade (gravado pelo worker ao criar) */
+  mensalidade?: number | null;
   erro: string | null;
   origem: string;
   payload: Record<string, any>;
@@ -262,6 +264,15 @@ export default function FilaAxsPage() {
                       </span>
                       {item.job_id && <span>job {item.job_id}</span>}
                       {item.axs_card_id && <span>card {item.axs_card_id}</span>}
+                      {item.mensalidade != null && (
+                        <span className="font-semibold text-emerald-400">
+                          R${" "}
+                          {Number(item.mensalidade).toLocaleString("pt-BR", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </span>
+                      )}
                       <Link
                         href={`/clientes/${item.cliente_id}`}
                         className="inline-flex items-center gap-1 text-[#6ba3d6] hover:underline"

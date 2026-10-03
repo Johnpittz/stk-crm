@@ -232,6 +232,7 @@ class DepsFake:
         self.atualizacoes = []
         self.notificacoes = []
         self.funil = []
+        self.mensalidades = []
 
     def buscar(self, agora, limite):
         return list(self.itens)
@@ -256,6 +257,9 @@ class DepsFake:
     def avancar_funil(self, item):
         self.funil.append(item["id"])
         return True
+
+    def salvar_mensalidade(self, item, valor):
+        self.mensalidades.append((item["cliente_id"], valor))
 
 
 class TestProcessarFila(unittest.TestCase):
@@ -321,6 +325,60 @@ class TestProcessarFila(unittest.TestCase):
         relatorio = fila_axs.processar_fila(agora=AGORA, deps=DepsQuebrado())
         self.assertEqual(len(relatorio), 1)
         self.assertEqual(relatorio[0]["status"], "erro_ciclo")
+
+
+class TestMensalidadeAoCriar(unittest.TestCase):
+    """Passo 9 do guia: criada na AXS -> mensalidade gravada no cliente.
+
+    A AXS devolve `mensalidade_axs` no ato do criar/card; o worker derrubava
+    esse valor (só guardava o idCard), então a tela nunca mostrava R$.
+    """
+
+    def test_criada_com_mensalidade_grava_no_cliente(self):
+        deps = DepsFake(
+            itens=[item()],
+            envio=(201, {"idCard": "card-9", "mensalidade_axs": "767,88"}),
+        )
+        fila_axs.processar_fila(agora=AGORA, deps=deps)
+        _, patch = deps.atualizacoes[0]
+        self.assertEqual(patch["status"], "criada")
+        self.assertEqual(deps.mensalidades, [("cli-1", 767.88)])
+
+    def test_aceita_tambem_valor_numerico_e_milhares(self):
+        deps = DepsFake(
+            itens=[item()],
+            envio=(201, {"idCard": "card-9", "mensalidade_axs": "1.234,56"}),
+        )
+        fila_axs.processar_fila(agora=AGORA, deps=deps)
+        self.assertEqual(deps.mensalidades, [("cli-1", 1234.56)])
+
+        deps2 = DepsFake(
+            itens=[item()],
+            envio=(201, {"idCard": "card-10", "mensalidade_axs": 812.5}),
+        )
+        fila_axs.processar_fila(agora=AGORA, deps=deps2)
+        self.assertEqual(deps2.mensalidades, [("cli-1", 812.5)])
+
+    def test_criada_sem_mensalidade_nao_grava_nada(self):
+        deps = DepsFake(itens=[item()], envio=(201, {"idCard": "card-9"}))
+        fila_axs.processar_fila(agora=AGORA, deps=deps)
+        self.assertEqual(deps.mensalidades, [])
+
+    def test_lixo_no_campo_nao_vira_gravacao(self):
+        deps = DepsFake(
+            itens=[item()],
+            envio=(201, {"idCard": "card-9", "mensalidade_axs": "abc"}),
+        )
+        fila_axs.processar_fila(agora=AGORA, deps=deps)
+        self.assertEqual(deps.mensalidades, [])
+
+    def test_falha_nunca_grava_mensalidade(self):
+        deps = DepsFake(
+            itens=[item(tentativas=5, max_tentativas=6)],
+            envio=(500, {"erro": "axs fora", "mensalidade_axs": 999}),
+        )
+        fila_axs.processar_fila(agora=AGORA, deps=deps)
+        self.assertEqual(deps.mensalidades, [])
 
 
 class TestRespostaDaApiAxs(unittest.TestCase):

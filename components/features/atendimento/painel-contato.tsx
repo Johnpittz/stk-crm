@@ -58,33 +58,10 @@ type AbaAtiva = "dados" | "propostas";
 type TipoProposta = "gd" | "reciee" | null;
 
 // ─── Options ───
-
-const CONCESSIONARIAS = [
-  "CEMIG", "COPEL", "CPFL PAULISTA", "ELEKTRO", "ENERGISA MT",
-  "EQUATORIAL GO", "CELESC", "ENEL", "CPFL SANTA CRUZ"
-];
-
-const CLASSES_TARIFARIAS = ["Residencial", "Comercial", "Industrial", "Rural", "Poder Público"];
-
-const SUBGRUPOS = ["B1", "B2", "B3", "A1", "A2", "A3", "A3a", "A4", "AS"];
-
-const BANDEIRAS = ["Verde", "Amarela", "Vermelha P1", "Vermelha P2"];
-
-const ESTADOS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
-
-const DISTRIBUIDORAS = ["CEMIG", "EQUATORIAL GO", "ENERGISA GO", "COPEL", "CPFL PAULISTA", "ELEKTRO"];
-
-const SUBGRUPOS_RECIEE = ["A1", "A2", "A3", "A3a", "A4", "AS", "B1", "B2", "B3"];
-
-const MODALIDADES = ["Convencional", "Horária Azul", "Horária Verde", "Branca", "Monômia"];
-
-const CLASSES_RECIEE = ["Residencial", "Comercial", "Industrial", "Rural", "Poder Público", "Iluminação Pública"];
-
-const TENSOES = ["Baixa", "Média", "Alta"];
-
-const REGIMES_TRIBUTARIOS = ["Simples Nacional", "Lucro Presumido", "Lucro Real", "Isento", "Não Contribuinte"];
-
-const GRUPOS = ["A", "B"];
+// 03/10: opções dos formulários de proposta moram em ./propostas-opcoes
+// (a aba foi extraída para ./aba-propostas e é testada por lá).
+import { ESTADOS } from "./propostas-opcoes";
+import AbaPropostas from "./aba-propostas";
 
 // ─── Section Component ───
 
@@ -184,7 +161,6 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
     classe_tarifaria: "",
     subgrupo_tarifario: "",
     bandeira: "",
-    consumo_mensal: "",
   });
 
   // ─── Proposta RECIEE State ───
@@ -324,7 +300,6 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
           classe_tarifaria: c.classe_tarifaria || "",
           subgrupo_tarifario: c.subgrupo_tarifario || "",
           bandeira: c.bandeira || "",
-          consumo_mensal: "",
         });
         setRecieeForm((prev) => ({
           ...prev,
@@ -539,7 +514,7 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
         return;
       }
 
-      setMensagemSucesso("Proposta GD salva com sucesso!");
+      setMensagemSucesso("Dados GD salvos no cadastro do cliente!");
       onClienteCriado?.();
     } catch (err: any) {
       setMensagemErro(err.message || "Erro ao salvar proposta GD");
@@ -1022,238 +997,19 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
 
           {/* Aba Propostas */}
           {abaAtiva === "propostas" && (
-            <div>
-              <div className="px-4 py-3">
-                <p className="text-xs text-white/50 mb-2">
-                  Selecione o tipo de proposta:
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant={tipoProposta === "gd" ? "default" : "outline"}
-                    className={cn(
-                      "flex-1 gap-1",
-                      tipoProposta === "gd" ? "bg-green-600 hover:bg-green-700" : ""
-                    )}
-                    onClick={() => setTipoProposta(tipoProposta === "gd" ? null : "gd")}
-                  >
-                    <Zap className="h-3.5 w-3.5" />
-                    GD
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={tipoProposta === "reciee" ? "default" : "outline"}
-                    className={cn(
-                      "flex-1 gap-1",
-                      tipoProposta === "reciee" ? "bg-yellow-600 hover:bg-yellow-700" : ""
-                    )}
-                    onClick={() => setTipoProposta(tipoProposta === "reciee" ? null : "reciee")}
-                  >
-                    <Receipt className="h-3.5 w-3.5" />
-                    RECIEE
-                  </Button>
-                </div>
-              </div>
-
-              {tipoProposta === "gd" && (
-                <div className="px-4 pb-3 space-y-2">
-                  <h4 className="text-xs font-medium text-green-400 flex items-center gap-1">
-                    <Zap className="h-3.5 w-3.5" />
-                    Proposta GD
-                  </h4>
-                  <select
-                    value={gdForm.concessionaria}
-                    onChange={(e) => setGdForm({ ...gdForm, concessionaria: e.target.value })}
-                    className="h-10 text-sm rounded-md border border-slate-600 bg-slate-800 text-white px-2 w-full"
-                  >
-                    <option value="">Concessionária *</option>
-                    {CONCESSIONARIAS.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                  <Input
-                    placeholder="UC / Instalação *"
-                    value={gdForm.instalacao}
-                    onChange={(e) => setGdForm({ ...gdForm, instalacao: e.target.value })}
-                    className="h-10 text-sm"
-                  />
-                  <div className="grid grid-cols-2 gap-2">
-                    <select
-                      value={gdForm.classe_tarifaria}
-                      onChange={(e) => setGdForm({ ...gdForm, classe_tarifaria: e.target.value })}
-                      className="h-10 text-sm rounded-md border border-slate-600 bg-slate-800 text-white px-2"
-                    >
-                      <option value="">Classe</option>
-                      {CLASSES_TARIFARIAS.map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={gdForm.subgrupo_tarifario}
-                      onChange={(e) => setGdForm({ ...gdForm, subgrupo_tarifario: e.target.value })}
-                      className="h-10 text-sm rounded-md border border-slate-600 bg-slate-800 text-white px-2"
-                    >
-                      <option value="">Subgrupo</option>
-                      {SUBGRUPOS.map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <select
-                    value={gdForm.bandeira}
-                    onChange={(e) => setGdForm({ ...gdForm, bandeira: e.target.value })}
-                    className="h-10 text-sm rounded-md border border-slate-600 bg-slate-800 text-white px-2 w-full"
-                  >
-                    <option value="">Bandeira</option>
-                    {BANDEIRAS.map((b) => (
-                      <option key={b} value={b}>{b}</option>
-                    ))}
-                  </select>
-                  <Input
-                    placeholder="Consumo mensal (kWh)"
-                    type="number"
-                    value={gdForm.consumo_mensal}
-                    onChange={(e) => setGdForm({ ...gdForm, consumo_mensal: e.target.value })}
-                    className="h-10 text-sm"
-                  />
-                  <Button
-                    className="w-full bg-green-600 hover:bg-green-700 text-white gap-2"
-                    onClick={criarPropostaGD}
-                    disabled={salvandoCliente || verificandoDuplicata || !gdForm.concessionaria || !gdForm.instalacao}
-                  >
-                    {salvandoCliente ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="h-4 w-4" />
-                    )}
-                    {salvandoCliente ? "Salvando..." : "Salvar Proposta GD"}
-                  </Button>
-                </div>
-              )}
-
-              {tipoProposta === "reciee" && (
-                <div className="px-4 pb-3 space-y-2">
-                  <h4 className="text-xs font-medium text-yellow-400 flex items-center gap-1">
-                    <Receipt className="h-3.5 w-3.5" />
-                    Proposta RECIEE
-                  </h4>
-                  <Input
-                    placeholder="UC *"
-                    value={recieeForm.uc}
-                    onChange={(e) => setRecieeForm({ ...recieeForm, uc: e.target.value })}
-                    className="h-10 text-sm"
-                  />
-                  <div className="grid grid-cols-2 gap-2">
-                    <select
-                      value={recieeForm.estado}
-                      onChange={(e) => setRecieeForm({ ...recieeForm, estado: e.target.value })}
-                      className="h-10 text-sm rounded-md border border-slate-600 bg-slate-800 text-white px-2"
-                    >
-                      <option value="">UF *</option>
-                      {ESTADOS.map((uf) => (
-                        <option key={uf} value={uf}>{uf}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={recieeForm.distribuidora}
-                      onChange={(e) => setRecieeForm({ ...recieeForm, distribuidora: e.target.value })}
-                      className="h-10 text-sm rounded-md border border-slate-600 bg-slate-800 text-white px-2"
-                    >
-                      <option value="">Distribuidora *</option>
-                      {DISTRIBUIDORAS.map((d) => (
-                        <option key={d} value={d}>{d}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <select
-                      value={recieeForm.subgrupo}
-                      onChange={(e) => setRecieeForm({ ...recieeForm, subgrupo: e.target.value })}
-                      className="h-10 text-sm rounded-md border border-slate-600 bg-slate-800 text-white px-2"
-                    >
-                      <option value="">Subgrupo</option>
-                      {SUBGRUPOS_RECIEE.map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={recieeForm.modalidade}
-                      onChange={(e) => setRecieeForm({ ...recieeForm, modalidade: e.target.value })}
-                      className="h-10 text-sm rounded-md border border-slate-600 bg-slate-800 text-white px-2"
-                    >
-                      <option value="">Modalidade</option>
-                      {MODALIDADES.map((m) => (
-                        <option key={m} value={m}>{m}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <select
-                      value={recieeForm.classe}
-                      onChange={(e) => setRecieeForm({ ...recieeForm, classe: e.target.value })}
-                      className="h-10 text-sm rounded-md border border-slate-600 bg-slate-800 text-white px-2"
-                    >
-                      <option value="">Classe</option>
-                      {CLASSES_RECIEE.map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={recieeForm.tensao}
-                      onChange={(e) => setRecieeForm({ ...recieeForm, tensao: e.target.value })}
-                      className="h-10 text-sm rounded-md border border-slate-600 bg-slate-800 text-white px-2"
-                    >
-                      <option value="">Tensão</option>
-                      {TENSOES.map((t) => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <select
-                      value={recieeForm.regime_tributario}
-                      onChange={(e) => setRecieeForm({ ...recieeForm, regime_tributario: e.target.value })}
-                      className="h-10 text-sm rounded-md border border-slate-600 bg-slate-800 text-white px-2"
-                    >
-                      <option value="">Regime</option>
-                      {REGIMES_TRIBUTARIOS.map((r) => (
-                        <option key={r} value={r}>{r}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={recieeForm.grupo}
-                      onChange={(e) => setRecieeForm({ ...recieeForm, grupo: e.target.value })}
-                      className="h-10 text-sm rounded-md border border-slate-600 bg-slate-800 text-white px-2"
-                    >
-                      <option value="">Grupo</option>
-                      {GRUPOS.map((g) => (
-                        <option key={g} value={g}>{g}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <Button
-                    className="w-full bg-yellow-600 hover:bg-yellow-700 text-white gap-2"
-                    onClick={criarPropostaRECIEE}
-                    disabled={salvandoCliente || verificandoDuplicata || !recieeForm.uc}
-                  >
-                    {salvandoCliente ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="h-4 w-4" />
-                    )}
-                    {salvandoCliente ? "Salvando..." : "Salvar Proposta RECIEE"}
-                  </Button>
-                </div>
-              )}
-
-              {!tipoProposta && (
-                <div className="px-4 pb-4 text-center">
-                  <p className="text-xs text-white/30">
-                    Selecione GD ou RECIEE acima
-                  </p>
-                </div>
-              )}
-            </div>
+            <AbaPropostas
+              tipoProposta={tipoProposta}
+              setTipoProposta={setTipoProposta}
+              gdForm={gdForm}
+              setGdForm={setGdForm}
+              recieeForm={recieeForm}
+              setRecieeForm={setRecieeForm}
+              criarPropostaGD={criarPropostaGD}
+              criarPropostaRECIEE={criarPropostaRECIEE}
+              salvandoCliente={salvandoCliente}
+              verificandoDuplicata={verificandoDuplicata}
+              clienteId={clienteIdLocal || atendimento?.cliente_id || null}
+            />
           )}
         </div>
       )}

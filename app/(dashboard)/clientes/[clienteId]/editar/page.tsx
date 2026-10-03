@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { normalizarCliente } from "@/lib/clientes/normalizar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -274,20 +275,23 @@ export default function EditarClientePage() {
 
     const fetchCliente = async () => {
       try {
-        // Try v_unified_clientes first (has cpf_cnpj), fallback to clientes
+        // 03/10: TABELA primeiro (dado completo, grafia `cnpj_cpf`); a view
+        // v_unified_clientes (nome/cpf_cnpj) só como fallback para quem não
+        // está em `clientes` (ex.: RECIEE). normalizarCliente casa as duas
+        // grafias — antes a edição lia cpf_cnpj na linha da tabela e o
+        // documento sumia.
         let data = null;
         let error = null;
 
         const result = await supabase
-          .from("v_unified_clientes")
+          .from("clientes")
           .select("*")
           .eq("id", clienteId)
           .single();
 
         if (result.error) {
-          // Fallback to clientes table
           const fallback = await supabase
-            .from("clientes")
+            .from("v_unified_clientes")
             .select("*")
             .eq("id", clienteId)
             .single();
@@ -302,7 +306,7 @@ export default function EditarClientePage() {
           return;
         }
 
-        setForm(mapClienteToForm(data));
+        setForm(mapClienteToForm(normalizarCliente(data)));
       } catch (err: any) {
         setFetchError(err.message || "Erro inesperado ao carregar cliente.");
       } finally {

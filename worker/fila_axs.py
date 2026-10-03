@@ -299,6 +299,28 @@ def _seguro(fn, *args):
         return None
 
 
+def _fn_opcional(deps, nome: str):
+    """Dep novo é opcional: teste/instalação antiga sem ele não quebra."""
+    return deps.get(nome) if isinstance(deps, dict) else getattr(deps, nome, None)
+
+
+def _para_valor(v):
+    """Mensalidade da AXS -> float. '767,88' / '1.234,56' / 812.5 / lixo."""
+    if v is None or isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    s = str(v).strip().replace("R$", "").replace(" ", "")
+    if not s:
+        return None
+    try:
+        if "," in s:
+            s = s.replace(".", "").replace(",", ".")
+        return float(s)
+    except ValueError:
+        return None
+
+
 def _processar_item(item: dict, agora: datetime, deps: dict) -> dict:
     base = {"id": (item or {}).get("id")}
 
@@ -330,6 +352,14 @@ def _processar_item(item: dict, agora: datetime, deps: dict) -> dict:
 
     if status == "criada":
         _seguro(_fn(deps, "avancar_funil"), item)
+        # Passo 9 do guia: a AXS devolve mensalidade_axs no criar/card.
+        # Antes este valor era DERRUBADO (só o idCard era guardado) e a tela
+        # /fila-axs nunca mostrava R$.
+        valor = _para_valor((corpo or {}).get("mensalidade_axs")
+                            or (corpo or {}).get("mensalidade"))
+        salvar = _fn_opcional(deps, "salvar_mensalidade")
+        if valor is not None and salvar is not None:
+            _seguro(salvar, item, valor)
     elif status == "erro":
         _seguro(_fn(deps, "notificar"), item, patch.get("erro") or "falhou")
 
@@ -540,6 +570,16 @@ def _avancar_funil(item: dict) -> bool:
     return True
 
 
+def _salvar_mensalidade(item: dict, valor: float) -> None:
+    """Grava a mensalidade devolvida pela AXS no cliente (coluna que já
+    existe desde a migration 077 — sem migration nova)."""
+    cliente_id = item.get("cliente_id")
+    if not cliente_id:
+        return
+    _supa("PATCH", "clientes", {"id": f"eq.{cliente_id}"},
+          {"axs_mensalidade": valor})
+
+
 def deps_reais() -> dict:
     return {
         "buscar": _buscar,
@@ -548,4 +588,5 @@ def deps_reais() -> dict:
         "atualizar": _atualizar,
         "notificar": _notificar,
         "avancar_funil": _avancar_funil,
+        "salvar_mensalidade": _salvar_mensalidade,
     }

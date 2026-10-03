@@ -42,6 +42,7 @@ import {
 
 import { createClient } from "@/lib/supabase/client";
 import { montarDadosProposta } from "@/lib/axs/fila";
+import { normalizarCliente } from "@/lib/clientes/normalizar";
 
 // ─── Types ───
 
@@ -239,27 +240,33 @@ export default function AxSNovoPage() {
   useEffect(() => {
     const loadClient = async () => {
       try {
-        // Try view first, then fallback to clientes table
+        // 03/10: TABELA primeiro — aí o formulário vem com endereço, UC,
+        // classe e vencimento pré-preenchidos (a view não tem essas
+        // colunas). A view v_unified_clientes fica como fallback para quem
+        // não está em `clientes` (ex.: RECIEE), com as duas grafias
+        // (nome/cpf_cnpj x nome_razao_social/cnpj_cpf) casadas pelo
+        // normalizarCliente.
         let clienteData: any = null;
 
-        const { data: viewData } = await supabase
-          .from("v_unified_clientes")
+        const { data: tableData } = await supabase
+          .from("clientes")
           .select("*")
           .eq("id", clienteId)
           .maybeSingle();
 
-        if (viewData) {
-          clienteData = viewData;
+        if (tableData) {
+          clienteData = tableData;
         } else {
-          const { data: tableData } = await supabase
-            .from("clientes")
+          const { data: viewData } = await supabase
+            .from("v_unified_clientes")
             .select("*")
             .eq("id", clienteId)
             .maybeSingle();
-          clienteData = tableData;
+          clienteData = viewData;
         }
 
         if (clienteData) {
+          clienteData = normalizarCliente(clienteData);
           setCliente(clienteData);
           setForm((prev) => ({
             ...prev,

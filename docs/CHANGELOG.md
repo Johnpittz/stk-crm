@@ -4,6 +4,49 @@
 
 ---
 
+## 1.8.2 — 03/10/2026
+
+Correções de UX das telas de Atendimento/Fila AXS/Clientes (4 bugs
+apontados pelo João, TDD em todos):
+
+### Atendimento > Propostas: GD era cadastro com nome de proposta
+- "Salvar Proposta GD" só gravava 5 campos no cliente (nada ia pra fila nem
+  pra AXS) e o input "Consumo mensal (kWh)" era pedido e DESCARTADO (nem ia
+  no corpo do PUT) → renomeado para **"Salvar cadastro GD"**, campo morto
+  removido e ganhou o botão **"Criar proposta na AXS →"** levando para
+  `/clientes/{id}/axs-novo` (o único form que enfileira de verdade)
+- Aba extraída de `painel-contato.tsx` (1335 → 1092 linhas) para
+  `components/features/atendimento/aba-propostas.tsx` + `propostas-opcoes.ts`
+- **Infra nova de teste de componente:** `@testing-library/react` +
+  `@testing-library/dom` + `jsdom` (primeiros testes de UI renderizada)
+
+### Passo 9 do guia: fila "Criada na AXS" agora mostra a mensalidade
+- Causa-raiz: a AXS devolve `mensalidade_axs` no `criar/card` e o worker
+  DERRUBAVA (só guardava o idCard) — tabela da fila sem coluna e tela sem
+  campo
+- `worker/fila_axs.py`: `_para_valor` + `_salvar_mensalidade` grava em
+  `clientes.axs_mensalidade` (coluna da migration 077 — **sem migration
+  nova**); dep opcional, testes antigos seguem verdes
+- `GET /api/axs/fila` junta a mensalidade no item; tela `/fila-axs` mostra
+  **"card 1452248820 · R$ 767,88"** ao lado do status
+
+### Ficha do cliente vazia ("Sem nome / Sem CPF/CNPJ")
+- Causa-raiz: a view `v_unified_clientes` (083) expõe `nome`/`cpf_cnpj`; a
+  ficha lia `nome_razao_social`/`cnpj_cpf` e como a view era o 1º SELECT
+  (e SEMPRE acha), o fallback `clientes` nunca rodava → tudo vazio na tela
+  mesmo com dado no banco (ex.: CROPS AGROBUSINESS LTDA, CNPJ
+  40173720000173 — que nem está em `clientes`, veio da RECIEE)
+- `lib/clientes/normalizar.ts`: casa as duas grafias preservando o que já
+  existe; ficha, **edição** (que perdia o CPF: lia `cpf_cnpj` na tabela que
+  só tem `cnpj_cpf`) e **formulário AXS novo** agora buscam `clientes`
+  PRIMEIRO (dado completo: endereço, UC, classe…) e a view como fallback —
+  bônus: endereço/UC agora pré-preenchem o axs-novo
+- Teste de produção: João Pedro (56c486ab) tem linha completa em
+  `clientes`; CROPS cai na view com nome+CNPJ corretos
+
+**Gates: 354 vitest + 147 unittest + `tsc --noEmit` limpo.**
+Worker publicado em /app/stk-worker (pid 387030, sha256 conferido).
+
 ## 1.8.1 — 03/10/2026
 
 ### IA do atendimento passa à MIMO (Opção A) — fim do `erro_ia`

@@ -128,7 +128,29 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ itens: data ?? [], gestor: ehGestor(usuario) });
+  // Passo 9 do guia: mostrar a mensalidade ao lado do item "Criada na AXS".
+  // Ela nasce no criar/card da AXS e o worker grava em clientes.axs_mensalidade;
+  // aqui a gente junta de volta no item (sem migration — coluna já existe).
+  const itens = data ?? [];
+  const ids = Array.from(
+    new Set(itens.map((i: any) => i.cliente_id).filter(Boolean))
+  );
+  const mensalidades: Record<string, number | null> = {};
+  if (ids.length) {
+    const { data: clientes } = await admin
+      .from("clientes")
+      .select("id, axs_mensalidade")
+      .in("id", ids as string[]);
+    for (const c of clientes ?? []) {
+      mensalidades[c.id] = c.axs_mensalidade ?? null;
+    }
+  }
+  const comMensalidade = itens.map((i: any) => ({
+    ...i,
+    mensalidade: mensalidades[i.cliente_id] ?? null,
+  }));
+
+  return NextResponse.json({ itens: comMensalidade, gestor: ehGestor(usuario) });
 }
 
 /** POST — enfileira a proposta. */

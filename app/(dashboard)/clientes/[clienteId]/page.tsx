@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { normalizarCliente } from "@/lib/clientes/normalizar";
 import { BotaoProposta } from "@/components/features/propostas/botao-proposta";
 import {
   ArrowLeft,
@@ -260,24 +261,29 @@ export default function ClienteDetalhePage() {
 
   useEffect(() => {
     async function load() {
-      // Try view first (bypasses RLS issues), then fallback to direct table
+      // 03/10: TABELA primeiro — ela tem endereço e dados energéticos
+      // inteiros. A view v_unified_clientes tem só 12 colunas e nomenclatura
+      // própria (nome/cpf_cnpj); antes ela vinha PRIMEIRO e a ficha lia
+      // nome_razao_social/cnpj_cpf = "Sem nome / Sem CPF/CNPJ" para todo
+      // mundo (o fallback para `clientes` nunca rodava). Agora a view só
+      // entra como fallback (quem não está em `clientes`, ex.: RECIEE) e
+      // normalizarCliente casa as duas grafias.
       let result = await supabase
-        .from("v_unified_clientes")
+        .from("clientes")
         .select("*")
         .eq("id", clienteId)
         .maybeSingle();
-      
+
       if (result.error || !result.data) {
-        // Fallback to clientes table
         result = await supabase
-          .from("clientes")
+          .from("v_unified_clientes")
           .select("*")
           .eq("id", clienteId)
           .maybeSingle();
       }
-      
+
       if (result.error) console.error("[Cliente] Error loading:", result.error);
-      if (result.data) setCliente(result.data);
+      if (result.data) setCliente(normalizarCliente(result.data));
       setLoading(false);
     }
     load();
