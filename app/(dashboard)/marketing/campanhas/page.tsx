@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Megaphone, Trash2, ChevronDown, ChevronUp, Send, Loader2, Upload, FileSpreadsheet, X, Image, Square, FileText, RefreshCw } from 'lucide-react';
+import { Plus, Megaphone, Trash2, ChevronDown, ChevronUp, Send, Loader2, Upload, FileSpreadsheet, X, Image, Square, FileText, RefreshCw, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 // Bug 03/10: imagem do fluxo sobe pro Storage e a lista só recebe telefones
@@ -699,6 +699,32 @@ export default function CampanhasPage() {
     }
   };
 
+  // 05/10 — REENVIAR: só os contatos com falha, copiando mensagens/imagens/
+  // instância do disparo original (rota /api/bulk/campaigns/reenviar).
+  const reenviarDisparo = async (disparoId: string) => {
+    const confirmado = confirm(
+      "Reenviar apenas os contatos que falharam?\n\nQuem já recebeu não recebe de novo — números, mensagens e imagens vêm do disparo original."
+    );
+    if (!confirmado) return;
+    setSending(true);
+    try {
+      const response = await fetch("/api/bulk/campaigns/reenviar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: disparoId }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      toast.success(`Reenvio na fila: ${result.reenviando} contato(s) com falha.`);
+      loadCampanhas();
+    } catch (error: any) {
+      console.error("Erro ao reenviar disparo:", error);
+      toast.error(error?.message || "Não foi possível reenviar.");
+    } finally {
+      setSending(false);
+    }
+  };
+
   const excluirCampanha = async (campanhaId: string) => {
     try {
       const { error } = await supabase.from('campanhas').delete().eq('id', campanhaId);
@@ -937,6 +963,18 @@ export default function CampanhasPage() {
                                         else setResultadoRemarketing(null);
                                       }} className="text-blue-400 hover:text-blue-300">
                                         <FileText className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                    {(disparo.status === 'completed' || disparo.status === 'failed' || disparo.status === 'cancelled') && (disparo.failed || 0) > 0 && (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => reenviarDisparo(disparo.id)}
+                                        disabled={sending}
+                                        title="Reenviar só os contatos que falharam"
+                                        className="text-amber-400 hover:text-amber-300"
+                                      >
+                                        <RotateCcw className="h-4 w-4" />
                                       </Button>
                                     )}
                                     <Button size="sm" variant="ghost" onClick={() => excluirDisparo(disparo.id)} className="text-red-400 hover:text-red-300">

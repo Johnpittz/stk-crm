@@ -4,6 +4,16 @@
 
 ---
 
+## 1.8.4 — 05/10/2026
+
+- **Botão REENVIAR as falhas do disparo em massa**: nova rota
+  `POST /api/bulk/campaigns/reenviar` (TDD, 5 testes) — lê `disparo_logs`,
+  enfileira só quem falhou E nunca recebeu nada (parcial fica de fora, sem
+  mensagem duplicada), copia o registro original inteiro (fluxo, imagens,
+  instância, intervalos) com `status=running` e contadores zerados; robô sem
+  alteração. Na tela de Marketing > Campanhas: botão ↻ âmbar ao lado de
+  "Logs" quando `failed > 0`, com confirmação antes de agitar.
+
 ## 1.8.3 — 05/10/2026
 
 - **Disparo em massa: 49 de 50 falhando com `no LID found for
