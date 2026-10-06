@@ -4,6 +4,18 @@
 
 ---
 
+## 1.8.3 — 05/10/2026
+
+- **Disparo em massa: 49 de 50 falhando com `no LID found for
+  <n>@[REDACTED_DOMAIN]`** — bug do motor **GOWS** do WAHA 2026.9.1
+  (WAHA #1714/#2094/#2214, abertos): o WhatsApp não resolve PN → LID no
+  envio. Causa prática brasileira (wuzapi #243): o **9 extra na 5ª posição**
+  — o servidor só resolve uma das grafias. `variantes_chat_id()` monta a
+  variante (55+DDD+9XXXXXXXX ⇄ 55+DDD+8XXXXXXXX) e `enviar_passo()`
+  repete UMA vez nela quando o erro é de LID; a variante que funcionar é
+  adotada nos próximos passos do contato. Erros que não são de LID não
+  ganham retry (só duplicaria chamada). 7 testes novos (159 no worker).
+
 ## 1.8.2 — 03/10/2026
 
 Correções de UX das telas de Atendimento/Fila AXS/Clientes (4 bugs

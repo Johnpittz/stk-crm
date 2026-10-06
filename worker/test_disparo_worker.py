@@ -180,3 +180,97 @@ class TestJanela(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestErroLidGows(unittest.TestCase):
+    """05/10 — GOWS 2026.9.1 derrubava 49 de 50 envios com
+    'no LID found for <n>@s.whatsapp.net from server'.
+
+    Causa conhecida (github wuzapi#243, WAHA#1714/#2094/#2214): número
+    brasileiro é o único com a regra do 9 extra na 5ª posição; o WhatsApp
+    não resolve o LID de uma das grafias — a alternativa funciona."""
+
+    ERRO_LID = {
+        "statusCode": 500,
+        "exception": {
+            "message": ("2 UNKNOWN: no LID found for "
+                        "5562981598253@s.whatsapp.net from server"),
+            "code": 2,
+        },
+    }
+
+    def test_variante_remove_o_9_extra(self):
+        self.assertEqual(
+            w.variantes_chat_id("5562981598253@c.us"),
+            ["5562981598253@c.us", "556281598253@c.us"],
+        )
+
+    def test_variante_adiciona_o_9_extra(self):
+        self.assertEqual(
+            w.variantes_chat_id("556281598253@c.us"),
+            ["556281598253@c.us", "5562981598253@c.us"],
+        )
+
+    def test_fora_do_brasil_nao_tem_variante(self):
+        self.assertEqual(w.variantes_chat_id("14155552671@c.us"),
+                         ["14155552671@c.us"])
+        # 11 dígitos sem o 55 (e len != 13) não é candidato
+        self.assertEqual(w.variantes_chat_id("62981598253@c.us"),
+                         ["62981598253@c.us"])
+
+    def test_repete_na_variante_quando_gows_fala_no_lid(self):
+        chamadas = []
+
+        def fake(endpoint, payload):
+            chamadas.append(payload["chatId"])
+            if payload["chatId"] == "5562981598253@c.us":
+                return 500, self.ERRO_LID
+            return 200, {"id": "true"}
+
+        status, body, usado = w.enviar_passo(
+            "sendText",
+            {"chatId": "5562981598253@c.us", "text": "oi"},
+            "5562981598253@c.us",
+            enviar=fake,
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(usado, "556281598253@c.us")
+        self.assertEqual(chamadas,
+                         ["5562981598253@c.us", "556281598253@c.us"])
+
+    def test_sucesso_de_primeira_nao_faz_segunda_chamada(self):
+        chamadas = []
+
+        def fake(endpoint, payload):
+            chamadas.append(payload["chatId"])
+            return 201, {"id": "true"}
+
+        status, body, usado = w.enviar_passo(
+            "sendText", {"chatId": "556281598253@c.us", "text": "oi"},
+            "556281598253@c.us", enviar=fake)
+        self.assertEqual(status, 201)
+        self.assertEqual(usado, "556281598253@c.us")
+        self.assertEqual(len(chamadas), 1)
+
+    def test_erro_qualquer_lid_nao_tenta_variante(self):
+        chamadas = []
+
+        def fake(endpoint, payload):
+            chamadas.append(payload["chatId"])
+            return 500, {"exception": {"message": "HTTP 502 da WAHA"}}
+
+        status, body, usado = w.enviar_passo(
+            "sendText", {"chatId": "5562981598253@c.us", "text": "oi"},
+            "5562981598253@c.us", enviar=fake)
+        self.assertEqual(status, 500)
+        self.assertEqual(len(chamadas), 1)  # outro erro: não insiste
+
+    def test_lid_nas_duas_grafias_devolve_o_erro_original(self):
+        def fake(endpoint, payload):
+            return 500, self.ERRO_LID
+
+        status, body, usado = w.enviar_passo(
+            "sendText", {"chatId": "5562981598253@c.us", "text": "oi"},
+            "5562981598253@c.us", enviar=fake)
+        self.assertEqual(status, 500)
+        self.assertEqual(usado, "5562981598253@c.us")

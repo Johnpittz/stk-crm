@@ -132,6 +132,62 @@ def limpar_base64(valor: str) -> str:
     return re.sub(r"^data:[^;,]+;base64,", "", valor or "")
 
 
+def eh_erro_lid(body) -> bool:
+    """GOWS (WAHA 2026.9.1) devolve 500 com 'no LID found ...
+    @s.whatsapp.net from server' quando o WhatsApp não resolve PN -> LID.
+    Bug conhecido: WAHA #1714/#2094/#2214. Derrubou 49 de 50 no disparo
+    de 05/10."""
+    return "no lid found" in str(body).lower()
+
+
+def variantes_chat_id(chat_id: str) -> list:
+    """[chat_id original, variante BR com/sem o 9 extra] (sem duplicar).
+
+    Número brasileiro é o único com a regra do 9 extra na 5ª posição:
+    o WhatsApp ora só resolve a grafia COM o 9, ora só a SEM (wuzapi#243).
+    55 + DDD + 9XXXXXXXX -> 55 + DDD + 8XXXXXXXX e vice-versa.
+    """
+    base = (chat_id or "").strip()
+    if not base.endswith("@c.us"):
+        return [base] if base else []
+    numero = base[: -len("@c.us")]
+    variantes = [base]
+    # BR: 55 + DDD + 8 (sem o 9 extra) = 12 dígitos; com o 9 = 13.
+    if numero.startswith("55") and len(numero) in (12, 13):
+        ddd, assinante = numero[2:4], numero[4:]
+        if len(assinante) == 9 and assinante.startswith("9"):
+            alt = "55" + ddd + assinante[1:]
+        elif len(assinante) == 8:
+            alt = "55" + ddd + "9" + assinante
+        else:
+            alt = None
+        if alt and alt != numero:
+            variantes.append(f"{alt}@c.us")
+    return variantes
+
+
+def enviar_passo(endpoint: str, payload: dict, chat_id: str, enviar=None):
+    """Envia um passo; se o GOWS falhar com 'no LID found', repete na
+    variante BR do número. Retorna (status, body, chat_id_usado).
+
+    Só insiste na variante quando o erro é de LID — outro erro (rede,
+    502) não ganha retry aqui.
+    """
+    enviar = enviar or waha_send
+    status, body = enviar(endpoint, payload)
+    if 200 <= status < 300 or not eh_erro_lid(body):
+        return status, body, chat_id
+    for alt in variantes_chat_id(chat_id)[1:]:
+        payload_alt = dict(payload)
+        payload_alt["chatId"] = alt
+        status, body = enviar(endpoint, payload_alt)
+        if 200 <= status < 300:
+            return status, body, alt
+        if not eh_erro_lid(body):
+            break
+    return status, body, chat_id
+
+
 def substituir_variaveis(texto: str, nome: str, telefone: str) -> str:
     """Substitui {{nome}} e {{telefone}} ({{promocao}} já vem resolvido do frontend)."""
     if not texto:
@@ -346,8 +402,14 @@ def processar_campanha(campaign: dict) -> None:
         ok_all = True
         for passo in passos:
             endpoint, payload = passo_payload(passo, chat_id, session, nome, telefone)
-            status, body = waha_send(endpoint, payload)
+            chat_anterior = chat_id
+            # LID do GOWS: ao falhar, tenta a variante BR (9 extra) e passa
+            # a usá-la nos próximos passos do mesmo contato.
+            status, body, chat_id = enviar_passo(endpoint, payload, chat_id)
             ok = 200 <= status < 300
+            if ok and chat_id != chat_anterior:
+                print(f"[Worker] LID: {chat_anterior} sem resolucao -> "
+                      f"enviado via {chat_id}", file=sys.stderr)
             detail = None
             if not ok:
                 ok_all = False
