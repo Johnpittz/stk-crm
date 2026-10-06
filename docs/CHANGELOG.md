@@ -4,6 +4,16 @@
 
 ---
 
+## 1.8.5 — 06/10/2026
+
+- **Atendimento — cortesia fora do horário agora é ENVIADA** (passo 1,
+  adiado em 03/10): o engine do chatbot compunha "Nosso time comercial está
+  fora do horário... Retornaremos em breve! 😊" mas `integrarChatbot` só
+  lia `action` — ninguém mandava a mensagem e o cliente ficava no silêncio
+  (IA bloqueada pela precedência do chatbot). O branch `fora_horario` agora
+  envia via `enviarMensagem` antes de retornar. TDD (`engine-horario.test`):
+  RED do silêncio + controle em horário comercial.
+
 ## 1.8.4 — 05/10/2026
 
 - **Botão REENVIAR as falhas do disparo em massa**: nova rota

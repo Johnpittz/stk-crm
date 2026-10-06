@@ -307,9 +307,16 @@ export async function processarMensagemChatbot(
   const emHorario = estaEmHorarioComercial(fluxo.horario_comercial);
   console.log(`[Chatbot] Horário comercial: ${emHorario ? 'SIM' : 'NÃO'}`);
   if (!emHorario) {
+    const mensagemCortesia =
+      'Obrigado pela mensagem! Nosso time comercial está fora do horário de atendimento. Retornaremos em breve! 😊';
+    // Passo 1 (06/10): esta cortesia era composta aqui e JAMAIS enviada —
+    // `integrarChatbot` só lê `action` e a IA fica bloqueada pela
+    // precedência do chatbot, então o cliente ficava no silêncio. Agora
+    // envia igual aos demais passos do engine (mesma `enviarMensagem`).
+    await enviarMensagem(telefone, mensagemCortesia, instancia);
     return {
       action: 'fora_horario',
-      mensagem: 'Obrigado pela mensagem! Nosso time comercial está fora do horário de atendimento. Retornaremos em breve! 😊',
+      mensagem: mensagemCortesia,
     };
   }
 
