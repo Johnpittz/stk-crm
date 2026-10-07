@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { montarPayloadCliente } from "@/lib/clientes/montar-payload";
+import { opcoesStatus } from "@/lib/clientes/status-cliente";
 import {
   FormUsinaSolar,
   parseUsina,
@@ -860,10 +861,11 @@ export default function NovoClientePage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-[#0f1d32] border-[#1c2e4a]">
-                  <SelectItem value="ativo">Ativo</SelectItem>
-                  <SelectItem value="prospect">Prospect</SelectItem>
-                  <SelectItem value="churn">Churn</SelectItem>
-                  <SelectItem value="inativo">Inativo</SelectItem>
+                  {opcoesStatus(form.status).map((s) => (
+                    <SelectItem key={s.valor} value={s.valor}>
+                      {s.rotulo}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

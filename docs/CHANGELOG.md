@@ -4,6 +4,13 @@
 
 ---
 
+## 1.8.7 — 06/10/2026
+
+- **Dropdown STATUS (Novo + Editar):** opções agora são
+  **LEAD / PROSPECT / CLIENTE / CAPTADOR** (`lib/clientes/status-cliente`).
+  Status antigo já salvo (ativo/churn/inativo) aparece como opção extra
+  "(antigo)" — nenhum dado perdido, filtros antigos continuam valendo.
+
 ## 1.8.6 — 06/10/2026
 
 - **Tela CLIENTES — ajustes pedidos pelo João:**
