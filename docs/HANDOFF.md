@@ -121,6 +121,14 @@ está** no env do worker (verificado por tamanho, 28/09) — não é mais pendê
 
 ## 3. Próxima ação (de onde parar)
 
+**NOVO (06/10) — DASHBOARD POR FASES (aguardando decisões do João):**
+pedido de dimensões de tempo de resposta (vendedor / time / produto) + um
+dashboard por perfil (Gerencial / Gerente / Vendedor). Plano completo com
+fases e as 5 decisões de regra de negócio pendentes em
+`docs/plano-dashboard-fases.md`. Não codar antes das decisões — Fase 1 é a
+sugerida para começar. Fatos: `equipes` e `produtos` existem mas estão VAZIAS.
+
+
 ~~**Fechar a Fase 0**~~ — **CONCLUÍDA em 26/09** (migrations aplicadas, push feito, F0.3 no ar,
 worker publicado). Abaixo fica o histórico do que foi feito:
 1. ✅ **F0.1 — notificações**: `lib/notificacoes.ts` + 7 testes; os 3 inserts quebrados trocados
