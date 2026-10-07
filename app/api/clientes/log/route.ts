@@ -11,7 +11,7 @@ import { usuarioAtual } from "@/lib/auth/usuario-atual";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(_request?: NextRequest) {
+export async function GET(_request: NextRequest) {
   const usuario = await usuarioAtual();
   if (!usuario) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
