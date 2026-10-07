@@ -121,12 +121,15 @@ está** no env do worker (verificado por tamanho, 28/09) — não é mais pendê
 
 ## 3. Próxima ação (de onde parar)
 
-**NOVO (06/10) — DASHBOARD POR FASES (aguardando decisões do João):**
-pedido de dimensões de tempo de resposta (vendedor / time / produto) + um
-dashboard por perfil (Gerencial / Gerente / Vendedor). Plano completo com
-fases e as 5 decisões de regra de negócio pendentes em
-`docs/plano-dashboard-fases.md`. Não codar antes das decisões — Fase 1 é a
-sugerida para começar. Fatos: `equipes` e `produtos` existem mas estão VAZIAS.
+**DASHBOARD POR FASES — Fase 1 CONCLUÍDA (06/10), próxima = Fase 2:**
+pedido = tempo de resposta (vendedor/time/produto) + dashboard por perfil.
+Plano + decisões **já resolvidas** (regras, times, produtos, perfis) em
+`docs/plano-dashboard-fases.md`. Fase 1 no ar: card "Tempo de Resposta"
+(`lib/dashboard/tempo-resposta`, rota `/api/dashboard/tempo-resposta`,
+1ª resposta só em horário comercial). Dados de teste no Supabase:
+equipes Time Lobo (STK-1) / Time Águia (STK-3) — mapa em
+`lib/dashboard/equipes.ts` — e produtos GD/RECIEE/ELETROPOSTO/SIGMA SOLAR.
+Próxima sessão: **Fase 2** (ranking de vendedores + média por time).
 
 
 ~~**Fechar a Fase 0**~~ — **CONCLUÍDA em 26/09** (migrations aplicadas, push feito, F0.3 no ar,

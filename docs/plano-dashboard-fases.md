@@ -53,7 +53,26 @@ Dividido em fases — cada fase fecha e entrega valor sozinha.
 
 ---
 
-## Decisões que precisam do João (regras de negócio)
+## Decisões — RESOLVIDAS em 06/10/2026
+
+1. **Resposta:** 1ª resposta do vendedor, **só em horário comercial**
+   (seg–sex 08:00–18:00, Brasília) ✅ implementado na Fase 1.
+2. **Times (teste):** **Time Lobo = STK-1** e **Time Águia = STK-3**
+   (STK-2 está FAILED/QR). Linhas criadas em `equipes`; mapa
+   número→time em `lib/dashboard/equipes.ts` — Fase 2 agrupa por aí.
+3. **Produtos:** GD, RECIEE, ELETROPOSTO, SIGMA SOLAR —
+   semeados na tabela `produtos` (ativos).
+4. **Perfis:** admin/diretor = Gerencial · gerente_comercial = Gerente ·
+   vendedor = Vendedor ✅.
+5. **Início:** Fase 1 — **CONCLUÍDA em 06/10** (card no Dashboard,
+   rota e cálculo; 11 testes).
+
+### Ainda pendente (era "decisões")
+- (nada) — próximo passo: **Fase 2** (ranking por vendedor + média por time)
+
+<details><summary>Registro original das perguntas</summary>
+
+### Decisões que precisam do João (regras de negócio)
 
 1. **O que conta como "responder"?** (Sugestão: 1ª resposta do vendedor após
    mensagem do cliente; contar só em horário comercial seg–sex 08–18,
@@ -65,6 +84,8 @@ Dividido em fases — cada fase fecha e entrega valor sozinha.
 4. **Mapeamento dos perfis:** confirmar — admin/diretor = Gerencial,
    gerente_comercial = Gerente, vendedor = Vendedor?
 5. **Por qual fase começar** (sugestão: Fase 1)
+
+</details>
 
 ---
 

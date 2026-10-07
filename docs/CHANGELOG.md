@@ -4,6 +4,17 @@
 
 ---
 
+## 1.8.8 — 06/10/2026
+
+- **Dashboard — Fase 1 do plano novo (`docs/plano-dashboard-fases.md`):**
+  card **Tempo de Resposta (1ª resposta)** com média geral e de hoje,
+  contada SÓ em horário comercial (seg–sex 08:00–18:00, Brasília).
+  Cálculo em `lib/dashboard/tempo-resposta` + rota
+  `GET /api/dashboard/tempo-resposta` (período 30 dias).
+- **Dados de teste criados:** equipes **Time Lobo** (STK-1) e
+  **Time Águia** (STK-3 — mapa em `lib/dashboard/equipes`); produtos
+  **GD, RECIEE, ELETROPOSTO, SIGMA SOLAR** na tabela `produtos`.
+
 ## 1.8.7 — 06/10/2026
 
 - **Dropdown STATUS (Novo + Editar):** opções agora são

@@ -11,6 +11,7 @@ import {
   Star,
   Users,
   ArrowDown,
+  Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -34,8 +35,15 @@ interface Tarefa {
   created_at: string;
 }
 
+type TempoResposta = {
+  geral: { media: number; n: number };
+  hoje: { media: number; n: number };
+  janela: string;
+};
+
 export default function DashboardPage() {
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
+  const [tempoResposta, setTempoResposta] = useState<TempoResposta | null>(null);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
 
@@ -51,6 +59,10 @@ export default function DashboardPage() {
       });
       const data = await res.json();
       if (res.ok) setTarefas(data.tarefas || []);
+
+      // Fase 1 do plano de dashboard: tempo de 1ª resposta (horário comercial)
+      const resTr = await fetch("/api/dashboard/tempo-resposta");
+      if (resTr.ok) setTempoResposta(await resTr.json());
     } catch (err) {
       console.error(err);
     } finally {
@@ -221,6 +233,34 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ─── Tempo de Resposta (Fase 1 — ver docs/plano-dashboard-fases.md) ─── */}
+      <Card className="border-[#1c2e4a] bg-[#14233c]">
+        <CardContent className="p-3">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-cyan-500/15 flex items-center justify-center shrink-0">
+              <Clock className="h-5 w-5 text-cyan-400" />
+            </div>
+            <div>
+              <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider">
+                Tempo de Resposta — 1ª resposta
+              </p>
+              <p className="text-lg font-bold text-white">
+                {tempoResposta ? `${tempoResposta.geral.media} min` : "…"}
+                <span className="text-sm font-medium text-slate-400">
+                  {" "}
+                  · hoje {tempoResposta ? `${tempoResposta.hoje.media} min` : "…"}
+                </span>
+              </p>
+              <p className="text-[11px] text-slate-500">
+                {tempoResposta
+                  ? `${tempoResposta.geral.n} respostas · ${tempoResposta.janela}`
+                  : "carregando…"}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* ─── Meio: Funil Visual + Pipeline por Estágio ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">

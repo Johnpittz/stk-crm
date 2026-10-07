@@ -84,11 +84,13 @@ function criarCenario(): CenarioFake {
     const filtrar = (): Registro[] => {
       let linhas = [...(tabelas[tabela] ?? [])];
       for (const f of est.filtros) {
-        linhas = linhas.filter((l) =>
-          f.tipo === "eq"
-            ? l[f.campo] === f.valor
-            : (f.valor as any[]).includes(l[f.campo])
-        );
+        linhas = linhas.filter((l) => {
+          if (f.tipo === "eq") return l[f.campo] === f.valor;
+          if (f.tipo === "in") return (f.valor as any[]).includes(l[f.campo]);
+          if (f.tipo === "gte")
+            return l[f.campo] != null && l[f.campo] >= f.valor;
+          return false;
+        });
       }
       return linhas;
     };
@@ -163,6 +165,10 @@ function criarCenario(): CenarioFake {
       },
       in: (campo: string, valor: any[]) => {
         est.filtros.push({ tipo: "in", campo, valor });
+        return b;
+      },
+      gte: (campo: string, valor: any) => {
+        est.filtros.push({ tipo: "gte", campo, valor });
         return b;
       },
       order: (campo: string, opts?: { ascending?: boolean }) => {
