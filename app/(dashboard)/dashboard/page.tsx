@@ -35,15 +35,21 @@ interface Tarefa {
   created_at: string;
 }
 
+type LinhaRanking = { id: string; nome: string; media: number; n: number; pior: number };
+
 type TempoResposta = {
   geral: { media: number; n: number };
   hoje: { media: number; n: number };
+  porVendedor: LinhaRanking[];
+  porTime: LinhaRanking[];
   janela: string;
+  periodo_dias: number;
 };
 
 export default function DashboardPage() {
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [tempoResposta, setTempoResposta] = useState<TempoResposta | null>(null);
+  const [dias, setDias] = useState(30);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
 
@@ -59,10 +65,6 @@ export default function DashboardPage() {
       });
       const data = await res.json();
       if (res.ok) setTarefas(data.tarefas || []);
-
-      // Fase 1 do plano de dashboard: tempo de 1ª resposta (horário comercial)
-      const resTr = await fetch("/api/dashboard/tempo-resposta");
-      if (resTr.ok) setTempoResposta(await resTr.json());
     } catch (err) {
       console.error(err);
     } finally {
@@ -73,6 +75,20 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchTarefas();
   }, [fetchTarefas]);
+
+  // Fase 1+2: tempo de 1ª resposta + rankings (filtro de período)
+  const fetchTempo = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/dashboard/tempo-resposta?dias=${dias}`);
+      if (res.ok) setTempoResposta(await res.json());
+    } catch (err) {
+      console.error(err);
+    }
+  }, [dias]);
+
+  useEffect(() => {
+    fetchTempo();
+  }, [fetchTempo]);
 
   // ─── Métricas ───
   const totalVendas = tarefas.filter((t) => t.coluna_kanban === "comissao_paga").length;
@@ -237,30 +253,107 @@ export default function DashboardPage() {
       {/* ─── Tempo de Resposta (Fase 1 — ver docs/plano-dashboard-fases.md) ─── */}
       <Card className="border-[#1c2e4a] bg-[#14233c]">
         <CardContent className="p-3">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-cyan-500/15 flex items-center justify-center shrink-0">
-              <Clock className="h-5 w-5 text-cyan-400" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-cyan-500/15 flex items-center justify-center shrink-0">
+                <Clock className="h-5 w-5 text-cyan-400" />
+              </div>
+              <div>
+                <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider">
+                  Tempo de Resposta — 1ª resposta
+                </p>
+                <p className="text-lg font-bold text-white">
+                  {tempoResposta ? `${tempoResposta.geral.media} min` : "…"}
+                  <span className="text-sm font-medium text-slate-400">
+                    {" "}
+                    · hoje {tempoResposta ? `${tempoResposta.hoje.media} min` : "…"}
+                  </span>
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  {tempoResposta
+                    ? `${tempoResposta.geral.n} respostas · ${tempoResposta.janela}`
+                    : "carregando…"}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider">
-                Tempo de Resposta — 1ª resposta
-              </p>
-              <p className="text-lg font-bold text-white">
-                {tempoResposta ? `${tempoResposta.geral.media} min` : "…"}
-                <span className="text-sm font-medium text-slate-400">
-                  {" "}
-                  · hoje {tempoResposta ? `${tempoResposta.hoje.media} min` : "…"}
-                </span>
-              </p>
-              <p className="text-[11px] text-slate-500">
-                {tempoResposta
-                  ? `${tempoResposta.geral.n} respostas · ${tempoResposta.janela}`
-                  : "carregando…"}
-              </p>
+            <div className="flex gap-1 shrink-0">
+              {[7, 30, 90].map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setDias(d)}
+                  className={cn(
+                    "px-2 py-1 text-[11px] rounded-md border",
+                    dias === d
+                      ? "bg-cyan-500/20 border-cyan-500/50 text-cyan-300"
+                      : "bg-[#0c1426] border-[#1c2e4a] text-slate-400 hover:text-slate-200",
+                  )}
+                >
+                  {d} dias
+                </button>
+              ))}
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* ─── Fase 2: dimensões VENDEDOR e TIME ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card className="border-[#1c2e4a] bg-[#14233c]">
+          <CardContent className="p-3">
+            <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider mb-2">
+              Tempo por Vendedor — do mais lento ao mais rápido
+            </p>
+            {tempoResposta && tempoResposta.porVendedor.length > 0 ? (
+              <ul className="space-y-1">
+                {tempoResposta.porVendedor.map((v) => (
+                  <li
+                    key={v.id}
+                    className="flex items-center justify-between text-sm border-b border-[#1c2e4a] pb-1 last:border-0"
+                  >
+                    <span className="text-slate-200">{v.nome}</span>
+                    <span className="text-slate-400">
+                      <b className="text-white">{v.media} min</b> · {v.n} resp · pior{" "}
+                      {v.pior} min
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-slate-500">
+                {tempoResposta ? "Sem respostas no período." : "carregando…"}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-[#1c2e4a] bg-[#14233c]">
+          <CardContent className="p-3">
+            <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider mb-2">
+              Tempo por Time — do mais lento ao mais rápido
+            </p>
+            {tempoResposta && tempoResposta.porTime.length > 0 ? (
+              <ul className="space-y-1">
+                {tempoResposta.porTime.map((t) => (
+                  <li
+                    key={t.id}
+                    className="flex items-center justify-between text-sm border-b border-[#1c2e4a] pb-1 last:border-0"
+                  >
+                    <span className="text-slate-200">{t.nome}</span>
+                    <span className="text-slate-400">
+                      <b className="text-white">{t.media} min</b> · {t.n} resp · pior{" "}
+                      {t.pior} min
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-slate-500">
+                {tempoResposta ? "Sem respostas no período." : "carregando…"}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* ─── Meio: Funil Visual + Pipeline por Estágio ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">

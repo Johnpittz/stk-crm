@@ -129,7 +129,11 @@ Plano + decisões **já resolvidas** (regras, times, produtos, perfis) em
 1ª resposta só em horário comercial). Dados de teste no Supabase:
 equipes Time Lobo (STK-1) / Time Águia (STK-3) — mapa em
 `lib/dashboard/equipes.ts` — e produtos GD/RECIEE/ELETROPOSTO/SIGMA SOLAR.
-Próxima sessão: **Fase 2** (ranking de vendedores + média por time).
+Fase 2 **CONCLUÍDA em 06/10** (1.8.9): rankings por vendedor e por time
+com filtro 7/30/90 dias no Dashboard (`lib/dashboard/rankings`).
+Próxima sessão: **Fase 3** (tela de cadastro de produtos + vincular
+produto à oportunidade + visão por produto — produtos já semeados:
+GD, RECIEE, ELETROPOSTO, SIGMA SOLAR).
 
 
 ~~**Fechar a Fase 0**~~ — **CONCLUÍDA em 26/09** (migrations aplicadas, push feito, F0.3 no ar,

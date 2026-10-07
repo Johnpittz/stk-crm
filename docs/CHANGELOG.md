@@ -4,6 +4,14 @@
 
 ---
 
+## 1.8.9 — 06/10/2026
+
+- **Dashboard — Fase 2:** rankings de tempo de resposta **por VENDEDOR**
+  (do mais lento ao mais rápido: média, nº de respostas e pior caso) e
+  **por TIME** (Time Lobo/Águia pelo número STK da conversa),
+  com **filtro de período** (7 / 30 / 90 dias). Ranknings em
+  `lib/dashboard/rankings`; rota `?dias=`.
+
 ## 1.8.8 — 06/10/2026
 
 - **Dashboard — Fase 1 do plano novo (`docs/plano-dashboard-fases.md`):**

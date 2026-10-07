@@ -27,11 +27,22 @@ Dividido em fases — cada fase fecha e entrega valor sozinha.
 - Primeiro indicador no Dashboard atual: **card "Tempo de Resposta"** (média geral + hoje)
 - **Entrega:** começa a aparecer o número — mesmo sem corte por vendedor/time
 
-### Fase 2 — Dimensões VENDEDOR e TIME
+### Fase 2 — Dimensões VENDEDOR e TIME — **CONCLUÍDA em 06/10**
+- Ranking por vendedor (do mais lento ao mais rápido: média, n, pior caso)
+  + média por time (STK-1=Lobo / STK-3=Águia) + filtro 7/30/90 dias,
+  no Dashboard (`lib/dashboard/rankings`, `?dias=` na rota).
+- Pendência evolutiva: quando existirem equipes reais, o time passa a vir
+  de `profiles.equipe_id` em vez do número STK.
+
+<details><summary>Como foi planejado</summary>
+
+
 - **Ranking de vendedores** por tempo de resposta (do mais lento ao mais rápido), com filtro de período
 - Média **por TIME** (agrupando os vendedores pela equipe)
 - Pré-requisito dele: **cadastrar as equipes** e vincular cada vendedor
   (tabela hoje vazia — cadastro manual na tela ou importação que eu faço se mandar a lista)
+
+</details>
 
 ### Fase 3 — Dimensão PRODUTO
 - Tela de **cadastro de produtos** (Configurações) e popular a tabela (hoje vazia)

@@ -17,6 +17,8 @@ export interface Resposta {
   inicio: string;
   fim: string;
   minutos: number;
+  /** id de quem respondeu (enviada_por) — usado pelo ranking Fase 2 */
+  responsavel?: string | null;
 }
 
 const OFFSET_SP_MIN = 180; // UTC-3
@@ -70,6 +72,7 @@ export function primeiraResposta(mensagens: MensagemRef[]): Resposta | null {
         inicio,
         fim: m.created_at,
         minutos: minutosEmHorarioComercial(inicio, m.created_at),
+        responsavel: m.enviada_por,
       };
     }
   }
