@@ -66,7 +66,7 @@ const navItemsPorPerfil: Record<PerfilAtivo, Array<{
     },
     {
       href: "/kanban",
-      label: "Oportunidades",
+      label: "Funil de Vendas",
       icon: ClipboardList,
       description: "Followup",
     },
@@ -184,7 +184,7 @@ const navItemsPorPerfil: Record<PerfilAtivo, Array<{
     },
     {
       href: "/kanban",
-      label: "Oportunidades",
+      label: "Funil de Vendas",
       icon: ClipboardList,
       description: "Followup",
     },
