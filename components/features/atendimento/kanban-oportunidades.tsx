@@ -310,7 +310,7 @@ export function KanbanOportunidades({
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold text-white">
             <span className="text-base">🗂️</span>
-            Funil de Vendas
+            Followup
           </CardTitle>
           <div className="flex items-center gap-2">
             <Select value={filtroColuna} onValueChange={setFiltroColuna}>
