@@ -1,6 +1,12 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { montarPayloadCliente } from "@/lib/clientes/montar-payload";
+import {
+  FormUsinaSolar,
+  parseUsina,
+  serializarUsina,
+} from "@/components/features/clientes/form-usina-solar";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,6 +48,10 @@ interface FormData {
   telefone: string;
   whatsapp: string;
   celular: string;
+  nome_contato: string;
+  cargo_contato: string;
+  cpf_proprietario: string;
+  data_nascimento_proprietario: string;
 
   // Endereço
   cep: string;
@@ -58,7 +68,7 @@ interface FormData {
   subgrupo: string;
   uc_instalacao: string;
   vencimento_fatura: string;
-  bandeira: string;
+  usina: string;
 
   // Consumo Mensal
   consumo_meses: Record<string, string>;
@@ -82,6 +92,10 @@ const INITIAL_FORM: FormData = {
   telefone: "",
   whatsapp: "",
   celular: "",
+  nome_contato: "",
+  cargo_contato: "",
+  cpf_proprietario: "",
+  data_nascimento_proprietario: "",
   cep: "",
   logradouro: "",
   numero: "",
@@ -94,7 +108,7 @@ const INITIAL_FORM: FormData = {
   subgrupo: "",
   uc_instalacao: "",
   vencimento_fatura: "",
-  bandeira: "",
+  usina: "",
   consumo_meses: {
     jan: "", fev: "", mar: "", abr: "", mai: "", jun: "",
     jul: "", ago: "", set: "", out: "", nov: "", dez: "",
@@ -139,8 +153,6 @@ const UF_OPTIONS = [
   "PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
 ];
 
-const BANDEIRAS = ["Verde", "Amarela", "Vermelha P1", "Vermelha P2"];
-
 // ─── Validation helpers ───
 
 function validateCPF(cpf: string): boolean {
@@ -182,6 +194,7 @@ export default function NovoClientePage() {
   const supabase = createClient();
   const [form, setForm] = useState<FormData>(INITIAL_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [usinaAberto, setUsinaAberto] = useState(false);
   const [loading, setLoading] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -290,54 +303,10 @@ export default function NovoClientePage() {
         return;
       }
 
-      // Build payload with all the new fields
-      const payload: Record<string, any> = {
-        nome_razao_social: form.nome_razao_social.trim(),
-        tipo: form.tipo,
-        cpf_cnpj: form.cpf_cnpj.trim() || null,
-        rg_ie: form.rg_ie.trim() || null,
-        data_nascimento: form.data_nascimento || null,
-        email: form.email.trim() || null,
-        telefone: form.telefone.trim() || null,
-        whatsapp: form.whatsapp.trim() || null,
-        celular: form.celular.trim() || null,
-        cep: form.cep.trim() || null,
-        logradouro: form.logradouro.trim() || null,
-        numero: form.numero.trim() || null,
-        complemento: form.complemento.trim() || null,
-        bairro: form.bairro.trim() || null,
-        cidade: form.cidade.trim() || null,
-        estado: form.estado || null,
-        concessionaria: form.concessionaria || null,
-        classe_tarifaria: form.classe_tarifaria.trim() || null,
-        subgrupo: form.subgrupo.trim() || null,
-        uc_instalacao: form.uc_instalacao.trim() || null,
-        vencimento_fatura: form.vencimento_fatura || null,
-        bandeira: form.bandeira || null,
-        geracao_propria: form.geracao_propria,
-        observacoes: form.observacoes.trim() || null,
-        status: form.status,
-        classificacao: form.classificacao.trim() || null,
-        origem: form.origem,
-      };
-
-      // Add consumption data
-      const consumoValues = Object.entries(form.consumo_meses)
-        .filter(([, v]) => v.trim() !== "")
-        .map(([mes, valor]) => ({ mes, valor: parseFloat(valor) || 0 }));
-      if (consumoValues.length > 0) {
-        payload.consumo_mensal = consumoValues;
-      }
-
-      // Add generation data if enabled
-      if (form.geracao_propria) {
-        const geracaoValues = Object.entries(form.geracao_meses)
-          .filter(([, v]) => v.trim() !== "")
-          .map(([mes, valor]) => ({ mes, valor: parseFloat(valor) || 0 }));
-        if (geracaoValues.length > 0) {
-          payload.geracao_mensal = geracaoValues;
-        }
-      }
+      // 06/10: o FORMULÁRIO INTEIRO vai para o POST — quem mapeia para as
+      // colunas reais é montarPayloadCliente lá na rota. Antes esta tela
+      // montava o payload à mão e jogava fora endereço/energia/consumo.
+      const payload = { ...form };
 
       const res = await fetch("/api/clientes", {
         method: "POST",
@@ -470,18 +439,18 @@ export default function NovoClientePage() {
               )}
             </div>
 
-            {/* RG/IE */}
-            <div className="space-y-1.5">
-              <Label className={labelCls}>
-                {form.tipo === "pf" ? "RG" : "IE"}
-              </Label>
-              <Input
-                value={form.rg_ie}
-                onChange={(e) => set("rg_ie", e.target.value)}
-                placeholder={form.tipo === "pf" ? "RG" : "Inscrição Estadual"}
-                className={inputCls}
-              />
-            </div>
+            {/* RG — só Pessoa Física (IE retirado do PJ, pedido do João 06/10) */}
+            {form.tipo === "pf" && (
+              <div className="space-y-1.5">
+                <Label className={labelCls}>RG</Label>
+                <Input
+                  value={form.rg_ie}
+                  onChange={(e) => set("rg_ie", e.target.value)}
+                  placeholder="RG"
+                  className={inputCls}
+                />
+              </div>
+            )}
 
             {/* Data de Nascimento */}
             <div className="space-y-1.5">
@@ -492,6 +461,47 @@ export default function NovoClientePage() {
                 type="date"
                 value={form.data_nascimento}
                 onChange={(e) => set("data_nascimento", e.target.value)}
+                className={`${inputCls} [color-scheme:dark]`}
+              />
+            </div>
+
+            {/* Campos novos (João, 06/10) — abaixo de Data de Abertura */}
+            <div className="space-y-1.5">
+              <Label className={labelCls}>Nome do Contato</Label>
+              <Input
+                value={form.nome_contato}
+                onChange={(e) => set("nome_contato", e.target.value)}
+                placeholder="Ex: Ana Souza"
+                className={inputCls}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className={labelCls}>Cargo</Label>
+              <Input
+                value={form.cargo_contato}
+                onChange={(e) => set("cargo_contato", e.target.value)}
+                placeholder="Ex: Diretor Financeiro"
+                className={inputCls}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className={labelCls}>CPF do Proprietário</Label>
+              <Input
+                value={form.cpf_proprietario}
+                onChange={(e) => set("cpf_proprietario", e.target.value)}
+                placeholder="000.000.000-00"
+                className={inputCls}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className={labelCls}>Data de Nascimento</Label>
+              <Input
+                type="date"
+                value={form.data_nascimento_proprietario}
+                onChange={(e) => set("data_nascimento_proprietario", e.target.value)}
                 className={`${inputCls} [color-scheme:dark]`}
               />
             </div>
@@ -549,7 +559,7 @@ export default function NovoClientePage() {
         {/* ═══════ Endereço ═══════ */}
         <Section
           icon={<MapPin className="h-4 w-4 text-[#3B64CF]" />}
-          title="Endereço"
+          title="Endereço da Empresa"
         >
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* CEP */}
@@ -738,25 +748,6 @@ export default function NovoClientePage() {
               </Select>
             </div>
 
-            {/* Bandeira */}
-            <div className="space-y-1.5">
-              <Label className={labelCls}>Bandeira</Label>
-              <Select
-                value={form.bandeira}
-                onValueChange={(v) => set("bandeira", v)}
-              >
-                <SelectTrigger className={`${inputCls} text-white`}>
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent className="bg-[#0f1d32] border-[#1c2e4a]">
-                  {BANDEIRAS.map((b) => (
-                    <SelectItem key={b} value={b}>
-                      {b}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
         </Section>
 
@@ -793,14 +784,27 @@ export default function NovoClientePage() {
             <Switch
               id="geracao-propria"
               checked={form.geracao_propria}
-              onCheckedChange={(checked) => set("geracao_propria", checked)}
+              onCheckedChange={(checked) => {
+                set("geracao_propria", checked);
+                // SIM → abre a tela de marcação da usina automaticamente
+                if (checked) setUsinaAberto(true);
+              }}
             />
             <Label
               htmlFor="geracao-propria"
               className="text-sm text-slate-300 cursor-pointer"
             >
-              Possui geração própria (solar)
+              Tem Usina Solar
             </Label>
+            {form.geracao_propria && (
+              <button
+                type="button"
+                onClick={() => setUsinaAberto(true)}
+                className="text-xs text-[#3B64CF] hover:underline"
+              >
+                Dados da usina solar
+              </button>
+            )}
           </div>
 
           {/* Geração Própria Grid (conditional) */}
@@ -897,6 +901,17 @@ export default function NovoClientePage() {
             </div>
           </div>
         </Section>
+
+        {/* ═══════ Usina Solar (abre automático no SIM) ═══════ */}
+        <FormUsinaSolar
+          open={usinaAberto}
+          onOpenChange={setUsinaAberto}
+          valor={parseUsina(form.usina)}
+          onSalvar={(dados) => {
+            set("usina", serializarUsina(dados));
+            setUsinaAberto(false);
+          }}
+        />
 
         {/* ═══════ Action Buttons ═══════ */}
         <div className="flex items-center justify-end gap-3 pt-2">

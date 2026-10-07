@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { montarPayloadCliente } from "@/lib/clientes/montar-payload";
+import { registrarAuditoria } from "@/lib/auditoria";
+import { usuarioAtual } from "@/lib/auth/usuario-atual";
 
 export const dynamic = "force-dynamic";
 
@@ -77,32 +80,13 @@ export async function POST(request: NextRequest) {
     const supabase = createAdminClient();
     const body = await request.json();
 
-    // Dados básicos - colunas que EXISTEM na tabela clientes
-    const clienteData: Record<string, any> = {
-      nome_razao_social: body.nome_razao_social || body.nome_completo || null,
-      email: body.email || null,
-      telefone: body.telefone || null,
-      cidade: body.cidade || null,
-      estado: body.estado || null,
+    // 06/10: o formulário inteiro passa pelo mapeador de colunas REAIS
+    // (antes o create jogava fora endereço/energia/consumo e os campos
+    // novos de contato/proprietário).
+    const clienteData: Record<string, any> = montarPayloadCliente({
+      ...body,
       status: body.status || "ativo",
-      observacoes: body.observacoes || null,
-    };
-
-    // Adicionar colunas opcionais apenas se fornecidas
-    if (body.cnpj_cpf || body.cpf_cnpj) clienteData.cnpj_cpf = body.cnpj_cpf || body.cpf_cnpj;
-    if (body.celular) clienteData.celular = body.celular;
-    if (body.whatsapp) clienteData.whatsapp = body.whatsapp;
-    if (body.concessionaria) clienteData.concessionaria = body.concessionaria;
-    if (body.classe_tarifaria) clienteData.classe_tarifaria = body.classe_tarifaria;
-    if (body.subgrupo_tarifario) clienteData.subgrupo_tarifario = body.subgrupo_tarifario;
-    if (body.bandeira) clienteData.bandeira = body.bandeira;
-    if (body.vencimento_fatura) clienteData.vencimento_fatura = body.vencimento_fatura;
-    if (body.instalacao) clienteData.instalacao = body.instalacao;
-    if (body.endereco) clienteData.endereco = body.endereco;
-    if (body.numero) clienteData.numero = body.numero;
-    if (body.complemento) clienteData.complemento = body.complemento;
-    if (body.bairro) clienteData.bairro = body.bairro;
-    if (body.cep) clienteData.cep = body.cep;
+    });
 
     // Validação mínima
     if (!clienteData.nome_razao_social) {
@@ -119,6 +103,18 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (error) throw error;
+
+    // LOG DE CRIAÇÃO (06/10) — best-effort, nunca derruba o create
+    const usuario = await usuarioAtual().catch(() => null);
+    await registrarAuditoria(supabase, {
+      clienteId: data.id,
+      clienteNome: data.nome_razao_social ?? null,
+      acao: "criado",
+      campos: Object.keys(clienteData)
+        .filter((k) => clienteData[k] != null)
+        .sort(),
+      usuario: usuario ? { id: usuario.id, email: usuario.email } : null,
+    });
 
     return NextResponse.json({ cliente: data }, { status: 201 });
   } catch (error: any) {

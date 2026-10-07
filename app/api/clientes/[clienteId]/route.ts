@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { camposAlterados, registrarAuditoria } from "@/lib/auditoria";
+import { usuarioAtual } from "@/lib/auth/usuario-atual";
 
 export const dynamic = "force-dynamic";
 
@@ -46,16 +48,21 @@ export async function PUT(
     const { clienteId: id } = params;
     const body = await request.json();
 
-    // Campos permitidos para atualização (evita sobrescrever com undefined)
+    // Campos permitidos = colunas REAIS da tabela clientes (06/10: saíram
+    // `cpf_cnpj`/`origem`/`bandeira`, que não são colunas — mandá-las quebrava
+    // o update — e entraram os campos novos de contato/proprietário).
     const allowedFields = [
       // Dados básicos
-      "nome_razao_social", "cpf_cnpj", "email", "telefone", "whatsapp",
-      "celular", "cidade", "estado", "endereco", "numero", "complemento",
-      "bairro", "cep", "tipo_cliente", "status", "classificacao", "origem",
-      "observacoes",
+      "nome_razao_social", "cnpj_cpf", "rg_ie", "data_nascimento",
+      "email", "telefone", "whatsapp", "celular",
+      "nome_contato", "cargo_contato", "cpf_proprietario",
+      "data_nascimento_proprietario",
+      "cidade", "estado", "endereco", "numero", "complemento",
+      "bairro", "cep", "tipo_cliente", "status", "classificacao",
+      "origem_lead", "observacoes",
       // Dados energéticos
       "concessionaria", "classe_tarifaria", "subgrupo_tarifario",
-      "vencimento_fatura", "instalacao", "bandeira", "iluminacao_publica",
+      "vencimento_fatura", "instalacao", "iluminacao_publica",
       "consorcio", "usina",
       // Consumo
       "consumo_jan", "consumo_fev", "consumo_mar", "consumo_abr",
@@ -84,6 +91,20 @@ export async function PUT(
       );
     }
 
+    // Linha ANTERIOR (para o log de edição dizer o QUE mudou)
+    const { data: antes } = await supabase
+      .from("clientes")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (!antes) {
+      return NextResponse.json(
+        { error: "Cliente não encontrado" },
+        { status: 404 }
+      );
+    }
+
     const { data, error } = await supabase
       .from("clientes")
       .update(updateData)
@@ -98,6 +119,19 @@ export async function PUT(
         { error: "Cliente não encontrado" },
         { status: 404 }
       );
+    }
+
+    // LOG DE EDIÇÃO (06/10) — best-effort, nunca derruba o save
+    const campos = camposAlterados(antes, updateData);
+    if (campos.length > 0) {
+      const usuario = await usuarioAtual().catch(() => null);
+      await registrarAuditoria(supabase, {
+        clienteId: id,
+        clienteNome: data.nome_razao_social ?? null,
+        acao: "editado",
+        campos,
+        usuario: usuario ? { id: usuario.id, email: usuario.email } : null,
+      });
     }
 
     return NextResponse.json({ cliente: data });

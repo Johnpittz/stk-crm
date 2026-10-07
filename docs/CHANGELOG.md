@@ -4,6 +4,31 @@
 
 ---
 
+## 1.8.6 — 06/10/2026
+
+- **Tela CLIENTES — ajustes pedidos pelo João:**
+  - IE removido do PJ (RG continua para Pessoa Física);
+  - campos novos abaixo de Data de Abertura: **Nome do Contato, Cargo,
+    CPF do Proprietário, Data de Nascimento** (colunas novas);
+  - "Endereço" → **"Endereço da Empresa"** (Editar e Novo);
+  - "Bandeira" removido dos dois formulários (coluna fica no banco);
+  - **"Tem Usina Solar"** (era "Possui geração própria"): ao marcar SIM a
+    tela de marcação da usina abre sozinha (CRI, nome, kWp → `clientes.usina`);
+  - **LOG DE CRIAÇÃO/EDIÇÃO de clientes — novo recurso, só admin:**
+    tabela `cliente_auditoria`, registro nas rotas POST/PUT de
+    `/api/clientes`, leitura `GET /api/clientes/log` (401/403) e tela
+    **Log de Alterações** no menu (item só aparece para cargo admin).
+- **Consertos de save descobertos no caminho (TDD):**
+  - Editar Cliente NÃO salvava: mandava `nome_completo` (coluna inexistente,
+    PGRST204) — agora salva via `PUT /api/clientes/[id]` com
+    `montarPayloadCliente` (colunas reais) e grava o log;
+  - Novo Cliente jogava fora endereço/energia/consumo/origem/rg — payload
+    agora é o formulário inteiro mapeado pela mesma função.
+- **Migration `094_clientes_contato_log.sql` — PRECISA ser aplicada no SQL
+  Editor** (4 colunas de contato/proprietário + tipo_cliente/classificacao
+  que a UI já usava + tabela `cliente_auditoria` com RLS de admin).
+- Testes: +27 (payload, auditoria, 3 rotas, form da usina, tela do log).
+
 ## 1.8.5 — 06/10/2026
 
 - **Atendimento — cortesia fora do horário agora é ENVIADA** (passo 1,

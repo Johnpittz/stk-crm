@@ -4,6 +4,12 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { normalizarCliente } from "@/lib/clientes/normalizar";
+import { montarPayloadCliente } from "@/lib/clientes/montar-payload";
+import {
+  FormUsinaSolar,
+  parseUsina,
+  serializarUsina,
+} from "@/components/features/clientes/form-usina-solar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +59,10 @@ interface FormData {
   telefone: string;
   whatsapp: string;
   celular: string;
+  nome_contato: string;
+  cargo_contato: string;
+  cpf_proprietario: string;
+  data_nascimento_proprietario: string;
 
   // Endereço
   cep: string;
@@ -69,7 +79,7 @@ interface FormData {
   subgrupo: string;
   uc_instalacao: string;
   vencimento_fatura: string;
-  bandeira: string;
+  usina: string;
 
   // Consumo Mensal
   consumo_meses: Record<string, string>;
@@ -93,6 +103,10 @@ const INITIAL_FORM: FormData = {
   telefone: "",
   whatsapp: "",
   celular: "",
+  nome_contato: "",
+  cargo_contato: "",
+  cpf_proprietario: "",
+  data_nascimento_proprietario: "",
   cep: "",
   logradouro: "",
   numero: "",
@@ -105,7 +119,7 @@ const INITIAL_FORM: FormData = {
   subgrupo: "",
   uc_instalacao: "",
   vencimento_fatura: "",
-  bandeira: "",
+  usina: "",
   consumo_meses: {
     jan: "", fev: "", mar: "", abr: "", mai: "", jun: "",
     jul: "", ago: "", set: "", out: "", nov: "", dez: "",
@@ -150,8 +164,6 @@ const UF_OPTIONS = [
   "PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
 ];
 
-const BANDEIRAS = ["Verde", "Amarela", "Vermelha P1", "Vermelha P2"];
-
 // ─── Validation helpers ───
 
 function validateCPF(cpf: string): boolean {
@@ -192,7 +204,7 @@ function mapClienteToForm(cliente: Record<string, any>): FormData {
   return {
     nome_razao_social: cliente.nome_razao_social || "",
     tipo: cliente.tipo_cliente || "pj",
-    cpf_cnpj: cliente.cpf_cnpj || "",
+    cpf_cnpj: cliente.cnpj_cpf || cliente.cpf_cnpj || "",
     rg_ie: cliente.rg_ie || "",
     data_nascimento: cliente.data_nascimento
       ? String(cliente.data_nascimento).slice(0, 10)
@@ -201,6 +213,12 @@ function mapClienteToForm(cliente: Record<string, any>): FormData {
     telefone: cliente.telefone || "",
     whatsapp: cliente.whatsapp || "",
     celular: cliente.celular || "",
+    nome_contato: cliente.nome_contato || "",
+    cargo_contato: cliente.cargo_contato || "",
+    cpf_proprietario: cliente.cpf_proprietario || "",
+    data_nascimento_proprietario: cliente.data_nascimento_proprietario
+      ? String(cliente.data_nascimento_proprietario).slice(0, 10)
+      : "",
     cep: cliente.cep || "",
     logradouro: cliente.logradouro || cliente.endereco || "",
     numero: cliente.numero || "",
@@ -215,7 +233,7 @@ function mapClienteToForm(cliente: Record<string, any>): FormData {
     vencimento_fatura: cliente.vencimento_fatura
       ? String(cliente.vencimento_fatura)
       : "",
-    bandeira: cliente.bandeira || "",
+    usina: cliente.usina || "",
     consumo_meses: {
       jan: cliente.consumo_jan != null ? String(cliente.consumo_jan) : "",
       fev: cliente.consumo_fev != null ? String(cliente.consumo_fev) : "",
@@ -248,7 +266,7 @@ function mapClienteToForm(cliente: Record<string, any>): FormData {
     observacoes: cliente.observacoes || "",
     status: cliente.status || "prospect",
     classificacao: cliente.classificacao || "",
-    origem: cliente.origem || "cadastro",
+    origem: cliente.origem_lead || cliente.origem || "cadastro",
   };
 }
 
@@ -412,31 +430,20 @@ export default function EditarClientePage() {
 
     setLoading(true);
     try {
-      // Build payload — only columns that exist in the clientes table
-      const payload: Record<string, any> = {};
+      // 06/10: payload COMPLETO via mapeador de colunas reais + save na rota
+      // PUT (que grava o LOG de edição). Antes o save ia direto no Supabase
+      // mandando `nome_completo` — coluna inexistente (PGRST204) — e o
+      // formulário inteiro falhava.
+      const payload = montarPayloadCliente(form);
 
-      // Safe columns (confirmed to exist)
-      if (form.nome_razao_social.trim()) payload.nome_completo = form.nome_razao_social.trim();
-      if (form.email.trim()) payload.email = form.email.trim();
-      if (form.telefone.trim()) payload.telefone = form.telefone.trim();
-      if (form.whatsapp.trim()) payload.whatsapp = form.whatsapp.trim();
-      if (form.celular.trim()) payload.celular = form.celular.trim();
-      if (form.cep.trim()) payload.cep = form.cep.trim();
-      if (form.logradouro.trim()) payload.endereco = form.logradouro.trim();
-      if (form.numero.trim()) payload.numero = form.numero.trim();
-      if (form.complemento.trim()) payload.complemento = form.complemento.trim();
-      if (form.bairro.trim()) payload.bairro = form.bairro.trim();
-      if (form.cidade.trim()) payload.cidade = form.cidade.trim();
-      if (form.estado) payload.estado = form.estado;
-      if (form.observacoes.trim()) payload.observacoes = form.observacoes.trim();
-
-      const { error } = await supabase
-        .from("clientes")
-        .update(payload)
-        .eq("id", clienteId);
-
-      if (error) {
-        setSubmitError(error.message || "Erro ao salvar cliente.");
+      const res = await fetch(`/api/clientes/${clienteId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setSubmitError(result.error || "Erro ao salvar cliente.");
         setLoading(false);
         return;
       }
@@ -449,6 +456,7 @@ export default function EditarClientePage() {
   };
 
   // ─── Delete ───
+  const [usinaAberto, setUsinaAberto] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -647,18 +655,18 @@ export default function EditarClientePage() {
               )}
             </div>
 
-            {/* RG/IE */}
-            <div className="space-y-1.5">
-              <Label className={labelCls}>
-                {form.tipo === "pf" ? "RG" : "IE"}
-              </Label>
-              <Input
-                value={form.rg_ie}
-                onChange={(e) => set("rg_ie", e.target.value)}
-                placeholder={form.tipo === "pf" ? "RG" : "Inscrição Estadual"}
-                className={inputCls}
-              />
-            </div>
+            {/* RG — só Pessoa Física (IE retirado do PJ, pedido do João 06/10) */}
+            {form.tipo === "pf" && (
+              <div className="space-y-1.5">
+                <Label className={labelCls}>RG</Label>
+                <Input
+                  value={form.rg_ie}
+                  onChange={(e) => set("rg_ie", e.target.value)}
+                  placeholder="RG"
+                  className={inputCls}
+                />
+              </div>
+            )}
 
             {/* Data de Nascimento */}
             <div className="space-y-1.5">
@@ -669,6 +677,47 @@ export default function EditarClientePage() {
                 type="date"
                 value={form.data_nascimento}
                 onChange={(e) => set("data_nascimento", e.target.value)}
+                className={`${inputCls} [color-scheme:dark]`}
+              />
+            </div>
+
+            {/* Campos novos (João, 06/10) — abaixo de Data de Abertura */}
+            <div className="space-y-1.5">
+              <Label className={labelCls}>Nome do Contato</Label>
+              <Input
+                value={form.nome_contato}
+                onChange={(e) => set("nome_contato", e.target.value)}
+                placeholder="Ex: Ana Souza"
+                className={inputCls}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className={labelCls}>Cargo</Label>
+              <Input
+                value={form.cargo_contato}
+                onChange={(e) => set("cargo_contato", e.target.value)}
+                placeholder="Ex: Diretor Financeiro"
+                className={inputCls}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className={labelCls}>CPF do Proprietário</Label>
+              <Input
+                value={form.cpf_proprietario}
+                onChange={(e) => set("cpf_proprietario", e.target.value)}
+                placeholder="000.000.000-00"
+                className={inputCls}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className={labelCls}>Data de Nascimento</Label>
+              <Input
+                type="date"
+                value={form.data_nascimento_proprietario}
+                onChange={(e) => set("data_nascimento_proprietario", e.target.value)}
                 className={`${inputCls} [color-scheme:dark]`}
               />
             </div>
@@ -726,7 +775,7 @@ export default function EditarClientePage() {
         {/* ═══════ Endereço ═══════ */}
         <Section
           icon={<MapPin className="h-4 w-4 text-[#3B64CF]" />}
-          title="Endereço"
+          title="Endereço da Empresa"
         >
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* CEP */}
@@ -915,25 +964,6 @@ export default function EditarClientePage() {
               </Select>
             </div>
 
-            {/* Bandeira */}
-            <div className="space-y-1.5">
-              <Label className={labelCls}>Bandeira</Label>
-              <Select
-                value={form.bandeira}
-                onValueChange={(v) => set("bandeira", v)}
-              >
-                <SelectTrigger className={`${inputCls} text-white`}>
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent className="bg-[#0f1d32] border-[#1c2e4a]">
-                  {BANDEIRAS.map((b) => (
-                    <SelectItem key={b} value={b}>
-                      {b}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
         </Section>
 
@@ -970,14 +1000,27 @@ export default function EditarClientePage() {
             <Switch
               id="geracao-propria"
               checked={form.geracao_propria}
-              onCheckedChange={(checked) => set("geracao_propria", checked)}
+              onCheckedChange={(checked) => {
+                set("geracao_propria", checked);
+                // SIM → abre a tela de marcação da usina automaticamente
+                if (checked) setUsinaAberto(true);
+              }}
             />
             <Label
               htmlFor="geracao-propria"
               className="text-sm text-slate-300 cursor-pointer"
             >
-              Possui geração própria (solar)
+              Tem Usina Solar
             </Label>
+            {form.geracao_propria && (
+              <button
+                type="button"
+                onClick={() => setUsinaAberto(true)}
+                className="text-xs text-[#3B64CF] hover:underline"
+              >
+                Dados da usina solar
+              </button>
+            )}
           </div>
 
           {/* Geração Própria Grid (conditional) */}
@@ -1105,6 +1148,17 @@ export default function EditarClientePage() {
           </Button>
         </div>
       </form>
+
+      {/* ═══════ Usina Solar (abre automático no SIM) ═══════ */}
+      <FormUsinaSolar
+        open={usinaAberto}
+        onOpenChange={setUsinaAberto}
+        valor={parseUsina(form.usina)}
+        onSalvar={(dados) => {
+          set("usina", serializarUsina(dados));
+          setUsinaAberto(false);
+        }}
+      />
 
       {/* ═══════ Delete Confirmation Dialog ═══════ */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

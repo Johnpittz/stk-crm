@@ -26,6 +26,7 @@ import {
   Truck,
   Bot,
   Inbox,
+  History,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,8 @@ const navItemsPorPerfil: Record<PerfilAtivo, Array<{
   icon: any;
   description?: string;
   badge?: string;
+  /** Só aparece quando o cargo REAL do usuário é admin (06/10). */
+  somenteAdmin?: boolean;
 }>> = {
   crm: [
     {
@@ -85,6 +88,14 @@ const navItemsPorPerfil: Record<PerfilAtivo, Array<{
       label: "Fila AXS",
       icon: Inbox,
       description: "Propostas para criar na AXS",
+    },
+    {
+      // 06/10 — log de criação/edição de clientes, exclusivo de admin
+      href: "/log-alteracoes",
+      label: "Log de Alterações",
+      icon: History,
+      description: "Quem criou/editou clientes",
+      somenteAdmin: true,
     },
   ],
   marketing: [
@@ -213,6 +224,14 @@ const navItemsPorPerfil: Record<PerfilAtivo, Array<{
       icon: Zap,
       description: "Recuperação de energia",
     },
+    {
+      // 06/10 — log de criação/edição de clientes, exclusivo de admin
+      href: "/log-alteracoes",
+      label: "Log de Alterações",
+      icon: History,
+      description: "Quem criou/editou clientes",
+      somenteAdmin: true,
+    },
   ],
 };
 
@@ -235,7 +254,9 @@ export function Sidebar({ user }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(true);
   const { perfilAtivo } = usePerfilAtivo();
 
-  const navItems = navItemsPorPerfil[perfilAtivo] || navItemsPorPerfil.crm;
+  const navItems = (
+    navItemsPorPerfil[perfilAtivo] || navItemsPorPerfil.crm
+  ).filter((item) => !item.somenteAdmin || (user.cargo || "").toLowerCase() === "admin");
 
   return (
     <aside
