@@ -388,7 +388,7 @@ export default function NovoClientePage() {
         {/* ═══════ Dados Pessoais ═══════ */}
         <Section
           icon={<User className="h-4 w-4 text-[#3B64CF]" />}
-          title="Dados Pessoais"
+          title="Dados Cadastrais"
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Nome / Razão Social - spans 2 cols */}

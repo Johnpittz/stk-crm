@@ -577,7 +577,7 @@ function TabDados({
   return (
     <div className="space-y-4">
       {/* Dados Pessoais */}
-      <Section title="Dados Pessoais" icon={User}>
+      <Section title="Dados Cadastrais" icon={User}>
         <InfoGrid>
           <InfoItem icon={User} label="Nome" value={cliente.nome_razao_social} />
           <InfoItem icon={FileText} label="CPF/CNPJ" value={cliente.cnpj_cpf} />
