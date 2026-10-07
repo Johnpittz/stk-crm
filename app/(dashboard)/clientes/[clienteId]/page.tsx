@@ -167,7 +167,7 @@ const TABS: { id: TabId; label: string; icon: any }[] = [
   { id: "gd", label: "GD", icon: Zap },
   { id: "reciee", label: "RECIEE", icon: Shield },
   { id: "atendimentos", label: "Atendimentos", icon: Headphones },
-  { id: "oportunidades", label: "Oportunidades", icon: TrendingUp },
+  { id: "oportunidades", label: "Ações em Aberto", icon: TrendingUp },
 ];
 
 const MONTHS = [
@@ -1030,7 +1030,7 @@ function TabOportunidades({
     <div className="space-y-3">
       <h3 className="text-base font-semibold text-white flex items-center gap-2">
         <TrendingUp className="h-4 w-4 text-[#3B64CF]" />
-        Oportunidades
+        Ações em Aberto
         <span className="text-xs text-white/40 font-normal">({oportunidades.length})</span>
       </h3>
 
