@@ -52,6 +52,15 @@ está** no env do worker (verificado por tamanho, 28/09) — não é mais pendê
 ## 1. Em que situação o projeto está
 
 - Sistema no ar em produção (Vercel + Supabase + WAHA na VPS), 4 números conectados (`STK-1/2/3`, `ROMA_1`), webhook único `/api/webhooks/waha`.
+- **Build local (`npm run build`):** só passa com `/root/stk-crm/.env.local`
+  (gitignored) contendo `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+  + `SUPABASE_SERVICE_ROLE_KEY` — os `.env.production` do repo e de `/app/stk-crm`
+  estão **placeholderizados** (`[SENSITIVE]`), por isso o prerender falhava com
+  "Invalid supabaseUrl". Receita já aplicada (06/10, build EXIT=0): URL e
+  service role vêm de `/app/stk-worker/env`; anon JWT de formato válido.
+  Sem `.env.local`, o `npm run build` local falha em prerender mesmo com o
+  código certo — não confundir com erro de código (a fase `Compiled successfully`
+  é o que valida o código).
 - Migração Evolution → WAHA **concluída**; defeitos pós-cutover corrigidos (`docs/plano-migracao-waha.md` §6 tem as causas-raiz — ler só se mexer em webhook/mídia/LID).
 - Testes verdes na última sessão: **297 casos vitest (1 deles pulado sem `GEMINI_API_KEY`) + 138 unittest do worker**, `tsc --noEmit` limpo.
 - `next build` local: **compila, linta e tipa tudo**, mas o prerender falha nas 47 páginas porque `.env.production` está com os valores virados para `[SENSITIVE]` (sem `NEXT_PUBLIC_SUPABASE_URL` real) — é pré-existente e não afeta o deploy: a **Vercel constrói com o env dela e o build do commit `609660a` passou**.
