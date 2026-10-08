@@ -70,6 +70,7 @@ interface OportunidadeCompleta {
   valor_venda: number | null;
   cliente_nome: string | null;
   origem_lead: string | null;
+  produto_id?: string | null;
   clientes: { id: string; nome_razao_social: string } | null;
 }
 
@@ -147,13 +148,33 @@ export function ModalDetalhesOportunidade({
     descricao: "",
     prioridade: "media",
     valorVenda: "" as string,
+    produtoId: "nenhum" as string,
   });
+
+  // Fase 3 — lista de produtos para o select (vem de /api/produtos)
+  const [produtos, setProdutos] = useState<Array<{ id: string; nome: string; ativo?: boolean }>>([]);
+  const [salvandoProduto, setSalvandoProduto] = useState(false);
 
   const [resultadoForm, setResultadoForm] = useState({
     resultado: "" as string,
     observacao: "" as string,
     valorVenda: "" as string,
   });
+
+  // Carrega produtos quando o modal abre
+  useEffect(() => {
+    if (!aberto) return;
+    (async () => {
+      try {
+        const res = await fetch("/api/produtos?limite=200");
+        if (!res.ok) return;
+        const data = await res.json();
+        setProdutos(Array.isArray(data.produtos) ? data.produtos : []);
+      } catch {
+        /* sem rede: select fica só com 'Sem produto' */
+      }
+    })();
+  }, [aberto]);
 
   // Quando abre no modo conclusão, inicializa form
   useEffect(() => {
@@ -165,6 +186,7 @@ export function ModalDetalhesOportunidade({
         descricao: oportunidade.descricao || "",
         prioridade: oportunidade.prioridade,
         valorVenda: "",
+        produtoId: oportunidade.produto_id || "nenhum",
       });
       setResultadoForm({ resultado: "", observacao: "", valorVenda: "" });
     } else if (aberto && oportunidade && !iniciarConcluindo) {
@@ -177,6 +199,7 @@ export function ModalDetalhesOportunidade({
         descricao: oportunidade.descricao || "",
         prioridade: oportunidade.prioridade,
         valorVenda: valorFormatado,
+        produtoId: oportunidade.produto_id || "nenhum",
       });
     } else if (!aberto) {
       setConcluindo(false);
@@ -226,6 +249,33 @@ export function ModalDetalhesOportunidade({
     }
   };
 
+  // Troca o produto: salva na hora (campo avulso, fora do fluxo de edição)
+  const handleTrocarProduto = async (valor: string) => {
+    if (!oportunidade) return;
+    const anterior = form.produtoId;
+    setForm((f) => ({ ...f, produtoId: valor }));
+    setSalvandoProduto(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const auth = ["Bearer", session.access_token].join(" ");
+      const res = await fetch("/api/oportunidades", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: auth },
+        body: JSON.stringify({
+          id: oportunidade.id,
+          produto_id: valor === "nenhum" ? null : valor,
+        }),
+      });
+      if (res.ok) onAtualizar();
+      else setForm((f) => ({ ...f, produtoId: anterior }));
+    } catch {
+      setForm((f) => ({ ...f, produtoId: anterior }));
+    } finally {
+      setSalvandoProduto(false);
+    }
+  };
+
   // PATCH só com a anotação — não mexe em título/prioridade nem conclui.
   const handleSalvarAnotacao = async () => {
     if (!oportunidade) return;
@@ -266,6 +316,7 @@ export function ModalDetalhesOportunidade({
         descricao: oportunidade.descricao || "",
         prioridade: oportunidade.prioridade,
         valorVenda: "",
+        produtoId: oportunidade.produto_id || "nenhum",
       });
       setResultadoForm({ resultado: "", observacao: "", valorVenda: "" });
       return;
@@ -430,6 +481,32 @@ export function ModalDetalhesOportunidade({
               </div>
             </div>
           )}
+
+          {/* Produto (Fase 3 — dimensão produto do Dashboard) */}
+          <div className="flex items-center justify-between gap-3 p-3 bg-[#14233c] rounded-xl border border-[#1c2e4a]">
+            <span className="text-sm text-slate-400 flex items-center gap-1.5">
+              📦 Produto
+            </span>
+            <Select
+              value={form.produtoId}
+              onValueChange={handleTrocarProduto}
+              disabled={salvandoProduto}
+            >
+              <SelectTrigger className="w-[220px] bg-[#0c1426] border-[#1c2e4a] text-white">
+                <SelectValue placeholder="Sem produto" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nenhum">Sem produto</SelectItem>
+                {produtos
+                  .filter((p) => p.ativo !== false)
+                  .map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.nome}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Valor da Venda */}
           {oportunidade.valor_venda && oportunidade.valor_venda > 0 && (
@@ -656,7 +733,7 @@ export function ModalDetalhesOportunidade({
                     setEditando(false);
                     const valorFormatado = oportunidade.valor_venda
                       ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(oportunidade.valor_venda) : "";
-                    setForm({ titulo: oportunidade.titulo, descricao: oportunidade.descricao || "", prioridade: oportunidade.prioridade, valorVenda: valorFormatado });
+                    setForm({ titulo: oportunidade.titulo, descricao: oportunidade.descricao || "", prioridade: oportunidade.prioridade, valorVenda: valorFormatado, produtoId: oportunidade.produto_id || "nenhum" });
                   }} className="border-[#1c2e4a] text-slate-300 hover:bg-[#14233c]">
                     <X className="h-4 w-4 mr-1" />
                     Cancelar

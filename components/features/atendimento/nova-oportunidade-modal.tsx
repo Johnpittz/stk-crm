@@ -36,6 +36,8 @@ export function NovaOportunidadeModal({ onSuccess }: NovaOportunidadeModalProps)
   const [dataInicio, setDataInicio] = useState("");
   const [horaInicio, setHoraInicio] = useState("");
   const [descricao, setDescricao] = useState("");
+  const [produtoId, setProdutoId] = useState("nenhum");
+  const [produtos, setProdutos] = useState<Array<{ id: string; nome: string; ativo?: boolean }>>([]);
 
   const supabase = createClient();
 
@@ -44,6 +46,18 @@ export function NovaOportunidadeModal({ onSuccess }: NovaOportunidadeModalProps)
       // Preenche data de hoje por padrão
       const hoje = new Date().toISOString().split("T")[0];
       setDataInicio(hoje);
+
+      // Fase 3 — produtos para o select (cookies vão junto no mesmo domínio)
+      (async () => {
+        try {
+          const res = await fetch("/api/produtos?limite=200");
+          if (!res.ok) return;
+          const data = await res.json();
+          setProdutos(Array.isArray(data.produtos) ? data.produtos : []);
+        } catch {
+          /* sem rede: fica só com 'Sem produto' */
+        }
+      })();
     }
   }, [open]);
 
@@ -70,6 +84,7 @@ export function NovaOportunidadeModal({ onSuccess }: NovaOportunidadeModalProps)
           data_inicio: dataInicio || null,
           hora_inicio: horaInicio || null,
           descricao: descricao || null,
+          produto_id: produtoId === "nenhum" ? null : produtoId,
         }),
       });
 
@@ -93,6 +108,7 @@ export function NovaOportunidadeModal({ onSuccess }: NovaOportunidadeModalProps)
     setDataInicio("");
     setHoraInicio("");
     setDescricao("");
+    setProdutoId("nenhum");
   };
 
   return (
@@ -163,6 +179,25 @@ export function NovaOportunidadeModal({ onSuccess }: NovaOportunidadeModalProps)
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="produto">Produto</Label>
+            <Select value={produtoId} onValueChange={setProdutoId}>
+              <SelectTrigger id="produto">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nenhum">Sem produto</SelectItem>
+                {produtos
+                  .filter((p) => p.ativo !== false)
+                  .map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.nome}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

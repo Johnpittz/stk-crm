@@ -92,8 +92,13 @@ describe("ModalDetalhesOportunidade — quadro maior + anotação", () => {
 
     fireEvent.click(screen.getByText("Salvar anotação"))
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
-    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    const chamadas = () => fetchMock.mock.calls as unknown as Array<[string, RequestInit]>
+    await waitFor(() =>
+      expect(chamadas().some(([u]) => String(u).startsWith("/api/oportunidades"))).toBe(true)
+    )
+    const [url, init] = chamadas().find(([u]) =>
+      String(u).startsWith("/api/oportunidades")
+    ) as [string, RequestInit]
     expect(url).toBe("/api/oportunidades")
     expect(init.method).toBe("PATCH")
     expect(JSON.parse(String(init.body))).toEqual({

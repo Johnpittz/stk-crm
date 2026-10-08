@@ -79,6 +79,34 @@ describe("GET /api/dashboard/tempo-resposta", () => {
     expect(c30.porVendedor.map((v: any) => v.id)).toContain("v9");
   });
 
+  it("Fase 3: devolve a dimensão POR PRODUTO (tempo + comercial)", async () => {
+    cenario.tabelas.produtos = [{ id: "p1", nome: "GD" }];
+    cenario.tabelas.oportunidades = [
+      {
+        id: "o1",
+        atendimento_id: "a1",
+        produto_id: "p1",
+        resultado: "ganho",
+        valor_venda: 1000,
+      },
+    ];
+
+    const res = await GET(req());
+    const corpo = await res.json();
+    expect(Array.isArray(corpo.porProduto)).toBe(true);
+    const gd = corpo.porProduto.find((l: any) => l.nome === "GD");
+    // 1ª resposta do atendimento a1 = 120 min, vinculada à oportunidade de GD
+    expect(gd).toMatchObject({
+      media: 120,
+      n: 1,
+      oportunidades: 1,
+      vendas: 1,
+      valor_venda: 1000,
+    });
+    // produto sem nenhum dado não aparece
+    expect(corpo.porProduto.find((l: any) => l.nome === "RECIEE")).toBeUndefined();
+  });
+
   it("sem dados devolve zerado (200)", async () => {
     cenario.limpar();
     const res = await GET(req());

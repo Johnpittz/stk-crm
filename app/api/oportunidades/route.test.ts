@@ -37,7 +37,7 @@ vi.mock("@/lib/supabase/admin", async () => {
 });
 
 import { cenario } from "@/lib/testes/supabase-fake";
-import { PATCH } from "./route";
+import { POST, PATCH } from "./route";
 
 function patch(body: any) {
   return new NextRequest("http://localhost/api/oportunidades", {
@@ -197,5 +197,52 @@ describe("PATCH /api/oportunidades — gatilho do documento de proposta (D8)", (
     await PATCH(patch({ id: "opp-1", etapa: "contrato_enviado" }));
 
     expect(cenario.tabelas.propostas).toHaveLength(1);
+  });
+});
+
+// ── Fase 3 (06/10) — produto vinculado à oportunidade ─────────────────
+describe("Fase 3 — produto na oportunidade (migration 095)", () => {
+  beforeEach(() => {
+    cenario.tabelas.produtos = [
+      { id: "p1", nome: "GD", ativo: true },
+      { id: "p2", nome: "RECIEE", ativo: true },
+    ];
+  });
+
+  it("POST grava o produto_id da oportunidade", async () => {
+    logar("ven-1", "vendedor");
+    const res = await POST(
+      patch({ titulo: "GD — Novo cliente", tipo: "ligacao", prioridade: "media", produto_id: "p1" }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.oportunidade.produto_id).toBe("p1");
+    const criada = cenario.tabelas.oportunidades.find(
+      (o: any) => o.titulo === "GD — Novo cliente",
+    );
+    expect(criada?.produto_id).toBe("p1");
+  });
+
+  it("POST sem produto continua normal (produto_id ausente)", async () => {
+    logar("ven-1", "vendedor");
+    const res = await POST(
+      patch({ titulo: "Sem produto", tipo: "ligacao", prioridade: "media" }),
+    );
+    expect(res.status).toBe(200);
+    const semProduto = cenario.tabelas.oportunidades.find(
+      (o: any) => o.titulo === "Sem produto",
+    );
+    expect(semProduto?.produto_id).toBeNull();
+  });
+
+  it("PATCH troca o produto de quem é dono", async () => {
+    logar("ven-1", "vendedor");
+    const res = await PATCH(patch({ id: "opp-1", produto_id: "p2" }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.oportunidade.produto_id).toBe("p2");
+    expect(cenario.tabelas.oportunidades[0].produto_id).toBe("p2");
   });
 });

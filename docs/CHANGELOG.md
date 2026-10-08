@@ -4,6 +4,17 @@
 
 ---
 
+## 1.8.11 — 06/10/2026 (local, aguarda SQL 095)
+
+- **Dashboard — Fase 3: dimensão PRODUTO.** Card "Qual produto responde e
+  vende melhor": tempo de 1ª resposta + oportunidades + vendas (R$) por
+  produto (`lib/dashboard/produtos-dim` + `porProduto` na rota).
+- **Oportunidade ganha `produto_id`** (migration **095**): select de
+  Produto no modal de NOVA oportunidade e no card de detalhes (salva na
+  hora); POST/PATCH da rota aceitam o campo.
+- **Cadastro de produtos:** POST/PATCH em `/api/produtos` (só admin)
+  + botão "Novo produto" e lápis de edição na página /produtos.
+
 ## 1.8.10 — 06/10/2026
 
 - **Dashboard — UX dos tempos (feedback do João "não ficou intuitivo"):**

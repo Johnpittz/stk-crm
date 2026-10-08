@@ -140,9 +140,15 @@ equipes Time Lobo (STK-1) / Time Águia (STK-3) — mapa em
 `lib/dashboard/equipes.ts` — e produtos GD/RECIEE/ELETROPOSTO/SIGMA SOLAR.
 Fase 2 **CONCLUÍDA em 06/10** (1.8.9): rankings por vendedor e por time
 com filtro 7/30/90 dias no Dashboard (`lib/dashboard/rankings`).
-Próxima sessão: **Fase 3** (tela de cadastro de produtos + vincular
-produto à oportunidade + visão por produto — produtos já semeados:
-GD, RECIEE, ELETROPOSTO, SIGMA SOLAR).
+Fase 3 **CÓDIGO PRONTO em commit LOCAL** (não publicado!): aguarda o João
+aplicar `supabase/migrations/095_oportunidade_produto.sql` no Supabase
+(projeto `nizreygwaqqojwrorpqo`) — **depois do "aplicou", fazer o push**.
+Conteúdo: `produto_id` na oportunidade (select nos modais), cadastro de
+produtos (POST/PATCH admin + UI em /produtos), card "Qual produto responde
+e vende melhor" no Dashboard (`porProduto`). Gates: 431 vitest + tsc +
+build local EXIT=0 + unittest.
+Próxima sessão: **Fase 4** (dashboard por perfil: Gerencial/Gerente/
+Vendedor — decideções já mapeadas no plano).
 
 
 ~~**Fechar a Fase 0**~~ — **CONCLUÍDA em 26/09** (migrations aplicadas, push feito, F0.3 no ar,

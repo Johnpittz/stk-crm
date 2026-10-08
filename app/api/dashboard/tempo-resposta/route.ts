@@ -19,6 +19,7 @@ import {
   resumoPorTime,
   type RespostaMedida,
 } from "@/lib/dashboard/rankings";
+import { dimensaoProdutos } from "@/lib/dashboard/produtos-dim";
 
 export const dynamic = "force-dynamic";
 
@@ -71,11 +72,15 @@ export async function GET(request: NextRequest) {
       else porAtendimento.set(m.atendimento_id, [m]);
     }
 
-    const respostas: RespostaMedida[] = [];
+    const respostas: (RespostaMedida & { atendimento_id: string })[] = [];
     porAtendimento.forEach((lista, atendimentoId) => {
       const r = primeiraResposta(lista);
       if (r) {
-        respostas.push({ ...r, instancia: instanciaPorAtendimento.get(atendimentoId) ?? null });
+        respostas.push({
+          ...r,
+          atendimento_id: atendimentoId,
+          instancia: instanciaPorAtendimento.get(atendimentoId) ?? null,
+        });
       }
     });
 
@@ -91,11 +96,29 @@ export async function GET(request: NextRequest) {
         p.nome_completo || (p.email ? String(p.email).split("@")[0] : "") || "Conta sem cadastro";
     }
 
+    // Fase 3 — dimensão PRODUTO (oportunidades → produtos)
+    const { data: oportunidades, error: erroOpps } = await supabase
+      .from("oportunidades")
+      .select("atendimento_id, produto_id, resultado, valor_venda")
+      .limit(300);
+    if (erroOpps) throw erroOpps;
+
+    const { data: produtos, error: erroProdutos } = await supabase
+      .from("produtos")
+      .select("id, nome")
+      .limit(200);
+    if (erroProdutos) throw erroProdutos;
+
     const resumo = resumoTempoResposta(respostas, new Date().toISOString());
     return NextResponse.json({
       ...resumo,
       porVendedor: rankingVendedores(respostas, nomes),
       porTime: resumoPorTime(respostas),
+      porProduto: dimensaoProdutos({
+        respostas,
+        oportunidades: oportunidades ?? [],
+        produtos: produtos ?? [],
+      }),
       janela: "seg–sex, 08:00–18:00 (Brasília)",
       periodo_dias: dias,
     });

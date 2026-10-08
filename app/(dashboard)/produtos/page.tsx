@@ -11,13 +11,22 @@ import {
   AlertTriangle,
   CheckCircle2,
   XCircle,
-  Boxes
+  Boxes,
+  Plus,
+  Pencil,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
 
 interface Produto {
@@ -58,6 +67,18 @@ export default function ProdutosPage() {
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const limite = 50;
+
+  // Fase 3 — cadastro de produtos (só admin/diretor vê e escreve)
+  const [admin, setAdmin] = useState(false);
+  const [dialogAberto, setDialogAberto] = useState(false);
+  const [editandoProduto, setEditandoProduto] = useState<Produto | null>(null);
+  const [formNome, setFormNome] = useState("");
+  const [formDescricao, setFormDescricao] = useState("");
+  const [formCategoria, setFormCategoria] = useState("");
+  const [formPreco, setFormPreco] = useState("");
+  const [formAtivo, setFormAtivo] = useState(true);
+  const [formSalvando, setFormSalvando] = useState(false);
+  const [formErro, setFormErro] = useState<string | null>(null);
 
   const supabase = createClient();
 
@@ -128,6 +149,87 @@ export default function ProdutosPage() {
   useEffect(() => {
     fetchProdutos();
   }, [busca, filtroMarca, filtroCategoria, filtroStatus, offset]);
+
+  // Quem é o usuário (esconde o cadastro de quem não é admin)
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        const { data } = await supabase
+          .from("profiles")
+          .select("cargo")
+          .eq("id", session.user.id)
+          .single();
+        setAdmin(["admin", "diretor"].includes(data?.cargo || ""));
+      } catch {
+        setAdmin(false);
+      }
+    })();
+  }, []);
+
+  const abrirNovoProduto = () => {
+    setEditandoProduto(null);
+    setFormNome("");
+    setFormDescricao("");
+    setFormCategoria("");
+    setFormPreco("");
+    setFormAtivo(true);
+    setFormErro(null);
+    setDialogAberto(true);
+  };
+
+  const abrirEdicao = (produto: Produto) => {
+    setEditandoProduto(produto);
+    setFormNome(produto.nome);
+    setFormDescricao(produto.descricao || "");
+    setFormCategoria(produto.categoria_nome || "");
+    setFormPreco("");
+    setFormAtivo(produto.ativo);
+    setFormErro(null);
+    setDialogAberto(true);
+  };
+
+  const salvarProduto = async () => {
+    if (!formNome.trim()) {
+      setFormErro("Nome é obrigatório");
+      return;
+    }
+    setFormSalvando(true);
+    setFormErro(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const auth = ["Bearer", session.access_token].join(" ");
+      const payload: Record<string, unknown> = {
+        nome: formNome.trim(),
+        descricao: formDescricao || null,
+        categoria: formCategoria || null,
+        ativo: formAtivo,
+      };
+      if (formPreco.trim()) {
+        payload.preco = parseFloat(formPreco.replace(",", "."));
+      }
+      const res = await fetch("/api/produtos", {
+        method: editandoProduto ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json", Authorization: auth },
+        body: JSON.stringify(
+          editandoProduto ? { id: editandoProduto.id, ...payload } : payload,
+        ),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setFormErro(data.error || "Erro ao salvar produto");
+        return;
+      }
+      setDialogAberto(false);
+      fetchProdutos();
+    } catch (err: any) {
+      setFormErro(err.message || "Erro inesperado");
+    } finally {
+      setFormSalvando(false);
+    }
+  };
 
   useEffect(() => {
     fetchFiltros();
@@ -224,6 +326,12 @@ export default function ProdutosPage() {
           <CardTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
             Catálogo de Produtos
+            {admin && (
+              <Button size="sm" className="ml-auto gap-1" onClick={abrirNovoProduto}>
+                <Plus className="h-4 w-4" />
+                Novo produto
+              </Button>
+            )}
           </CardTitle>
           <CardDescription>
             {total} produtos cadastrados
@@ -293,19 +401,20 @@ export default function ProdutosPage() {
                   <th className="text-right p-3 font-medium text-slate-600">Custo</th>
                   <th className="text-right p-3 font-medium text-slate-600">Preço Venda</th>
                   <th className="text-center p-3 font-medium text-slate-600">Status</th>
+                  <th className="text-center p-3 font-medium text-slate-600">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="p-8 text-center">
+                    <td colSpan={8} className="p-8 text-center">
                       <Loader2 className="h-6 w-6 animate-spin text-slate-400 mx-auto" />
                       <p className="text-slate-500 mt-2">Carregando produtos...</p>
                     </td>
                   </tr>
                 ) : produtos.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-8 text-center text-slate-500">
+                    <td colSpan={8} className="p-8 text-center text-slate-500">
                       Nenhum produto encontrado
                     </td>
                   </tr>
@@ -339,6 +448,18 @@ export default function ProdutosPage() {
                           <Badge variant="secondary" className="text-xs">
                             Inativo
                           </Badge>
+                        )}
+                      </td>
+                      <td className="p-3 text-center">
+                        {admin && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Editar produto"
+                            onClick={() => abrirEdicao(produto)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
                         )}
                       </td>
                     </tr>
@@ -379,6 +500,81 @@ export default function ProdutosPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Fase 3 — cadastro/edição de produto (admin) */}
+      <Dialog open={dialogAberto} onOpenChange={setDialogAberto}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {editandoProduto ? "Editar produto" : "Novo produto"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="prod-nome">Nome *</Label>
+              <Input
+                id="prod-nome"
+                value={formNome}
+                onChange={(e) => setFormNome(e.target.value)}
+                placeholder="Ex: GD, RECIEE, ELETROPOSTO..."
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="prod-desc">Descrição</Label>
+              <Input
+                id="prod-desc"
+                value={formDescricao}
+                onChange={(e) => setFormDescricao(e.target.value)}
+                placeholder="Opcional"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="prod-cat">Categoria</Label>
+                <Input
+                  id="prod-cat"
+                  value={formCategoria}
+                  onChange={(e) => setFormCategoria(e.target.value)}
+                  placeholder="Opcional"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="prod-preco">Preço (R$)</Label>
+                <Input
+                  id="prod-preco"
+                  inputMode="decimal"
+                  value={formPreco}
+                  onChange={(e) => setFormPreco(e.target.value)}
+                  placeholder="0,00"
+                />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={formAtivo}
+                onChange={(e) => setFormAtivo(e.target.checked)}
+              />
+              Ativo (aparece nos selects de oportunidade)
+            </label>
+            {formErro && (
+              <p className="text-sm text-red-600">{formErro}</p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setDialogAberto(false)}
+                disabled={formSalvando}
+              >
+                Cancelar
+              </Button>
+              <Button onClick={salvarProduto} disabled={formSalvando}>
+                {formSalvando ? "Salvando..." : "Salvar"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

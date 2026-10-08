@@ -87,6 +87,7 @@ export async function POST(request: NextRequest) {
     valor_proposta,
     data_inicio,
     hora_inicio,
+    produto_id,
   } = body;
 
   if (!titulo) {
@@ -109,6 +110,7 @@ export async function POST(request: NextRequest) {
       consumo_kwh: consumo_kwh || null,
       concessionaria: concessionaria || null,
       valor_proposta: valor_proposta || null,
+      produto_id: produto_id || null,
     })
     .select("*, clientes(id, nome_razao_social)")
     .single();
@@ -152,6 +154,7 @@ export async function PATCH(request: NextRequest) {
     uc,
     consumo_kwh,
     concessionaria,
+    produto_id,
   } = body;
 
   if (!id) {
@@ -188,6 +191,7 @@ export async function PATCH(request: NextRequest) {
   if (uc !== undefined) updateData.uc = uc;
   if (consumo_kwh !== undefined) updateData.consumo_kwh = consumo_kwh;
   if (concessionaria !== undefined) updateData.concessionaria = concessionaria;
+  if (produto_id !== undefined) updateData.produto_id = produto_id;
 
   // Se mudou de etapa, registrar no histórico
   if (etapa !== undefined && etapa !== oportunidadeAtual?.etapa) {

@@ -44,11 +44,23 @@ Dividido em fases — cada fase fecha e entrega valor sozinha.
 
 </details>
 
-### Fase 3 — Dimensão PRODUTO
+### Fase 3 — Dimensão PRODUTO — **CÓDIGO PRONTO (06/10), aguarda SQL 095**
+- Tela de cadastro: POST/PATCH `/api/produtos` (admin) + UI em /produtos.
+- `oportunidade.produto_id` (migration 095): select nos modais de nova e
+  de detalhes; card "Qual produto responde e vende melhor" no Dashboard
+  (`porProduto` com tempo + oportunidades + vendas).
+- **PENDENTE: João aplicar `supabase/migrations/095_oportunidade_produto.sql`
+  → depois disso, push do commit local.**
+
+<details><summary>Como foi planejado</summary>
+
+
 - Tela de **cadastro de produtos** (Configurações) e popular a tabela (hoje vazia)
 - Vincular produto à **Oportunidade** (dropdown deixa de ser genérico)
 - Dashboard: tempos e vendas **por produto**
 - **Entrega:** "qual produto responde/vende melhor"
+
+</details>
 
 ### Fase 4 — Um dashboard por PERFIL
 - **Gerencial** (admin/diretor): visão completa — times, vendedores, produtos, funil

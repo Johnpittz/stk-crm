@@ -38,11 +38,21 @@ interface Tarefa {
 
 type LinhaRanking = { id: string; nome: string; media: number; n: number; pior: number };
 
+type LinhaProduto = {
+  nome: string;
+  media: number;
+  n: number;
+  oportunidades: number;
+  vendas: number;
+  valor_venda: number;
+};
+
 type TempoResposta = {
   geral: { media: number; n: number };
   hoje: { media: number; n: number };
   porVendedor: LinhaRanking[];
   porTime: LinhaRanking[];
+  porProduto: LinhaProduto[];
   janela: string;
   periodo_dias: number;
 };
@@ -374,6 +384,48 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ─── Fase 3: dimensão PRODUTO ─── */}
+      <Card className="border-[#1c2e4a] bg-[#14233c]">
+        <CardContent className="p-3">
+          <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider mb-2">
+            Qual produto responde e vende melhor
+          </p>
+          <p className="text-[11px] text-slate-500 mb-2">
+            Tempo = 1ª resposta do cliente no período (horário comercial) ·
+            comercial = oportunidades com produto vinculado.
+          </p>
+          {tempoResposta && (tempoResposta.porProduto?.length ?? 0) > 0 ? (
+            <ul className="space-y-1">
+              {tempoResposta.porProduto.map((p) => (
+                <li
+                  key={p.nome}
+                  className="flex items-center justify-between text-sm border-b border-[#1c2e4a] pb-1 last:border-0"
+                >
+                  <span className="text-slate-200">{p.nome}</span>
+                  <span className="text-slate-400">
+                    <b className="text-white">
+                      {p.n > 0 ? formatarDuracao(p.media) : "sem resposta"}
+                    </b>{" "}
+                    · {p.n} {p.n === 1 ? "resposta" : "respostas"} ·{" "}
+                    {p.oportunidades} {p.oportunidades === 1 ? "oportunidade" : "oportunidades"} ·{" "}
+                    <span className="text-emerald-400">
+                      {p.vendas} venda{p.vendas === 1 ? "" : "s"} (R${" "}
+                      {p.valor_venda.toLocaleString("pt-BR")})
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-slate-500">
+              {tempoResposta
+                ? "Nenhuma oportunidade com produto vinculado no período."
+                : "carregando…"}
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* ─── Meio: Funil Visual + Pipeline por Estágio ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
