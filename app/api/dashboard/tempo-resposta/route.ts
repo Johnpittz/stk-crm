@@ -82,11 +82,14 @@ export async function GET(request: NextRequest) {
     // nomes de quem respondeu (ranking por vendedor)
     const { data: profiles, error: erroProfiles } = await supabase
       .from("profiles")
-      .select("id, nome_completo")
+      .select("id, nome_completo, email")
       .limit(500);
     if (erroProfiles) throw erroProfiles;
     const nomes: Record<string, string> = {};
-    for (const p of profiles ?? []) nomes[p.id] = p.nome_completo || p.id;
+    for (const p of profiles ?? []) {
+      nomes[p.id] =
+        p.nome_completo || (p.email ? String(p.email).split("@")[0] : "") || "Conta sem cadastro";
+    }
 
     const resumo = resumoTempoResposta(respostas, new Date().toISOString());
     return NextResponse.json({

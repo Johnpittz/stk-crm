@@ -14,6 +14,7 @@ import {
   Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatarDuracao } from "@/lib/dashboard/formatar";
 import { createClient } from "@/lib/supabase/client";
 
 // ─── Colunas do Funil ───
@@ -260,23 +261,32 @@ export default function DashboardPage() {
               </div>
               <div>
                 <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider">
-                  Tempo de Resposta — 1ª resposta
+                  Tempo médio para responder
                 </p>
                 <p className="text-lg font-bold text-white">
-                  {tempoResposta ? `${tempoResposta.geral.media} min` : "…"}
+                  {tempoResposta ? formatarDuracao(tempoResposta.geral.media) : "…"}
                   <span className="text-sm font-medium text-slate-400">
                     {" "}
-                    · hoje {tempoResposta ? `${tempoResposta.hoje.media} min` : "…"}
+                    · média de {tempoResposta ? tempoResposta.geral.n : 0}{" "}
+                    {tempoResposta && tempoResposta.geral.n === 1
+                      ? "resposta"
+                      : "respostas"}{" "}
+                    nos últimos {tempoResposta ? tempoResposta.periodo_dias : 30} dias
                   </span>
                 </p>
                 <p className="text-[11px] text-slate-500">
                   {tempoResposta
-                    ? `${tempoResposta.geral.n} respostas · ${tempoResposta.janela}`
+                    ? `Da mensagem do cliente até a 1ª resposta · ${tempoResposta.janela} · hoje: ${
+                        tempoResposta.hoje.n > 0
+                          ? formatarDuracao(tempoResposta.hoje.media)
+                          : "sem respostas"
+                      }`
                     : "carregando…"}
                 </p>
               </div>
             </div>
-            <div className="flex gap-1 shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-[11px] text-slate-500">Período:</span>
               {[7, 30, 90].map((d) => (
                 <button
                   key={d}
@@ -301,7 +311,11 @@ export default function DashboardPage() {
         <Card className="border-[#1c2e4a] bg-[#14233c]">
           <CardContent className="p-3">
             <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider mb-2">
-              Tempo por Vendedor — do mais lento ao mais rápido
+              Quem demora mais para responder — vendedor
+            </p>
+            <p className="text-[11px] text-slate-500 mb-2">
+              Média da 1ª resposta no período (horário comercial).{" "}
+              <span className="text-slate-600">Do mais lento ao mais rápido.</span>
             </p>
             {tempoResposta && tempoResposta.porVendedor.length > 0 ? (
               <ul className="space-y-1">
@@ -312,8 +326,9 @@ export default function DashboardPage() {
                   >
                     <span className="text-slate-200">{v.nome}</span>
                     <span className="text-slate-400">
-                      <b className="text-white">{v.media} min</b> · {v.n} resp · pior{" "}
-                      {v.pior} min
+                      <b className="text-white">{formatarDuracao(v.media)}</b> ·{" "}
+                      {v.n} {v.n === 1 ? "resposta" : "respostas"} · pior caso{" "}
+                      {formatarDuracao(v.pior)}
                     </span>
                   </li>
                 ))}
@@ -329,7 +344,11 @@ export default function DashboardPage() {
         <Card className="border-[#1c2e4a] bg-[#14233c]">
           <CardContent className="p-3">
             <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider mb-2">
-              Tempo por Time — do mais lento ao mais rápido
+              Quem demora mais para responder — time
+            </p>
+            <p className="text-[11px] text-slate-500 mb-2">
+              Média da 1ª resposta no período (horário comercial).{" "}
+              <span className="text-slate-600">Do mais lento ao mais rápido.</span>
             </p>
             {tempoResposta && tempoResposta.porTime.length > 0 ? (
               <ul className="space-y-1">
@@ -340,8 +359,9 @@ export default function DashboardPage() {
                   >
                     <span className="text-slate-200">{t.nome}</span>
                     <span className="text-slate-400">
-                      <b className="text-white">{t.media} min</b> · {t.n} resp · pior{" "}
-                      {t.pior} min
+                      <b className="text-white">{formatarDuracao(t.media)}</b> ·{" "}
+                      {t.n} {t.n === 1 ? "resposta" : "respostas"} · pior caso{" "}
+                      {formatarDuracao(t.pior)}
                     </span>
                   </li>
                 ))}

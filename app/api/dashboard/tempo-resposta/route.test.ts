@@ -50,7 +50,7 @@ describe("GET /api/dashboard/tempo-resposta", () => {
     expect(Array.isArray(corpo.porVendedor)).toBe(true);
     expect(Array.isArray(corpo.porTime)).toBe(true);
     // a resposta veio do v1 via STK-1 → Time Lobo
-    expect(corpo.porVendedor[0]).toMatchObject({ nome: "v1", media: 120, n: 1 });
+    expect(corpo.porVendedor[0]).toMatchObject({ nome: "Conta sem cadastro", media: 120, n: 1 });
     expect(corpo.porTime[0]).toMatchObject({ nome: "Time Lobo", media: 120, n: 1 });
   });
 

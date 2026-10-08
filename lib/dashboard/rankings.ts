@@ -41,7 +41,7 @@ export function rankingVendedores(
   grupos.forEach((minutos, id) => {
     linhas.push({
       id,
-      nome: nomes[id] || id,
+      nome: nomes[id] || "Conta sem cadastro",
       media: media(minutos),
       n: minutos.length,
       pior: Math.max(...minutos),
@@ -54,7 +54,9 @@ export function rankingVendedores(
 export function resumoPorTime(respostas: RespostaMedida[]): LinhaRanking[] {
   const grupos = new Map<string, number[]>();
   for (const r of respostas) {
-    const time = nomeDaEquipe(r.instancia) ?? "Sem time";
+    const time =
+      nomeDaEquipe(r.instancia) ??
+      (r.instancia ? `Sem time (${r.instancia})` : "Sem time");
     const lista = grupos.get(time);
     if (lista) lista.push(r.minutos);
     else grupos.set(time, [r.minutos]);

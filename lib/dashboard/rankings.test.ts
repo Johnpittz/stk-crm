@@ -42,9 +42,10 @@ describe("rankingVendedores (do mais lento ao mais rápido)", () => {
     expect(linhas[1]).toMatchObject({ nome: "Ana", media: 40, n: 2, pior: 50 });
   });
 
-  it("sem nome conhecido usa o id; vendedor sem resposta não aparece", () => {
+  it("sem nome conhecido mostra 'Conta sem cadastro'; vendedor sem resposta não aparece", () => {
     const linhas = rankingVendedores([R(20, "semNome", "STK-1")], {});
-    expect(linhas[0].nome).toBe("semNome");
+    expect(linhas[0].nome).toBe("Conta sem cadastro");
+    expect(linhas[0].id).toBe("semNome");
     expect(linhas).toHaveLength(1);
   });
 
@@ -66,8 +67,10 @@ describe("resumoPorTime (número STK → time de teste)", () => {
     expect(linhas[1]).toMatchObject({ nome: "Time Águia", media: 40, n: 1, pior: 40 });
   });
 
-  it("número fora do mapa cai em 'Sem time'", () => {
+  it("número fora do mapa vira 'Sem time (NÚMERO)'", () => {
     const linhas = resumoPorTime([R(50, "v1", "STK-9")]);
-    expect(linhas[0]).toMatchObject({ nome: "Sem time", n: 1 });
+    expect(linhas[0]).toMatchObject({ nome: "Sem time (STK-9)", n: 1 });
+    // sem número nenhum → só 'Sem time'
+    expect(resumoPorTime([R(50, "v1", null)])[0].nome).toBe("Sem time");
   });
 });

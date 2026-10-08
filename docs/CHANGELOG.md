@@ -4,6 +4,16 @@
 
 ---
 
+## 1.8.10 — 06/10/2026
+
+- **Dashboard — UX dos tempos (feedback do João "não ficou intuitivo"):**
+  tempos agora em **horas/dias** ("19h", "5 dias 10h", "na hora" em vez
+  de minutos), títulos explicando o que é ("Tempo médio para responder",
+  "Quem demora mais para responder"), linhas de ajuda, rótulo "Período",
+  vendedor sem perfil vira "Conta sem cadastro" (antes mostrava o id) e
+  "Sem time" ganha o número da conversa — ex. "Sem time (STK-2)".
+  Nova lib `lib/dashboard/formatar`.
+
 ## 1.8.9 — 06/10/2026
 
 - **Dashboard — Fase 2:** rankings de tempo de resposta **por VENDEDOR**
