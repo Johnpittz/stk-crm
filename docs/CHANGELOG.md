@@ -4,7 +4,20 @@
 
 ---
 
-## 1.8.12 — 06/10/2026
+## 1.8.13 — 06/10/2026
+
+- **IA identifica oportunidades da CONTA (MIMO + regras).** A cada
+  mensagem de cliente que fala de conta/fatura/energia, a MIMO extrai da
+  conversa o valor da conta e o Grupo A/B, e o **código** aplica a regra
+  aprovada: valor > R$ 5.000 → **RECIEE** (prioridade); Grupo B até 5K
+  → **GD**; fora isso, nada é criado. Cria a oportunidade no funil
+  (etapa "recebeu_conta") com produto, cliente, vendedor e atendimento
+  vinculados e o motivo na descrição. Pré-filtro barato (sem palavra de
+  conta não há chamada de IA), dedup por atendimento, teto de 20s na
+  chamada e falha nunca derruba a resposta da conversa.
+  Testes: `lib/ia/classificar-conta.test.ts`,
+  `lib/ia/identificar-oportunidade.test.ts` e
+  `lib/atendimentos/resposta-automatica.test.ts` (gatilho).
 
 - **Dashboard — Fase 4: um dashboard por PERFIL (filtro no servidor).**
   `GET /api/dashboard/tempo-resposta` agora exige sessão e filtra pelo

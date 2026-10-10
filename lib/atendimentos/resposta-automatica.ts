@@ -17,6 +17,8 @@ import {
 } from './orquestrador'
 import { verificarIAAtivada, responderComBase } from '../ai-assistant'
 import { criarNotificacao } from '../notificacoes'
+import { identificarOportunidadeDaConta } from '../ia/identificar-oportunidade'
+import { mensagemFalaDeConta } from '../ia/classificar-conta'
 
 export interface ParamsAutomacao {
   supabase: any
@@ -62,6 +64,23 @@ async function gravarNoHistorico(
  * Nunca lança: erro em qualquer etapa vira "humano assume" com motivo.
  */
 export async function executarAutomacao(p: ParamsAutomacao): Promise<ResultadoAutomacao> {
+  // ── 0. CONTA — IA identifica oportunidades (João, 06/10) ────────────
+  // Só roda quando a mensagem fala de conta (pré-filtro barato dentro).
+  // Espera o resultado (serverless mata promessa solta) e QUALQUER falha
+  // aqui nunca derruba a resposta da conversa.
+  try {
+    if (mensagemFalaDeConta(p.mensagem)) await identificarOportunidadeDaConta({
+      supabase: p.supabase,
+      atendimentoId: p.atendimentoId,
+      telefone: p.telefone,
+      nomeCliente: p.nomeCliente,
+      mensagem: p.mensagem,
+      buscarHistorico: p.buscarHistorico,
+    })
+  } catch (err: any) {
+    console.error('[Automacao] Erro na identificação de conta:', err?.message)
+  }
+
   // ── 1. chatbot ────────────────────────────────────────────────────────
   let action: string | null = null
   try {

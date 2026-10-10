@@ -130,6 +130,18 @@ está** no env do worker (verificado por tamanho, 28/09) — não é mais pendê
 
 ## 3. Próxima ação (de onde parar)
 
+### IA DE CONTA (06/10) — MIMO identifica oportunidades (no ar):
+- Fluxo: mensagem do cliente → pré-filtro (`mensagemFalaDeConta`) →
+  MIMO extrai {valor, grupo} (`lib/ia/classificar-conta.ts`) → regras no
+  código (>R$5.000=RECIEE com prioridade; Grupo B até 5K=GD) → cria
+  oportunidade (`lib/ia/identificar-oportunidade.ts`) — gatilho no topo
+  de `executarAutomacao` (`lib/atendimentos/resposta-automatica.ts`).
+- Chave MIMO só existe na Vercel (XIAOMI_*): testes locais mockam o
+  provider; fim a fim = mandar mensagem de conta numa conversa real.
+- **Hermes (cron):** resumo diário útil das classificações + conferência
+  (mensagens de conta sem oportunidade) — job fica no Hermes, não no repo.
+- Limite da V1: conta chegando só como FOTO (sem texto) não é analisada —
+  se o João pedir, evoluir para visão (image_url na MIMO).
 **DASHBOARD POR FASES — Fase 1 CONCLUÍDA (06/10), próxima = Fase 2:**
 pedido = tempo de resposta (vendedor/time/produto) + dashboard por perfil.
 Plano + decisões **já resolvidas** (regras, times, produtos, perfis) em
