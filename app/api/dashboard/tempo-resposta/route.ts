@@ -8,6 +8,7 @@
  * STK-3=Águia (lib/dashboard/equipes). Query: ?dias=7|30|90 (padrão 30).
  */
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   primeiraResposta,
@@ -35,14 +36,36 @@ function lerDias(url: string): number {
 
 export async function GET(request: NextRequest) {
   try {
+    // Fase 4 — o filtro de perfil acontece AQUI, no servidor:
+    // admin/diretor/gerente = visão completa; vendedor = só o dele.
+    // (Equipes reais ainda não existem — quando existirem, o gerente
+    // filtra pelo(s) seu(s) time(s); ver docs/plano-dashboard-fases.md.)
+    const usuarioClient = await createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await usuarioClient.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
+    const { data: meuPerfil } = await usuarioClient
+      .from("profiles")
+      .select("cargo")
+      .eq("id", user.id)
+      .single();
+    const cargo = meuPerfil?.cargo || "";
+    const visaoAmpla = ["admin", "diretor", "gerente_comercial"].includes(cargo);
+
     const dias = lerDias(request.url);
     const supabase = createAdminClient();
     const desde = new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString();
 
-    const { data: atendimentos, error: erroAt } = await supabase
+    let queryAtendimentos = supabase
       .from("atendimentos")
-      .select("id, created_at, instancia")
-      .gte("created_at", desde)
+      .select("id, created_at, instancia, vendedor_id")
+      .gte("created_at", desde);
+    if (!visaoAmpla) queryAtendimentos = queryAtendimentos.eq("vendedor_id", user.id);
+    const { data: atendimentos, error: erroAt } = await queryAtendimentos
       .order("created_at", { ascending: false })
       .limit(LIMITE_ATENDIMENTOS);
     if (erroAt) throw erroAt;
@@ -97,10 +120,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Fase 3 — dimensão PRODUTO (oportunidades → produtos)
-    const { data: oportunidades, error: erroOpps } = await supabase
+    let queryOpps = supabase
       .from("oportunidades")
-      .select("atendimento_id, produto_id, resultado, valor_venda")
-      .limit(300);
+      .select("atendimento_id, produto_id, resultado, valor_venda, vendedor_id");
+    if (!visaoAmpla) queryOpps = queryOpps.eq("vendedor_id", user.id);
+    const { data: oportunidades, error: erroOpps } = await queryOpps.limit(300);
     if (erroOpps) throw erroOpps;
 
     const { data: produtos, error: erroProdutos } = await supabase
@@ -112,6 +136,7 @@ export async function GET(request: NextRequest) {
     const resumo = resumoTempoResposta(respostas, new Date().toISOString());
     return NextResponse.json({
       ...resumo,
+      perfil: cargo || "vendedor",
       porVendedor: rankingVendedores(respostas, nomes),
       porTime: resumoPorTime(respostas),
       porProduto: dimensaoProdutos({

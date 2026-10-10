@@ -55,6 +55,8 @@ type TempoResposta = {
   porProduto: LinhaProduto[];
   janela: string;
   periodo_dias: number;
+  /** cargo de quem olha (Fase 4): admin | diretor | gerente_comercial | vendedor */
+  perfil: string;
 };
 
 export default function DashboardPage() {
@@ -112,6 +114,11 @@ export default function DashboardPage() {
     totalOportunidades > 0
       ? ((totalVendas / totalOportunidades) * 100).toFixed(1)
       : "0.0";
+
+  // ─── Fase 4: visão pessoal (vendedor vê só o dele; rankings somem) ───
+  const visaoPessoal =
+    !!tempoResposta &&
+    !["admin", "diretor", "gerente_comercial"].includes(tempoResposta.perfil);
 
   // ─── Contagem por coluna ───
   const contagemPorColuna = colunas.map((c) => ({
@@ -271,7 +278,9 @@ export default function DashboardPage() {
               </div>
               <div>
                 <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider">
-                  Tempo médio para responder
+                  {visaoPessoal
+                    ? "Seu tempo para responder"
+                    : "Tempo médio para responder"}
                 </p>
                 <p className="text-lg font-bold text-white">
                   {tempoResposta ? formatarDuracao(tempoResposta.geral.media) : "…"}
@@ -316,7 +325,8 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* ─── Fase 2: dimensões VENDEDOR e TIME ─── */}
+      {/* ─── Fase 2: dimensões VENDEDOR e TIME (somem na visão pessoal) ─── */}
+      {!visaoPessoal && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="border-[#1c2e4a] bg-[#14233c]">
           <CardContent className="p-3">
@@ -384,12 +394,15 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+      )}
 
       {/* ─── Fase 3: dimensão PRODUTO ─── */}
       <Card className="border-[#1c2e4a] bg-[#14233c]">
         <CardContent className="p-3">
           <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider mb-2">
-            Qual produto responde e vende melhor
+            {visaoPessoal
+              ? "Seu desempenho por produto"
+              : "Qual produto responde e vende melhor"}
           </p>
           <p className="text-[11px] text-slate-500 mb-2">
             Tempo = 1ª resposta do cliente no período (horário comercial) ·

@@ -4,6 +4,16 @@
 
 ---
 
+## 1.8.12 — 06/10/2026
+
+- **Dashboard — Fase 4: um dashboard por PERFIL (filtro no servidor).**
+  `GET /api/dashboard/tempo-resposta` agora exige sessão e filtra pelo
+  cargo: **admin/diretor/gerente** = visão completa (vendedores, times,
+  produtos); **vendedor** = só os atendimentos e oportunidades dele, com
+  títulos "Seu tempo para responder" e sem os rankings de terceiros.
+  Resposta traz `perfil` (cargo). Quando existirem equipes reais
+  (`profiles.equipe_id`), o gerente passa a filtrar pelo seu time.
+
 ## 1.8.11 — 06/10/2026 (local, aguarda SQL 095)
 
 - **Dashboard — Fase 3: dimensão PRODUTO.** Card "Qual produto responde e

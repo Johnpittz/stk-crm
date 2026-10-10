@@ -147,8 +147,14 @@ Conteúdo: `produto_id` na oportunidade (select nos modais), cadastro de
 produtos (POST/PATCH admin + UI em /produtos), card "Qual produto responde
 e vende melhor" no Dashboard (`porProduto`). Gates: 431 vitest + tsc +
 build local EXIT=0 + unittest.
-Próxima sessão: **Fase 4** (dashboard por perfil: Gerencial/Gerente/
-Vendedor — decideções já mapeadas no plano).
+Fase 3 **PUBLICADA** (SQL 095 aplicado pelo João + push 818b31d) e
+Fase 4 **CONCLUÍDA** — dashboard por perfil com filtro no servidor
+(`perfil` na rota de tempo-resposta; vendedor vê só o dele).
+**Painel de dashboard: fases 1–4 todas no ar.** Próximos candidatos
+(decidir com o João): (a) consertar os widgets legados do Dashboard
+(4 métricas + funil/pipeline leem `tarefas` vazia → R$ 0,00; migrar para
+`oportunidades`), (b) Fase 5 opcional (metas/alertas de resposta),
+(c) equipes reais p/ filtro de gerente.
 
 
 ~~**Fechar a Fase 0**~~ — **CONCLUÍDA em 26/09** (migrations aplicadas, push feito, F0.3 no ar,

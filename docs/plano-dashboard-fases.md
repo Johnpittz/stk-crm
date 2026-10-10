@@ -62,13 +62,25 @@ Dividido em fases — cada fase fecha e entrega valor sozinha.
 
 </details>
 
-### Fase 4 — Um dashboard por PERFIL
+### Fase 4 — Um dashboard por PERFIL — **CONCLUÍDA em 06/10**
+- Filtro APLICADO NO SERVIDOR pela rota (401 sem sessão): admin/diretor/
+  gerente = visão ampla; vendedor = só dele (atendimentos + oportunidades
+  com `vendedor_id` = eu). UI: vendedor vê "Seu tempo para responder" +
+  "Seu desempenho por produto", sem rankings alheios (`perfil` na rota).
+- Limitação documentada: sem equipes reais, o gerente vê as duas equipes
+  de teste inteiras; restringir por `profiles.equipe_id` quando existirem.
+
+<details><summary>Como foi planejado</summary>
+
+
 - **Gerencial** (admin/diretor): visão completa — times, vendedores, produtos, funil
 - **Gerente** (gerente_comercial): só os vendedores dos seus times
 - **Vendedor**: só ele — seus tempos, seus atendimentos, suas oportunidades
 - Filtro aplicado **no servidor** pelo cargo (padrão já usado nas rotas do sistema):
   ninguém enxerga dado que não é seu
 - **Entrega:** cada pessoa abre o Dashboard e vê só o mundo dela
+
+</details>
 
 ### Fase 5 (opcional) — Metas e alertas
 - Meta de tempo de resposta (ex.: responder em até 5 minutos)

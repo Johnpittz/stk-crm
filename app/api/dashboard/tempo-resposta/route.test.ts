@@ -3,7 +3,7 @@
  * Dashboard (primeira resposta do vendedor, só em horário comercial).
  * Supabase fakeado em memória — sem rede.
  */
-import { vi, describe, it, expect, beforeEach } from "vitest";
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
 
 vi.mock("@/lib/supabase/admin", async () => {
@@ -13,8 +13,34 @@ vi.mock("@/lib/supabase/admin", async () => {
   };
 });
 
+vi.mock("@/lib/supabase/server", async () => {
+  const { cenario } = await import("@/lib/testes/supabase-fake");
+  return {
+    createClient: async () => ({
+      auth: {
+        getUser: async () => ({
+          data: { user: cenario.estado.usuario },
+          error: cenario.estado.usuario ? null : { message: "no session" },
+        }),
+      },
+      from: (tabela: string) => cenario.builder(tabela),
+    }),
+  };
+});
+
 import { cenario } from "@/lib/testes/supabase-fake";
 import { GET } from "./route";
+
+// Relógio fixo em 06/10/2026 12:00 SP: as datas fixas dos seeds
+// (sex 02/10, atendimento de 26 dias atrás) continuam válidas para sempre.
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+function logar(id: string, cargo: string) {
+  cenario.estado.usuario = { id, email: `${id}@x.com`, cargo };
+  cenario.tabelas.profiles = [{ id, cargo, nome_completo: id }];
+}
 
 function req() {
   return new NextRequest("http://localhost/api/dashboard/tempo-resposta");
@@ -22,8 +48,10 @@ function req() {
 
 describe("GET /api/dashboard/tempo-resposta", () => {
   beforeEach(() => {
+    vi.useFakeTimers({ now: new Date("2026-10-06T15:00:00.000Z") });
     cenario.limpar();
-    cenario.tabelas.atendimentos = [{ id: "a1", created_at: "2026-10-02T20:00:00Z", instancia: "STK-1" }];
+    logar("adm-1", "admin"); // Fase 4: rota passou a exigir sessão
+    cenario.tabelas.atendimentos = [{ id: "a1", created_at: "2026-10-02T20:00:00Z", instancia: "STK-1", vendedor_id: "ven-1" }];
     cenario.tabelas.atendimento_mensagens = [
       // sexta 17:00 SP → segunda 09:00 SP = 120 min úteis (1ª do atendimento)
       { atendimento_id: "a1", remetente: "cliente", created_at: "2026-10-02T20:00:00Z", enviada_por: null },
@@ -107,8 +135,69 @@ describe("GET /api/dashboard/tempo-resposta", () => {
     expect(corpo.porProduto.find((l: any) => l.nome === "RECIEE")).toBeUndefined();
   });
 
+  it("Fase 4: 401 sem sessão", async () => {
+    cenario.estado.usuario = null;
+    const res = await GET(req());
+    expect(res.status).toBe(401);
+  });
+
+  it("Fase 4: vendedor vê SÓ os seus atendimentos e oportunidades", async () => {
+    // a2 pertence a outro vendedor e também teve resposta
+    cenario.tabelas.atendimentos.push({
+      id: "a2",
+      created_at: "2026-10-05T12:00:00Z",
+      instancia: "STK-3",
+      vendedor_id: "ven-2",
+    });
+    cenario.tabelas.atendimento_mensagens.push(
+      { atendimento_id: "a2", remetente: "cliente", created_at: "2026-10-05T12:00:00Z", enviada_por: null },
+      { atendimento_id: "a2", remetente: "vendedor", created_at: "2026-10-05T12:40:00Z", enviada_por: "ven-2" },
+    );
+    cenario.tabelas.oportunidades.push(
+      { id: "o-ven1", atendimento_id: "a1", vendedor_id: "ven-1", produto_id: null, resultado: null, valor_venda: null },
+      { id: "o-ven2", atendimento_id: "a2", vendedor_id: "ven-2", produto_id: null, resultado: null, valor_venda: null },
+    );
+    logar("ven-1", "vendedor");
+    cenario.tabelas.profiles.push({ id: "ven-2", cargo: "vendedor", nome_completo: "Outro" });
+
+    const res = await GET(req());
+    expect(res.status).toBe(200);
+    const corpo = await res.json();
+    expect(corpo.perfil).toBe("vendedor");
+    expect(corpo.geral.n).toBe(1); // só a1
+    expect(corpo.porTime.map((t: any) => t.nome)).toEqual(["Time Lobo"]); // a2 (Águia) fora
+    expect(corpo.porProduto[0].oportunidades).toBe(1); // só a do ven-1
+  });
+
+  it("Fase 4: gerente vê tudo (times e vendedores); admin idem", async () => {
+    cenario.tabelas.atendimentos.push({
+      id: "a2",
+      created_at: "2026-10-05T12:00:00Z",
+      instancia: "STK-3",
+      vendedor_id: "ven-2",
+    });
+    cenario.tabelas.atendimento_mensagens.push(
+      { atendimento_id: "a2", remetente: "cliente", created_at: "2026-10-05T12:00:00Z", enviada_por: null },
+      { atendimento_id: "a2", remetente: "vendedor", created_at: "2026-10-05T12:40:00Z", enviada_por: "ven-2" },
+    );
+
+    logar("ger-1", "gerente_comercial");
+    const resGerente = await GET(req());
+    const gerente = await resGerente.json();
+    expect(resGerente.status).toBe(200);
+    expect(gerente.perfil).toBe("gerente_comercial");
+    expect(gerente.geral.n).toBe(2);
+
+    logar("adm-1", "admin");
+    const resAdmin = await GET(req());
+    const admin = await resAdmin.json();
+    expect(admin.perfil).toBe("admin");
+    expect(admin.geral.n).toBe(2);
+  });
+
   it("sem dados devolve zerado (200)", async () => {
     cenario.limpar();
+    logar("adm-1", "admin"); // limpar() zera a sessão
     const res = await GET(req());
     const corpo = await res.json();
     expect(res.status).toBe(200);
