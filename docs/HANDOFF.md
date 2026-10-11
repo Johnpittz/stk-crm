@@ -131,8 +131,9 @@ está** no env do worker (verificado por tamanho, 28/09) — não é mais pendê
 ## 3. Próxima ação (de onde parar)
 
 ### IA DE CONTA (06/10) — MIMO identifica oportunidades (V2: texto + FOTO/PDF):
-- Fluxo: mensagem do cliente → pré-filtro (`mensagemFalaDeConta`) →
-  MIMO extrai {valor, grupo} (`lib/ia/classificar-conta.ts`) → regras no
+- Fluxo: mensagem do cliente (texto com palavra de conta OU foto/PDF) →
+  pré-filtro (`mensagemFalaDeConta`/`ehMidiaAnalisavel`) → MIMO extrai
+  {valor, grupo} (`lib/ia/classificar-conta.ts`) → regras no
   código (>R$5.000=RECIEE com prioridade; Grupo B até 5K=GD) → cria
   oportunidade (`lib/ia/identificar-oportunidade.ts`) — gatilho no topo
   de `executarAutomacao` (`lib/atendimentos/resposta-automatica.ts`).
@@ -140,9 +141,14 @@ está** no env do worker (verificado por tamanho, 28/09) — não é mais pendê
   provider; fim a fim = mandar mensagem de conta numa conversa real.
 - **Hermes (cron):** resumo diário útil das classificações + conferência
   (mensagens de conta sem oportunidade) — job fica no Hermes, não no repo.
-- Limite da V1: conta chegando só como FOTO (sem texto) não é analisada —
-  se o João pedir, evoluir para visão (image_url na MIMO).
-**DASHBOARD POR FASES — Fase 1 CONCLUÍDA (06/10), próxima = Fase 2:**
+- **V2 publicada (ef5ac21): FOTO e PDF agora são analisados.** Foto →
+  `chamarModeloVision` (lib/ia-provider; mimo-v2.6-flash aceita imagem via
+  data URL ≤40MB); PDF → `lib/ia/pdf-texto.ts` (pdf2json). Gatilho WAHA
+  passa `midia: {url,tipo,legenda}` nos 2 pontos de `executarAutomacao`.
+  Teto 60s/mídia; falha vira `erro` (cron sinaliza). Canal
+  Evolution/whatsapp ainda não passa pela automação (só WAHA é ativo).
+**DASHBOARD POR FASES — Fases 1–4 PUBLICADAS (e8d216a); Fase 5 (metas) é
+opcional e ainda não pedida:**
 pedido = tempo de resposta (vendedor/time/produto) + dashboard por perfil.
 Plano + decisões **já resolvidas** (regras, times, produtos, perfis) em
 `docs/plano-dashboard-fases.md`. Fase 1 no ar: card "Tempo de Resposta"
@@ -152,9 +158,9 @@ equipes Time Lobo (STK-1) / Time Águia (STK-3) — mapa em
 `lib/dashboard/equipes.ts` — e produtos GD/RECIEE/ELETROPOSTO/SIGMA SOLAR.
 Fase 2 **CONCLUÍDA em 06/10** (1.8.9): rankings por vendedor e por time
 com filtro 7/30/90 dias no Dashboard (`lib/dashboard/rankings`).
-Fase 3 **CÓDIGO PRONTO em commit LOCAL** (não publicado!): aguarda o João
-aplicar `supabase/migrations/095_oportunidade_produto.sql` no Supabase
-(projeto `nizreygwaqqojwrorpqo`) — **depois do "aplicou", fazer o push**.
+Fase 3 **PUBLICADA** (SQL 095 aplicado pelo João, push 818b31d): produto
+na oportunidade + card "Por produto". Fase 4 **PUBLICADA** (e8d216a):
+auth + perfil por cargo (vendedor vê só o próprio).
 Conteúdo: `produto_id` na oportunidade (select nos modais), cadastro de
 produtos (POST/PATCH admin + UI em /produtos), card "Qual produto responde
 e vende melhor" no Dashboard (`porProduto`). Gates: 431 vitest + tsc +
