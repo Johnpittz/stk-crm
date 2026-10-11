@@ -12,7 +12,13 @@
  *
  * Nunca lança: falha de IA/vira `status: erro` e a conversa segue normal.
  */
-import { analisarContaComIA, aplicarRegras, mensagemFalaDeConta } from './classificar-conta'
+import {
+  analisarContaComIA,
+  analisarMidiaComIA,
+  aplicarRegras,
+  ehMidiaAnalisavel,
+  mensagemFalaDeConta,
+} from './classificar-conta'
 
 export type ResultadoIdentificacao = {
   status: 'criada' | 'sem_conta' | 'sem_oportunidade' | 'ja_existe' | 'ignorado' | 'erro'
@@ -27,13 +33,17 @@ export async function identificarOportunidadeDaConta(params: {
   telefone: string
   nomeCliente?: string
   mensagem: string
+  /** Conta que chega como FOTO/PDF no WhatsApp (V2, 06/10). */
+  midia?: { url: string; tipo?: string | null; legenda?: string | null } | null
   buscarHistorico?: () => Promise<Array<{ remetente: string; conteudo: string }>>
   env?: Record<string, string | undefined>
 }): Promise<ResultadoIdentificacao> {
   const { supabase, atendimentoId } = params
 
-  // 1. pré-filtro — a maioria das mensagens cai aqui e não custa nada
-  if (!mensagemFalaDeConta(params.mensagem)) {
+  // 1. pré-filtro — a maioria das mensagens cai aqui e não custa nada.
+  //    Foto/PDF de conta já entra direto (sem depender de palavra-chave).
+  const midiaOk = !!(params.midia && ehMidiaAnalisavel(params.midia.tipo))
+  if (!midiaOk && !mensagemFalaDeConta(params.mensagem)) {
     return { status: 'ignorado', motivo: 'Conversa não fala de conta.' }
   }
 
@@ -57,12 +67,27 @@ export async function identificarOportunidadeDaConta(params: {
     const historico = params.buscarHistorico
       ? await params.buscarHistorico().catch(() => [])
       : []
-    analise = await analisarContaComIA({
-      nomeCliente: params.nomeCliente,
-      mensagem: params.mensagem,
-      historico,
-      env: params.env,
-    })
+    analise = midiaOk
+      ? await withTimeout(
+          analisarMidiaComIA({
+            url: params.midia!.url,
+            tipo: params.midia!.tipo,
+            legenda: params.midia!.legenda,
+            nomeCliente: params.nomeCliente,
+            historico,
+            env: params.env,
+          }),
+          60_000, // download + leitura da imagem/PDF pela MIMO
+        )
+      : await withTimeout(
+          analisarContaComIA({
+            nomeCliente: params.nomeCliente,
+            mensagem: params.mensagem,
+            historico,
+            env: params.env,
+          }),
+          20_000,
+        )
   } catch (err: any) {
     console.error('[IdentificarConta] IA falhou:', err?.message)
     return { status: 'erro', motivo: err?.message || 'Falha na IA da conta' }
@@ -100,7 +125,8 @@ export async function identificarOportunidadeDaConta(params: {
       .from('oportunidades')
       .insert({
         titulo: `${nomeProduto} — ${nome}`,
-        descricao: `Análise automática da conta (IA): ${regra.motivo}`,
+        descricao:
+          `Análise automática da conta (IA${midiaOk ? ' — mídia do cliente' : ''}): ${regra.motivo}`,
         tipo: regra.tipo,
         produto_id: produtoId,
         etapa: 'recebeu_conta',
@@ -128,4 +154,15 @@ export async function identificarOportunidadeDaConta(params: {
     console.error('[IdentificarConta] erro ao gravar oportunidade:', err?.message)
     return { status: 'erro', motivo: err?.message || 'Falha ao gravar' }
   }
+}
+
+/** Teto de tempo: o webhook NUNCA pode ficar preso esperando a IA. */
+function withTimeout<T>(promessa: Promise<T>, ms: number, rotulo = 'IA da conta'): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${rotulo}: tempo excedido (${ms}ms)`)), ms)
+    promessa.then(
+      (valor) => { clearTimeout(timer); resolve(valor) },
+      (erro) => { clearTimeout(timer); reject(erro) },
+    )
+  })
 }

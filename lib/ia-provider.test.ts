@@ -17,7 +17,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
  *  - GEMINI_API_URL permanece o caminho antigo, intacto.
  */
 
-import { provedorIA, chamarModelo } from './ia-provider'
+import { provedorIA, chamarModelo, chamarModeloVision } from './ia-provider'
 import { responderComBase } from './ai-assistant'
 import { MARCADOR_ENCAMINHAR, type EntradaConhecimento } from './base-conhecimento'
 
@@ -149,6 +149,55 @@ describe('chamarModelo — MIMO (compatível OpenAI)', () => {
     })))
 
     await expect(chamarModelo('oi')).rejects.toThrow()
+  })
+})
+
+describe('chamarModeloVision — mídia do cliente (conta por foto/PDF, 06/10)', () => {
+  beforeEach(() => {
+    vi.stubEnv('IA_PROVIDER', '')
+    stubMimoEnv()
+  })
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
+  })
+
+  it('monta content com texto + image_url (data URL) para a MIMO ler a foto', async () => {
+    const fetchMock = vi.fn(async () => respostaMimo('{"achouConta":true,"valorConta":6300,"grupo":null}'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const texto = await chamarModeloVision('Leia a conta', 'data:image/png;base64,QUJD')
+
+    expect(texto).toContain('valorConta')
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe(`${MIMO_URL}/chat/completions`)
+    const body = JSON.parse(String(init.body))
+    expect(body.model).toBe('mimo-v2.6-flash')
+    const conteudo = body.messages[0].content
+    expect(Array.isArray(conteudo)).toBe(true)
+    expect(conteudo[0]).toMatchObject({ type: 'text' })
+    expect(conteudo[0].text).toContain('Leia a conta')
+    expect(conteudo[1].type).toBe('image_url')
+    expect(conteudo[1].image_url.url).toBe('data:image/png;base64,QUJD')
+    expect(body.temperature).toBeLessThanOrEqual(0.4)
+  })
+
+  it('HTTP != 200 LANÇA (nunca resposta inventada)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: false,
+      status: 400,
+      text: async () => 'image not supported',
+      json: async () => ({}),
+    })))
+    await expect(chamarModeloVision('oi', 'data:image/png;base64,QQ==')).rejects.toThrow(/400/)
+  })
+
+  it('sem XIAOMI_API_KEY lança antes da rede', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubEnv('XIAOMI_API_KEY', '')
+    await expect(chamarModeloVision('oi', 'data:image/png;base64,QQ==')).rejects.toThrow(/XIAOMI_API_KEY/)
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 })
 

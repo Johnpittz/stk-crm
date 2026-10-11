@@ -9,7 +9,8 @@
  *      Grupo B (até R$ 5.000)     → GD;
  *      caso contrário             → não é oportunidade.
  */
-import { chamarModelo } from '../ia-provider'
+import { chamarModelo, chamarModeloVision } from '../ia-provider'
+import { extrairTextoPdf } from './pdf-texto'
 
 export const LIMIAR_RECIEE = 5000
 
@@ -87,8 +88,99 @@ export function extrairAnalise(texto: string): AnaliseConta {
     const achouConta = Boolean(obj.achouConta) || valorConta != null || grupo != null
     return achouConta ? { achouConta: true, valorConta, grupo } : vazio
   } catch {
-    return vazio
+    return vazio;
   }
+}
+
+/* ── V2 (06/10): a conta pode chegar como FOTO ou PDF ───────────────── */
+
+const MIDIAS_ANALISAVEIS = new Set(["image", "imagem", "document", "documento", "pdf"]);
+
+/** true para imagem e documento/PDF (áudio/vídeo/sticker não são conta). */
+export function ehMidiaAnalisavel(tipo: string | null | undefined): boolean {
+  if (!tipo) return false;
+  return MIDIAS_ANALISAVEIS.has(String(tipo).trim().toLowerCase());
+}
+
+/** Junta o texto extraído do PDF com a legenda da mensagem. */
+export function montarMensagemDaFatura(textoPdf: string, legenda?: string | null): string {
+  const corpo =
+    `O cliente enviou um ARQUIVO (PDF) da conta de energia. Texto extraído do arquivo:\n` +
+    (textoPdf || "").slice(0, 6000);
+  return legenda ? `Legenda do arquivo: "${legenda}".\n${corpo}` : corpo;
+}
+
+async function baixarMidia(url: string, timeoutMs = 20000): Promise<{ bytes: Buffer; contentType: string }> {
+  const controller = new AbortController();
+  const limite = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const resp = await fetch(url, { signal: controller.signal });
+    if (!resp.ok) throw new Error(`midia HTTP ${resp.status}`);
+    const buffer = Buffer.from(await resp.arrayBuffer());
+    if (buffer.length > 40 * 1024 * 1024) throw new Error("mídia maior que 40MB");
+    const contentType = String(resp.headers.get("content-type") || "").split(";")[0].trim();
+    return { bytes: buffer, contentType };
+  } finally {
+    clearTimeout(limite);
+  }
+}
+
+function dataUrlDe(bytes: Buffer, contentType: string, url: string): string {
+  const mime =
+    contentType && contentType.includes("/")
+      ? contentType
+      : /\.png($|\?)/i.test(url) ? "image/png"
+      : /\.webp($|\?)/i.test(url) ? "image/webp"
+      : /\.gif($|\?)/i.test(url) ? "image/gif"
+      : "image/jpeg";
+  return `data:${mime};base64,${bytes.toString("base64")}`;
+}
+
+export interface ParamsMidia {
+  url: string;
+  tipo?: string | null;
+  legenda?: string | null;
+  nomeCliente?: string;
+  historico?: Array<{ remetente: string; conteudo: string }>;
+  env?: Record<string, string | undefined>;
+}
+
+/**
+ * Analisa a mídia do cliente:
+ *  - FOTO → MIMO lê a imagem (visão multimodal) e extrai valor/grupo;
+ *  - PDF  → texto extraído localmente (pdf2json) e passa pelo mesmo
+ *           extrator de texto da conversa.
+ * LANÇA em falha de download/leitura/IA — o chamador vira `erro` (e o cron
+ * de conferência sinaliza).
+ */
+export async function analisarMidiaComIA(p: ParamsMidia): Promise<AnaliseConta> {
+  if (!ehMidiaAnalisavel(p.tipo)) {
+    return { achouConta: false, valorConta: null, grupo: null };
+  }
+  const { bytes, contentType } = await baixarMidia(p.url);
+
+  if (String(p.tipo).toLowerCase() === "image" || String(p.tipo).toLowerCase() === "imagem") {
+    const prompt = montarPromptClassificacao({
+      nomeCliente: p.nomeCliente,
+      mensagem:
+        `O cliente enviou uma FOTO${p.legenda ? ` (legenda: "${p.legenda}")` : ""}. ` +
+        "Se for uma conta de energia (fatura), extraia os dados; se não for, responda achouConta=false.",
+      historico: p.historico,
+    });
+    const resposta = await chamarModeloVision(prompt, dataUrlDe(bytes, contentType, p.url), p.env);
+    return extrairAnalise(resposta);
+  }
+
+  const textoPdf = await extrairTextoPdf(bytes);
+  const resposta = await chamarModelo(
+    montarPromptClassificacao({
+      nomeCliente: p.nomeCliente,
+      mensagem: montarMensagemDaFatura(textoPdf, p.legenda),
+      historico: p.historico,
+    }),
+    p.env,
+  );
+  return extrairAnalise(resposta);
 }
 
 /** Prompt enviado à MIMO (mesma API do atendimento). */

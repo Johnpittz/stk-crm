@@ -130,7 +130,7 @@ está** no env do worker (verificado por tamanho, 28/09) — não é mais pendê
 
 ## 3. Próxima ação (de onde parar)
 
-### IA DE CONTA (06/10) — MIMO identifica oportunidades (no ar):
+### IA DE CONTA (06/10) — MIMO identifica oportunidades (V2: texto + FOTO/PDF):
 - Fluxo: mensagem do cliente → pré-filtro (`mensagemFalaDeConta`) →
   MIMO extrai {valor, grupo} (`lib/ia/classificar-conta.ts`) → regras no
   código (>R$5.000=RECIEE com prioridade; Grupo B até 5K=GD) → cria

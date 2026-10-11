@@ -33,7 +33,7 @@ import { executarAutomacao } from "@/lib/atendimentos/resposta-automatica";
 import { integrarChatbot } from "@/lib/atendimentos/integrar-chatbot";
 import { processarMensagemChatbot } from "@/lib/chatbot/engine";
 import { resolveLidToPhone, saveLidMapping } from "@/lib/lid-resolver";
-import { parseEventoWaha, montarConteudo, type MensagemWaha } from "@/lib/waha-webhook";
+import { parseEventoWaha, montarConteudo, ehPlaceholderConteudo, type MensagemWaha } from "@/lib/waha-webhook";
 import { buscarNomeContato, enviarTexto, getWahaConfig, resolverLidMultiSessao, resolverUrlMidia } from "@/lib/waha";
 
 export const dynamic = "force-dynamic";
@@ -269,6 +269,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Foto/PDF do cliente (conta) → analisado pela MIMO na automação (06/10).
+    const midiaAnalise =
+      mediaUrlFinal && !dados.from_me
+        ? {
+            url: mediaUrlFinal,
+            tipo: dados.tipo_midia,
+            legenda:
+              dados.conteudo && !ehPlaceholderConteudo(dados.conteudo) ? dados.conteudo : null,
+          }
+        : null;
+
     // ==================== BUSCA CLIENTE / ATENDIMENTO ====================
     const cliente = await buscarClientePorTelefone(telefoneLimpo);
     const atendimentoExistente = await buscarAtendimentoAberto(telefoneLimpo, sessionName);
@@ -349,6 +360,7 @@ export async function POST(request: NextRequest) {
           supabase: getSupabase(),
           telefone: telefoneLimpo,
           mensagem: conteudoMensagem,
+          midia: midiaAnalise,
           instancia: sessionName || "STK-3",
           nomeCliente: nomeCliente || undefined,
           atendimentoId: atendimentoExistente.id,
@@ -433,6 +445,7 @@ export async function POST(request: NextRequest) {
         supabase: getSupabase(),
         telefone: telefoneLimpo,
         mensagem: conteudoMensagem,
+        midia: midiaAnalise,
         instancia: sessionName || "STK-3",
         nomeCliente: nomeCliente || undefined,
         atendimentoId: novoAtendimento.id,

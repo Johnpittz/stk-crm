@@ -18,7 +18,7 @@ import {
 import { verificarIAAtivada, responderComBase } from '../ai-assistant'
 import { criarNotificacao } from '../notificacoes'
 import { identificarOportunidadeDaConta } from '../ia/identificar-oportunidade'
-import { mensagemFalaDeConta } from '../ia/classificar-conta'
+import { mensagemFalaDeConta, ehMidiaAnalisavel } from '../ia/classificar-conta'
 
 export interface ParamsAutomacao {
   supabase: any
@@ -29,6 +29,8 @@ export interface ParamsAutomacao {
   atendimentoId: string
   /** Consultado só quando a IA for realmente usada (evita query inútil). */
   buscarHistorico?: () => Promise<Array<{ remetente: string; conteudo: string }>>
+  /** Conta que chega como FOTO/PDF (V2, 06/10) — analisada pela MIMO (visão). */
+  midia?: { url: string; tipo?: string | null; legenda?: string | null } | null
   /** Executa o chatbot do webhook; null = chatbot não tratou esta mensagem. */
   tentarChatbot: () => Promise<string | null>
   /** Envia texto no canal do webhook. */
@@ -65,16 +67,18 @@ async function gravarNoHistorico(
  */
 export async function executarAutomacao(p: ParamsAutomacao): Promise<ResultadoAutomacao> {
   // ── 0. CONTA — IA identifica oportunidades (João, 06/10) ────────────
-  // Só roda quando a mensagem fala de conta (pré-filtro barato dentro).
+  // Roda quando a mensagem fala de conta OU quando chega FOTO/PDF de conta.
   // Espera o resultado (serverless mata promessa solta) e QUALQUER falha
   // aqui nunca derruba a resposta da conversa.
   try {
-    if (mensagemFalaDeConta(p.mensagem)) await identificarOportunidadeDaConta({
+    const midiaOk = !!(p.midia && ehMidiaAnalisavel(p.midia.tipo))
+    if (midiaOk || mensagemFalaDeConta(p.mensagem)) await identificarOportunidadeDaConta({
       supabase: p.supabase,
       atendimentoId: p.atendimentoId,
       telefone: p.telefone,
       nomeCliente: p.nomeCliente,
       mensagem: p.mensagem,
+      midia: p.midia ?? null,
       buscarHistorico: p.buscarHistorico,
     })
   } catch (err: any) {

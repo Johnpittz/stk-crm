@@ -4,6 +4,22 @@
 
 ---
 
+## 1.8.14 — 06/10/2026
+
+- **IA de conta V2: analisa FOTO e PDF do cliente (visão MIMO).** A conta
+  pode chegar como imagem ou arquivo no WhatsApp — antes só texto era
+  analisado. Como ficou: foto → a `mimo-v2.6-flash` lê a imagem (entrada
+  multimodal, data URL até 40MB); PDF → texto extraído localmente
+  (`pdf2json`, mesma base do módulo RECIEE) e passado ao mesmo extrator.
+  Legenda da mídia entra no contexto; áudio/vídeo/figurinha são ignorados.
+  Teto de 60s por mídia; falha de download/leitura vira `erro` (nunca
+  derruba a conversa) e o cron de conferência sinaliza. Gatilho novo no
+  webhook WAHA (mídia chega como `midia` em `executarAutomacao`).
+  Testes: `lib/ia-provider.test.ts` (chamarModeloVision),
+  `lib/ia/classificar-conta.test.ts` (mídia),
+  `lib/ia/identificar-oportunidade.test.ts` (foto/PDF),
+  `lib/atendimentos/resposta-automatica.test.ts` (gatilho de mídia).
+
 ## 1.8.13 — 06/10/2026
 
 - **IA identifica oportunidades da CONTA (MIMO + regras).** A cada

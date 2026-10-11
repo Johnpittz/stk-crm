@@ -58,6 +58,59 @@ export async function chamarModelo(prompt: string, env: Env = process.env): Prom
   return provedorIA(env) === 'mimo' ? chamarMimo(prompt, env) : chamarGemini(prompt, env)
 }
 
+/**
+ * Chama a MIMO com IMAGEM (conta por foto/PDF, 06/10) — `mimo-v2.6-flash`
+ * aceita entrada multimodal (URL ou data URL até 50MB, documentação da API).
+ * LANÇA em qualquer falha, igual ao caminho de texto.
+ */
+export async function chamarModeloVision(
+  prompt: string,
+  imagemDataUrl: string,
+  env: Env = process.env,
+): Promise<string> {
+  const chave = valor(env, 'XIAOMI_API_KEY')
+  const base = valor(env, 'XIAOMI_BASE_URL').replace(/\/+$/, '')
+  if (!chave) throw new Error('XIAOMI_API_KEY ausente (IA_PROVIDER=mimo)')
+  if (!base) throw new Error('XIAOMI_BASE_URL ausente (IA_PROVIDER=mimo)')
+
+  const controller = new AbortController()
+  const limite = setTimeout(() => controller.abort(), 30000)
+  try {
+    const response = await fetch(`${base}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${chave}`,
+      },
+      body: JSON.stringify({
+        model: valor(env, 'XIAOMI_MODEL') || MIMO_MODEL_PADRAO,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            { type: 'image_url', image_url: { url: imagemDataUrl } },
+          ],
+        }],
+        temperature: 0.4,
+        max_tokens: 800,
+      }),
+      signal: controller.signal,
+    })
+    if (!response.ok) {
+      const detalhe = await response.text().catch(() => '')
+      throw new Error(`MIMO HTTP ${response.status}: ${detalhe.slice(0, 300)}`)
+    }
+    const data = await response.json()
+    const texto = data?.choices?.[0]?.message?.content
+    if (!texto || !String(texto).trim()) {
+      throw new Error('MIMO devolveu resposta vazia')
+    }
+    return String(texto).trim()
+  } finally {
+    clearTimeout(limite)
+  }
+}
+
 /** MIMO — API compatível com OpenAI (`{base}/chat/completions`). */
 async function chamarMimo(prompt: string, env: Env): Promise<string> {
   const chave = valor(env, 'XIAOMI_API_KEY')

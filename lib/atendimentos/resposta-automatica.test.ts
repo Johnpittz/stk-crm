@@ -50,7 +50,25 @@ describe("gatilho de identificação de conta na automação", () => {
     expect(identificar).not.toHaveBeenCalled();
   });
 
-  it("falha na análise NUNCA derruba a automação da conversa", async () => {
+  it("mensagem de IMAGEM dispara a análise mesmo sem palavra de conta", async () => {
+    await executarAutomacao({
+      ...params("[image]"),
+      midia: { url: "https://x/m.png", tipo: "image" },
+    })
+    expect(identificarOportunidadeDaConta).toHaveBeenCalledTimes(1)
+    const arg = (identificarOportunidadeDaConta as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    expect(arg.midia?.tipo).toBe("image")
+  })
+
+  it("mídia de áudio/vídeo não dispara (não é conta)", async () => {
+    await executarAutomacao({
+      ...params("[audio]"),
+      midia: { url: "https://x/a.ogg", tipo: "audio" },
+    })
+    expect(identificarOportunidadeDaConta).not.toHaveBeenCalled()
+  })
+
+  it("falha na análise nunca derruba a automação", async () => {
     identificar.mockRejectedValueOnce(new Error("IA explodiu"));
     const r = await executarAutomacao(params("a conta veio 6 mil reais"));
     expect(r.responsavel).toBeTruthy(); // segue o fluxo normal (humano, IA off no teste)

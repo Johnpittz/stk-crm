@@ -16,6 +16,8 @@ import {
   aplicarRegras,
   extrairAnalise,
   montarPromptClassificacao,
+  ehMidiaAnalisavel,
+  montarMensagemDaFatura,
   LIMIAR_RECIEE,
 } from "./classificar-conta";
 
@@ -120,5 +122,36 @@ describe("montarPromptClassificacao — o que a MIMO recebe", () => {
     expect(p).toContain("JSON");
     expect(p).toContain("valorConta");
     expect(p).toContain("grupo");
+  });
+});
+
+/* ── V2 (06/10): conta chega como IMAGEM ou PDF — MIMO lê a mídia ── */
+
+describe("ehMidiaAnalisavel", () => {
+  it("imagem e documento (PDF) são analisáveis", () => {
+    expect(ehMidiaAnalisavel("image")).toBe(true);
+    expect(ehMidiaAnalisavel("document")).toBe(true);
+    expect(ehMidiaAnalisavel("pdf")).toBe(true);
+  });
+  it("áudio/vídeo/sticker e nada não são", () => {
+    expect(ehMidiaAnalisavel("audio")).toBe(false);
+    expect(ehMidiaAnalisavel("video")).toBe(false);
+    expect(ehMidiaAnalisavel("sticker")).toBe(false);
+    expect(ehMidiaAnalisavel(null)).toBe(false);
+    expect(ehMidiaAnalisavel(undefined)).toBe(false);
+  });
+});
+
+describe("montarMensagemDaFatura", () => {
+  it("junta o texto extraído do PDF com a legenda (quando existe)", () => {
+    const m = montarMensagemDaFatura("CONSUMO 900 kWh VALOR R$ 6.300,00", "fatura de julho");
+    expect(m).toContain("fatura de julho");
+    expect(m).toContain("6.300,00");
+    expect(m).toContain("PDF");
+  });
+  it("sem legenda, vai só o texto do arquivo", () => {
+    const m = montarMensagemDaFatura("CONSUMO 300 kWh");
+    expect(m).not.toContain("legenda");
+    expect(m).toContain("300 kWh");
   });
 });
