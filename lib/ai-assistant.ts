@@ -16,6 +16,7 @@ import {
   montarBlocoConhecimento,
   baseVazia,
   detectarEncaminhamento,
+  filtrarBasePorVendedor,
   MARCADOR_ENCAMINHAR,
   type EntradaConhecimento,
 } from './base-conhecimento'
@@ -101,18 +102,22 @@ ${mensagemCliente}`
  * Busca a base de conhecimento ativa. Erro de banco não vira "resposta
  * inventada": devolve null e o chamador cai no encaminhamento.
  */
-export async function carregarBaseConhecimento(supabase: any): Promise<EntradaConhecimento[] | null> {
+export async function carregarBaseConhecimento(
+  supabase: any,
+  /** PEDIDO 2: dono da conversa — a base de terceiros nunca entra. */
+  vendedorId?: string | null,
+): Promise<EntradaConhecimento[] | null> {
   try {
     const { data, error } = await supabase
       .from('base_conhecimento')
-      .select('id, categoria, titulo, conteudo, palavras_chave, ativo')
+      .select('id, categoria, titulo, conteudo, palavras_chave, ativo, vendedor_id')
       .order('categoria', { ascending: true })
       .order('titulo', { ascending: true })
     if (error) {
       console.error('[Gemini AI] Erro ao carregar base de conhecimento:', error.message)
       return null
     }
-    return (data ?? []) as EntradaConhecimento[]
+    return filtrarBasePorVendedor((data ?? []) as EntradaConhecimento[], vendedorId)
   } catch (err: any) {
     console.error('[Gemini AI] Erro ao carregar base de conhecimento:', err.message)
     return null
@@ -126,6 +131,8 @@ interface ParamsRespostaIA {
   /** Passado pelo webhook; se ausente, a base não é consultada. */
   supabase?: any
   base?: EntradaConhecimento[] | null
+  /** PEDIDO 2: vendedor dono do atendimento — filtra a base carregada. */
+  vendedorId?: string | null
 }
 
 /**
@@ -137,7 +144,7 @@ export async function responderComBase(params: ParamsRespostaIA): Promise<Result
 
   let base = params.base
   if (base === undefined) {
-    base = supabase ? await carregarBaseConhecimento(supabase) : []
+    base = supabase ? await carregarBaseConhecimento(supabase, params.vendedorId) : []
   }
   if (base === null) {
     return { texto: null, encaminhar: true, motivo: 'erro_ia' }

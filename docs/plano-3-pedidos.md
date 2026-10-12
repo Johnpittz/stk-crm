@@ -22,7 +22,10 @@ Guia simples .docx entregue ao João.
 - **Leitura:** ranking de vendedores por valor, mix por produto em
   barra, destaque "💡 Produto líder — direcione mais demanda".
 
-## PEDIDO 2 — Base de Conhecimento do Vendedor (decidido, não iniciado)
+## PEDIDO 2 — Base de Conhecimento do Vendedor ✅ CÓDIGO PRONTO (11/10)
+**Aguardando o João rodar `supabase/migrations/096_base_vendedor_cursos.sql`
+→ depois do "aplicou", fazer o PUSH** (senão a query da IA quebra pedindo
+a coluna `vendedor_id`). Depois do push: guia .docx entregue.
 
 - A **IA do atendimento usa a base do vendedor dono da conversa**
   (somando à global) + vendedor consulta na tela.

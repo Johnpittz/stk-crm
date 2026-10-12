@@ -4,7 +4,25 @@
 
 ---
 
-## 1.8.15 — 11/10/2026
+## 1.8.16 — 11/10/2026 (LOCAL — aguarda migration 096)
+
+- **PEDIDO 2 — Base de Conhecimento do Vendedor.**
+  - `base_conhecimento` ganha `vendedor_id` (NULL = global, UUID = base
+    de um vendedor) — migration `096_base_vendedor_cursos.sql`;
+  - a IA do atendimento agora carrega a base filtrada pelo VENDEDOR
+    dono da conversa (globais + as dele, nunca a de terceiros) —
+    `filtrarBasePorVendedor` + `carregarBaseConhecimento(supabase,
+    vendedorId)` + `responderComBase({ vendedorId })`, com o dono lido
+    no `executarAutomacao`;
+  - Configurações → Base: select "Dono da entrada" (Global/vendedor) e
+    badge na lista;
+  - nova tabela `base_cursos` (cursos do SINERGIA: nome, URL, público)
+    com CRUD na mesma tela;
+  - nova tela **"Minha Base"** no menu (`/minha-base`): entradas
+    globais + as do vendedor (somente leitura) e botões dos cursos que
+    abrem a plataforma do SINERGIA.
+  Testes: `filtrarBasePorVendedor` (4), `ai-assistant-vendedor` (4),
+  `resposta-automatica` +1 → 490 no total; tsc/build/unittest verdes.
 
 - **PEDIDO 1 — Dashboard "Potencial de Vendas".** Nova tela no menu
   (ícone TrendingUp) `/potencial-vendas` + rota

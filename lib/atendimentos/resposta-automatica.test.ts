@@ -14,7 +14,9 @@ vi.mock("../ai-assistant", () => ({
 }));
 
 import { executarAutomacao, type ParamsAutomacao } from "./resposta-automatica";
+// (PEDIDO 2) os mocks logo acima já controlam estes dois
 import { identificarOportunidadeDaConta } from "../ia/identificar-oportunidade";
+import { verificarIAAtivada, responderComBase } from "../ai-assistant";
 
 const identificar = vi.mocked(identificarOportunidadeDaConta);
 
@@ -80,5 +82,30 @@ describe("gatilho de identificação de conta na automação", () => {
     const r = await executarAutomacao(p);
     expect(identificar).toHaveBeenCalledTimes(1);
     expect(r.action).toBe("resposta_do_chatbot");
+  });
+});
+
+describe("PEDIDO 2 — a IA recebe a base do vendedor dono do atendimento", () => {
+  it("passa vendedorId (lido do atendimento) para responderComBase", async () => {
+    vi.mocked(verificarIAAtivada).mockResolvedValueOnce(true);
+    const supabaseStub = {
+      from: (t: string) =>
+        t === "atendimentos"
+          ? {
+              select: () => ({
+                eq: () => ({
+                  single: async () => ({ data: { vendedor_id: "ven-9" }, error: null }),
+                }),
+              }),
+            }
+          : { insert: async () => ({ error: null }) },
+    };
+    await executarAutomacao({ ...params("olá, bom dia"), supabase: supabaseStub as never });
+
+    expect(responderComBase).toHaveBeenCalledTimes(1);
+    const arg = vi.mocked(responderComBase).mock.calls[0][0] as { vendedorId?: string | null };
+    expect(arg.vendedorId).toBe("ven-9");
+    vi.mocked(verificarIAAtivada).mockClear();
+    vi.mocked(responderComBase).mockClear();
   });
 });

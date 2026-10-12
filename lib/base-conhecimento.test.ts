@@ -6,6 +6,7 @@ import {
   palavrasChaveDe,
   normalizarTexto,
   baseVazia,
+  filtrarBasePorVendedor,
   MARCADOR_ENCAMINHAR,
   type EntradaConhecimento,
 } from './base-conhecimento'
@@ -201,5 +202,39 @@ describe('coberturaDaBase — bateria de conversas-teste', () => {
   it('entende acento: "voce entregam?" casa com "entrega"', () => {
     const achada = coberturaDaBase('Vocês entregam amanhã?', base)
     expect(achada?.titulo).toBe('Prazo de entrega')
+  })
+})
+
+describe('filtrarBasePorVendedor (PEDIDO 2 — base do vendedor, 11/10)', () => {
+  const global: EntradaConhecimento = {
+    id: 'g1', categoria: 'Geral', titulo: 'Sobre a STK', conteudo: 'Somos de Goiânia.', ativo: true,
+  }
+  const daJoana: EntradaConhecimento = {
+    id: 'j1', categoria: 'Minha', titulo: 'Tabela da Joana', conteudo: 'Desconto especial 10%.', ativo: true,
+    vendedor_id: 'ven-joana',
+  }
+  const doPedro: EntradaConhecimento = {
+    id: 'p1', categoria: 'Minha', titulo: 'Tabela do Pedro', conteudo: 'Frete grátis região sul.', ativo: true,
+    vendedor_id: 'ven-pedro',
+  }
+  const todos = [global, daJoana, doPedro]
+
+  it('vendedor vê as globais + as dele (e não as dos outros)', () => {
+    const r = filtrarBasePorVendedor(todos, 'ven-joana')
+    expect(r.map((e) => e.id)).toEqual(['g1', 'j1'])
+  })
+
+  it('conversa sem vendedor dono → só as globais (nunca vaza base de alguém)', () => {
+    expect(filtrarBasePorVendedor(todos, null).map((e) => e.id)).toEqual(['g1'])
+    expect(filtrarBasePorVendedor(todos, undefined).map((e) => e.id)).toEqual(['g1'])
+  })
+
+  it('linha antiga sem o campo vendedor_id conta como global', () => {
+    const antiga = { id: 'a1', categoria: 'Geral', titulo: 'Antiga', conteudo: 'ok', ativo: true }
+    expect(filtrarBasePorVendedor([antiga, daJoana], 'ven-x').map((e) => e.id)).toEqual(['a1'])
+  })
+
+  it('lista vazia devolve vazia', () => {
+    expect(filtrarBasePorVendedor([], 'ven-x')).toEqual([])
   })
 })

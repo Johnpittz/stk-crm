@@ -20,6 +20,28 @@ export interface EntradaConhecimento {
   /** text[] no Supabase, ou string "a, b, c" — aceita as duas formas. */
   palavras_chave?: string[] | string | null
   ativo?: boolean | null
+  /**
+   * PEDIDO 2 (11/10): dono da entrada. `null`/ausente = global (vista por
+   * todos e usada pela IA em qualquer conversa); com UUID = base de um
+   * vendedor específico, usada pela IA nas conversas dele.
+   */
+  vendedor_id?: string | null
+}
+
+/**
+ * PEDIDO 2 — mantém só as globais + as do vendedor dono da conversa.
+ * Nunca devolve a base de OUTRO vendedor; conversa sem dono → só globais.
+ */
+export function filtrarBasePorVendedor(
+  entradas: EntradaConhecimento[],
+  vendedorId?: string | null,
+): EntradaConhecimento[] {
+  return (entradas ?? []).filter((e) => {
+    const dono = e.vendedor_id
+    if (dono == null || dono === '') return true
+    if (!vendedorId) return false
+    return dono === vendedorId
+  })
 }
 
 /** Palavras comuns que não servem de sinal de cobertura. */

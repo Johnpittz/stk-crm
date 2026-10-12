@@ -107,6 +107,20 @@ export async function executarAutomacao(p: ParamsAutomacao): Promise<ResultadoAu
 
   const historico = p.buscarHistorico ? await p.buscarHistorico().catch(() => []) : []
 
+  // ── PEDIDO 2: quem é o dono desta conversa? A IA recebe a base DELE
+  // (somada às globais). Falha aqui nunca pode derrubar a resposta.
+  let vendedorId: string | null = null
+  try {
+    const { data: atendimento } = await p.supabase
+      .from('atendimentos')
+      .select('vendedor_id')
+      .eq('id', p.atendimentoId)
+      .single()
+    vendedorId = atendimento?.vendedor_id ?? null
+  } catch (err: any) {
+    console.error('[Automacao] Não consegui ler o vendedor do atendimento:', err?.message)
+  }
+
   let resultado
   try {
     resultado = await responderComBase({
@@ -114,6 +128,7 @@ export async function executarAutomacao(p: ParamsAutomacao): Promise<ResultadoAu
       nomeCliente: p.nomeCliente,
       historico,
       supabase: p.supabase,
+      vendedorId,
     })
   } catch (err: any) {
     console.error('[Automacao] Erro na IA:', err?.message)

@@ -130,7 +130,10 @@ está** no env do worker (verificado por tamanho, 28/09) — não é mais pendê
 
 ## 3. Próxima ação (de onde parar)
 
-### 3 PEDIDOS DO JOÃO (11/10) — plano completo em `docs/plano-3-pedidos.md`:
+### 3 PEDIDOS DO JOÃO (11/10) — plano completo em `docs/plano-3-pedidos.md`
+- **Pedido 1 ✅ PUBLICADO** (`47758ad`, CHANGELOG 1.8.15) — guia .docx entregue.
+- **Pedido 2 ⏳ COMMIT LOCAL, aguardando SQL `096` do João** → push → guia.
+- **Pedido 3 (artes + disparo)** não iniciado.:
 1. **Potencial de Vendas — PUBLICADO (11/10, 1.8.15):** tela
    `/potencial-vendas` + rota `/api/dashboard/potencial-vendas` +
    `lib/dashboard/potencial.ts`. Venda = `resultado='sucesso'` +

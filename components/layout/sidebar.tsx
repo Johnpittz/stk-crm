@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   TrendingUp,
+  BookOpen,
   Headset,
   Users,
   Package,
@@ -83,6 +84,13 @@ const navItemsPorPerfil: Record<PerfilAtivo, Array<{
       label: "Potencial de Vendas",
       icon: TrendingUp,
       description: "Quem vendeu, de qual produto",
+    },
+    {
+      // PEDIDO 2 (11/10) — base da IA do vendedor + cursos do SINERGIA
+      href: "/minha-base",
+      label: "Minha Base",
+      icon: BookOpen,
+      description: "Base da IA + cursos",
     },
     {
       href: "/clientes",
@@ -208,6 +216,13 @@ const navItemsPorPerfil: Record<PerfilAtivo, Array<{
       label: "Potencial de Vendas",
       icon: TrendingUp,
       description: "Quem vendeu, de qual produto",
+    },
+    {
+      // PEDIDO 2 (11/10) — base da IA do vendedor + cursos do SINERGIA
+      href: "/minha-base",
+      label: "Minha Base",
+      icon: BookOpen,
+      description: "Base da IA + cursos",
     },
     {
       href: "/clientes",
