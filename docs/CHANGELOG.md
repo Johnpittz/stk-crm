@@ -4,7 +4,21 @@
 
 ---
 
-## 1.8.16 — 11/10/2026 (LOCAL — aguarda migration 096)
+## 1.8.17 — 11/10/2026 (LOCAL — aguarda migration 097 + chave Gemini)
+
+- **PEDIDO 3 — Criar Artes (MARKETING).** Tela
+  `/marketing/artes` + item "Criar Artes" no grupo Marketing do menu:
+  assistente guiado (tipo de post → assunto/texto/estilo → prévia do
+  "grande prompt") → Gemini Nano Banana gera a imagem → galeria com
+  Baixar/Excluir e **Disparar** (vai para `/disparo?arte=` com a
+  imagem já carregada + banner de passo a passo). Rota
+  `/api/marketing/artes` (GET/POST/DELETE, maxDuration 60); prompt em
+  `lib/marketing/gerar-prompt` e receita do AUTOIMAGEM em
+  `lib/marketing/gemini-imagem` (GEMINI_API_KEY só no ambiente da
+  Vercel). Migration `097_artes.sql` (tabela `artes`). Supabase fake
+  ganhou `delete()` + `getPublicUrl`. Testes: gerar-prompt,
+  gemini-imagem, rota artes.
+
 
 - **PEDIDO 2 — Base de Conhecimento do Vendedor.**
   - `base_conhecimento` ganha `vendedor_id` (NULL = global, UUID = base

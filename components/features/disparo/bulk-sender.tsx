@@ -59,6 +59,8 @@ export function BulkSender() {
     name: string;
   } | null>(null);
   const [creating, setCreating] = useState(false);
+  // banner "veio da galeria" (PEDIDO 3)
+  const [arteDe, setArteDe] = useState<string | null>(null);
   const [instancias, setInstancias] = useState<InstanciaWhatsApp[]>([]);
   const supabase = createClient();
 
@@ -68,6 +70,36 @@ export function BulkSender() {
       .then((r) => r.json())
       .then((d) => setInstancias(d.instancias || []))
       .catch(() => {});
+  }, []);
+
+  // PEDIDO 3 (11/10) — veio da galeria (Marketing > Criar Artes):
+  // ?arte=<url> carrega a imagem pronta no formulário de disparo.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const arteUrl = params.get("arte");
+    if (!arteUrl) return;
+    (async () => {
+      try {
+        const resp = await fetch(arteUrl);
+        const blob = await resp.blob();
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = reader.result as string;
+          setNewImage({
+            base64: dataUrl,
+            preview: dataUrl,
+            mimetype: blob.type || "image/png",
+            name: params.get("arte_titulo") || "arte.png",
+          });
+        };
+        reader.readAsDataURL(blob);
+        setArteDe(params.get("arte_titulo") || "Arte da galeria");
+        // limpa a URL para um refresh futuro não recarregar sozinho
+        window.history.replaceState({}, "", "/disparo");
+      } catch (err) {
+        console.error("Erro ao carregar a arte para disparo:", err);
+      }
+    })();
   }, []);
 
   // Handler para seleção de imagem
@@ -173,6 +205,7 @@ export function BulkSender() {
       if (res.ok) {
         setNewCampaign({ name: "", message: "", numbers: "" });
         setNewImage(null);
+        setArteDe(null);
         fetchCampaigns();
       }
     } catch (err) {
@@ -327,6 +360,13 @@ export function BulkSender() {
                 }
               />
             </div>
+
+            {arteDe && (
+              <div className="text-xs text-[#7ea6ff] bg-[#3B64CF]/10 border border-[#3B64CF]/30 rounded-lg p-2">
+                🎨 Arte carregada da galeria: <b>{arteDe}</b> — confira a imagem abaixo,
+                escreva a mensagem, escolha os números e clique em criar o disparo.
+              </div>
+            )}
 
             {/* Imagem (opcional) */}
             <div>

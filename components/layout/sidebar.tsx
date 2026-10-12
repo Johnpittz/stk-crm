@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   TrendingUp,
   BookOpen,
+  Palette,
   Headset,
   Users,
   Package,
@@ -132,6 +133,13 @@ const navItemsPorPerfil: Record<PerfilAtivo, Array<{
       label: "Campanhas",
       icon: Megaphone,
       description: "Criar campanhas e disparos",
+    },
+    {
+      // PEDIDO 3 (11/10) — artes personalizadas com IA (Gemini) + disparo
+      href: "/marketing/artes",
+      label: "Criar Artes",
+      icon: Palette,
+      description: "Artes com IA e disparo",
     },
     {
       // F0.3 — o Disparo é do MARKETING (decisão D3). Tela canônica: BulkSender.

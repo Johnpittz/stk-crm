@@ -130,7 +130,16 @@ está** no env do worker (verificado por tamanho, 28/09) — não é mais pendê
 
 ## 3. Próxima ação (de onde parar)
 
-### 3 PEDIDOS DO JOÃO (11/10) — plano completo em `docs/plano-3-pedidos.md`
+### 3 PEDIDOS DO JOÃO (11/10) — plano completo em `docs/plano-3-pedidos.md`:
+- **PEDIDO 1 ✅** publicado (`47758ad`) · **PEDIDO 2 ✅** publicado
+  (migration 096 aplicada pelo João, push `05516d7`) — guias .docx
+  entregues.
+- **PEDIDO 3 (artes) CÓDIGO PRONTO em commit LOCAL** (1.8.17):
+  aguarda o João aplicar `supabase/migrations/097_artes.sql`
+  (projeto STK) **e** cadastrar `GEMINI_API_KEY` nos env da Vercel
+  (projeto stk-crm-amber) — depois do aviso dele, fazer o push e
+  testar geração de verdade (foto de conta/PDF testável com o número
+  de teste 6282735286).
 - **Pedido 1 ✅ PUBLICADO** (`47758ad`, CHANGELOG 1.8.15) — guia .docx entregue.
 - **Pedido 2 ⏳ COMMIT LOCAL, aguardando SQL `096` do João** → push → guia.
 - **Pedido 3 (artes + disparo)** não iniciado.:

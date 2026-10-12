@@ -117,6 +117,13 @@ function criarCenario(): CenarioFake {
 
       const linhas = filtrar();
 
+      // PEDIDO 3 (11/10): DELETE com filtros (id + created_by)
+      if (est.mutacao?.tipo === "delete") {
+        const alvo = new Set(linhas);
+        tabelas[tabela] = (tabelas[tabela] ?? []).filter((l) => !alvo.has(l));
+        return null;
+      }
+
       if (est.mutacao?.tipo === "update") {
         for (const linha of linhas) {
           Object.assign(linha, est.mutacao.payload, { updated_at: agora() });
@@ -191,6 +198,10 @@ function criarCenario(): CenarioFake {
         est.mutacao = { tipo: "upsert", payload, onConflict: opts?.onConflict };
         return b;
       },
+      delete: () => {
+        est.mutacao = { tipo: "delete", payload: {} as Registro };
+        return b;
+      },
       single: async () => {
         const erro = erroTabela();
         if (erro) return { data: null, error: erro };
@@ -244,6 +255,9 @@ function criarCenario(): CenarioFake {
           ? { data: arquivo, error: null }
           : { data: null, error: { message: "Object not found" } };
       },
+      getPublicUrl: (path: string) => ({
+        data: { publicUrl: `https://fake.local/storage/v1/object/public/media/${path}` },
+      }),
     }),
   };
 

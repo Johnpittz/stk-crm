@@ -37,7 +37,8 @@ a coluna `vendedor_id`). Depois do push: guia .docx entregue.
 - ⚠️ Não mexer nos cursos do SINERGIA (o sistema de cursos de lá segue
   intacto — só linkamos).
 
-## PEDIDO 3 — Artes personalizadas + Disparo, em MARKETING (decidido, não iniciado)
+## PEDIDO 3 — Arte personalizada + disparo (MARKETING) ✅ CÓDIGO PRONTO (11/10)
+Aguarda: migration 097_artes.sql + GEMINI_API_KEY na Vercel → push.
 
 - **Assistente guiado:** escolhe tipo de post (feed Insta, story,
   Facebook, capa…) + campos (produto, estilo, texto, CTA) → tudo vira
