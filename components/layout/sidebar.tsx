@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
+  TrendingUp,
   Headset,
   Users,
   Package,
@@ -75,6 +76,13 @@ const navItemsPorPerfil: Record<PerfilAtivo, Array<{
       label: "Dashboard",
       icon: LayoutDashboard,
       description: "Visão gerencial",
+    },
+    {
+      // PEDIDO 1 (11/10) — potencial de vendas por vendedor × produto
+      href: "/potencial-vendas",
+      label: "Potencial de Vendas",
+      icon: TrendingUp,
+      description: "Quem vendeu, de qual produto",
     },
     {
       href: "/clientes",
@@ -193,6 +201,13 @@ const navItemsPorPerfil: Record<PerfilAtivo, Array<{
       label: "Dashboard",
       icon: LayoutDashboard,
       description: "Visão gerencial",
+    },
+    {
+      // PEDIDO 1 (11/10) — potencial de vendas por vendedor × produto
+      href: "/potencial-vendas",
+      label: "Potencial de Vendas",
+      icon: TrendingUp,
+      description: "Quem vendeu, de qual produto",
     },
     {
       href: "/clientes",

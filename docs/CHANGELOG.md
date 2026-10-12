@@ -4,7 +4,20 @@
 
 ---
 
-## 1.8.14 — 06/10/2026
+## 1.8.15 — 11/10/2026
+
+- **PEDIDO 1 — Dashboard "Potencial de Vendas".** Nova tela no menu
+  (ícone TrendingUp) `/potencial-vendas` + rota
+  `/api/dashboard/potencial-vendas` + lib pura
+  `lib/dashboard/potencial.ts`. Venda confirmada = `oportunidades
+  .resultado = 'sucesso'` (janela por `updated_at`, ?dias=30/90/180);
+  agrupa por vendedor com mix por PRODUTO (o que ele vendeu mais) e
+  destaca o produto líder para a gestão direcionar demanda. Perfil Fase 4
+  no servidor: vendedor vê só o dele. Sem migration (colunas já
+  existiam). Testes: `lib/dashboard/potencial.test.ts` (6) +
+  `route.test.ts` (5).
+
+
 
 - **IA de conta V2: analisa FOTO e PDF do cliente (visão MIMO).** A conta
   pode chegar como imagem ou arquivo no WhatsApp — antes só texto era

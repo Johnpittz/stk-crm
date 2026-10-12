@@ -130,6 +130,20 @@ está** no env do worker (verificado por tamanho, 28/09) — não é mais pendê
 
 ## 3. Próxima ação (de onde parar)
 
+### 3 PEDIDOS DO JOÃO (11/10) — plano completo em `docs/plano-3-pedidos.md`:
+1. **Potencial de Vendas — PUBLICADO (11/10, 1.8.15):** tela
+   `/potencial-vendas` + rota `/api/dashboard/potencial-vendas` +
+   `lib/dashboard/potencial.ts`. Venda = `resultado='sucesso'` +
+   `valor_venda`, janela por `updated_at`, mix por produto + produto
+   líder, perfil Fase 4 (vendedor só o dele). Próximos: **2. Base do
+   vendedor** (IA usa base do vendedor dono da conversa; cursos do
+   SINERGIA = links/botões) e **3. Artes + Disparo em MARKETING**
+   (assistente guiado → um prompt → Gemini `gemini-2.5-flash-image`
+   receita do `/root/autoimagem`; key GEMINI_API_KEY entra na Vercel;
+   botão Disparar → fila BulkSender que já aceita `imagem_url`).
+   Guia .docx simples no fim de cada pedido.
+
+
 ### IA DE CONTA (06/10) — MIMO identifica oportunidades (V2: texto + FOTO/PDF):
 - Fluxo: mensagem do cliente (texto com palavra de conta OU foto/PDF) →
   pré-filtro (`mensagemFalaDeConta`/`ehMidiaAnalisavel`) → MIMO extrai
