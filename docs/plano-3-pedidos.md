@@ -42,6 +42,13 @@ Migration 097 aplicada + GEMINI_API_KEY na Vercel → push `a68c8d9`;
 teste real: arte gerada ao vivo (Gemini, ~8s, PNG 993KB no bucket) e
 botão Disparar entregou a imagem no /disparo. Guia .docx entregue.
 
+**MELHORIA (12/10) — imagens de referência estilo AUTOIMAGEM:** admin sobe
+logo/foto na tela de artes → vira marker `{{slug}}` citável no Observações
+(sem citar → na frente do pedido). Pronto local: tabela `artes_referencias`
+(**migration 098**), rota `/api/marketing/artes/referencias`, `montarPartesImagem`
++ `partes` no Gemini, seção na tela; 521 testes verdes. ⏳ aguarda SQL 098 →
+push → teste ao vivo → guia atualizado.
+
 - **Assistente guiado:** escolhe tipo de post (feed Insta, story,
   Facebook, capa…) + campos (produto, estilo, texto, CTA) → tudo vira
   **um prompt grande** → **Gemini** gera a arte (`GEMINI_API_KEY` na

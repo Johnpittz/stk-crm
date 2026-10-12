@@ -131,6 +131,42 @@ describe("POST /api/marketing/artes — gerar com Gemini", () => {
     expect(corpo.error).toMatch(/GEMINI_API_KEY/);
   });
 
+  it("MELHORIA 12/10: com referência ativa, a imagem vai junto no Gemini", async () => {
+    logar("adm-1");
+    vi.stubEnv("GEMINI_API_KEY", "chave");
+    cenario.tabelas.artes_referencias = [
+      { id: "r1", nome: "Logo", marker: "logo", imagem_url: "https://fake.local/logo.png", ativo: true, created_by: "adm" },
+    ];
+    const fetchMock = vi.fn(async (url: any, init?: RequestInit) => {
+      if (String(url).includes("generativelanguage")) {
+        return {
+          ok: true, status: 200,
+          json: async () => ({ candidates: [{ content: { parts: [{ inlineData: { mimeType: "image/png", data: "Zm90bw==" } }] } }] }),
+        };
+      }
+      return {
+        ok: true, status: 200,
+        headers: { get: () => "image/png" },
+        arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const res = await POST(req("http://localhost/api/marketing/artes", {
+      method: "POST",
+      body: JSON.stringify({ ...corpoOk, observacoes: "usar o logo {{logo}}" }),
+    }));
+    expect(res.status).toBe(201);
+    const gemini = fetchMock.mock.calls.find(([u]) => String(u).includes("generativelanguage"));
+    const body = JSON.parse(String((gemini![1] as RequestInit).body));
+    const parts = body.contents[0].parts;
+    expect(parts.length).toBeGreaterThanOrEqual(3);
+    expect(JSON.stringify(parts)).toContain("inlineData");
+    expect(JSON.stringify(parts)).not.toContain("{{logo}}");
+    const listaRes = await GET(req());
+    const lista = await listaRes.json();
+    expect(lista.artes[0].prompt).toContain("{{logo}}");
+  });
+
   it("400 para formato fora do catálogo (sem chamar a IA)", async () => {
     logar("ven-1");
     const fetchMock = vi.fn();

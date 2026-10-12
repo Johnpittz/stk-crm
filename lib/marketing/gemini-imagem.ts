@@ -49,6 +49,8 @@ function mensagemDeErro(corpo: unknown, status: number): string {
 export async function gerarImagemGemini(p: {
   apiKey?: string;
   prompt: string;
+  /** MELHORIA 12/10: partes prontas (texto + referências). */
+  partes?: unknown[];
   model?: string;
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
@@ -67,7 +69,13 @@ export async function gerarImagemGemini(p: {
       method: "POST",
       headers: { "content-type": "application/json", "x-goog-api-key": chave },
       body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: p.prompt }] }],
+        contents: [
+          {
+            role: "user",
+            parts:
+              p.partes && p.partes.length > 0 ? p.partes : [{ text: p.prompt }],
+          },
+        ],
       }),
       signal: AbortSignal.timeout(p.timeoutMs ?? 50_000),
     });

@@ -13,11 +13,43 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { montarPromptArte, FORMATOS_ARTE } from "@/lib/marketing/gerar-prompt";
+import {
+  montarPromptArte,
+  montarPartesImagem,
+  FORMATOS_ARTE,
+  type ReferenciaImagem,
+} from "@/lib/marketing/gerar-prompt";
 import { gerarImagemGemini } from "@/lib/marketing/gemini-imagem";
 import { uploadMediaToStorage } from "@/lib/media-storage";
 
 export const dynamic = "force-dynamic";
+
+type LinhaRef = { marker: string; imagem_url: string };
+
+/**
+ * MELHORIA 12/10 — baixa as referências (bucket público) em base64.
+ * Falha em uma delas não derruba a geração: ela é simplesmente pulada.
+ */
+async function baixarReferencias(linhas: LinhaRef[]): Promise<ReferenciaImagem[]> {
+  const saida: ReferenciaImagem[] = [];
+  for (const linha of linhas) {
+    try {
+      if (!linha?.imagem_url || !linha.marker) continue;
+      const resp = await fetch(linha.imagem_url, { signal: AbortSignal.timeout(8_000) });
+      if (!resp.ok) continue;
+      const buffer = Buffer.from(await resp.arrayBuffer());
+      if (buffer.length === 0 || buffer.length > 3_000_000) continue;
+      saida.push({
+        marker: linha.marker,
+        data: buffer.toString("base64"),
+        mimeType: (resp.headers.get("content-type") || "image/png").split(";")[0],
+      });
+    } catch (err: any) {
+      console.warn("[Artes] referência não baixada:", linha.marker, err?.message);
+    }
+  }
+  return saida;
+}
 /** Geração de imagem costuma levar 10–30s — teto da função na Vercel. */
 export const maxDuration = 60;
 
@@ -86,12 +118,23 @@ export async function POST(request: NextRequest) {
       observacoes: body?.observacoes ?? null,
     });
 
+    // 0) MELHORIA 12/10 — referências ativas (logo/foto) entram no
+    // Gemini posicionadas pelo marker {{nome}} ou na frente do texto.
+    const { data: refs } = await createAdminClient()
+      .from("artes_referencias")
+      .select("marker, imagem_url")
+      .eq("ativo", true)
+      .limit(8);
+    const referencias = await baixarReferencias((refs ?? []) as LinhaRef[]);
+    const partes = montarPartesImagem(prompt, referencias);
+
     // 1) Gemini gera a imagem (Nano Banana)
     let imagem;
     try {
       imagem = await gerarImagemGemini({
         apiKey,
         prompt,
+        partes,
         model: process.env.GEMINI_IMAGE_MODEL,
       });
     } catch (err: any) {

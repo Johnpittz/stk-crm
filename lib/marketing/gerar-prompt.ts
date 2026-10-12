@@ -77,3 +77,59 @@ export function montarPromptArte(c: CamposArte): string {
   );
   return linhas.join("\n");
 }
+
+/* ── MELHORIA 12/10: imagens de referência (receita do AUTOIMAGEM) ── */
+
+/** Nome da referência → marker estável: "Logo STK" → logo_stk. */
+export function slugificarMarker(nome: string): string {
+  const slug = String(nome ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return slug || "imagem";
+}
+
+export interface ReferenciaImagem {
+  marker: string;
+  data: string; // base64 puro (sem prefixo data:)
+  mimeType: string;
+}
+
+export type ParteGemini =
+  | { type: "text"; text: string }
+  | { inlineData: { mimeType: string; data: string } };
+
+/**
+ * Prompt com {{marker}} → a imagem entra NAQUELE ponto do texto;
+ * referência não citada vai na frente mesmo assim (sempre participa).
+ * Marker sem referência cadastrada fica no texto (não quebra nada).
+ */
+export function montarPartesImagem(
+  prompt: string,
+  referencias: ReferenciaImagem[],
+): ParteGemini[] {
+  if (!referencias || referencias.length === 0) return [{ type: "text", text: prompt }];
+  const citadas: ReferenciaImagem[] = [];
+  const naoCitadas: ReferenciaImagem[] = [];
+  for (const r of referencias) {
+    if (prompt.includes(`{{${r.marker}}}`)) citadas.push(r);
+    else naoCitadas.push(r);
+  }
+  const partes: ParteGemini[] = naoCitadas.map((r) => ({
+    inlineData: { mimeType: r.mimeType, data: r.data },
+  }));
+  let resto = prompt;
+  for (const r of citadas) {
+    const marca = `{{${r.marker}}}`;
+    const i = resto.indexOf(marca);
+    if (i < 0) continue;
+    const antes = resto.slice(0, i);
+    if (antes) partes.push({ type: "text", text: antes });
+    partes.push({ inlineData: { mimeType: r.mimeType, data: r.data } });
+    resto = resto.slice(i + marca.length);
+  }
+  if (resto) partes.push({ type: "text", text: resto });
+  return partes;
+}

@@ -58,6 +58,29 @@ describe("gerarImagemGemini", () => {
     expect(body.contents[0].parts[0].text).toContain("painéis solares");
   });
 
+  it("MELHORIA 12/10: aceita partes prontas (texto + imagens de referência)", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        candidates: [{ content: { parts: [{ inlineData: { mimeType: "image/png", data: "Zm90bw==" } }] } }],
+      }),
+    }));
+    await gerarImagemGemini({
+      apiKey: "chave",
+      prompt: "usado só quando não há partes",
+      partes: [
+        { text: "edite esta foto" },
+        { inlineData: { mimeType: "image/png", data: "bG9nbw==" } },
+      ],
+      fetchImpl: fetchMock as any,
+    });
+    const body = JSON.parse(String((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body));
+    expect(body.contents[0].parts).toHaveLength(2);
+    expect(body.contents[0].parts[0].text).toBe("edite esta foto");
+    expect(body.contents[0].parts[1].inlineData.data).toBe("bG9nbw==");
+  });
+
   it("HTTP 401 (chave recusada) lança mensagem clara", async () => {
     vi.stubGlobal(
       "fetch",

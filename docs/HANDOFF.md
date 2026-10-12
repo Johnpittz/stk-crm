@@ -138,9 +138,11 @@ está** no env do worker (verificado por tamanho, 28/09) — não é mais pendê
   + GEMINI_API_KEY na Vercel; teste real OK (arte gerada ao vivo via
   Gemini em ~8s, botão Disparar carrega a imagem no /disparo).
   Todos os 3 pedidos encerrados — guias .docx entregues.
-- **Pedido 1 ✅ PUBLICADO** (`47758ad`, CHANGELOG 1.8.15) — guia .docx entregue.
-- **Pedido 2 ⏳ COMMIT LOCAL, aguardando SQL `096` do João** → push → guia.
-- **Pedido 3 (artes + disparo)** não iniciado.:
+- **MELHORIA 12/10 do Pedido 3 ⏳ COMMIT LOCAL, aguardando SQL `098` do João** → push:
+  imagens de REFERÊNCIA estilo AUTOIMAGEM — tabela `artes_referencias`
+  (migration 098), marker `{{slug}}` citável no Observações da tela de
+  artes, `montarPartesImagem` posiciona a imagem no prompt e o Gemini
+  aceita `partes`. 521 testes + tsc + build verdes localmente.
 1. **Potencial de Vendas — PUBLICADO (11/10, 1.8.15):** tela
    `/potencial-vendas` + rota `/api/dashboard/potencial-vendas` +
    `lib/dashboard/potencial.ts`. Venda = `resultado='sucesso'` +

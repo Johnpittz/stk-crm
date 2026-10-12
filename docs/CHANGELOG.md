@@ -4,6 +4,20 @@
 
 ---
 
+## 1.8.19 — 12/10/2026 (LOCAL — aguarda migration 098)
+
+- **MELHORIA do Pedido 3 — imagens de REFERÊNCIA (estilo AUTOIMAGEM).**
+  Nova tabela `artes_referencias` + CRUD em
+  `/api/marketing/artes/referencias` (PNG/JPG/WEBP até 2,5MB). Cada
+  imagem vira um marker `{{slug}}` citável no campo Observações:
+  `montarPartesImagem` posiciona a imagem no ponto exato do prompt e o
+  Gemini (`gemini-imagem`) agora aceita `partes` (texto+inlineData).
+  Tela: seção "Imagens de referência" com upload, clique no marker para
+  inserir no Observações e exclusão. Ativas e não citadas vão na frente
+  do pedido (comportamento AUTOIMAGEM). Testes: gerar-prompt (4 novos),
+  gemini-imagem (1 novo), rota referências (4 novos), rota artes (1
+  novo) — 521 no total.
+
 ## 1.8.18 — 12/10/2026
 
 - **Docs:** Pedido 3 publicado (`a68c8d9`) — plano dos 3 pedidos,

@@ -29,6 +29,13 @@ type Arte = {
   created_at: string;
 };
 
+type Referencia = {
+  id: string;
+  nome: string;
+  marker: string;
+  imagem_url: string;
+};
+
 const FORMATOS_TELA = [
   { chave: "feed_insta", icone: "📷", nome: "Feed do Instagram", desc: "Quadrado 1080x1080" },
   { chave: "story", icone: "📱", nome: "Story / Reels", desc: "Vertical 1080x1920" },
@@ -54,6 +61,10 @@ export default function CriarArtesPage() {
   const [erro, setErro] = useState<string | null>(null);
   const [artes, setArtes] = useState<Arte[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [referencias, setReferencias] = useState<Referencia[]>([]);
+  const [nomeRef, setNomeRef] = useState("");
+  const [arquivoRef, setArquivoRef] = useState<File | null>(null);
+  const [subindoRef, setSubindoRef] = useState(false);
 
   // "Moderno e limpo (padrão)" = deixar o montador usar o padrão dele
   const estiloEfetivo = estilo.startsWith("Moderno") ? "" : estilo;
@@ -80,7 +91,67 @@ export default function CriarArtesPage() {
 
   useEffect(() => {
     carregar();
+    carregarReferencias();
   }, []);
+
+  async function carregarReferencias() {
+    try {
+      const res = await fetch("/api/marketing/artes/referencias");
+      const json = await res.json();
+      if (res.ok) setReferencias(json.referencias || []);
+    } catch {
+      /* sem referências; a seção fica com o formulário só */
+    }
+  }
+
+  function inserirMarker(r: Referencia) {
+    setObservacoes((o) => (o ? `${o} ` : "") + `{{${r.marker}}}`);
+  }
+
+  async function subirReferencia() {
+    if (!arquivoRef || !nomeRef.trim()) {
+      setErro("Dê um nome e escolha a imagem da referência.");
+      return;
+    }
+    setSubindoRef(true);
+    setErro(null);
+    try {
+      const dataUrl: string = await new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(String(fr.result));
+        fr.onerror = () => reject(new Error("Falha ao ler o arquivo"));
+        fr.readAsDataURL(arquivoRef);
+      });
+      const res = await fetch("/api/marketing/artes/referencias", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome: nomeRef.trim(),
+          base64: dataUrl.split(",")[1] || "",
+          mimetype: arquivoRef.type,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Falha ao enviar a imagem");
+      setNomeRef("");
+      setArquivoRef(null);
+      await carregarReferencias();
+    } catch (e: any) {
+      setErro(e?.message || "Falha ao enviar a imagem");
+    } finally {
+      setSubindoRef(false);
+    }
+  }
+
+  async function excluirReferencia(r: Referencia) {
+    if (!confirm(`Excluir a referência "${r.nome}"?`)) return;
+    try {
+      const res = await fetch(`/api/marketing/artes/referencias?id=${r.id}`, { method: "DELETE" });
+      if (res.ok) setReferencias((lista) => lista.filter((x) => x.id !== r.id));
+    } catch {
+      /* ignora; a próxima carga corrige */
+    }
+  }
 
   async function gerar() {
     if (!assunto.trim() || !texto.trim()) {
@@ -316,6 +387,82 @@ export default function CriarArtesPage() {
                 ))}
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* MELHORIA 12/10 — imagens de referência (logo, foto, cenário) */}
+        <Card className="mt-6 border-white/10 bg-white/[0.03]">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-white">
+              🖼 Imagens de referência (opcional) — logo, foto de produto, cenário
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-xs text-white/50">
+              Clique no marker para inserir no campo <span className="text-white/70">Observações</span>{" "}
+              — a imagem entra exatamente naquele ponto do pedido. Sem citar, ela vai na frente.
+            </p>
+            {referencias.length > 0 && (
+              <div className="flex flex-wrap gap-3">
+                {referencias.map((r) => (
+                  <div
+                    key={r.id}
+                    className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 p-2"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={r.imagem_url}
+                      alt={r.nome}
+                      className="h-12 w-12 rounded object-cover border border-white/10"
+                    />
+                    <div>
+                      <p className="text-xs text-white/80">{r.nome}</p>
+                      <button
+                        onClick={() => inserirMarker(r)}
+                        className="font-mono text-[11px] text-[#3B64CF] hover:underline"
+                        title="Inserir no campo Observações"
+                      >
+                        {`{{${r.marker}}}`}
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => excluirReferencia(r)}
+                      className="ml-1 text-white/40 hover:text-red-400"
+                      title="Excluir referência"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-white/60">Nome (vira o marker)</Label>
+                <Input
+                  value={nomeRef}
+                  onChange={(e) => setNomeRef(e.target.value)}
+                  placeholder="Ex.: Logo STK"
+                  className="h-8 w-44 bg-[#0f1b30] border-[#1c2e4a] text-white"
+                />
+              </div>
+              <label className="flex items-center gap-2 rounded-lg border border-dashed border-white/15 px-3 py-2 text-xs text-white/40 hover:border-[#3B64CF]/50 cursor-pointer">
+                {arquivoRef ? `📎 ${arquivoRef.name}` : "📷 Escolher imagem (PNG/JPG, até 2,5MB)"}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={(e) => setArquivoRef(e.target.files?.[0] ?? null)}
+                />
+              </label>
+              <Button
+                onClick={subirReferencia}
+                disabled={subindoRef || !arquivoRef || !nomeRef.trim()}
+                className="h-8"
+              >
+                {subindoRef ? "Enviando…" : "＋ Adicionar referência"}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
