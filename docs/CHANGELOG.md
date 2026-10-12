@@ -4,7 +4,13 @@
 
 ---
 
-## 1.8.17 — 11/10/2026 (LOCAL — aguarda migration 097 + chave Gemini)
+## 1.8.18 — 12/10/2026
+
+- **Docs:** Pedido 3 publicado (`a68c8d9`) — plano dos 3 pedidos,
+  CHANGELOG e HANDOFF marcados como CONCLUÍDOS (testes reais ao vivo:
+  geração Gemini + disparo com imagem).
+
+## 1.8.17 — 12/10/2026 (PUBLICADO — 097 aplicada + chave Gemini na Vercel)
 
 - **PEDIDO 3 — Criar Artes (MARKETING).** Tela
   `/marketing/artes` + item "Criar Artes" no grupo Marketing do menu:

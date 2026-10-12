@@ -134,12 +134,10 @@ está** no env do worker (verificado por tamanho, 28/09) — não é mais pendê
 - **PEDIDO 1 ✅** publicado (`47758ad`) · **PEDIDO 2 ✅** publicado
   (migration 096 aplicada pelo João, push `05516d7`) — guias .docx
   entregues.
-- **PEDIDO 3 (artes) CÓDIGO PRONTO em commit LOCAL** (1.8.17):
-  aguarda o João aplicar `supabase/migrations/097_artes.sql`
-  (projeto STK) **e** cadastrar `GEMINI_API_KEY` nos env da Vercel
-  (projeto stk-crm-amber) — depois do aviso dele, fazer o push e
-  testar geração de verdade (foto de conta/PDF testável com o número
-  de teste 6282735286).
+- **PEDIDO 3 ✅ PUBLICADO** (`a68c8d9`, 12/10): 097 aplicada pelo João
+  + GEMINI_API_KEY na Vercel; teste real OK (arte gerada ao vivo via
+  Gemini em ~8s, botão Disparar carrega a imagem no /disparo).
+  Todos os 3 pedidos encerrados — guias .docx entregues.
 - **Pedido 1 ✅ PUBLICADO** (`47758ad`, CHANGELOG 1.8.15) — guia .docx entregue.
 - **Pedido 2 ⏳ COMMIT LOCAL, aguardando SQL `096` do João** → push → guia.
 - **Pedido 3 (artes + disparo)** não iniciado.:

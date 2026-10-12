@@ -37,8 +37,10 @@ a coluna `vendedor_id`). Depois do push: guia .docx entregue.
 - ⚠️ Não mexer nos cursos do SINERGIA (o sistema de cursos de lá segue
   intacto — só linkamos).
 
-## PEDIDO 3 — Arte personalizada + disparo (MARKETING) ✅ CÓDIGO PRONTO (11/10)
-Aguarda: migration 097_artes.sql + GEMINI_API_KEY na Vercel → push.
+## PEDIDO 3 — Arte personalizada + disparo (MARKETING) ✅ CONCLUÍDO (12/10)
+Migration 097 aplicada + GEMINI_API_KEY na Vercel → push `a68c8d9`;
+teste real: arte gerada ao vivo (Gemini, ~8s, PNG 993KB no bucket) e
+botão Disparar entregou a imagem no /disparo. Guia .docx entregue.
 
 - **Assistente guiado:** escolhe tipo de post (feed Insta, story,
   Facebook, capa…) + campos (produto, estilo, texto, CTA) → tudo vira
