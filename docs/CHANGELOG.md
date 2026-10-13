@@ -4,6 +4,22 @@
 
 ---
 
+## 1.8.20 — 12/10/2026 (LOCAL — aguarda migration 099)
+
+- **PEDIDO 4 — pasta do cliente ganha 4 linhas de negócio:** abas
+  **Eletroposto**, **Sigma Solar (monitoramento de usinas)**,
+  **BESS** e **Gestão de Fatura** (GD e RECIEE já existiam).
+  - Nova tabela genérica `cliente_pasta_linhas` (migration `099`)
+    com `linha` + `dados` JSONB.
+  - Catálogo/validação/formato puros em `lib/clientes/linhas.ts`
+    (moeda pt-BR, competência Mês/AAAA, ranges por linha).
+  - Componentes genéricos `TabLinhaSimples` (1 registro por cliente:
+    campos + Editar/Excluir) e `TabGestaoFatura` (lista mensal) em
+    `components/features/clientes/tabs-linhas.tsx`.
+  - Página da pasta: +4 entradas de TABS (ícones PlugZap/Sun/
+    Battery/Receipt), carga sob demanda e CRUD no supabase.
+  - Gates: 542 testes (+21 RED→GREEN) + tsc + build + unittest.
+
 ## 1.8.19 — 12/10/2026 (LOCAL — aguarda migration 098)
 
 - **MELHORIA do Pedido 3 — imagens de REFERÊNCIA (estilo AUTOIMAGEM).**

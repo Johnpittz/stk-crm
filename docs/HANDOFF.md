@@ -138,7 +138,12 @@ está** no env do worker (verificado por tamanho, 28/09) — não é mais pendê
   + GEMINI_API_KEY na Vercel; teste real OK (arte gerada ao vivo via
   Gemini em ~8s, botão Disparar carrega a imagem no /disparo).
   Todos os 3 pedidos encerrados — guias .docx entregues.
-- **MELHORIA 12/10 do Pedido 3 ⏳ COMMIT LOCAL, aguardando SQL `098` do João** → push:
+- **PEDIDO 4 (12/10) — pasta do cliente + 4 linhas ⏳ COMMIT LOCAL,
+  aguardando SQL `099` do João:** abas Eletroposto, Sigma Solar, BESS,
+  Gestão de Fatura na pasta do cliente (`cliente_pasta_linhas` JSONB,
+  catálogo em `lib/clientes/linhas.ts`, abas genéricas em
+  `components/features/clientes/tabs-linhas.tsx`). 542 testes.
+- **MELHORIA 12/10 do Pedido 3 ✅ PUBLICADO** (`276b2bc`, SQL 098):
   imagens de REFERÊNCIA estilo AUTOIMAGEM — tabela `artes_referencias`
   (migration 098), marker `{{slug}}` citável no Observações da tela de
   artes, `montarPartesImagem` posiciona a imagem no prompt e o Gemini

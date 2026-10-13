@@ -38,7 +38,16 @@ import {
   Receipt,
   PieChart,
   Shield,
+  PlugZap,
+  Sun,
+  Battery,
 } from "lucide-react";
+import { TabLinhaSimples, TabGestaoFatura } from "@/components/features/clientes/tabs-linhas";
+import {
+  LINHAS_PASTA,
+  type LinhaId,
+  type LinhaRegistro,
+} from "@/lib/clientes/linhas";
 
 // ─── Types ───
 
@@ -160,12 +169,26 @@ interface Atendimento {
   created_at: string;
 }
 
-type TabId = "dados" | "gd" | "reciee" | "atendimentos" | "oportunidades";
+type TabId =
+  | "dados"
+  | "gd"
+  | "reciee"
+  | "eletroposto"
+  | "sigma"
+  | "bess"
+  | "gestao_fatura"
+  | "atendimentos"
+  | "oportunidades";
 
 const TABS: { id: TabId; label: string; icon: any }[] = [
   { id: "dados", label: "Dados", icon: User },
   { id: "gd", label: "GD", icon: Zap },
   { id: "reciee", label: "RECIEE", icon: Shield },
+  // 12/10 — 4 linhas novas (Eletroposto, Sigma Solar, BESS, Gestão de Fatura)
+  { id: "eletroposto", label: "Eletroposto", icon: PlugZap },
+  { id: "sigma", label: "Sigma Solar", icon: Sun },
+  { id: "bess", label: "BESS", icon: Battery },
+  { id: "gestao_fatura", label: "Gestão de Fatura", icon: Receipt },
   { id: "atendimentos", label: "Atendimentos", icon: Headphones },
   { id: "oportunidades", label: "Ações em Aberto", icon: TrendingUp },
 ];
@@ -256,6 +279,13 @@ export default function ClienteDetalhePage() {
   const [expandedFatura, setExpandedFatura] = useState<string | null>(null);
   const [tabLoading, setTabLoading] = useState(false);
   const [analisesLoaded, setAnalisesLoaded] = useState(false);
+  // 12/10 — linhas novas da pasta (eletroposto/sigma/bess/gestao_fatura)
+  const [linhasCliente, setLinhasCliente] = useState<Record<string, LinhaRegistro[]>>({
+    eletroposto: [],
+    sigma: [],
+    bess: [],
+    gestao_fatura: [],
+  });
 
   // ─── Load client ───
 
@@ -341,6 +371,25 @@ export default function ClienteDetalhePage() {
           if (data) setOportunidades(data);
           break;
         }
+        case "eletroposto":
+        case "sigma":
+        case "bess":
+        case "gestao_fatura": {
+          // 12/10 — pasta do cliente: tabela genérica (migration 099)
+          const { data } = await supabase
+            .from("cliente_pasta_linhas")
+            .select("*")
+            .eq("cliente_id", clienteId)
+            .eq("linha", tab)
+            .order("created_at", { ascending: true });
+          if (data) {
+            setLinhasCliente((atual) => ({
+              ...atual,
+              [tab]: data as LinhaRegistro[],
+            }));
+          }
+          break;
+        }
       }
     } catch (err) {
       console.error("Erro ao carregar dados da tab:", err);
@@ -368,6 +417,61 @@ export default function ClienteDetalhePage() {
       setAnalisesLoaded(true);
     }
   }, [supabase, analisesLoaded]);
+
+  // 12/10 — CRUD das linhas da pasta (eletroposto/sigma/bess/gestao_fatura)
+  const salvarLinha = useCallback(
+    async (linha: LinhaId, dados: Record<string, unknown>, id?: string) => {
+      try {
+        if (id) {
+          const { data } = await supabase
+            .from("cliente_pasta_linhas")
+            .update({ dados })
+            .eq("id", id)
+            .select()
+            .single();
+          if (data) {
+            setLinhasCliente((atual) => ({
+              ...atual,
+              [linha]: (atual[linha] ?? []).map((r) =>
+                r.id === id ? (data as LinhaRegistro) : r
+              ),
+            }));
+          }
+          return;
+        }
+        const { data } = await supabase
+          .from("cliente_pasta_linhas")
+          .insert({ cliente_id: clienteId, linha, dados })
+          .select()
+          .single();
+        if (data) {
+          setLinhasCliente((atual) => ({
+            ...atual,
+            [linha]: [...(atual[linha] ?? []), data as LinhaRegistro],
+          }));
+        }
+      } catch (e) {
+        console.error("Erro ao salvar linha da pasta:", e);
+      }
+    },
+    [supabase, clienteId]
+  );
+
+  const excluirLinha = useCallback(
+    async (linha: LinhaId, id: string) => {
+      const { error } = await supabase
+        .from("cliente_pasta_linhas")
+        .delete()
+        .eq("id", id);
+      if (!error) {
+        setLinhasCliente((atual) => ({
+          ...atual,
+          [linha]: (atual[linha] ?? []).filter((r) => r.id !== id),
+        }));
+      }
+    },
+    [supabase]
+  );
 
   const toggleFatura = (faturaId: string) => {
     if (expandedFatura === faturaId) {
@@ -541,6 +645,26 @@ export default function ClienteDetalhePage() {
 
         {!tabLoading && activeTab === "reciee" && (
           <TabReciee faturas={faturasReciee} analises={analisesReciee} totalFaturas={recieeTotalFaturas} totalAnalises={recieeTotalAnalises} valorEstimado={recieeValorEstimado} expandedFatura={expandedFatura} toggleFatura={toggleFatura} clienteId={clienteId} router={router} />
+        )}
+
+        {!tabLoading &&
+          (activeTab === "eletroposto" ||
+            activeTab === "sigma" ||
+            activeTab === "bess") && (
+            <TabLinhaSimples
+              linha={activeTab}
+              registros={linhasCliente[activeTab] ?? []}
+              onSalvar={(dados, id) => salvarLinha(activeTab, dados, id)}
+              onExcluir={(id) => excluirLinha(activeTab, id)}
+            />
+          )}
+
+        {!tabLoading && activeTab === "gestao_fatura" && (
+          <TabGestaoFatura
+            registros={linhasCliente.gestao_fatura ?? []}
+            onSalvar={(dados, id) => salvarLinha("gestao_fatura", dados, id)}
+            onExcluir={(id) => excluirLinha("gestao_fatura", id)}
+          />
         )}
 
         {!tabLoading && activeTab === "atendimentos" && (
