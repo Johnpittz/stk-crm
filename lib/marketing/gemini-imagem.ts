@@ -63,6 +63,8 @@ export async function gerarImagemGemini(p: {
   prompt: string;
   /** MELHORIA 12/10: partes prontas (texto + referências). */
   partes?: unknown[];
+  /** MELHORIA 13/10: proporção real da imagem ("1:1", "9:16", "16:9"...). */
+  aspectRatio?: string;
   model?: string;
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
@@ -90,6 +92,9 @@ export async function gerarImagemGemini(p: {
               ),
           },
         ],
+        ...(p.aspectRatio
+          ? { generationConfig: { imageConfig: { aspectRatio: p.aspectRatio } } }
+          : {}),
       }),
       signal: AbortSignal.timeout(p.timeoutMs ?? 50_000),
     });

@@ -15,6 +15,8 @@ export interface FormatosArte {
   proporcao: string;
   /** dimensões exatas exigidas da imagem */
   orientacao: string;
+  /** MELHORIA 13/10: valor aceito por generationConfig.imageConfig.aspectRatio */
+  aspectRatio: string;
 }
 
 export const FORMATOS_ARTE: Record<string, FormatosArte> = {
@@ -22,21 +24,25 @@ export const FORMATOS_ARTE: Record<string, FormatosArte> = {
     nome: "Feed do Instagram",
     proporcao: "1:1",
     orientacao: "quadrada, 1080x1080",
+    aspectRatio: "1:1",
   },
   story: {
     nome: "Story e Reels (Instagram)",
     proporcao: "9:16",
     orientacao: "vertical, 1080x1920",
+    aspectRatio: "9:16",
   },
   facebook: {
     nome: "Post do Facebook",
     proporcao: "1:1",
     orientacao: "quadrada, 1080x1080",
+    aspectRatio: "1:1",
   },
   banner: {
     nome: "Banner / anúncio",
     proporcao: "1.91:1",
     orientacao: "horizontal, 1200x628",
+    aspectRatio: "16:9",
   },
 };
 

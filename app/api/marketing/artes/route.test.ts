@@ -201,6 +201,22 @@ describe("POST /api/marketing/artes — gerar com Gemini", () => {
     expect(url).toContain("gemini-2.5-flash-image");
     const body = JSON.parse(String(init.body));
     expect(body.contents[0].parts[0].text).toContain("Economize até 40%");
+    // MELHORIA 13/10: formato feed vai como proporção 1:1 pro Gemini
+    expect(body.generationConfig.imageConfig.aspectRatio).toBe("1:1");
+  });
+
+  it("MELHORIA 13/10: story (9:16) chega no Gemini como aspectRatio 9:16", async () => {
+    logar("ven-1");
+    const fetchMock = vi.fn(async () => geminiComImagem());
+    vi.stubGlobal("fetch", fetchMock);
+    const res = await POST(req("http://localhost/api/marketing/artes", {
+      method: "POST",
+      body: JSON.stringify({ ...corpoOk, formato: "story" }),
+    }));
+    expect(res.status).toBe(201);
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const body = JSON.parse(String(init.body));
+    expect(body.generationConfig.imageConfig.aspectRatio).toBe("9:16");
   });
 
   it("502 quando o Gemini não devolve imagem (galeria não fica suja)", async () => {

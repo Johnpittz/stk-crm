@@ -81,7 +81,36 @@ describe("gerarImagemGemini", () => {
     expect(body.contents[0].parts[1].inlineData.data).toBe("bG9nbw==");
   });
 
-  it("MELHORIA: descarta chaves extras das partes (API do Gemini só aceita text/inlineData)", async () => {
+  it("MELHORIA 13/10: aspectRatio vira generationConfig.imageConfig.aspectRatio", async () => {
+    const fetchMock = vi.fn(async (_u: string, _i?: RequestInit) => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        candidates: [
+          { content: { parts: [{ inlineData: { mimeType: "image/png", data: "Zm90bw==" } }] } },
+        ],
+      }),
+    }));
+    await gerarImagemGemini({
+      apiKey: "k", prompt: "story", aspectRatio: "9:16", fetchImpl: fetchMock as any,
+    });
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const body = JSON.parse(String(init.body));
+    expect(body.generationConfig.imageConfig.aspectRatio).toBe("9:16");
+    const sem = vi.fn(async () => ({
+      ok: true, status: 200,
+      json: async () => ({
+        candidates: [
+          { content: { parts: [{ inlineData: { mimeType: "image/png", data: "Zg==" } }] } },
+        ],
+      }),
+    }));
+    await gerarImagemGemini({ apiKey: "k", prompt: "p", fetchImpl: sem as any });
+    const body2 = JSON.parse(String((sem.mock.calls[0] as unknown as [string, RequestInit])[1].body));
+    expect(body2.generationConfig).toBeUndefined();
+  });
+
+  it("MELHORIA 13/10: descarta chaves extras das partes (API do Gemini só aceita text/inlineData)", async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
       status: 200,

@@ -135,6 +135,7 @@ export async function POST(request: NextRequest) {
         apiKey,
         prompt,
         partes,
+        aspectRatio: FORMATOS_ARTE[formato]?.aspectRatio,
         model: process.env.GEMINI_IMAGE_MODEL,
       });
     } catch (err: any) {

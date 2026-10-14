@@ -80,7 +80,14 @@ describe("montarPromptArte — o grande prompt guiado", () => {
     expect(JSON.stringify(comDesconhecido)).not.toContain("{{logo_stk}}");
   });
 
-  it("todos os formatos da tela existem no catálogo", () => {
+  it("MELHORIA 13/10: cada formato tem o aspectRatio pra API do Gemini", () => {
+    expect(FORMATOS_ARTE.feed_insta.aspectRatio).toBe("1:1");
+    expect(FORMATOS_ARTE.story.aspectRatio).toBe("9:16");
+    expect(FORMATOS_ARTE.facebook.aspectRatio).toBe("1:1");
+    expect(FORMATOS_ARTE.banner.aspectRatio).toBe("16:9");
+  });
+
+  it("todos os formatos da tela existem no catálogo e no Gemini", () => {
     expect(Object.keys(FORMATOS_ARTE).sort()).toEqual([
       "banner",
       "facebook",

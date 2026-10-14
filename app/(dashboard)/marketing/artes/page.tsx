@@ -61,6 +61,8 @@ export default function CriarArtesPage() {
   const [erro, setErro] = useState<string | null>(null);
   const [artes, setArtes] = useState<Arte[]>([]);
   const [carregando, setCarregando] = useState(true);
+  // MELHORIA 13/10: clique na arte abre em tamanho cheio (lightbox)
+  const [ampliada, setAmpliada] = useState<string | null>(null);
   const [referencias, setReferencias] = useState<Referencia[]>([]);
   const [nomeRef, setNomeRef] = useState("");
   const [arquivoRef, setArquivoRef] = useState<File | null>(null);
@@ -328,12 +330,19 @@ export default function CriarArtesPage() {
                     className="rounded-lg border border-[#1c2e4a] bg-white/5 overflow-hidden"
                   >
                     {arte.imagem_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={arte.imagem_url}
-                        alt={arte.titulo}
-                        className="w-full h-40 object-cover bg-[#0a1222]"
-                      />
+                      <button
+                        type="button"
+                        onClick={() => setAmpliada(arte.imagem_url)}
+                        title="Clique para ver em tamanho cheio"
+                        className="block w-full"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={arte.imagem_url}
+                          alt={arte.titulo}
+                          className="w-full h-40 object-cover bg-[#0a1222] cursor-zoom-in hover:opacity-90 transition-opacity"
+                        />
+                      </button>
                     ) : (
                       <div className="w-full h-40 flex items-center justify-center text-white/30 text-xs bg-[#0a1222]">
                         {arte.status === "erro" ? "Falha na geração" : "Gerando..."}
@@ -413,7 +422,9 @@ export default function CriarArtesPage() {
                     <img
                       src={r.imagem_url}
                       alt={r.nome}
-                      className="h-12 w-12 rounded object-cover border border-white/10"
+                      onClick={() => setAmpliada(r.imagem_url)}
+                      title="Clique para ver em tamanho cheio"
+                      className="h-12 w-12 rounded object-cover border border-white/10 cursor-zoom-in hover:opacity-80"
                     />
                     <div>
                       <p className="text-xs text-white/80">{r.nome}</p>
@@ -466,6 +477,31 @@ export default function CriarArtesPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* MELHORIA 13/10 — luz de fundo com a arte em tamanho cheio */}
+      {ampliada && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 sm:p-10"
+          onClick={() => setAmpliada(null)}
+          role="dialog"
+          aria-label="Arte em tamanho cheio"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={ampliada}
+            alt="Arte em tamanho cheio"
+            className="max-h-full max-w-full rounded-lg object-contain shadow-2xl"
+          />
+          <button
+            type="button"
+            onClick={() => setAmpliada(null)}
+            aria-label="Fechar"
+            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white text-lg hover:bg-white/20"
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </div>
   );
 }
