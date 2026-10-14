@@ -51,7 +51,9 @@ describe("montarPromptArte — o grande prompt guiado", () => {
     ]);
     // [texto antes] [imagem] [texto depois]
     expect(partes).toHaveLength(3);
-    expect(partes[0]).toMatchObject({ type: "text" });
+    expect(partes[0]).toMatchObject({ text: expect.any(String) });
+    // API do Gemini NÃO aceita campo extra nas partes
+    expect(JSON.stringify(partes)).not.toContain('"type"');
     expect((partes[1] as any).inlineData.data).toBe("TUxD");
     expect(String((partes[2] as any).text)).toContain("no canto");
     // o texto não pode mais conter o marcador literal
@@ -70,7 +72,7 @@ describe("montarPromptArte — o grande prompt guiado", () => {
 
   it("MELHORIA 12/10: sem referências → só o texto; marker desconhecido fica no texto", () => {
     const soTexto = montarPartesImagem("prompt aqui", []);
-    expect(soTexto).toEqual([{ type: "text", text: "prompt aqui" }]);
+    expect(soTexto).toEqual([{ text: "prompt aqui" }]);
     const comDesconhecido = montarPartesImagem("olhe {{outra}} coisa", [
       { marker: "logo_stk", data: "CCC", mimeType: "image/png" },
     ]);

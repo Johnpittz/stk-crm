@@ -4,6 +4,16 @@
 
 ---
 
+## 1.8.21 — 13/10/2026
+
+- **FIX (ao vivo): arte não gerava — Gemini HTTP 400.** As partes de
+  texto do prompt saíam com o campo `type` interno
+  (`{type:"text",text}`) e a API do Google recusa campo extra: "Unknown
+  name type at contents[0].parts[0]". Agora `montarPartesImagem`
+  emite só `{text}`/`{inlineData}` **e** `gerarImagemGemini` sanitiza
+  as partes (qualquer chave além de text/inlineData é descartada).
+  Testes passaram a exigir `not.toContain('"type"')`. 543 vitest.
+
 ## 1.8.20 — 12/10/2026 (LOCAL — aguarda migration 099)
 
 - **PEDIDO 4 — pasta do cliente ganha 4 linhas de negócio:** abas

@@ -98,7 +98,7 @@ export interface ReferenciaImagem {
 }
 
 export type ParteGemini =
-  | { type: "text"; text: string }
+  | { text: string }
   | { inlineData: { mimeType: string; data: string } };
 
 /**
@@ -110,7 +110,7 @@ export function montarPartesImagem(
   prompt: string,
   referencias: ReferenciaImagem[],
 ): ParteGemini[] {
-  if (!referencias || referencias.length === 0) return [{ type: "text", text: prompt }];
+  if (!referencias || referencias.length === 0) return [{ text: prompt }];
   const citadas: ReferenciaImagem[] = [];
   const naoCitadas: ReferenciaImagem[] = [];
   for (const r of referencias) {
@@ -126,10 +126,10 @@ export function montarPartesImagem(
     const i = resto.indexOf(marca);
     if (i < 0) continue;
     const antes = resto.slice(0, i);
-    if (antes) partes.push({ type: "text", text: antes });
+    if (antes) partes.push({ text: antes });
     partes.push({ inlineData: { mimeType: r.mimeType, data: r.data } });
     resto = resto.slice(i + marca.length);
   }
-  if (resto) partes.push({ type: "text", text: resto });
+  if (resto) partes.push({ text: resto });
   return partes;
 }

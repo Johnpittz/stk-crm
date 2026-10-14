@@ -46,6 +46,18 @@ function mensagemDeErro(corpo: unknown, status: number): string {
   return err?.message ?? `HTTP ${status}`;
 }
 
+/**
+ * A API do Gemini recusa partes com chaves extras (ex.: `type`) —
+ * 13/10: HTTP 400 "Unknown name type". Sobra só text/inlineData.
+ */
+function sanitizarPartes(partes: unknown[]): unknown[] {
+  return partes.map((bruto) => {
+    const p = (bruto ?? {}) as { text?: string; inlineData?: unknown };
+    if (p.inlineData) return { inlineData: p.inlineData };
+    return { text: p.text ?? "" };
+  });
+}
+
 export async function gerarImagemGemini(p: {
   apiKey?: string;
   prompt: string;
@@ -73,7 +85,9 @@ export async function gerarImagemGemini(p: {
           {
             role: "user",
             parts:
-              p.partes && p.partes.length > 0 ? p.partes : [{ text: p.prompt }],
+              sanitizarPartes(
+                p.partes && p.partes.length > 0 ? p.partes : [{ text: p.prompt }]
+              ),
           },
         ],
       }),

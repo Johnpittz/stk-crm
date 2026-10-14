@@ -81,6 +81,35 @@ describe("gerarImagemGemini", () => {
     expect(body.contents[0].parts[1].inlineData.data).toBe("bG9nbw==");
   });
 
+  it("MELHORIA: descarta chaves extras das partes (API do Gemini só aceita text/inlineData)", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        candidates: [
+          { content: { parts: [{ inlineData: { mimeType: "image/png", data: "Zm90bw==" } }] } },
+        ],
+      }),
+    }));
+    await gerarImagemGemini({
+      apiKey: "k",
+      prompt: "p",
+      partes: [
+        { type: "text", text: "antes" },
+        { inlineData: { mimeType: "image/png", data: "Zg==" } },
+      ],
+      fetchImpl: fetchMock as any,
+    });
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const body = JSON.parse(String(init.body));
+    const parts = body.contents[0].parts;
+    expect(parts).toEqual([
+      { text: "antes" },
+      { inlineData: { mimeType: "image/png", data: "Zg==" } },
+    ]);
+    expect(String(init.body)).not.toContain('"type"');
+  });
+
   it("HTTP 401 (chave recusada) lança mensagem clara", async () => {
     vi.stubGlobal(
       "fetch",
