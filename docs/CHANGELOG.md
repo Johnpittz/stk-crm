@@ -4,6 +4,15 @@
 
 ---
 
+## 1.8.22 — 15/10/2026
+
+- **FIX — vendedor novo não aparecia em Configurações → Equipe.**
+  O RUBENS nasceu só na autenticação: o gatilho que preenchia
+  `profiles` não existe mais no banco. Cadastro dele criado à mão
+  (cargo vendedor) e a rota `/api/auth/cadastro` agora GARANTE a
+  linha (upsert com cargo "vendedor") em vez de update cego que
+  some em silêncio. Testes novos: 548.
+
 ## 1.8.21 — 13/10/2026
 
 - **FIX (ao vivo): arte não gerava — Gemini HTTP 400.** As partes de

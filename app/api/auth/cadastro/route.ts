@@ -71,18 +71,22 @@ export async function POST(request: NextRequest) {
 
   const newUserId = authData.user.id;
 
-  // Atualiza o profile (o trigger já criou, mas garantimos os dados)
-  const { error: updateError } = await supabaseAdmin
+  // GARANTE o cadastro no profiles: o gatilho que existia no banco
+  // antigo não existe mais (FIX 15/10 — conta nascia só no auth e a
+  // tela de Vendedores, que lê profiles, não mostrava o usuário).
+  const { error: upsertError } = await supabaseAdmin
     .from("profiles")
-    .update({
+    .upsert({
+      id: newUserId,
       nome_completo,
+      email,
       telefone: telefone || null,
-    })
-    .eq("id", newUserId);
+      cargo: "vendedor",
+    });
 
-  if (updateError) {
+  if (upsertError) {
     return NextResponse.json(
-      { error: updateError.message },
+      { error: upsertError.message },
       { status: 500 }
     );
   }
