@@ -59,10 +59,76 @@ type TempoResposta = {
   perfil: string;
 };
 
+/** ITEM 7 — card de agrupamento (status/classificação/origem) com barras. */
+function CardGrupoMetricas({
+  titulo,
+  dados,
+  rotulos,
+}: {
+  titulo: string;
+  dados: { valor: string; total: number }[];
+  rotulos?: Record<string, string>;
+}) {
+  const maximo = dados.length ? Math.max(...dados.map((d) => d.total), 1) : 1;
+  return (
+    <Card className="border-[#1c2e4a] bg-[#14233c]">
+      <CardHeader className="pb-2 pt-4 px-5">
+        <CardTitle className="text-sm font-semibold text-white">{titulo}</CardTitle>
+      </CardHeader>
+      <CardContent className="px-5 pb-4 space-y-2.5">
+        {dados.length === 0 && (
+          <p className="text-xs text-slate-500">Sem clientes cadastrados.</p>
+        )}
+        {dados.map((d) => (
+          <div key={d.valor}>
+            <div className="flex justify-between text-xs mb-1">
+              <span className="text-slate-300">{rotulos?.[d.valor] ?? d.valor}</span>
+              <span className="text-white font-semibold">{d.total}</span>
+            </div>
+            <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-[#3B64CF] rounded-full"
+                style={{ width: `${Math.round((d.total / maximo) * 100)}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+const ROTULOS_STATUS: Record<string, string> = {
+  ativo: "Ativo",
+  prospect: "Prospect",
+  churn: "Churn",
+  inativo: "Inativo",
+  "Não informado": "Não informado",
+};
+
+const ROTULOS_ORIGEM: Record<string, string> = {
+  cadastro: "Cadastro",
+  reciee: "RECIEE",
+  chatbot: "Chatbot",
+  disparo: "Disparo",
+  whatsapp: "WhatsApp",
+  atendimento: "Atendimento",
+  "Não informada": "Não informada",
+};
+
+type MetricasClientes = {
+  total: number;
+  porStatus: { valor: string; total: number }[];
+  porClassificacao: { valor: string; total: number }[];
+  porOrigem: { valor: string; total: number }[];
+};
+
 export default function DashboardPage() {
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [tempoResposta, setTempoResposta] = useState<TempoResposta | null>(null);
   const [dias, setDias] = useState(30);
+  // ITEM 7 — status/classificação/origem dos clientes
+  const [metricasClientes, setMetricasClientes] = useState<MetricasClientes | null>(null);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
 
@@ -88,6 +154,20 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchTarefas();
   }, [fetchTarefas]);
+
+  // ITEM 7 — métricas de status/classificação/origem
+  useEffect(() => {
+    let vivo = true;
+    fetch("/api/dashboard/clientes-metricas")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (vivo && d && !d.erro) setMetricasClientes(d);
+      })
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, []);
 
   // Fase 1+2: tempo de 1ª resposta + rankings (filtro de período)
   const fetchTempo = useCallback(async () => {
@@ -267,6 +347,15 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ─── ITEM 7 — Status, Classificação e Origem dos clientes ─── */}
+      {metricasClientes && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <CardGrupoMetricas titulo="Status dos clientes" dados={metricasClientes.porStatus} rotulos={ROTULOS_STATUS} />
+          <CardGrupoMetricas titulo="Classificação" dados={metricasClientes.porClassificacao} />
+          <CardGrupoMetricas titulo="Origem" dados={metricasClientes.porOrigem} rotulos={ROTULOS_ORIGEM} />
+        </div>
+      )}
 
       {/* ─── Tempo de Resposta (Fase 1 — ver docs/plano-dashboard-fases.md) ─── */}
       <Card className="border-[#1c2e4a] bg-[#14233c]">

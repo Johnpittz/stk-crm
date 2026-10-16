@@ -4,6 +4,17 @@
 
 ---
 
+## 1.8.27 — 16/10/2026
+
+- **Parte 7 — DASHBOARD: status, classificação e origem (item 7):** nova
+  seção no Dashboard (3 cards com barras) logo abaixo das métricas de
+  topo: **Status dos clientes** (Ativo/Prospect/Churn/Inativo), **Classificação**
+  (texto livre do cadastro, ex. VIP) e **Origem** (Cadastro/RECIEE/Chatbot/
+  Disparo/WhatsApp/Atendimento) — tudo agrupado da tabela `clientes`.
+  - Rota `GET /api/dashboard/clientes-metricas` agrega no servidor em
+    blocos de 1000 (a rota de lista trava em 100/página).
+  - Testes novos: 4 (agrupamento/ordem/bucket vazio/campo isolado).
+
 ## 1.8.26 — 16/10/2026
 
 - **Parte 8 — Leads: importar lista e escolher leads na massa (item 8):**
