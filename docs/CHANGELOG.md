@@ -4,6 +4,16 @@
 
 ---
 
+## 1.8.32 — 16/10/2026
+
+- **Correção — CURSOR SUMINDO nos formulários de Cliente (João):**
+  digitava 1 letra e o campo se perdia (precisava clicar de novo).
+  Causa: o cartão `Section` do cadastro/editar era declarado **dentro**
+  do componente — cada render criava um tipo novo e o React
+  desmontava os campos inteiros a teclada. Agora fica no escopo do
+  módulo, com teste de regressão (2) e auditoria: só esses dois
+  arquivos tinham o problema. Testes 594 · build · worker verdes.
+
 ## 1.8.31 — 16/10/2026
 
 - **Parte 1 — CLIENTES PF: sem campos de empresa (item 1):** em

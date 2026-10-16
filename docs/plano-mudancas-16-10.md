@@ -7,7 +7,7 @@ Executar **por partes**, cada uma com teste (RED→GREEN), gates
 
 > **Entrega final (pedido do João 16/10):** ao concluir TODAS as 10 mudanças, gerar **documento Word** com as mudanças de forma muito simples de entender. |
 |---|-------|---------|--------|
-| 1 | CRM/Clientes (cadastrar/editar) | Se **CPF** (pessoa física): tirar "Nome do contato" e "CPF do proprietário"; endereço não é "da empresa" | ✅ |
+| 1 | CRM/Clientes (cadastrar/editar) | Se **CPF** (pessoa física): tirar "Nome do contato" e "CPF do proprietário"; endereço não é "da empresa" | ✅ 16/10 (+ fix cursor sumindo a cada tecla: `Section` dentro do componente) |
 | 2 | Marketing | Juntar tudo de disparo em **DISPARO** (hoje tem "Novo Disparo" dentro de Campanhas duplicando) | ✅ 16/10 (tela única /disparo; menus Campanhas/Relatórios removidos) |
 | 3 | Marketing/Gerar Artes | Opções de texto na imagem (número, endereço, dados que fazem achar) + **posição** (canto superior/inferior/rodapé…) + **gravar como cadastro** (dados de contato) | ✅ |
 | 4 | CRM/Atendimento | Sem nome identificado: mostrar **"CLIENTE — 6298…"** (número na frente) em vez de só "CLIENTE" | ✅ |
