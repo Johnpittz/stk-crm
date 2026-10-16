@@ -162,13 +162,16 @@ export async function PATCH(request: NextRequest) {
   }
 
   // Verificar permissão (só as suas, a menos que seja gestor)
-  const { data: oportunidadeAtual } = await supabase
+  // ITEM 5: lookups via client admin — o RLS do usuário não enxerga o card
+  // de outro vendedor e o update do gestor saía com 0 linhas (404).
+  const admin = createAdminClient();
+  const { data: oportunidadeAtual } = await admin
     .from("oportunidades")
     .select("vendedor_id, etapa")
     .eq("id", id)
     .single();
 
-  const { data: meuPerfil } = await supabase
+  const { data: meuPerfil } = await admin
     .from("profiles")
     .select("cargo")
     .eq("id", user.id)
@@ -178,6 +181,9 @@ export async function PATCH(request: NextRequest) {
   if (!isGestor && oportunidadeAtual?.vendedor_id !== user.id) {
     return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
   }
+
+  /** escrita: gestor usa admin (RLS bloquearia card de outro vendedor) */
+  const db = isGestor ? admin : supabase;
 
   const updateData: any = {};
   if (cliente_nome !== undefined) updateData.cliente_nome = cliente_nome;
@@ -212,7 +218,7 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
-  const { data: oportunidade, error } = await supabase
+  const { data: oportunidade, error } = await db
     .from("oportunidades")
     .update(updateData)
     .eq("id", id)
@@ -280,14 +286,15 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "ID da oportunidade é obrigatório" }, { status: 400 });
   }
 
-  // Verificar permissão
-  const { data: oportunidadeAtual } = await supabase
+  // Verificar permissão (ITEM 5: lookups via admin — mesmos motivos do PATCH)
+  const admin = createAdminClient();
+  const { data: oportunidadeAtual } = await admin
     .from("oportunidades")
     .select("vendedor_id")
     .eq("id", id)
     .single();
 
-  const { data: meuPerfil } = await supabase
+  const { data: meuPerfil } = await admin
     .from("profiles")
     .select("cargo")
     .eq("id", user.id)
@@ -298,7 +305,11 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
   }
 
-  const { error } = await supabase.from("oportunidades").delete().eq("id", id);
+  // ITEM 5: gestor deleta card de qualquer vendedor (RLS bloquearia)
+  const { error } = await (isGestor ? admin : supabase)
+    .from("oportunidades")
+    .delete()
+    .eq("id", id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
