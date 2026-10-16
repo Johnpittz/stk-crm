@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { 
   Users, Plus, Search, Filter, MoreVertical, 
-  Phone, Mail, Building, TrendingUp, Star, Clock, Loader2 
+  Phone, Mail, Building, TrendingUp, Star, Clock, Loader2, Upload 
 } from "lucide-react";
 import { useApi, useCreate } from "@/lib/hooks/use-api";
 
@@ -41,6 +41,9 @@ const getScoreColor = (score: number) => {
 export default function MarketingLeadsPage() {
   const [showNewLead, setShowNewLead] = useState(false);
   const [busca, setBusca] = useState('');
+  const [importando, setImportando] = useState(false);
+  const [msgImport, setMsgImport] = useState<string | null>(null);
+  const inputImportacao = useRef<HTMLInputElement>(null);
   const [novoLead, setNovoLead] = useState({
     nome: '',
     empresa: '',
@@ -61,6 +64,31 @@ export default function MarketingLeadsPage() {
       setShowNewLead(false);
       setNovoLead({ nome: '', empresa: '', telefone: '', email: '', origem: 'whatsapp', status: 'novo' });
       refetch();
+    }
+  };
+
+  // ITEM 8 (16/10) — importar lista (PDF, Word, planilha, texto).
+  const handleImportarArquivo = async (file: File) => {
+    setImportando(true);
+    setMsgImport(null);
+    try {
+      const formData = new FormData();
+      formData.append('arquivo', file);
+      const res = await fetch('/api/marketing/leads/importar', {
+        method: 'POST',
+        body: formData,
+      });
+      const dados = await res.json();
+      if (dados.success) {
+        setMsgImport(`✅ ${dados.importados} leads importados de ${file.name}`);
+        refetch();
+      } else {
+        setMsgImport(`⚠️ ${dados.erro || 'Não consegui importar esse arquivo'}`);
+      }
+    } catch {
+      setMsgImport('⚠️ Erro ao enviar o arquivo');
+    } finally {
+      setImportando(false);
     }
   };
 
@@ -92,11 +120,39 @@ export default function MarketingLeadsPage() {
           <h2 className="text-2xl font-bold">Leads</h2>
           <p className="text-muted-foreground">Gerencie e qualifique seus leads</p>
         </div>
-        <Button onClick={() => setShowNewLead(!showNewLead)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Novo Lead
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => inputImportacao.current?.click()}
+            disabled={importando}
+          >
+            {importando ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Upload className="w-4 h-4 mr-2" />
+            )}
+            Importar lista
+          </Button>
+          <input
+            ref={inputImportacao}
+            type="file"
+            accept=".pdf,.docx,.txt,.csv,.xlsx,.xls"
+            className="hidden"
+            onChange={e => {
+              const file = e.target.files?.[0];
+              if (file) handleImportarArquivo(file);
+              e.target.value = '';
+            }}
+          />
+          <Button onClick={() => setShowNewLead(!showNewLead)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Novo Lead
+          </Button>
+        </div>
       </div>
+      {msgImport && (
+        <p className="text-sm text-muted-foreground -mt-3">{msgImport}</p>
+      )}
 
       {/* Métricas */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

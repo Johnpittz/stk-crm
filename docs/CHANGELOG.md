@@ -4,6 +4,20 @@
 
 ---
 
+## 1.8.26 — 16/10/2026
+
+- **Parte 8 — Leads: importar lista e escolher leads na massa (item 8):**
+  - **/marketing/leads** ganhou o botão **"📥 Importar lista"** (PDF,
+    DOCX, TXT, CSV, XLSX/XLS): rota `POST /api/marketing/leads/importar`
+    extrai os textos (pdf-parse v2, mammoth, SheetJS), acha os telefones
+    BR (`lib/leads/extrair-leads.ts`) e grava em `leads_marketing`
+    (origem "outro", notas com o nome do arquivo).
+  - **Disparo em massa** (aba "Em Massa" do Criar Disparo): botão
+    **"📇 Escolher leads do cadastro"** — diálogo com busca e seleção
+    que junta os leads escolhidos aos contatos da planilha sem duplicar
+    (`lib/leads/selecionar-leads.ts`).
+  - Testes novos: 8 (extração/normalização) + 4 (seleção/mesclagem).
+
 ## 1.8.25 — 16/10/2026
 
 - **Parte 2 — um único menu Disparo (item 2, decisão do João: "sem

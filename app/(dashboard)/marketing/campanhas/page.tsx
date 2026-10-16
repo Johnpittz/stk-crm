@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { mapearNumerosInstancias, numeroDeOrigem } from '@/lib/marketing/origem-disparo';
+import { contatosParaMassa, mesclarContatos } from '@/lib/leads/selecionar-leads';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Megaphone, Trash2, ChevronDown, ChevronUp, Send, Loader2, Upload, FileSpreadsheet, X, Image, Square, FileText, RefreshCw, RotateCcw } from 'lucide-react';
@@ -83,6 +84,12 @@ export default function CampanhasPage() {
   const [publicoRemarketing, setPublicoRemarketing] = useState<any>(null);
   const [carregandoPublico, setCarregandoPublico] = useState(false);
   const [contatosImportados, setContatosImportados] = useState<ContatoPlanilha[]>([]);
+  // ITEM 8 (16/10) — escolher leads do cadastro no disparo em massa
+  const [escolherLeadsAberto, setEscolherLeadsAberto] = useState(false);
+  const [leadsMarketing, setLeadsMarketing] = useState<Array<{ id: string; nome: string; telefone: string }>>([]);
+  const [leadsMarcados, setLeadsMarcados] = useState<string[]>([]);
+  const [buscaLeads, setBuscaLeads] = useState('');
+  const [carregandoLeads, setCarregandoLeads] = useState(false);
   const [fileName, setFileName] = useState('');
   const supabase = createClient();
   const [logsDisparoId, setLogsDisparoId] = useState<string | null>(null);
@@ -347,6 +354,41 @@ export default function CampanhasPage() {
       totalLidos: 0,
       totalFalhas: disparos.reduce((sum, d) => sum + (d.failed || 0), 0)
     };
+  };
+
+  // ITEM 8 — abrir o seletor de leads do cadastro
+  const abrirEscolherLeads = async () => {
+    setEscolherLeadsAberto(true);
+    setBuscaLeads('');
+    if (leadsMarketing.length > 0) return;
+    setCarregandoLeads(true);
+    try {
+      const res = await fetch('/api/marketing/leads');
+      const dados = await res.json();
+      setLeadsMarketing(dados.data || []);
+    } catch {
+      setLeadsMarketing([]);
+    } finally {
+      setCarregandoLeads(false);
+    }
+  };
+
+  const alternarLeadMarcado = (id: string) =>
+    setLeadsMarcados(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+
+  const confirmarEscolhaLeads = () => {
+    const novos = contatosParaMassa(leadsMarketing, leadsMarcados);
+    if (novos.length === 0) {
+      toast.warning('Selecione leads com telefone válido');
+      return;
+    }
+    setContatosImportados(prev => mesclarContatos(prev, novos));
+    setFileName(prev => prev || 'Leads do cadastro');
+    setEscolherLeadsAberto(false);
+    setLeadsMarcados([]);
+    toast.success(`${novos.length} leads adicionados à massa`);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1206,6 +1248,64 @@ export default function CampanhasPage() {
         </DialogContent>
       </Dialog>
 
+      {/* ITEM 8 — escolher leads do cadastro pro disparo em massa */}
+      <Dialog open={escolherLeadsAberto} onOpenChange={setEscolherLeadsAberto}>
+        <DialogContent className="bg-gray-900 border-gray-700 text-white max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-white">Escolher leads</DialogTitle>
+          </DialogHeader>
+          <Input
+            placeholder="Buscar por nome ou telefone..."
+            value={buscaLeads}
+            onChange={e => setBuscaLeads(e.target.value)}
+            className="bg-gray-800 border-gray-700 text-white"
+          />
+          <div className="max-h-72 overflow-y-auto border border-gray-700 rounded-lg p-2 space-y-1">
+            {carregandoLeads ? (
+              <p className="text-gray-400 text-sm text-center py-4">Carregando leads...</p>
+            ) : (() => {
+              const filtrados = leadsMarketing.filter(l =>
+                (l.nome || '').toLowerCase().includes(buscaLeads.toLowerCase()) ||
+                (l.telefone || '').includes(buscaLeads)
+              );
+              if (filtrados.length === 0) {
+                return <p className="text-gray-500 text-sm text-center py-4">Nenhum lead encontrado. Cadastre em Marketing → Leads.</p>;
+              }
+              return filtrados.map(lead => (
+                <label
+                  key={lead.id}
+                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={leadsMarcados.includes(lead.id)}
+                    onChange={() => alternarLeadMarcado(lead.id)}
+                    className="accent-emerald-500 w-4 h-4"
+                  />
+                  <span className="flex-1 text-sm text-white">{lead.nome}</span>
+                  <span className="text-gray-400 text-xs">{lead.telefone || 'sem telefone'}</span>
+                </label>
+              ));
+            })()}
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-gray-400 text-sm">{leadsMarcados.length} selecionado(s)</span>
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={() => setEscolherLeadsAberto(false)}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={confirmarEscolhaLeads}
+                disabled={leadsMarcados.length === 0}
+                className="bg-emerald-600 hover:bg-emerald-700"
+              >
+                Adicionar à massa
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Dialog de Criar Disparo */}
       <Dialog open={showDisparoDialog} onOpenChange={(open) => { if (!open) resetarDialog(); else setShowDisparoDialog(true); }}>
         {/* Item 10 (16/10): fora do modal NÃO fecha (perdia o texto);
@@ -1439,6 +1539,15 @@ export default function CampanhasPage() {
                       </div>
                       <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileUpload} className="hidden" />
                     </label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={abrirEscolherLeads}
+                      className="mt-2 border-gray-600 text-gray-300 hover:text-white hover:border-emerald-500"
+                    >
+                      📇 Escolher leads do cadastro
+                    </Button>
                   </div>
                   {contatosImportados.length > 0 && (
                     <div className="mt-3">
