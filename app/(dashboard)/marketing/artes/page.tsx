@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Sparkles, Download, Send, Trash2, Palette } from "lucide-react";
 import { montarPromptArte } from "@/lib/marketing/gerar-prompt";
+import { montarTextoImagem, POSICOES_ARTE } from "@/lib/marketing/textos-imagem";
 
 type Arte = {
   id: string;
@@ -67,16 +68,47 @@ export default function CriarArtesPage() {
   const [nomeRef, setNomeRef] = useState("");
   const [arquivoRef, setArquivoRef] = useState<File | null>(null);
   const [subindoRef, setSubindoRef] = useState(false);
+  // ITEM 3 — textos cadastrados (número/opções) + posição na imagem
+  const [textosCadastrados, setTextosCadastrados] = useState<Array<{ id: string; tipo: string; texto: string }>>([]);
+  const [numeroInput, setNumeroInput] = useState("");
+  const [opcaoInput, setOpcaoInput] = useState("");
+  const [usarNumero, setUsarNumero] = useState(false);
+  const [opcoesMarcadas, setOpcoesMarcadas] = useState<string[]>([]);
+  const [posicao, setPosicao] = useState("automatica");
 
   // "Moderno e limpo (padrão)" = deixar o montador usar o padrão dele
   const estiloEfetivo = estilo.startsWith("Moderno") ? "" : estilo;
 
+  const numeroSalvo = textosCadastrados.find((t) => t.tipo === "numero")?.texto || "";
+  const opcoesSalvas = textosCadastrados.filter((t) => t.tipo === "opcao").map((t) => t.texto);
+
+  async function carregarTextos() {
+    try {
+      const res = await fetch("/api/marketing/artes/textos");
+      const json = await res.json();
+      if (res.ok) setTextosCadastrados(json.textos || []);
+    } catch {
+      /* sem cadastro; a seção fica só com os formulários */
+    }
+  }
+
+  // ITEM 3 — linha extra do prompt: textos marcados + posição escolhida
+  const textoImagem = useMemo(
+    () =>
+      montarTextoImagem(
+        usarNumero ? numeroSalvo : "",
+        opcoesSalvas.filter((o) => opcoesMarcadas.includes(o)),
+        posicao,
+      ),
+    [numeroSalvo, usarNumero, opcoesSalvas.join("|"), opcoesMarcadas.join("|"), posicao],
+  );
+
   const prompt = useMemo(
     () =>
       assunto.trim() && texto.trim()
-        ? montarPromptArte({ formato, assunto, texto, estilo: estiloEfetivo, observacoes })
+        ? montarPromptArte({ formato, assunto, texto, estilo: estiloEfetivo, observacoes, textoImagem })
         : "",
-    [formato, assunto, texto, estiloEfetivo, observacoes],
+    [formato, assunto, texto, estiloEfetivo, observacoes, textoImagem],
   );
 
   async function carregar() {
@@ -94,6 +126,7 @@ export default function CriarArtesPage() {
   useEffect(() => {
     carregar();
     carregarReferencias();
+    carregarTextos();
   }, []);
 
   async function carregarReferencias() {
@@ -155,6 +188,42 @@ export default function CriarArtesPage() {
     }
   }
 
+  // ITEM 3 — cadastro de número/opções (tabela artes_textos)
+  async function salvarTextoCadastrado(tipo: "numero" | "opcao", valor: string) {
+    if (!valor.trim()) return;
+    try {
+      const res = await fetch("/api/marketing/artes/textos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tipo, texto: valor.trim() }),
+      });
+      if (res.ok) {
+        if (tipo === "numero") {
+          setNumeroInput("");
+          setUsarNumero(true);
+        } else {
+          setOpcaoInput("");
+        }
+        await carregarTextos();
+      }
+    } catch {
+      /* próxima tentativa recarrega */
+    }
+  }
+
+  async function excluirTextoCadastrado(t: { id: string; texto: string }) {
+    if (!confirm(`Excluir o texto "${t.texto}"?`)) return;
+    try {
+      const res = await fetch(`/api/marketing/artes/textos?id=${t.id}`, { method: "DELETE" });
+      if (res.ok) {
+        setOpcoesMarcadas((lista) => lista.filter((o) => o !== t.texto));
+        await carregarTextos();
+      }
+    } catch {
+      /* recarrega depois */
+    }
+  }
+
   async function gerar() {
     if (!assunto.trim() || !texto.trim()) {
       setErro("Preencha o ASSUNTO e o TEXTO da arte.");
@@ -172,6 +241,9 @@ export default function CriarArtesPage() {
           texto,
           estilo: estiloEfetivo || null,
           observacoes: observacoes || null,
+          numero: usarNumero ? numeroSalvo : "",
+          opcoes: opcoesSalvas.filter((o) => opcoesMarcadas.includes(o)),
+          posicao,
         }),
       });
       const json = await res.json();
@@ -256,6 +328,48 @@ export default function CriarArtesPage() {
                 rows={2}
                 className="bg-[#0a1222] border-[#1c2e4a] text-white"
               />
+            </div>
+
+            {/* ITEM 3 — textos do cadastro + onde colocar na imagem */}
+            <div className="space-y-2">
+              <Label className="text-white/60">3b. Textos do cadastro na imagem + onde colocar</Label>
+              {numeroSalvo && (
+                <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={usarNumero}
+                    onChange={(e) => setUsarNumero(e.target.checked)}
+                    className="accent-emerald-500"
+                  />
+                  📱 {numeroSalvo}
+                </label>
+              )}
+              {opcoesSalvas.map((o) => (
+                <label key={o} className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={opcoesMarcadas.includes(o)}
+                    onChange={(e) =>
+                      setOpcoesMarcadas((lista) =>
+                        e.target.checked ? [...lista, o] : lista.filter((x) => x !== o),
+                      )
+                    }
+                    className="accent-emerald-500"
+                  />
+                  {o}
+                </label>
+              ))}
+              <select
+                value={posicao}
+                onChange={(e) => setPosicao(e.target.value)}
+                className="w-full h-9 rounded-md bg-[#0a1222] border border-[#1c2e4a] text-white text-sm px-3"
+              >
+                {Object.entries(POSICOES_ARTE).map(([chave, nome]) => (
+                  <option key={chave} value={chave}>
+                    📍 {nome}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="space-y-1">
@@ -474,6 +588,67 @@ export default function CriarArtesPage() {
                 {subindoRef ? "Enviando…" : "＋ Adicionar referência"}
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* ITEM 3 — cadastro: número da empresa e opções de texto */}
+        <Card className="mt-6 border-white/10 bg-white/[0.03]">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-white">
+              ⚙ Textos das artes (cadastro) — número e frases prontas
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-xs text-white/50">
+              Grave uma vez e use na hora de gerar: marque no formulário e escolha onde aparece na imagem.
+            </p>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-white/60">Número / WhatsApp da empresa</Label>
+                <Input
+                  value={numeroInput}
+                  onChange={(e) => setNumeroInput(e.target.value)}
+                  placeholder="Ex.: (62) 99999-8888"
+                  className="h-8 w-56 bg-[#0f1b30] border-[#1c2e4a] text-white"
+                />
+              </div>
+              <Button onClick={() => salvarTextoCadastrado("numero", numeroInput)} disabled={!numeroInput.trim()} className="h-8">
+                💾 Salvar número
+              </Button>
+            </div>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-white/60">Nova opção de texto (frase curta)</Label>
+                <Input
+                  value={opcaoInput}
+                  onChange={(e) => setOpcaoInput(e.target.value)}
+                  placeholder="Ex.: Orçamento grátis"
+                  className="h-8 w-56 bg-[#0f1b30] border-[#1c2e4a] text-white"
+                />
+              </div>
+              <Button onClick={() => salvarTextoCadastrado("opcao", opcaoInput)} disabled={!opcaoInput.trim()} className="h-8">
+                ＋ Adicionar opção
+              </Button>
+            </div>
+            {textosCadastrados.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {textosCadastrados.map((t) => (
+                  <span
+                    key={t.id}
+                    className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-white/80"
+                  >
+                    {t.tipo === "numero" ? "📱" : "💬"} {t.texto}
+                    <button
+                      onClick={() => excluirTextoCadastrado(t)}
+                      className="text-white/40 hover:text-red-400"
+                      title="Excluir"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -4,6 +4,20 @@
 
 ---
 
+## 1.8.29 — 16/10/2026
+
+- **Parte 3 — GERAR ARTES: textos, posição e cadastro (item 3):**
+  - Novo campo **"3b"** no assistente: marcar **textos do cadastro**
+    (número WhatsApp + frases prontas) e escolher **onde colocar na
+    imagem** (canto superior/inferior esquerdo/direito, rodapé,
+    automático). Entra no prompt com instrução de legibilidade — e já
+    aparece na prévia do prompt.
+  - Seção **"⚙ Textos das artes (cadastro)"**: gravar o número da
+    empresa (substitui o anterior) e opções de frase; lista com ✕ para
+    excluir. Tabela nova `artes_textos` (migration 100).
+  - Testes novos: 4 (montagem do texto extra + posições).
+  - SQL: **100_artes_textos.sql** no projeto STK.
+
 ## 1.8.28 — 16/10/2026
 
 - **Parte 5 — KANBAN com edição (item 5):** em Funil de Vendas, cada card ganhou o **lapis** (ao lado do excluir) que abre o detalhe **ja em modo edicao**. A edicao agora vale para **qualquer oportunidade** (antes so para concluidas) e ganhou **Etapa do funil**, **Prioridade** e **Valor da Venda** no form. Helper `montarCorpoEdicao` (testado) monta o PATCH com moeda BR. 6 testes novos.

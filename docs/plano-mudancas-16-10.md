@@ -9,7 +9,7 @@ Executar **por partes**, cada uma com teste (RED→GREEN), gates
 |---|-------|---------|--------|
 | 1 | CRM/Clientes (cadastrar/editar) | Se **CPF** (pessoa física): tirar "Nome do contato" e "CPF do proprietário"; endereço não é "da empresa" | ⏳ |
 | 2 | Marketing | Juntar tudo de disparo em **DISPARO** (hoje tem "Novo Disparo" dentro de Campanhas duplicando) | ✅ 16/10 (tela única /disparo; menus Campanhas/Relatórios removidos) |
-| 3 | Marketing/Gerar Artes | Opções de texto na imagem (número, endereço, dados que fazem achar) + **posição** (canto superior/inferior/rodapé…) + **gravar como cadastro** (dados de contato) | ⏳ |
+| 3 | Marketing/Gerar Artes | Opções de texto na imagem (número, endereço, dados que fazem achar) + **posição** (canto superior/inferior/rodapé…) + **gravar como cadastro** (dados de contato) | ✅ |
 | 4 | CRM/Atendimento | Sem nome identificado: mostrar **"CLIENTE — 6298…"** (número na frente) em vez de só "CLIENTE" | ⏳ |
 | 5 | CRM/Funil de Vendas | Cards do Kanban precisam de **edição** (hoje não há) | ✅ |
 | 6 | CRM (geral) | **Testar** o Log de Alterações (editar cliente → log gravado) | ✅ 16/10 (unit 10/10 + ao vivo: criado/editado com autor) |

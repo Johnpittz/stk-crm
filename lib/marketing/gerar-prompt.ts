@@ -54,6 +54,8 @@ export interface CamposArte {
   texto: string;
   estilo?: string | null;
   observacoes?: string | null;
+  /** ITEM 3 — textos extras (número/opções do cadastro) + posição. */
+  textoImagem?: string | null;
 }
 
 /**
@@ -74,6 +76,9 @@ export function montarPromptArte(c: CamposArte): string {
     `A imagem DEVE exibir exatamente este texto, sem erros, sem letras cortadas nem duplicadas: "${c.texto.trim()}"`,
   );
   linhas.push(`Estilo visual: ${(c.estilo ?? "").trim() || ESTILO_PADRAO}.`);
+  if (c.textoImagem && c.textoImagem.trim()) {
+    linhas.push(c.textoImagem.trim());
+  }
   if (c.observacoes && c.observacoes.trim()) {
     linhas.push(`Observações do cliente: ${c.observacoes.trim()}`);
   }

@@ -20,6 +20,7 @@ import {
   type ReferenciaImagem,
 } from "@/lib/marketing/gerar-prompt";
 import { gerarImagemGemini } from "@/lib/marketing/gemini-imagem";
+import { montarTextoImagem } from "@/lib/marketing/textos-imagem";
 import { uploadMediaToStorage } from "@/lib/media-storage";
 
 export const dynamic = "force-dynamic";
@@ -110,12 +111,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ITEM 3 — textos extras (número/opções do cadastro) + posição
+    const numeroExtra = typeof body?.numero === "string" ? body.numero.trim() : "";
+    const opcoesExtra = Array.isArray(body?.opcoes)
+      ? body.opcoes.map((o: unknown) => String(o ?? "").trim()).filter(Boolean).slice(0, 8)
+      : [];
+    const posicaoExtra = String(body?.posicao ?? "");
+    const textoImagem = montarTextoImagem(numeroExtra, opcoesExtra, posicaoExtra);
+
     const prompt = montarPromptArte({
       formato,
       assunto,
       texto,
       estilo: body?.estilo ?? null,
       observacoes: body?.observacoes ?? null,
+      textoImagem,
     });
 
     // 0) MELHORIA 12/10 — referências ativas (logo/foto) entram no
