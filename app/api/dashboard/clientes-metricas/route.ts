@@ -12,17 +12,19 @@ export const dynamic = "force-dynamic";
 const TAMANHO_BLOCO = 1000;
 const LIMITE_MAXIMO = 20000;
 
-type Linha = { status: string | null; classificacao: string | null; origem: string | null };
+type Linha = { status: string | null; classificacao: string | null };
 
 export async function GET() {
   try {
     const supabase = createAdminClient();
     const clientes: Linha[] = [];
+    const linhasOrigem: Array<{ origem: string | null }> = [];
 
+    // status/classificação vêm da tabela clientes
     for (let inicio = 0; inicio < LIMITE_MAXIMO; inicio += TAMANHO_BLOCO) {
       const { data, error } = await supabase
         .from("clientes")
-        .select("status, classificacao, origem")
+        .select("status, classificacao")
         .order("created_at", { ascending: false })
         .range(inicio, inicio + TAMANHO_BLOCO - 1);
 
@@ -31,11 +33,23 @@ export async function GET() {
       if (!data || data.length < TAMANHO_BLOCO) break;
     }
 
+    // origem vem da MESMA view unificada que a tela de Clientes usa
+    for (let inicio = 0; inicio < LIMITE_MAXIMO; inicio += TAMANHO_BLOCO) {
+      const { data, error } = await supabase
+        .from("v_unified_clientes")
+        .select("origem")
+        .range(inicio, inicio + TAMANHO_BLOCO - 1);
+
+      if (error) throw error;
+      linhasOrigem.push(...(data || []));
+      if (!data || data.length < TAMANHO_BLOCO) break;
+    }
+
     return NextResponse.json({
       total: clientes.length,
       porStatus: agruparPorCampo(clientes, "status", "Não informado"),
       porClassificacao: agruparPorCampo(clientes, "classificacao", "Sem classificação"),
-      porOrigem: agruparPorCampo(clientes, "origem", "Não informada"),
+      porOrigem: agruparPorCampo(linhasOrigem, "origem", "Não informada"),
     });
   } catch (error) {
     console.error("[dashboard/clientes-metricas]", error);

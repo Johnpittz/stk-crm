@@ -11,6 +11,9 @@
   topo: **Status dos clientes** (Ativo/Prospect/Churn/Inativo), **Classificação**
   (texto livre do cadastro, ex. VIP) e **Origem** (Cadastro/RECIEE/Chatbot/
   Disparo/WhatsApp/Atendimento) — tudo agrupado da tabela `clientes`.
+  - Origem lida da **view unificada** `v_unified_clientes` (a mesma que a
+    tela de Clientes usa — a tabela `clientes` não tem coluna `origem`);
+    status/classificação vêm da tabela `clientes`.
   - Rota `GET /api/dashboard/clientes-metricas` agrega no servidor em
     blocos de 1000 (a rota de lista trava em 100/página).
   - Testes novos: 4 (agrupamento/ordem/bucket vazio/campo isolado).
