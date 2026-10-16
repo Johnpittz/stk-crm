@@ -15,14 +15,9 @@ async function textoDoArquivo(file: File): Promise<string> {
   const buffer = Buffer.from(await file.arrayBuffer());
 
   if (nome.endsWith('.pdf')) {
-    const { PDFParse } = await import('pdf-parse');
-    const parser = new PDFParse({ data: buffer });
-    try {
-      const resultado = await parser.getText();
-      return resultado?.text || '';
-    } finally {
-      await parser.destroy();
-    }
+    // mesmo caminho da IA de conta (pdf2json externo, já usado em produção)
+    const { extrairTextoPdf } = await import('@/lib/ia/pdf-texto');
+    return (await extrairTextoPdf(buffer)) || '';
   }
   if (nome.endsWith('.docx')) {
     const mammoth = await import('mammoth');

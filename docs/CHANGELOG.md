@@ -17,6 +17,9 @@
     que junta os leads escolhidos aos contatos da planilha sem duplicar
     (`lib/leads/selecionar-leads.ts`).
   - Testes novos: 8 (extração/normalização) + 4 (seleção/mesclagem).
+  - PDF via `pdf2json` (mesmo helper da IA de conta — pdf-parse falha
+    no bundle do Next: worker não copiado / XRef corrompido); DOCX via
+    mammoth; planilha via SheetJS; texto puro (.txt/.csv) direto.
 
 ## 1.8.25 — 16/10/2026
 
