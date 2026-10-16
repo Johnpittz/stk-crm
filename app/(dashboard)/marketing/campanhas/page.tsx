@@ -1184,7 +1184,12 @@ export default function CampanhasPage() {
 
       {/* Dialog de Criar Disparo */}
       <Dialog open={showDisparoDialog} onOpenChange={(open) => { if (!open) resetarDialog(); else setShowDisparoDialog(true); }}>
-        <DialogContent className="bg-gray-800 border-gray-700 max-w-3xl max-h-[90vh] overflow-y-auto">
+        {/* Item 10 (16/10): fora do modal NÃO fecha (perdia o texto);
+            fecha só com X ou ESC. */}
+        <DialogContent
+          className="bg-gray-800 border-gray-700 max-w-3xl max-h-[90vh] overflow-y-auto"
+          onPointerDownOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle className="text-white">Criar Disparo - {campanhaSelecionada?.nome}</DialogTitle>
           </DialogHeader>

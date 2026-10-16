@@ -4,6 +4,18 @@
 
 ---
 
+## 1.8.23 — 16/10/2026
+
+- **Plano de mudanças do João:** `docs/plano-mudancas-16-10.md` (10 itens,
+  execução por partes com teste cada).
+- **Parte 1 — Log de Alterações TESTADO (item 6):** unit já cobria
+  criação/edição (10/10); teste AO VIVO na produção: cliente de teste
+  criado → trilha `criado` com campos → editado cidade → trilha
+  `editado: cidade`, autor admin@stk.com. Sem bug — apenas verificado.
+- **Parte 2 — modal de disparo não fecha mais fora (item 10):** diálogo
+  "Criar Disparo" (Campanhas) ganhou `onPointerDownOutside` que
+  previne o fechamento — texto não se perde; fecha só com X ou ESC.
+
 ## 1.8.22 — 15/10/2026
 
 - **FIX — vendedor novo não aparecia em Configurações → Equipe.**
