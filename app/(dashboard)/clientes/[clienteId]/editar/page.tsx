@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { mostrarCamposEmpresa, tituloEndereco } from "@/lib/clientes/campos-pessoa";
 import { normalizarCliente } from "@/lib/clientes/normalizar";
 import { montarPayloadCliente } from "@/lib/clientes/montar-payload";
 import { opcoesStatus } from "@/lib/clientes/status-cliente";
@@ -683,15 +684,18 @@ export default function EditarClientePage() {
             </div>
 
             {/* Campos novos (João, 06/10) — abaixo de Data de Abertura */}
-            <div className="space-y-1.5">
-              <Label className={labelCls}>Nome do Contato</Label>
-              <Input
-                value={form.nome_contato}
-                onChange={(e) => set("nome_contato", e.target.value)}
-                placeholder="Ex: Ana Souza"
-                className={inputCls}
-              />
-            </div>
+            {/* ITEM 1 — PF não mostra Nome do Contato */}
+            {mostrarCamposEmpresa(form.tipo) && (
+              <div className="space-y-1.5">
+                <Label className={labelCls}>Nome do Contato</Label>
+                <Input
+                  value={form.nome_contato}
+                  onChange={(e) => set("nome_contato", e.target.value)}
+                  placeholder="Ex: Ana Souza"
+                  className={inputCls}
+                />
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <Label className={labelCls}>Cargo</Label>
@@ -703,15 +707,18 @@ export default function EditarClientePage() {
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label className={labelCls}>CPF do Proprietário</Label>
-              <Input
-                value={form.cpf_proprietario}
-                onChange={(e) => set("cpf_proprietario", e.target.value)}
-                placeholder="000.000.000-00"
-                className={inputCls}
-              />
-            </div>
+            {/* ITEM 1 — PF não mostra CPF do Proprietário (já tem o CPF da pessoa) */}
+            {mostrarCamposEmpresa(form.tipo) && (
+              <div className="space-y-1.5">
+                <Label className={labelCls}>CPF do Proprietário</Label>
+                <Input
+                  value={form.cpf_proprietario}
+                  onChange={(e) => set("cpf_proprietario", e.target.value)}
+                  placeholder="000.000.000-00"
+                  className={inputCls}
+                />
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <Label className={labelCls}>Data de Nascimento</Label>
@@ -776,7 +783,7 @@ export default function EditarClientePage() {
         {/* ═══════ Endereço ═══════ */}
         <Section
           icon={<MapPin className="h-4 w-4 text-[#3B64CF]" />}
-          title="Endereço da Empresa"
+          title={tituloEndereco(form.tipo)}
         >
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* CEP */}

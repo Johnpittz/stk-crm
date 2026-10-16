@@ -4,6 +4,15 @@
 
 ---
 
+## 1.8.31 — 16/10/2026
+
+- **Parte 1 — CLIENTES PF: sem campos de empresa (item 1):** em
+  **Cadastrar Cliente** e **Editar Cliente**, quando o tipo é **PF
+  (CPF)** some "Nome do Contato" e "CPF do Proprietário" (o CPF do
+  cadastro já é da própria pessoa) e o bloco de endereço passa a se
+  chamar **"Endereço"** (PF não mora "na empresa"). PJ mantém tudo.
+  - Helper `lib/clientes/campos-pessoa.ts` (3 testes).
+
 ## 1.8.30 — 16/10/2026
 
 - **Parte 4 — ATENDIMENTO: "CLIENTE - <número>" (item 4):** quando o
