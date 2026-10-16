@@ -4,6 +4,15 @@
 
 ---
 
+## 1.8.25 — 16/10/2026
+
+- **Parte 2 — um único menu Disparo (item 2, decisão do João: "sem
+  Campanhas"):** `/disparo` virou a tela única com 3 seções empilhadas
+  (sem abas): **Criar disparo** (BulkSender + carga da arte),
+  **Campanhas** (com Novo Disparo, massa e remarketing) e **Relatórios**.
+  Menu marketing perdeu "Campanhas" e "Relatórios"; descrição do Disparo
+  atualizada. Teste da composição da tela (2 testes jsdom).
+
 ## 1.8.24 — 16/10/2026
 
 - **Parte 9 — origem do disparo (item 9):** coluna **"Número de origem"**

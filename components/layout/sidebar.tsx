@@ -129,12 +129,6 @@ const navItemsPorPerfil: Record<PerfilAtivo, Array<{
       description: "Fluxos automáticos de qualificação",
     },
     {
-      href: "/marketing/campanhas",
-      label: "Campanhas",
-      icon: Megaphone,
-      description: "Criar campanhas e disparos",
-    },
-    {
       // PEDIDO 3 (11/10) — artes personalizadas com IA (Gemini) + disparo
       href: "/marketing/artes",
       label: "Criar Artes",
@@ -146,19 +140,13 @@ const navItemsPorPerfil: Record<PerfilAtivo, Array<{
       href: "/disparo",
       label: "Disparo",
       icon: Zap,
-      description: "Disparo em massa (e remarketing na Fase 1)",
+      description: "Criar disparo, campanhas e relatórios",
     },
     {
       href: "/marketing/leads",
       label: "Leads",
       icon: Target,
       description: "Prospecção de leads",
-    },
-    {
-      href: "/marketing/relatorios",
-      label: "Relatórios",
-      icon: BarChart3,
-      description: "Análises e relatórios",
     },
     {
       href: "/marketing/promocoes",
