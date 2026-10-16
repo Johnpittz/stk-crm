@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { montarCorpoEdicao } from "@/lib/oportunidades/corpo-edicao";
 import { BotaoProposta } from "@/components/features/propostas/botao-proposta";
 
 // ─── Colunas do Funil de Vendas (mesmo do Kanban) ───
@@ -125,6 +126,8 @@ interface ModalDetalhesOportunidadeProps {
   onClose: () => void;
   onAtualizar: () => void;
   iniciarConcluindo?: boolean;
+  /** ITEM 5 — abrir o modal já em modo edição (botão lápis do card) */
+  iniciarEditando?: boolean;
 }
 
 export function ModalDetalhesOportunidade({
@@ -133,6 +136,7 @@ export function ModalDetalhesOportunidade({
   onClose,
   onAtualizar,
   iniciarConcluindo = false,
+  iniciarEditando = false,
 }: ModalDetalhesOportunidadeProps) {
   const [editando, setEditando] = useState(false);
   const [concluindo, setConcluindo] = useState(false);
@@ -149,6 +153,7 @@ export function ModalDetalhesOportunidade({
     prioridade: "media",
     valorVenda: "" as string,
     produtoId: "nenhum" as string,
+    etapa: "" as string,
   });
 
   // Fase 3 — lista de produtos para o select (vem de /api/produtos)
@@ -187,8 +192,24 @@ export function ModalDetalhesOportunidade({
         prioridade: oportunidade.prioridade,
         valorVenda: "",
         produtoId: oportunidade.produto_id || "nenhum",
+        etapa: oportunidade.etapa,
       });
       setResultadoForm({ resultado: "", observacao: "", valorVenda: "" });
+    } else if (aberto && iniciarEditando && oportunidade) {
+      // ITEM 5 — abrir já em modo edição (qualquer oportunidade)
+      const valorFormatado = oportunidade.valor_venda
+        ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(oportunidade.valor_venda)
+        : "";
+      setEditando(true);
+      setConcluindo(false);
+      setForm({
+        titulo: oportunidade.titulo,
+        descricao: oportunidade.descricao || "",
+        prioridade: oportunidade.prioridade,
+        valorVenda: valorFormatado,
+        produtoId: oportunidade.produto_id || "nenhum",
+        etapa: oportunidade.etapa,
+      });
     } else if (aberto && oportunidade && !iniciarConcluindo) {
       // Inicializa form com dados da oportunidade
       const valorFormatado = oportunidade.valor_venda
@@ -200,6 +221,7 @@ export function ModalDetalhesOportunidade({
         prioridade: oportunidade.prioridade,
         valorVenda: valorFormatado,
         produtoId: oportunidade.produto_id || "nenhum",
+        etapa: oportunidade.etapa,
       });
     } else if (!aberto) {
       setConcluindo(false);
@@ -216,16 +238,14 @@ export function ModalDetalhesOportunidade({
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const body: any = {
-        id: oportunidade.id,
+      // ITEM 5 — etapa + valor editáveis em qualquer oportunidade
+      const body = montarCorpoEdicao(oportunidade.id, {
         titulo: form.titulo,
         descricao: form.descricao,
         prioridade: form.prioridade,
-      };
-
-      if (oportunidade.resultado === "sucesso" && form.valorVenda) {
-        body.valor_venda = parseFloat(form.valorVenda.replace(/\./g, "").replace(",", "."));
-      }
+        valorVenda: form.valorVenda,
+        etapa: form.etapa,
+      });
 
       const auth = ["Bearer", session.access_token].join(" ");
       const res = await fetch("/api/oportunidades", {
@@ -317,6 +337,7 @@ export function ModalDetalhesOportunidade({
         prioridade: oportunidade.prioridade,
         valorVenda: "",
         produtoId: oportunidade.produto_id || "nenhum",
+        etapa: oportunidade.etapa,
       });
       setResultadoForm({ resultado: "", observacao: "", valorVenda: "" });
       return;
@@ -420,7 +441,8 @@ export function ModalDetalhesOportunidade({
 
   const isConcluida = oportunidade.etapa === "concluida";
   const isAndamento = oportunidade.etapa === "em_andamento";
-  const podeEditar = isConcluida;
+  // ITEM 5 — edição vale para QUALQUER oportunidade (antes: só concluída)
+  const podeEditar = true;
   const podeConcluir = isAndamento;
 
   return (
@@ -593,24 +615,54 @@ export function ModalDetalhesOportunidade({
             </div>
           )}
 
-          {/* Campo valor editável no modo edição (concluída com sucesso) */}
-          {editando && oportunidade.resultado === "sucesso" && (
-            <div>
-              <Label className="text-sm text-slate-400">Valor da Venda (R$)</Label>
-              <Input
-                type="text"
-                placeholder="0,00"
-                value={form.valorVenda}
-                onChange={(e) => {
-                  let v = e.target.value.replace(/\D/g, "");
-                  if (v.length > 2) {
-                    v = v.replace(/(\d{2})$/, ",$1");
-                    v = v.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-                  }
-                  setForm((f) => ({ ...f, valorVenda: v }));
-                }}
-                className="mt-1 bg-[#14233c] border-[#1c2e4a] text-white"
-              />
+          {/* ITEM 5 — modo edição: etapa, prioridade e valor (qualquer card) */}
+          {editando && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <Label className="text-sm text-slate-400">Etapa do funil</Label>
+                <Select value={form.etapa} onValueChange={(v) => setForm((f) => ({ ...f, etapa: v }))}>
+                  <SelectTrigger className="mt-1 bg-[#14233c] border-[#1c2e4a] text-white"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-[#14233c] border-[#1c2e4a]">
+                    {oportunidade.etapa === "concluida" && (
+                      <SelectItem value="concluida">✅ Concluída</SelectItem>
+                    )}
+                    {colunas.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.icone} {c.titulo}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-sm text-slate-400">Prioridade</Label>
+                <Select value={form.prioridade} onValueChange={(v) => setForm((f) => ({ ...f, prioridade: v }))}>
+                  <SelectTrigger className="mt-1 bg-[#14233c] border-[#1c2e4a] text-white"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-[#14233c] border-[#1c2e4a]">
+                    <SelectItem value="baixa">Baixa</SelectItem>
+                    <SelectItem value="media">Média</SelectItem>
+                    <SelectItem value="alta">Alta</SelectItem>
+                    <SelectItem value="urgente">Urgente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-sm text-slate-400">Valor da Venda (R$)</Label>
+                <Input
+                  type="text"
+                  placeholder="0,00"
+                  value={form.valorVenda}
+                  onChange={(e) => {
+                    let v = e.target.value.replace(/\D/g, "");
+                    if (v.length > 2) {
+                      v = v.replace(/(\d{2})$/, ",$1");
+                      v = v.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                    }
+                    setForm((f) => ({ ...f, valorVenda: v }));
+                  }}
+                  className="mt-1 bg-[#14233c] border-[#1c2e4a] text-white"
+                />
+              </div>
             </div>
           )}
 
@@ -733,7 +785,7 @@ export function ModalDetalhesOportunidade({
                     setEditando(false);
                     const valorFormatado = oportunidade.valor_venda
                       ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(oportunidade.valor_venda) : "";
-                    setForm({ titulo: oportunidade.titulo, descricao: oportunidade.descricao || "", prioridade: oportunidade.prioridade, valorVenda: valorFormatado, produtoId: oportunidade.produto_id || "nenhum" });
+                    setForm({ titulo: oportunidade.titulo, descricao: oportunidade.descricao || "", prioridade: oportunidade.prioridade, valorVenda: valorFormatado, produtoId: oportunidade.produto_id || "nenhum", etapa: oportunidade.etapa });
                   }} className="border-[#1c2e4a] text-slate-300 hover:bg-[#14233c]">
                     <X className="h-4 w-4 mr-1" />
                     Cancelar

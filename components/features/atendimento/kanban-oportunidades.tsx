@@ -14,7 +14,7 @@ import {
   Draggable,
   DropResult,
 } from "@hello-pangea/dnd";
-import { Clock, AlertCircle, Trash2, MoreHorizontal, Calendar } from "lucide-react";
+import { Clock, AlertCircle, Trash2, MoreHorizontal, Calendar, Pencil } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -118,6 +118,8 @@ export function KanbanOportunidades({
   const [loading, setLoading] = useState(true);
   const [oportunidadeSelecionada, setOportunidadeSelecionada] = useState<Oportunidade | null>(null);
   const [modalAberto, setModalAberto] = useState(false);
+  // ITEM 5 — card de lápis abre o modal já em modo edição
+  const [editarAoAbrir, setEditarAoAbrir] = useState(false);
   const [modalConcluindo, setModalConcluindo] = useState(false);
   const [filtroColuna, setFiltroColuna] = useState("__TODAS__");
   const supabase = createClient();
@@ -495,8 +497,22 @@ export function KanbanOportunidades({
                                       )}
                                     </div>
 
-                                    {/* Ações (hover) */}
-                                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    {/* Ações (hover) — ITEM 5: lápis = editar qualquer card */}
+                                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        title="Editar"
+                                        className="h-6 w-6 bg-black/30 backdrop-blur-sm text-slate-400 hover:text-blue-400 hover:bg-blue-500/20"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setOportunidadeSelecionada(oportunidade);
+                                          setEditarAoAbrir(true);
+                                          setModalAberto(true);
+                                        }}
+                                      >
+                                        <Pencil className="h-3.5 w-3.5" />
+                                      </Button>
                                       <Button
                                         variant="ghost"
                                         size="icon"
@@ -536,10 +552,12 @@ export function KanbanOportunidades({
       <ModalDetalhesOportunidade
         oportunidade={oportunidadeSelecionada}
         aberto={modalAberto}
+        iniciarEditando={editarAoAbrir}
         onClose={() => {
           setModalAberto(false);
           setModalConcluindo(false);
           setOportunidadeSelecionada(null);
+          setEditarAoAbrir(false);
         }}
         onAtualizar={() => {
           fetchOportunidades();

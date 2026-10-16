@@ -4,6 +4,10 @@
 
 ---
 
+## 1.8.28 — 16/10/2026
+
+- **Parte 5 — KANBAN com edição (item 5):** em Funil de Vendas, cada card ganhou o **lapis** (ao lado do excluir) que abre o detalhe **ja em modo edicao**. A edicao agora vale para **qualquer oportunidade** (antes so para concluidas) e ganhou **Etapa do funil**, **Prioridade** e **Valor da Venda** no form. Helper `montarCorpoEdicao` (testado) monta o PATCH com moeda BR. 6 testes novos.
+
 ## 1.8.27 — 16/10/2026
 
 - **Parte 7 — DASHBOARD: status, classificação e origem (item 7):** nova

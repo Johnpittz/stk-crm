@@ -11,7 +11,7 @@ Executar **por partes**, cada uma com teste (RED→GREEN), gates
 | 2 | Marketing | Juntar tudo de disparo em **DISPARO** (hoje tem "Novo Disparo" dentro de Campanhas duplicando) | ✅ 16/10 (tela única /disparo; menus Campanhas/Relatórios removidos) |
 | 3 | Marketing/Gerar Artes | Opções de texto na imagem (número, endereço, dados que fazem achar) + **posição** (canto superior/inferior/rodapé…) + **gravar como cadastro** (dados de contato) | ⏳ |
 | 4 | CRM/Atendimento | Sem nome identificado: mostrar **"CLIENTE — 6298…"** (número na frente) em vez de só "CLIENTE" | ⏳ |
-| 5 | CRM/Funil de Vendas | Cards do Kanban precisam de **edição** (hoje não há) | ⏳ |
+| 5 | CRM/Funil de Vendas | Cards do Kanban precisam de **edição** (hoje não há) | ✅ |
 | 6 | CRM (geral) | **Testar** o Log de Alterações (editar cliente → log gravado) | ✅ 16/10 (unit 10/10 + ao vivo: criado/editado com autor) |
 | 7 | CRM/Dashboard | Mapear e mostrar **status, classificação e origem** (Prospect…) | ✅ |
 | 8 | Marketing/Leads | **Importar lista** (PDF, Word…) + escolher **Leads** como destino no disparo em massa | ✅ |
