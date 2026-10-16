@@ -191,6 +191,29 @@ function validateCNPJ(cnpj: string): boolean {
 
 // ─── Main Component ───
 
+// ─── Section wrapper ───
+// FORA do componente de propósito: se declarar dentro, cada render cria
+  // um tipo novo e o React desmonta os campos (o cursor sumia a cada tecla).
+const Section = ({
+  icon,
+  title,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  children: React.ReactNode;
+}) => (
+  <Card className="border-[#1c2e4a] bg-[#14233c]">
+    <CardHeader className="pb-4 pt-5 px-6">
+      <CardTitle className="text-sm font-semibold text-white flex items-center gap-2">
+        {icon}
+        {title}
+      </CardTitle>
+    </CardHeader>
+    <CardContent className="px-6 pb-6">{children}</CardContent>
+  </Card>
+);
+
 export default function NovoClientePage() {
   const router = useRouter();
   const supabase = createClient();
@@ -338,27 +361,6 @@ export default function NovoClientePage() {
   const inputCls =
     "h-9 text-sm bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#3B64CF] focus:ring-[#3B64CF]/30";
   const labelCls = "text-xs font-medium text-slate-400";
-
-  // ─── Section wrapper ───
-  const Section = ({
-    icon,
-    title,
-    children,
-  }: {
-    icon: React.ReactNode;
-    title: string;
-    children: React.ReactNode;
-  }) => (
-    <Card className="border-[#1c2e4a] bg-[#14233c]">
-      <CardHeader className="pb-4 pt-5 px-6">
-        <CardTitle className="text-sm font-semibold text-white flex items-center gap-2">
-          {icon}
-          {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="px-6 pb-6">{children}</CardContent>
-    </Card>
-  );
 
   return (
     <div className="max-w-5xl mx-auto pb-12">
