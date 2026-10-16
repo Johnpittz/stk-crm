@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { nomeExibicaoCliente } from "@/lib/atendimentos/nome-exibicao";
 import { ETIQUETAS_DISPONIVEIS } from "@/lib/etiquetas";
 
 // ─── Types ───
@@ -594,7 +595,7 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
     );
   }
 
-  const nome = atendimento?.clientes?.nome_razao_social || atendimento?.nome_cliente || "Cliente";
+  const nome = nomeExibicaoCliente(atendimento?.clientes?.nome_razao_social || atendimento?.nome_cliente, atendimento?.telefone_cliente);
   const telefone = atendimento?.clientes?.telefone || atendimento?.clientes?.celular || atendimento?.telefone_cliente || "";
   const email = (atendimento?.clientes as any)?.email || "";
   const cpf = (atendimento?.clientes as any)?.cnpj_cpf || "";

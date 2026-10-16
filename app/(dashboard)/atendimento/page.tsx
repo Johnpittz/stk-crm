@@ -259,7 +259,7 @@ export default function AtendimentoPage() {
         },
         body: JSON.stringify({
           telefone_cliente: telefone,
-          nome_cliente: contact.pushName || "Cliente",
+          nome_cliente: contact.pushName || "", // ITEM 4: tela mostra "CLIENTE - <número>"
           instancia: instanciaSelecionada !== "todas" ? instanciaSelecionada : undefined,
         }),
       });

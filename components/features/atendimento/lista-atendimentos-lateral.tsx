@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { nomeExibicaoCliente } from "@/lib/atendimentos/nome-exibicao";
 import { encontrarInstanciaConectada, type InstanciaConectavel } from "@/lib/telefone";
 import { estaSemResposta, horasDeEspera } from "@/lib/atendimentos/sem-resposta";
 
@@ -103,7 +104,7 @@ export function ListaAtendimentosLateral({
                 )
                   .substring(0, 2)
                   .toUpperCase();
-                const nome = a.clientes?.nome_razao_social || a.nome_cliente || "Cliente";
+                const nome = nomeExibicaoCliente(a.clientes?.nome_razao_social || a.nome_cliente, a.telefone_cliente);
                 // C1 — cliente é o último a falar há mais de 24h? A bola está com a gente.
                 const semResposta = estaSemResposta(a);
                 const horasEspera = horasDeEspera(a);

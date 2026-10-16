@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { nomeExibicaoCliente } from "@/lib/atendimentos/nome-exibicao";
 import { SimularWhatsAppModal } from "./simular-whatsapp-modal";
 
 interface Atendimento {
@@ -138,7 +139,7 @@ export function ListaAtendimentos({ atendimentos, loading, onRefresh, onAbrirCha
                 const hora = a.ultima_mensagem_data
                   ? new Date(a.ultima_mensagem_data).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
                   : "";
-                const iniciais = (a.clientes?.nome_razao_social || a.nome_cliente || "C").substring(0, 2).toUpperCase();
+                const iniciais = nomeExibicaoCliente(a.clientes?.nome_razao_social || a.nome_cliente, a.telefone_cliente).substring(0, 2).toUpperCase();
 
                 return (
                   <div
@@ -173,7 +174,7 @@ export function ListaAtendimentos({ atendimentos, loading, onRefresh, onAbrirCha
                       {/* Linha topo: nome + hora + badges */}
                       <div className="flex items-center justify-between gap-2">
                         <span className={cn("text-sm truncate", isNaoLido ? "font-bold text-slate-900" : "font-semibold text-slate-700")}>
-                          {a.clientes?.nome_razao_social || a.nome_cliente || "Cliente não identificado"}
+                          {nomeExibicaoCliente(a.clientes?.nome_razao_social || a.nome_cliente, a.telefone_cliente)}
                         </span>
                         <div className="flex items-center gap-1.5 shrink-0">
                           {hora && (

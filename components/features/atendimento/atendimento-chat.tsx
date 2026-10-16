@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Phone, Send, Check, User, MessageCircle, X, ArrowRightLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { nomeExibicaoCliente } from "@/lib/atendimentos/nome-exibicao";
 
 interface Mensagem {
   id: string;
@@ -263,7 +264,7 @@ export function AtendimentoChat({ atendimento, open, onClose, onMarcarResolvido,
     return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   };
 
-  const nomeCliente = atendimento?.clientes?.nome_razao_social || atendimento?.nome_cliente || "Cliente";
+  const nomeCliente = nomeExibicaoCliente(atendimento?.clientes?.nome_razao_social || atendimento?.nome_cliente, atendimento?.telefone_cliente);
   const telefone = atendimento?.clientes?.telefone || atendimento?.clientes?.celular || atendimento?.telefone_cliente || "";
 
   return (

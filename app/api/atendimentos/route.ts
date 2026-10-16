@@ -132,7 +132,8 @@ export async function POST(request: NextRequest) {
   // Se cliente não tem vendedor no cadastro, usa vendedor padrão (roteamento)
   const vendedorPadrao = await buscarVendedorPadrao();
   let vendedorId = cliente?.vendedor_responsavel_id || vendedorPadrao || null;
-  const nomeCliente = nome_cliente || cliente?.nome_razao_social || "Cliente";
+  // ITEM 4 — sem nome → a tela mostra "CLIENTE - <número>" (nada de "Cliente" genérico)
+  const nomeCliente = nome_cliente || cliente?.nome_razao_social || "";
 
   // Se o usuário é demonstração, sempre atribui o atendimento a ele
   const { data: meuPerfilCheck } = await supabaseAdmin

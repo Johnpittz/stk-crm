@@ -247,7 +247,8 @@ export async function POST(request: NextRequest) {
         canal: "whatsapp",
         telefone_cliente: telefoneLimpo,
         // Só usa pushName se veio do CLIENTE; operador = "Cliente" ou nome do cadastro
-        nome_cliente: (!dados.fromMe && nomeCliente) || cliente?.nome_razao_social || "Cliente",
+        // ITEM 4 — sem nome → "CLIENTE - <número>" na tela
+        nome_cliente: (!dados.fromMe && nomeCliente) || cliente?.nome_razao_social || "",
         status: "aberto",
         prioridade: cliente ? "normal" : "alta",
         assunto: conteudoMensagem.substring(0, 100),

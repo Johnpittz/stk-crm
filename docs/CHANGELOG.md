@@ -4,6 +4,19 @@
 
 ---
 
+## 1.8.30 — 16/10/2026
+
+- **Parte 4 — ATENDIMENTO: "CLIENTE - <número>" (item 4):** quando o
+  contato não tem nome, a tela mostra **CLIENTE - 62982735286** (número
+  na frente) em vez de só "CLIENTE"/"Cliente não identificado".
+  - Helper `lib/atendimentos/nome-exibicao.ts` (4 testes) aplicado em:
+    lista principal, lista lateral, painel do contato, chat inline e
+    cabeçalho do chat.
+  - Placeholders antigos no banco ("Cliente", "Cliente não
+    identificado") também contam como sem nome — sem precisar de SQL.
+  - Criação de atendimento não grava mais "Cliente" genérico (API,
+    webhooks WAHA/WhatsApp e tela nova).
+
 ## 1.8.29 — 16/10/2026
 
 - **Parte 3 — GERAR ARTES: textos, posição e cadastro (item 3):**
