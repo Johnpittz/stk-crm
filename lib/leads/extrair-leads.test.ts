@@ -44,6 +44,19 @@ describe("extrairLeads", () => {
     expect(leads[0].telefone).toBe("62991112222");
   });
 
+  it("pega TODOS os telefones de uma mesma linha (PDF achapado vira uma linha só)", () => {
+    const texto = "Loja A 62 91111-1111 Loja B (62) 92222-2222 Loja C +55 62 93333-3333";
+    const leads = extrairLeads(texto);
+    expect(leads.map(l => l.telefone)).toEqual([
+      "62911111111",
+      "62922222222",
+      "62933333333",
+    ]);
+    expect(leads[0].nome).toBe("Loja A");
+    expect(leads[1].nome).toBe("Loja B");
+    expect(leads[2].nome).toBe("Loja C");
+  });
+
   it("ignora linhas sem telefone", () => {
     expect(extrairLeads("Só texto\nNada de número aqui")).toHaveLength(0);
   });

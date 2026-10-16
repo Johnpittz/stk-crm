@@ -44,24 +44,36 @@ export function extrairLeads(texto: string): LeadExtraido[] {
     const limpa = linha.trim();
     if (!limpa) continue;
 
+    // varre TODOS os telefones da linha — o pdf2json achapata o PDF
+    // inteiro numa linha só, então um por linha perdia os outros.
     const regex = new RegExp(REGEX_TELEFONE.source, "g");
-    const match = regex.exec(limpa);
-    if (!match) {
+    let fimAnterior = 0;
+    let achou = false;
+    let match: RegExpExecArray | null;
+
+    while ((match = regex.exec(limpa)) !== null) {
+      const telefone = normalizarTelefoneBr(match[0]);
+      if (!telefone || vistos.has(telefone)) {
+        fimAnterior = match.index + match[0].length;
+        continue;
+      }
+      vistos.add(telefone);
+      achou = true;
+
+      // nome: texto entre o telefone anterior e este (mesma linha)
+      const antes = limpa.slice(fimAnterior, match.index);
+      fimAnterior = match.index + match[0].length;
+      const nome = limparNome(antes) || ultimoNome;
+      leads.push({ nome, telefone });
+      if (nome) ultimoNome = nome;
+    }
+
+    if (!achou) {
       const candidato = limparNome(limpa);
       if (candidato && !/^[\d\s()+\-.]+$/.test(candidato)) {
         ultimoNome = candidato;
       }
-      continue;
     }
-
-    const telefone = normalizarTelefoneBr(match[0]);
-    if (!telefone || vistos.has(telefone)) continue;
-    vistos.add(telefone);
-
-    const antes = limpa.slice(0, match.index);
-    const nome = limparNome(antes) || ultimoNome;
-    leads.push({ nome, telefone });
-    if (nome) ultimoNome = nome;
   }
 
   return leads;
