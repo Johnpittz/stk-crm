@@ -13,7 +13,7 @@ Executar **por partes**, cada uma com teste (RED→GREEN), gates
 | 6 | CRM (geral) | **Testar** o Log de Alterações (editar cliente → log gravado) | ✅ 16/10 (unit 10/10 + ao vivo: criado/editado com autor) |
 | 7 | CRM/Dashboard | Mapear e mostrar **status, classificação e origem** (Prospect…) | ⏳ |
 | 8 | Marketing/Leads | **Importar lista** (PDF, Word…) + escolher **Leads** como destino no disparo em massa | ⏳ |
-| 9 | Marketing/Disparo | Mostrar **qual número** foi usado em cada disparo | ⏳ |
+| 9 | Marketing/Disparo | Mostrar **qual número** foi usado em cada disparo | ✅ 16/10 (coluna + detalhe, 8 testes) |
 | 10 | Marketing/Disparo (modal) | Modal **não fecha** ao clicar fora; fecha só com **X** ou **ESC** | ✅ 16/10 (diálogo Criar Disparo) |
 
-Ordem de execução (agrupa por arquivo): ~~6~~ → ~~10~~ → 9 → 2 → 4 → 5 → 1 → 3 → 7 → 8.
+Ordem de execução (agrupa por arquivo): ~~6~~ → ~~10~~ → ~~9~~ → 2 → 4 → 5 → 1 → 3 → 7 → 8.

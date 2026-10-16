@@ -4,6 +4,15 @@
 
 ---
 
+## 1.8.24 — 16/10/2026
+
+- **Parte 9 — origem do disparo (item 9):** coluna **"Número de origem"**
+  na tabela "Disparos desta Campanha" e a caixa "Origem do disparo" no
+  detalhe agora mostram o **📞 número** da sessão WAHA usada (resolve
+  `instancia` via `/api/instances`; sem número → nome da sessão; sem
+  instancia → "-"). Helper puro `lib/marketing/origem-disparo` (8 testes:
+  mapa, formato pt-BR +55 DDD 99999-8888 e fallbacks).
+
 ## 1.8.23 — 16/10/2026
 
 - **Plano de mudanças do João:** `docs/plano-mudancas-16-10.md` (10 itens,

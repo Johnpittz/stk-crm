@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { mapearNumerosInstancias, numeroDeOrigem } from '@/lib/marketing/origem-disparo';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Megaphone, Trash2, ChevronDown, ChevronUp, Send, Loader2, Upload, FileSpreadsheet, X, Image, Square, FileText, RefreshCw, RotateCcw } from 'lucide-react';
@@ -73,6 +74,8 @@ export default function CampanhasPage() {
   const [campanhaSelecionada, setCampanhaSelecionada] = useState<Campanha | null>(null);
   const [expandedCampanha, setExpandedCampanha] = useState<string | null>(null);
   const [instances, setInstances] = useState<any[]>([]);
+  // PARTE 9 (16/10): mapa sessão → número p/ mostrar a origem de cada disparo
+  const mapaNumeros = useMemo(() => mapearNumerosInstancias(instances), [instances]);
   const [promocoes, setPromocoes] = useState<any[]>([]);
   const [sending, setSending] = useState(false);
   const [tipoEnvio, setTipoEnvio] = useState<'avulso' | 'massa' | 'remarketing'>('avulso');
@@ -911,6 +914,7 @@ export default function CampanhasPage() {
                           <TableHeader>
                             <TableRow className="border-gray-700">
                               <TableHead className="text-gray-300">Nome</TableHead>
+                              <TableHead className="text-gray-300">Número de origem</TableHead>
                               <TableHead className="text-gray-300">Contatos</TableHead>
                               <TableHead className="text-gray-300">Enviados</TableHead>
                               <TableHead className="text-gray-300">Falhas</TableHead>
@@ -929,6 +933,14 @@ export default function CampanhasPage() {
                                       Remarketing
                                     </span>
                                   )}
+                                </TableCell>
+                                <TableCell className="text-gray-300 whitespace-nowrap">
+                                  <span title={disparo.instancia || ''}>
+                                    {(() => {
+                                      const origem = numeroDeOrigem(mapaNumeros, disparo.instancia);
+                                      return origem ? `📞 ${origem}` : <span className="text-gray-500">-</span>;
+                                    })()}
+                                  </span>
                                 </TableCell>
                                 <TableCell className="text-gray-300">
                                   {Array.isArray(disparo.numbers) ? disparo.numbers.length - (typeof disparo.numbers[0] === 'string' ? 1 : 0) : 1}
@@ -1092,8 +1104,20 @@ export default function CampanhasPage() {
                 {/* Info geral */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-gray-700/50 rounded-lg p-3">
-                    <p className="text-gray-400 text-xs">Instância</p>
-                    <p className="text-white font-medium">{detalheDisparo.instancia || instanceName}</p>
+                    <p className="text-gray-400 text-xs">Origem do disparo</p>
+                    {(() => {
+                      const origem = numeroDeOrigem(mapaNumeros, detalheDisparo.instancia || instanceName);
+                      const sessao = detalheDisparo.instancia || instanceName;
+                      const numero = origem && origem !== sessao ? origem : null;
+                      return numero ? (
+                        <>
+                          <p className="text-white font-medium">📞 {numero}</p>
+                          <p className="text-gray-500 text-xs">{sessao}</p>
+                        </>
+                      ) : (
+                        <p className="text-white font-medium">{sessao}</p>
+                      );
+                    })()}
                   </div>
                   <div className="bg-gray-700/50 rounded-lg p-3">
                     <p className="text-gray-400 text-xs">Status</p>
