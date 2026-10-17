@@ -47,6 +47,14 @@ const CORES_STATUS: Record<string, string> = {
   inconclusiva: "bg-rose-500/15 text-rose-400 border-rose-500/30",
 };
 
+/** FASE C — ids das LINHAS criadas na aba (não são ids de produto) */
+const ROTULOS_ABA: Record<string, string> = {
+  eletroposto: "Eletroposto",
+  sigma: "Sigma Solar",
+  bess: "BESS",
+  mercado_livre: "Mercado Livre",
+  usina: "Usina Própria",
+};
 const ROTULOS_STATUS: Record<string, string> = {
   identificada: "Identificada",
   preliminar: "Preliminar (pendente)",
@@ -65,6 +73,7 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
   const [oportunidades, setOportunidades] = useState<OportunidadeProduto[]>([]);
   const [noFunil, setNoFunil] = useState<string[]>([]);
   const [criando, setCriando] = useState<string | null>(null);
+  const [abasCriadas, setAbasCriadas] = useState<string[]>([]);
 
   async function analisar() {
     if (!arquivo) {
@@ -92,6 +101,7 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
       setResumo(json.resumo);
       setSalvo(!!json.salvo);
       setOportunidades(Array.isArray(json.oportunidades) ? json.oportunidades : []);
+      setAbasCriadas(Array.isArray(json.abasCriadas) ? json.abasCriadas : []);
     } catch (e: any) {
       setErro(e.message || "Erro inesperado.");
     } finally {
@@ -179,6 +189,12 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
             {linha("Vencimento (dia)", resumo.vencimento)}
             {linha("Consumo (kWh)", resumo.consumo)}
             {linha("Valor", resumo.valor)}
+            {abasCriadas.length > 0 && (
+              <p className="text-xs text-sky-400">
+                📌 Sugestões já criadas na aba do cliente (origem IA):{" "}
+                {abasCriadas.map((a) => ROTULOS_ABA[a] ?? a).join(", ")}
+              </p>
+            )}
             {salvo && (
               <p className="text-xs text-emerald-400">
                 ✅ Concessionária, UC e vencimento salvos na pasta do cliente.

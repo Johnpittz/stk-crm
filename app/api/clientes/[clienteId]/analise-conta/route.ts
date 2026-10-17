@@ -8,6 +8,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { analisarFatura, analisarFaturaTexto } from "@/lib/ia/analisar-fatura";
 import { paraNumero } from "@/lib/clientes/fatura-conta";
+import {
+  deveCriarLinhaIA,
+  linhaDaOportunidade,
+  montarDadosLinhaIA,
+} from "@/lib/clientes/ponte-ia";
 import { aplicarRegras, calcularMediaFinanceira } from "@/lib/ia/regras-produtos";
 
 export const runtime = "nodejs";
@@ -112,7 +117,7 @@ export async function POST(
   try {
     const { data: linhasFatura } = await admin
       .from("cliente_pasta_linhas")
-      .select("dados")
+      .select("linha, dados")
       .eq("cliente_id", clienteId)
       .eq("linha", "gestao_fatura");
     const valores = (linhasFatura ?? []).map(
@@ -136,11 +141,44 @@ export async function POST(
     oportunidades = [];
   }
 
+  // FASE C (17/10) — ponte: produtos identificados viram linha na aba
+  // do cliente com origem "IA". Nunca duplica (se já existe linha do
+  // produto, manual ou IA, não cria outra) e só passa Identificada/
+  // Preliminar — nunca cria linha automática dos outros status.
+  const abasCriadas: string[] = [];
+  try {
+    const { data: linhasAtuais } = await admin
+      .from("cliente_pasta_linhas")
+      .select("linha, dados")
+      .eq("cliente_id", clienteId);
+    const existentes = (linhasAtuais ?? []).map((l: { linha: string; dados: any }) => ({
+      linha: String(l.linha),
+      dados: (l.dados ?? {}) as Record<string, unknown>,
+    }));
+    for (const o of oportunidades) {
+      if (!deveCriarLinhaIA(o, existentes)) continue;
+      const linha = linhaDaOportunidade(o);
+      if (!linha) continue;
+      const { error } = await admin.from("cliente_pasta_linhas").insert({
+        cliente_id: clienteId,
+        linha,
+        dados: montarDadosLinhaIA(o),
+      });
+      if (!error) {
+        abasCriadas.push(linha);
+        existentes.push({ linha, dados: {} });
+      }
+    }
+  } catch {
+    /* conforto: a oportunidade já aparece na tela mesmo sem a linha */
+  }
+
   return NextResponse.json({
     resumo,
     salvo,
     camposSalvos: Object.keys(update),
     faturaCompletada,
     oportunidades,
+    abasCriadas,
   });
 }

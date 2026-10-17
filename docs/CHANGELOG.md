@@ -4,6 +4,15 @@
 
 ---
 
+## 1.8.42 — 17/10/2026
+
+- **FASE C — ponte IA → abas do cliente:** quando a Análise identifica
+  um produto que tem aba própria (BESS, Eletroposto, Sigma, Mercado
+  Livre, Usina), ela cria sozinha a sugestão naquela aba com origem
+  "IA" — nunca duplica (se já existir linha daquele produto, não cria)
+  e só passa Identificada/Preliminar. Modal avisa "📌 Sugestões já
+  criadas na aba do cliente". `lib/clientes/ponte-ia.ts` (4 testes).
+
 ## 1.8.41 — 17/10/2026
 
 - **FASE B — inserção manual de produto na aba do cliente:**
