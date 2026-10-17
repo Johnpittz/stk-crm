@@ -10,6 +10,15 @@
   anda junto com "📤 Upload da Fatura" — a IA lê a conta, salva
   concessionária/UC/vencimento e completa valor/consumo da linha.
 
+## 1.8.39 — 17/10/2026
+
+- **FASE A — Análise da Fatura vira Tela de Oportunidades** (doc "lógica dos produtos para o CRM"):
+  - `lib/ia/regras-produtos.ts` (23 testes): motor de regras comerciais do protocolo — ML/ACL, GD-A/B, Usina própria, BESS (ponta > 4.000), RECIEE (média > R$ 5.000, apurada com 3+ faturas), Eletroposto (CNAE) e Sigma Solar — com status Identificada/Preliminar/Não acionada/Inconclusiva, motivo, evidência e pendência; UC comparada sem pontuação.
+  - Extração da IA agora lê grupo, contratação livre, CNAE, ponta, energia injetada e UCs geradora/consumidora (+3 testes).
+  - Rota `analise-conta` devolve `oportunidades` aplicando as regras; média do RECIEE vem das faturas já cadastradas (menos de 3 = preliminar, nunca descarta).
+  - Modal da análise: **Tela de Oportunidades** com badge de status, evidência, pendência e botão **➕ Criar no funil** nas identificadas.
+  - Botão continua "Análise da Fatura" (João: não muda o nome). Planos: `docs/plano-analise-produtos-cliente.md`.
+
 ## 1.8.38 — 17/10/2026
 
 - **BOTÃO ÚNICO DE FATURA (correção do João):** saiu o campo "Fatura da
