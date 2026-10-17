@@ -118,6 +118,19 @@ describe("montarPayloadCliente", () => {
     expect(p.geracao_propria).toBe(false);
   });
 
+  it("PARTE 11 — campos da origem nova passam pro payload (vendedor vinculado)", () => {
+    const f = formBase();
+    (f as any).origem_tipo = "vendedor";
+    (f as any).origem_subtipo = "interno";
+    (f as any).vendedor_responsavel_id = "user-42";
+    const p = montarPayloadCliente(f);
+    expect(p.origem_tipo).toBe("vendedor");
+    expect(p.origem_subtipo).toBe("interno");
+    expect(p.vendedor_responsavel_id).toBe("user-42");
+    expect(p.origem_indicacao_nome).toBeNull();
+    expect(p.origem_lead).toBe("vendedor");
+  });
+
   it("usina preenchida vai como texto JSON (coluna TEXT)", () => {
     const f = formBase();
     f.geracao_propria = true;

@@ -270,6 +270,13 @@ export default function ClienteDetalhePage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabId>("dados");
 
+  // PARTE 11 (PPTX 17/10) — ?aba=gestao_fatura abre direto na aba
+  // (botão "Upload da conta" do pós-cadastro).
+  useEffect(() => {
+    const aba = new URLSearchParams(window.location.search).get("aba");
+    if (aba && TABS.some((t) => t.id === aba)) setActiveTab(aba as TabId);
+  }, []);
+
   // Tab data
   const [oportunidades, setOportunidades] = useState<Oportunidade[]>([]);
   const [axsPropostas, setAxsPropostas] = useState<AxsProposta[]>([]);

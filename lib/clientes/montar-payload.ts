@@ -45,7 +45,13 @@ export interface FormularioCliente {
   status?: string;
   classificacao?: string;
   origem?: string;
+  origem_tipo?: string;
+  origem_subtipo?: string;
+  vendedor_responsavel_id?: string;
+  origem_indicacao_nome?: string;
 }
+
+import { montarCamposOrigem } from "./origem-cliente";
 
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
@@ -62,6 +68,14 @@ function numero(valor: unknown): number | null {
 }
 
 export function montarPayloadCliente(form: FormularioCliente): Record<string, any> {
+  // PARTE 11 (PPTX 17/10) — origem nova: tipo/subtipo/vinculado/parceiro
+  const camposOrigem = montarCamposOrigem({
+    origem_tipo: form.origem_tipo,
+    origem_subtipo: form.origem_subtipo,
+    vendedor_responsavel_id: form.vendedor_responsavel_id,
+    origem_indicacao_nome: form.origem_indicacao_nome,
+  });
+
   const p: Record<string, any> = {
     nome_razao_social: texto(form.nome_razao_social),
     tipo_cliente: texto(form.tipo),
@@ -92,7 +106,11 @@ export function montarPayloadCliente(form: FormularioCliente): Record<string, an
     observacoes: texto(form.observacoes),
     status: texto(form.status),
     classificacao: texto(form.classificacao),
-    origem_lead: texto(form.origem),
+    origem_lead: camposOrigem.origem_lead ?? texto(form.origem),
+    origem_tipo: camposOrigem.origem_tipo,
+    origem_subtipo: camposOrigem.origem_subtipo,
+    origem_indicacao_nome: camposOrigem.origem_indicacao_nome,
+    vendedor_responsavel_id: camposOrigem.vendedor_responsavel_id,
     geracao_propria: form.geracao_propria === true,
   };
 

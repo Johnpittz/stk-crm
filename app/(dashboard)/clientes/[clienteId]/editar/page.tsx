@@ -6,6 +6,11 @@ import { createClient } from "@/lib/supabase/client";
 import { mostrarCamposEmpresa, tituloEndereco } from "@/lib/clientes/campos-pessoa";
 import { normalizarCliente } from "@/lib/clientes/normalizar";
 import { montarPayloadCliente } from "@/lib/clientes/montar-payload";
+import {
+  OPÇÕES_ORIGEM,
+  validarOrigem,
+  montarCamposOrigem,
+} from "@/lib/clientes/origem-cliente";
 import { opcoesStatus } from "@/lib/clientes/status-cliente";
 import {
   FormUsinaSolar,
@@ -37,7 +42,7 @@ import {
 import {
   User,
   MapPin,
-  Zap,
+  Target,
   BarChart3,
   MessageSquare,
   Save,
@@ -304,6 +309,34 @@ export default function EditarClientePage() {
   const supabase = createClient();
 
   const [form, setForm] = useState<FormData>(INITIAL_FORM);
+
+  // PARTE 11 (PPTX 17/10) — origem nova + vendedores p/ vincular
+  const [origemTipo, setOrigemTipo] = useState<string>("");
+  const [origemSubtipo, setOrigemSubtipo] = useState<string>("");
+  const [vendedorId, setVendedorId] = useState("");
+  const [parceiroNome, setParceiroNome] = useState("");
+  const [vendedores, setVendedores] = useState<
+    Array<{ id: string; nome_completo: string }>
+  >([]);
+
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      try {
+        const { data: sd } = await supabase.auth.getSession();
+        const token = sd.session?.access_token;
+        if (!token) return;
+        const res = await fetch("/api/vendedores", {
+          headers: { Authorization: ["Bearer", token].join(" ") },
+        });
+        const json = await res.json();
+        if (vivo && res.ok) setVendedores(json.vendedores || []);
+      } catch {
+        /* lista vazia; o select avisa */
+      }
+    })();
+    return () => { vivo = false; };
+  }, []);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
@@ -350,6 +383,11 @@ export default function EditarClientePage() {
         }
 
         setForm(mapClienteToForm(normalizarCliente(data)));
+        // PARTE 11 — carrega a origem nova gravada
+        setOrigemTipo(data.origem_tipo || "");
+        setOrigemSubtipo(data.origem_subtipo || "");
+        setVendedorId(data.vendedor_responsavel_id || "");
+        setParceiroNome(data.origem_indicacao_nome || "");
       } catch (err: any) {
         setFetchError(err.message || "Erro inesperado ao carregar cliente.");
       } finally {
@@ -459,7 +497,27 @@ export default function EditarClientePage() {
       // PUT (que grava o LOG de edição). Antes o save ia direto no Supabase
       // mandando `nome_completo` — coluna inexistente (PGRST204) — e o
       // formulário inteiro falhava.
-      const payload = montarPayloadCliente(form);
+      // PARTE 11 — origem nova precisa de subtipo (+ vendedor ou nome)
+    const errosOrigem = validarOrigem({
+      origem_tipo: origemTipo || undefined,
+      origem_subtipo: origemSubtipo || undefined,
+      vendedor_responsavel_id: vendedorId || undefined,
+      origem_indicacao_nome: parceiroNome || undefined,
+    });
+    if (errosOrigem.length) {
+      setSubmitError(errosOrigem[0]);
+      return;
+    }
+
+    const payload = {
+      ...montarPayloadCliente(form),
+      ...montarCamposOrigem({
+        origem_tipo: origemTipo,
+        origem_subtipo: origemSubtipo,
+        vendedor_responsavel_id: vendedorId,
+        origem_indicacao_nome: parceiroNome,
+      }),
+    };
 
       const res = await fetch(`/api/clientes/${clienteId}`, {
         method: "PUT",
@@ -604,6 +662,62 @@ export default function EditarClientePage() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* ═══════ PARTE 11 — ORIGEM (PPTX 17/10) ═══════ */}
+        <Section icon={<Target className="h-4 w-4 text-[#3B64CF]" />} title="Origem">
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-6">
+              {Object.keys(OPÇÕES_ORIGEM).map((t) => (
+                <label key={t} className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="origem_tipo"
+                    checked={origemTipo === t}
+                    onChange={() => { setOrigemTipo(t); setOrigemSubtipo(""); setVendedorId(""); setParceiroNome(""); }}
+                    className="accent-[#3B64CF]"
+                  />
+                  {OPÇÕES_ORIGEM[t].rotulo}
+                </label>
+              ))}
+            </div>
+            {origemTipo && (
+              <div className="flex flex-wrap gap-6">
+                {OPÇÕES_ORIGEM[origemTipo].subtipos.map((s) => (
+                  <label key={s} className="flex items-center gap-2 text-sm text-slate-400 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="origem_subtipo"
+                      checked={origemSubtipo === s}
+                      onChange={() => setOrigemSubtipo(s)}
+                      className="accent-[#3B64CF]"
+                    />
+                    {OPÇÕES_ORIGEM[origemTipo].sub_rotulos[s] || s}
+                  </label>
+                ))}
+              </div>
+            )}
+            {origemTipo === "vendedor" && origemSubtipo && (
+              <select
+                value={vendedorId}
+                onChange={(e) => setVendedorId(e.target.value)}
+                className={`${inputCls} max-w-xs text-white`}
+              >
+                <option value="">Escolha o vendedor (vincula o cliente)...</option>
+                {vendedores.map((v) => (
+                  <option key={v.id} value={v.id}>{v.nome_completo}</option>
+                ))}
+              </select>
+            )}
+            {origemTipo === "parceiro" && origemSubtipo && (
+              <Input
+                value={parceiroNome}
+                onChange={(e) => setParceiroNome(e.target.value)}
+                placeholder="Nome do parceiro"
+                className={`${inputCls} max-w-xs`}
+              />
+            )}
+          </div>
+        </Section>
+
         {/* ═══════ Dados Pessoais ═══════ */}
         <Section
           icon={<User className="h-4 w-4 text-[#3B64CF]" />}
@@ -895,168 +1009,6 @@ export default function EditarClientePage() {
           </div>
         </Section>
 
-        {/* ═══════ Dados de Energia ═══════ */}
-        <Section
-          icon={<Zap className="h-4 w-4 text-[#3B64CF]" />}
-          title="Dados de Energia"
-        >
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Concessionária */}
-            <div className="space-y-1.5">
-              <Label className={labelCls}>Concessionária</Label>
-              <Select
-                value={form.concessionaria}
-                onValueChange={(v) => set("concessionaria", v)}
-              >
-                <SelectTrigger className={`${inputCls} text-white`}>
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent className="bg-[#0f1d32] border-[#1c2e4a]">
-                  {CONCESSIONARIAS.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Classe Tarifária */}
-            <div className="space-y-1.5">
-              <Label className={labelCls}>Classe Tarifária</Label>
-              <Input
-                value={form.classe_tarifaria}
-                onChange={(e) => set("classe_tarifaria", e.target.value)}
-                placeholder="Ex: Residencial, Comercial"
-                className={inputCls}
-              />
-            </div>
-
-            {/* Subgrupo */}
-            <div className="space-y-1.5">
-              <Label className={labelCls}>Subgrupo</Label>
-              <Input
-                value={form.subgrupo}
-                onChange={(e) => set("subgrupo", e.target.value)}
-                placeholder="Ex: B1, A3"
-                className={inputCls}
-              />
-            </div>
-
-            {/* UC (Instalação) */}
-            <div className="space-y-1.5">
-              <Label className={labelCls}>UC (Instalação)</Label>
-              <Input
-                value={form.uc_instalacao}
-                onChange={(e) => set("uc_instalacao", e.target.value)}
-                placeholder="Número da UC"
-                className={inputCls}
-              />
-            </div>
-
-            {/* Vencimento Fatura */}
-            <div className="space-y-1.5">
-              <Label className={labelCls}>Vencimento Fatura</Label>
-              <Select
-                value={form.vencimento_fatura}
-                onValueChange={(v) => set("vencimento_fatura", v)}
-              >
-                <SelectTrigger className={`${inputCls} text-white`}>
-                  <SelectValue placeholder="Dia..." />
-                </SelectTrigger>
-                <SelectContent className="bg-[#0f1d32] border-[#1c2e4a] max-h-60 overflow-y-auto">
-                  {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
-                    <SelectItem key={d} value={String(d)}>
-                      Dia {d}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-          </div>
-        </Section>
-
-        {/* ═══════ Consumo Mensal ═══════ */}
-        <Section
-          icon={<BarChart3 className="h-4 w-4 text-[#3B64CF]" />}
-          title="Consumo Mensal"
-        >
-          {/* Consumo Grid */}
-          <div className="mb-4">
-            <Label className={`${labelCls} mb-2 block`}>Consumo (kWh)</Label>
-            <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-2">
-              {MONTHS.map((m) => (
-                <div key={m.key} className="space-y-1">
-                  <span className="text-[10px] text-slate-500 font-medium">{m.label}</span>
-                  <Input
-                    type="number"
-                    value={form.consumo_meses[m.key]}
-                    onChange={(e) => setConsumo(m.key, e.target.value)}
-                    placeholder="0"
-                    min="0"
-                    step="0.01"
-                    className={`${inputCls} h-8 text-xs text-center`}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <Separator className="bg-[#1c2e4a] my-4" />
-
-          {/* Geração Própria Toggle */}
-          <div className="flex items-center gap-3 mb-4">
-            <Switch
-              id="geracao-propria"
-              checked={form.geracao_propria}
-              onCheckedChange={(checked) => {
-                set("geracao_propria", checked);
-                // SIM → abre a tela de marcação da usina automaticamente
-                if (checked) setUsinaAberto(true);
-              }}
-            />
-            <Label
-              htmlFor="geracao-propria"
-              className="text-sm text-slate-300 cursor-pointer"
-            >
-              Tem Usina Solar
-            </Label>
-            {form.geracao_propria && (
-              <button
-                type="button"
-                onClick={() => setUsinaAberto(true)}
-                className="text-xs text-[#3B64CF] hover:underline"
-              >
-                Dados da usina solar
-              </button>
-            )}
-          </div>
-
-          {/* Geração Própria Grid (conditional) */}
-          {form.geracao_propria && (
-            <div>
-              <Label className={`${labelCls} mb-2 block`}>Geração Própria (kWh)</Label>
-              <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-2">
-                {MONTHS.map((m) => (
-                  <div key={m.key} className="space-y-1">
-                    <span className="text-[10px] text-slate-500 font-medium">{m.label}</span>
-                    <Input
-                      type="number"
-                      value={form.geracao_meses[m.key]}
-                      onChange={(e) => setGeracao(m.key, e.target.value)}
-                      placeholder="0"
-                      min="0"
-                      step="0.01"
-                      className={`${inputCls} h-8 text-xs text-center`}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </Section>
-
         {/* ═══════ Observações e Classificação ═══════ */}
         <Section
           icon={<MessageSquare className="h-4 w-4 text-[#3B64CF]" />}
@@ -1106,26 +1058,6 @@ export default function EditarClientePage() {
               />
             </div>
 
-            {/* Origem */}
-            <div className="space-y-1.5">
-              <Label className={labelCls}>Origem</Label>
-              <Select
-                value={form.origem}
-                onValueChange={(v) => set("origem", v)}
-              >
-                <SelectTrigger className={`${inputCls} text-white`}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-[#0f1d32] border-[#1c2e4a]">
-                  <SelectItem value="cadastro">Cadastro</SelectItem>
-                  <SelectItem value="reciee">RECIEE</SelectItem>
-                  <SelectItem value="chatbot">Chatbot</SelectItem>
-                  <SelectItem value="disparo">Disparo</SelectItem>
-                  <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                  <SelectItem value="atendimento">Atendimento</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
         </Section>
 

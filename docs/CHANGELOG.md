@@ -4,6 +4,25 @@
 
 ---
 
+## 1.8.34 — 17/10/2026
+
+- **PARTE 11 — CLIENTES (PPTX 17/10):**
+  - ORIGEM nova no topo da criação/edição (Vendedor/Parceiro/Marketing +
+    subtipo + vinculação de vendedor cadastrado ou nome do parceiro);
+    colunas origem_tipo/origem_subtipo/origem_indicacao_nome
+    (migration 101).
+  - Removidos "Dados de Energia" e "Consumo Mensal" das duas telas
+    (a AXS já coleta).
+  - Cadastro agora cria o card no funil ("RECEBEU A CONTA", com
+    vendedor vinculado quando escolhido) e mostra o painel com o kanban
+    embutido + botões "Upload da conta" (pasta/aba Gestão de Fatura via
+    ?aba=) e "Análise da conta" (IA lê foto/PDF da fatura, extrai e
+    salva concessionária/UC/vencimento — /api/clientes/[id]/analise-conta).
+  - /api/vendedores liberado para qualquer usuário logado (o select de
+    vendedor precisa da lista).
+  - Testes novos: origem 8, payload +2 (13), análise de fatura 5.
+    TOTAL: 610 testes (72 arquivos) + build verde.
+
 ## 1.8.33 — 17/10/2026
 
 - **Usabilidade (varredura completa com cliques reais nas 10

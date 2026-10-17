@@ -88,6 +88,9 @@ export async function POST(request: NextRequest) {
     data_inicio,
     hora_inicio,
     produto_id,
+    // PARTE 11 (17/10): o card criado no cadastro pode nascer
+    // vinculado ao vendedor escolhido na Origem.
+    vendedor_id: vendedorPedido,
   } = body;
 
   if (!titulo) {
@@ -97,7 +100,7 @@ export async function POST(request: NextRequest) {
   const { data: oportunidade, error } = await supabase
     .from("oportunidades")
     .insert({
-      vendedor_id: user.id,
+      vendedor_id: vendedorPedido || user.id,
       cliente_id: cliente_id || null,
       atendimento_id: atendimento_id || null,
       cliente_nome: cliente_nome || null,

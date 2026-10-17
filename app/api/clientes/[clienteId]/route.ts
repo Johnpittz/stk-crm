@@ -60,6 +60,9 @@ export async function PUT(
       "cidade", "estado", "endereco", "numero", "complemento",
       "bairro", "cep", "tipo_cliente", "status", "classificacao",
       "origem_lead", "observacoes",
+      // PARTE 11 (17/10) — origem nova + vendedor vinculado
+      "origem_tipo", "origem_subtipo", "origem_indicacao_nome",
+      "vendedor_responsavel_id",
       // Dados energéticos
       "concessionaria", "classe_tarifaria", "subgrupo_tarifario",
       "vencimento_fatura", "instalacao", "iluminacao_publica",

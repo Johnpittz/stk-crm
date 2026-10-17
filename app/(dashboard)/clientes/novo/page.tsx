@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { montarPayloadCliente } from "@/lib/clientes/montar-payload";
 import { opcoesStatus } from "@/lib/clientes/status-cliente";
 import {
@@ -11,6 +11,12 @@ import {
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { mostrarCamposEmpresa, tituloEndereco } from "@/lib/clientes/campos-pessoa";
+import {
+  OPÇÕES_ORIGEM,
+  validarOrigem,
+} from "@/lib/clientes/origem-cliente";
+import { KanbanOportunidades } from "@/components/features/atendimento/kanban-oportunidades";
+import { AnaliseContaModal } from "@/components/features/clientes/analise-conta-modal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,7 +34,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   User,
   MapPin,
-  Zap,
+  Target,
   BarChart3,
   MessageSquare,
   Save,
@@ -218,6 +224,37 @@ export default function NovoClientePage() {
   const router = useRouter();
   const supabase = createClient();
   const [form, setForm] = useState<FormData>(INITIAL_FORM);
+
+  // PARTE 11 (PPTX 17/10) — origem nova + vendedores p/ vincular
+  const [origemTipo, setOrigemTipo] = useState<string>("");
+  const [origemSubtipo, setOrigemSubtipo] = useState<string>("");
+  const [vendedorId, setVendedorId] = useState("");
+  const [parceiroNome, setParceiroNome] = useState("");
+  const [vendedores, setVendedores] = useState<
+    Array<{ id: string; nome_completo: string }>
+  >([]);
+  const [clienteSalvo, setClienteSalvo] = useState<{ id: string; nome: string } | null>(null);
+  const [oppId, setOppId] = useState<string | null>(null);
+  const [mostrarAnalise, setMostrarAnalise] = useState(false);
+
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      try {
+        const { data: sd } = await supabase.auth.getSession();
+        const token = sd.session?.access_token;
+        if (!token) return;
+        const res = await fetch("/api/vendedores", {
+          headers: { Authorization: ["Bearer", token].join(" ") },
+        });
+        const json = await res.json();
+        if (vivo && res.ok) setVendedores(json.vendedores || []);
+      } catch {
+        /* lista vazia; o select avisa */
+      }
+    })();
+    return () => { vivo = false; };
+  }, []);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [usinaAberto, setUsinaAberto] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -316,11 +353,24 @@ export default function NovoClientePage() {
 
     if (!validate()) return;
 
+    // PARTE 11 — origem nova precisa de subtipo (+ vendedor ou nome)
+    const errosOrigem = validarOrigem({
+      origem_tipo: origemTipo || undefined,
+      origem_subtipo: origemSubtipo || undefined,
+      vendedor_responsavel_id: vendedorId || undefined,
+      origem_indicacao_nome: parceiroNome || undefined,
+    });
+    if (errosOrigem.length) {
+      setSubmitError(errosOrigem[0]);
+      return;
+    }
+
     setLoading(true);
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
+      const auth = ["Bearer", token].join(" ");
 
       if (!token) {
         setSubmitError("Sessão expirada. Faça login novamente.");
@@ -331,13 +381,19 @@ export default function NovoClientePage() {
       // 06/10: o FORMULÁRIO INTEIRO vai para o POST — quem mapeia para as
       // colunas reais é montarPayloadCliente lá na rota. Antes esta tela
       // montava o payload à mão e jogava fora endereço/energia/consumo.
-      const payload = { ...form };
+      const payload = {
+        ...form,
+        origem_tipo: origemTipo || null,
+        origem_subtipo: origemSubtipo || null,
+        vendedor_responsavel_id: vendedorId || null,
+        origem_indicacao_nome: parceiroNome || null,
+      };
 
       const res = await fetch("/api/clientes", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: auth,
         },
         body: JSON.stringify(payload),
       });
@@ -350,12 +406,75 @@ export default function NovoClientePage() {
         return;
       }
 
-      router.push("/clientes");
+      // PARTE 11 (PPTX 17/10): criar o card no funil (coluna RECEBEU A
+      // CONTA, pré-preenchido) e mostrar o painel de pós-salvamento.
+      const cliente = result.cliente;
+      try {
+        const oppRes = await fetch("/api/oportunidades", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: auth,
+          },
+          body: JSON.stringify({
+            cliente_id: cliente.id,
+            cliente_nome: cliente.nome_razao_social,
+            titulo: cliente.nome_razao_social,
+            descricao: `Cliente criado no cadastro (origem: ${OPÇÕES_ORIGEM[origemTipo]?.rotulo || "não informada"})`,
+            ...(origemTipo === "vendedor" && vendedorId ? { vendedor_id: vendedorId } : {}),
+          }),
+        });
+        if (oppRes.ok) {
+          const oppJson = await oppRes.json();
+          if (oppJson.oportunidade?.id) setOppId(oppJson.oportunidade.id);
+        }
+      } catch {
+        /* card é conforto — o cadastro já foi salvo */
+      }
+      setClienteSalvo({ id: cliente.id, nome: cliente.nome_razao_social });
+      setLoading(false);
     } catch (err: any) {
       setSubmitError(err.message || "Erro inesperado ao salvar.");
       setLoading(false);
     }
   };
+
+  // PARTE 11 (PPTX 17/10) — pós-salvar: card no funil + 2 comandos
+  if (clienteSalvo) {
+    return (
+      <div className="max-w-5xl mx-auto pb-12 space-y-6">
+        <div className="rounded-lg border border-emerald-700/50 bg-emerald-900/20 p-5">
+          <h1 className="text-lg font-semibold text-white">
+            ✅ Cliente salvo: {clienteSalvo.nome}
+          </h1>
+          <p className="text-sm text-slate-400 mt-1">
+            {oppId
+              ? "O card já entrou no Funil de Vendas, na coluna RECEBEU A CONTA."
+              : "Cadastro concluído (o card do funil será criado em instantes)."}
+          </p>
+          <div className="flex flex-wrap gap-3 mt-4">
+            <Button onClick={() => router.push(`/clientes/${clienteSalvo.id}?aba=gestao_fatura`)}>
+              📤 Upload da conta
+            </Button>
+            <Button onClick={() => setMostrarAnalise(true)}>
+              🔍 Análise da conta
+            </Button>
+            <Button variant="outline" onClick={() => router.push("/clientes")}>
+              ← Voltar para Clientes
+            </Button>
+          </div>
+        </div>
+
+        <Section icon={<Target className="h-4 w-4 text-[#3B64CF]" />} title="Funil de Vendas — card criado">
+          <KanbanOportunidades atendimentos={[]} onAbrirChat={() => {}} />
+        </Section>
+
+        {mostrarAnalise && (
+          <AnaliseContaModal clienteId={clienteSalvo.id} onClose={() => setMostrarAnalise(false)} />
+        )}
+      </div>
+    );
+  }
 
   // ─── Shared input class ───
   const inputCls =
@@ -388,6 +507,62 @@ export default function NovoClientePage() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* ═══════ PARTE 11 — ORIGEM (PPTX 17/10) ═══════ */}
+        <Section icon={<Target className="h-4 w-4 text-[#3B64CF]" />} title="Origem">
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-6">
+              {Object.keys(OPÇÕES_ORIGEM).map((t) => (
+                <label key={t} className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="origem_tipo"
+                    checked={origemTipo === t}
+                    onChange={() => { setOrigemTipo(t); setOrigemSubtipo(""); setVendedorId(""); setParceiroNome(""); }}
+                    className="accent-[#3B64CF]"
+                  />
+                  {OPÇÕES_ORIGEM[t].rotulo}
+                </label>
+              ))}
+            </div>
+            {origemTipo && (
+              <div className="flex flex-wrap gap-6">
+                {OPÇÕES_ORIGEM[origemTipo].subtipos.map((s) => (
+                  <label key={s} className="flex items-center gap-2 text-sm text-slate-400 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="origem_subtipo"
+                      checked={origemSubtipo === s}
+                      onChange={() => setOrigemSubtipo(s)}
+                      className="accent-[#3B64CF]"
+                    />
+                    {OPÇÕES_ORIGEM[origemTipo].sub_rotulos[s] || s}
+                  </label>
+                ))}
+              </div>
+            )}
+            {origemTipo === "vendedor" && origemSubtipo && (
+              <select
+                value={vendedorId}
+                onChange={(e) => setVendedorId(e.target.value)}
+                className={`${inputCls} max-w-xs text-white`}
+              >
+                <option value="">Escolha o vendedor (vincula o cliente)...</option>
+                {vendedores.map((v) => (
+                  <option key={v.id} value={v.id}>{v.nome_completo}</option>
+                ))}
+              </select>
+            )}
+            {origemTipo === "parceiro" && origemSubtipo && (
+              <Input
+                value={parceiroNome}
+                onChange={(e) => setParceiroNome(e.target.value)}
+                placeholder="Nome do parceiro"
+                className={`${inputCls} max-w-xs`}
+              />
+            )}
+          </div>
+        </Section>
+
         {/* ═══════ Dados Pessoais ═══════ */}
         <Section
           icon={<User className="h-4 w-4 text-[#3B64CF]" />}
@@ -679,167 +854,6 @@ export default function NovoClientePage() {
           </div>
         </Section>
 
-        {/* ═══════ Dados de Energia ═══════ */}
-        <Section
-          icon={<Zap className="h-4 w-4 text-[#3B64CF]" />}
-          title="Dados de Energia"
-        >
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Concessionária */}
-            <div className="space-y-1.5">
-              <Label className={labelCls}>Concessionária</Label>
-              <Select
-                value={form.concessionaria}
-                onValueChange={(v) => set("concessionaria", v)}
-              >
-                <SelectTrigger className={`${inputCls} text-white`}>
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent className="bg-[#0f1d32] border-[#1c2e4a]">
-                  {CONCESSIONARIAS.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Classe Tarifária */}
-            <div className="space-y-1.5">
-              <Label className={labelCls}>Classe Tarifária</Label>
-              <Input
-                value={form.classe_tarifaria}
-                onChange={(e) => set("classe_tarifaria", e.target.value)}
-                placeholder="Ex: Residencial, Comercial"
-                className={inputCls}
-              />
-            </div>
-
-            {/* Subgrupo */}
-            <div className="space-y-1.5">
-              <Label className={labelCls}>Subgrupo</Label>
-              <Input
-                value={form.subgrupo}
-                onChange={(e) => set("subgrupo", e.target.value)}
-                placeholder="Ex: B1, A3"
-                className={inputCls}
-              />
-            </div>
-
-            {/* UC (Instalação) */}
-            <div className="space-y-1.5">
-              <Label className={labelCls}>UC (Instalação)</Label>
-              <Input
-                value={form.uc_instalacao}
-                onChange={(e) => set("uc_instalacao", e.target.value)}
-                placeholder="Número da UC"
-                className={inputCls}
-              />
-            </div>
-
-            {/* Vencimento Fatura */}
-            <div className="space-y-1.5">
-              <Label className={labelCls}>Vencimento Fatura</Label>
-              <Select
-                value={form.vencimento_fatura}
-                onValueChange={(v) => set("vencimento_fatura", v)}
-              >
-                <SelectTrigger className={`${inputCls} text-white`}>
-                  <SelectValue placeholder="Dia..." />
-                </SelectTrigger>
-                <SelectContent className="bg-[#0f1d32] border-[#1c2e4a] max-h-60 overflow-y-auto">
-                  {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
-                    <SelectItem key={d} value={String(d)}>
-                      Dia {d}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-          </div>
-        </Section>
-
-        {/* ═══════ Consumo Mensal ═══════ */}
-        <Section
-          icon={<BarChart3 className="h-4 w-4 text-[#3B64CF]" />}
-          title="Consumo Mensal"
-        >
-          {/* Consumo Grid */}
-          <div className="mb-4">
-            <Label className={`${labelCls} mb-2 block`}>Consumo (kWh)</Label>
-            <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-2">
-              {MONTHS.map((m) => (
-                <div key={m.key} className="space-y-1">
-                  <span className="text-[10px] text-slate-500 font-medium">{m.label}</span>
-                  <Input
-                    type="number"
-                    value={form.consumo_meses[m.key]}
-                    onChange={(e) => setConsumo(m.key, e.target.value)}
-                    placeholder="0"
-                    min="0"
-                    step="0.01"
-                    className={`${inputCls} h-8 text-xs text-center`}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <Separator className="bg-[#1c2e4a] my-4" />
-
-          {/* Geração Própria Toggle */}
-          <div className="flex items-center gap-3 mb-4">
-            <Switch
-              id="geracao-propria"
-              checked={form.geracao_propria}
-              onCheckedChange={(checked) => {
-                set("geracao_propria", checked);
-                // SIM → abre a tela de marcação da usina automaticamente
-                if (checked) setUsinaAberto(true);
-              }}
-            />
-            <Label
-              htmlFor="geracao-propria"
-              className="text-sm text-slate-300 cursor-pointer"
-            >
-              Tem Usina Solar
-            </Label>
-            {form.geracao_propria && (
-              <button
-                type="button"
-                onClick={() => setUsinaAberto(true)}
-                className="text-xs text-[#3B64CF] hover:underline"
-              >
-                Dados da usina solar
-              </button>
-            )}
-          </div>
-
-          {/* Geração Própria Grid (conditional) */}
-          {form.geracao_propria && (
-            <div>
-              <Label className={`${labelCls} mb-2 block`}>Geração Própria (kWh)</Label>
-              <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-2">
-                {MONTHS.map((m) => (
-                  <div key={m.key} className="space-y-1">
-                    <span className="text-[10px] text-slate-500 font-medium">{m.label}</span>
-                    <Input
-                      type="number"
-                      value={form.geracao_meses[m.key]}
-                      onChange={(e) => setGeracao(m.key, e.target.value)}
-                      placeholder="0"
-                      min="0"
-                      step="0.01"
-                      className={`${inputCls} h-8 text-xs text-center`}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </Section>
 
         {/* ═══════ Observações e Classificação ═══════ */}
         <Section
@@ -890,26 +904,6 @@ export default function NovoClientePage() {
               />
             </div>
 
-            {/* Origem */}
-            <div className="space-y-1.5">
-              <Label className={labelCls}>Origem</Label>
-              <Select
-                value={form.origem}
-                onValueChange={(v) => set("origem", v)}
-              >
-                <SelectTrigger className={`${inputCls} text-white`}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-[#0f1d32] border-[#1c2e4a]">
-                  <SelectItem value="cadastro">Cadastro</SelectItem>
-                  <SelectItem value="reciee">RECIEE</SelectItem>
-                  <SelectItem value="chatbot">Chatbot</SelectItem>
-                  <SelectItem value="disparo">Disparo</SelectItem>
-                  <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                  <SelectItem value="atendimento">Atendimento</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
         </Section>
 
