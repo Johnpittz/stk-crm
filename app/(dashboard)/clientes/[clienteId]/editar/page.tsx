@@ -11,6 +11,8 @@ import {
   validarOrigem,
   montarCamposOrigem,
 } from "@/lib/clientes/origem-cliente";
+import { KanbanOportunidades } from "@/components/features/atendimento/kanban-oportunidades";
+import { AnaliseContaModal } from "@/components/features/clientes/analise-conta-modal";
 import { opcoesStatus } from "@/lib/clientes/status-cliente";
 import {
   FormUsinaSolar,
@@ -318,6 +320,7 @@ export default function EditarClientePage() {
   const [vendedores, setVendedores] = useState<
     Array<{ id: string; nome_completo: string }>
   >([]);
+  const [mostrarAnalise, setMostrarAnalise] = useState(false);
 
   useEffect(() => {
     let vivo = true;
@@ -1091,6 +1094,30 @@ export default function EditarClientePage() {
           </Button>
         </div>
       </form>
+
+      {/* ═══════ PARTE 11 (PPTX 17/10) — conta + funil embaixo do form ═══════ */}
+      <div className="flex flex-wrap gap-3 mt-2">
+        <Button onClick={() => router.push(`/clientes/${clienteId}?aba=gestao_fatura`)}>
+          📤 Upload da conta
+        </Button>
+        <Button onClick={() => setMostrarAnalise(true)}>
+          🔍 Análise da conta
+        </Button>
+      </div>
+
+      <Section
+        icon={<Target className="h-4 w-4 text-[#3B64CF]" />}
+        title="Funil de Vendas — Followup"
+      >
+        <KanbanOportunidades atendimentos={[]} onAbrirChat={() => {}} />
+      </Section>
+
+      {mostrarAnalise && (
+        <AnaliseContaModal
+          clienteId={clienteId}
+          onClose={() => setMostrarAnalise(false)}
+        />
+      )}
 
       {/* ═══════ Usina Solar (abre automático no SIM) ═══════ */}
       <FormUsinaSolar

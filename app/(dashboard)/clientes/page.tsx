@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { nomeExibicaoCliente } from "@/lib/atendimentos/nome-exibicao";
 import {
   Users,
   Search,
@@ -114,7 +115,7 @@ export default function ClientesPage() {
           setClientes(
             fallback.map((c: any) => ({
               id: c.id,
-              nome: c.nome_razao_social || "Sem nome",
+              nome: nomeExibicaoCliente(c.nome_razao_social, c.whatsapp || c.telefone),
               telefone: c.telefone || null,
               email: c.email || null,
               cpf_cnpj: c.cpf_cnpj || null,
@@ -139,7 +140,12 @@ export default function ClientesPage() {
           );
         }
       } else if (data) {
-        setClientes(data);
+        setClientes(
+          data.map((c: any) => ({
+            ...c,
+            nome: nomeExibicaoCliente(c.nome, c.whatsapp || c.telefone),
+          }))
+        );
       }
     } catch (err) {
       console.error(err);

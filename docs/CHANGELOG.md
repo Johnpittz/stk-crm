@@ -4,6 +4,15 @@
 
 ---
 
+## 1.8.35 — 17/10/2026
+
+- **CLIENTES — ajuste do João (2 prints):**
+  - Edição de cliente agora tem os botões "Upload da conta" e "Análise
+    da conta" + o funil (Followup) embaixo do formulário, sempre visíveis.
+  - Lista de Clientes: nome não identificado passou a mostrar
+    "CLIENTE - <número>" (mesma regra do Atendimento), em vez de só
+    "Cliente".
+
 ## 1.8.34 — 17/10/2026
 
 - **PARTE 11 — CLIENTES (PPTX 17/10):**
