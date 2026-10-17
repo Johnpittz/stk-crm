@@ -13,6 +13,14 @@ export interface ResumoFatura {
   vencimento: string | null;
   consumo: string | null;
   valor: string | null;
+  // FASE A (17/10) — campos pra aplicar as regras comerciais
+  grupo: "A" | "B" | null;
+  contratacao_livre: boolean | null;
+  cnae_principal: string | null;
+  consumo_ponta: number | null;
+  energia_injetada: number | null;
+  uc_geradora: string | null;
+  uc_consumidora: string | null;
 }
 
 const VAZIO: ResumoFatura = {
@@ -23,6 +31,13 @@ const VAZIO: ResumoFatura = {
   vencimento: null,
   consumo: null,
   valor: null,
+  grupo: null,
+  contratacao_livre: null,
+  cnae_principal: null,
+  consumo_ponta: null,
+  energia_injetada: null,
+  uc_geradora: null,
+  uc_consumidora: null,
 };
 
 export function montarPromptFatura(): string {
@@ -36,6 +51,14 @@ export function montarPromptFatura(): string {
     "= dia do vencimento (só números); consumo = consumo em kWh (só números);",
     "valor = valor total a pagar (só números, com ponto). Campo não",
     "encontrado = null.",
+    "Também extraia, quando estiver na conta: grupo = classe tarifária",
+    "(\"A\" ou \"B\"); contratacao_livre = true se a conta indicar",
+    "contratação livre/demanda livre/ACL e false se for mercado regulado;",
+    "cnae_principal = CNAE do titular (se houver); consumo_ponta = consumo",
+    "no HORÁRIO DE PONTA em kWh; energia_injetada = energia injetada ou",
+    "compensada (usina solar) em kWh; uc_geradora = número da UC geradora",
+    "e uc_consumidora = número da UC consumidora (sem pontos/traços).",
+    "Nesses campos use true/false/número ou null — sem aspas.",
   ].join(" ");
 }
 
@@ -44,6 +67,25 @@ function campo(json: Record<string, unknown>, chave: string): string | null {
   if (v == null) return null;
   const t = String(v).trim();
   return t === "" || t.toLowerCase() === "null" ? null : t;
+}
+
+function paraGrupo(v: unknown): "A" | "B" | null {
+  const t = String(v ?? "").trim().toUpperCase();
+  return t === "A" || t === "B" ? t : null;
+}
+
+function paraBooleano(v: unknown): boolean | null {
+  if (v === true || v === false) return v;
+  const t = String(v ?? "").trim().toLowerCase();
+  if (["true", "sim", "1", "livre", "demanda livre", "acl"].includes(t)) return true;
+  if (["false", "nao", "não", "0", "regulado"].includes(t)) return false;
+  return null;
+}
+
+function paraNumero(v: unknown): number | null {
+  if (v == null || v === "") return null;
+  const n = Number(String(v).replace(",", ".").replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(n) ? n : null;
 }
 
 /** Lê a resposta (tolerante a ```json e texto em volta) e normaliza. */
@@ -62,6 +104,13 @@ export function parseRespostaFatura(resposta: string): ResumoFatura {
       vencimento: campo(json, "vencimento"),
       consumo: campo(json, "consumo"),
       valor: campo(json, "valor"),
+      grupo: paraGrupo(json.grupo),
+      contratacao_livre: paraBooleano(json.contratacao_livre),
+      cnae_principal: campo(json, "cnae_principal"),
+      consumo_ponta: paraNumero(json.consumo_ponta),
+      energia_injetada: paraNumero(json.energia_injetada),
+      uc_geradora: campo(json, "uc_geradora"),
+      uc_consumidora: campo(json, "uc_consumidora"),
     };
   } catch {
     return { ...VAZIO };

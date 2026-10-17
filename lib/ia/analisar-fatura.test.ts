@@ -13,6 +13,48 @@ vi.mock("../ia-provider", () => ({
 import { montarPromptFatura, analisarFatura, analisarFaturaTexto } from "./analisar-fatura";
 import { chamarModeloVision, chamarModelo } from "../ia-provider";
 
+describe("FASE A - campos novos da extração (regras comerciais)", () => {
+  it("prompt cobra grupo, contratação livre, CNAE, ponta, injetada e UCs", () => {
+    const p = montarPromptFatura();
+    expect(p).toContain("grupo");
+    expect(p).toMatch(/livre/i);
+    expect(p).toContain("CNAE");
+    expect(p).toMatch(/ponta/i);
+    expect(p).toMatch(/geradora/i);
+    expect(p).toContain("JSON");
+  });
+
+  it("parse reconhece grupo A/B, contratação livre, ponta e UCs", async () => {
+    const { chamarModeloVision } = await import("../ia-provider");
+    (chamarModeloVision as any).mockResolvedValue(
+      JSON.stringify({
+        concessionaria: "CEMIG",
+        uc: "270977101881",
+        titular: "Joao",
+        cnpj_cpf: "000.000.000-00",
+        vencimento_dia: "18",
+        consumo_kwh: "1760",
+        valor_total: "293,70",
+        grupo: "B",
+        contratacao_livre: false,
+        cnae_principal: "5513-0/01 - Hoteis",
+        consumo_ponta: "4100",
+        energia_injetada: "1760",
+        uc_geradora: "999",
+        uc_consumidora: "270977101881",
+      })
+    );
+    const r = await analisarFatura({ mimeTipo: "image/png", base64: "x" });
+    expect(r.grupo).toBe("B");
+    expect(r.contratacao_livre).toBe(false);
+    expect(r.cnae_principal).toContain("5513");
+    expect(r.consumo_ponta).toBe(4100);
+    expect(r.energia_injetada).toBe(1760);
+    expect(r.uc_geradora).toBe("999");
+    expect(r.uc_consumidora).toBe("270977101881");
+  });
+});
+
 describe("montarPromptFatura", () => {
   it("pede JSON com todos os campos", () => {
     const p = montarPromptFatura();

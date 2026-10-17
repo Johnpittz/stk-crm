@@ -6,6 +6,7 @@
  */
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import type { OportunidadeProduto } from "@/lib/ia/regras-produtos";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +29,31 @@ interface Resumo {
   valor: string | null;
 }
 
+const ROTULOS: Record<string, string> = {
+  mercado_livre: "Mercado Livre",
+  gd_assinatura: "Energia por Assinatura (GD-B)",
+  gd_grupo_a: "GD Grupo A",
+  usina_proprietaria: "Usina Solar Própria",
+  bess: "BESS",
+  reciee: "RECIEE",
+  eletroposto: "Eletroposto",
+  sigma_solar: "Sigma Solar",
+};
+
+const CORES_STATUS: Record<string, string> = {
+  identificada: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+  preliminar: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+  nao_acionada: "bg-slate-500/15 text-slate-400 border-slate-500/30",
+  inconclusiva: "bg-rose-500/15 text-rose-400 border-rose-500/30",
+};
+
+const ROTULOS_STATUS: Record<string, string> = {
+  identificada: "Identificada",
+  preliminar: "Preliminar (pendente)",
+  nao_acionada: "Não acionada",
+  inconclusiva: "Inconclusiva",
+};
+
 export function AnaliseContaModal({ clienteId, onClose }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [arquivo, setArquivo] = useState<File | null>(null);
@@ -35,6 +61,10 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
   const [erro, setErro] = useState<string | null>(null);
   const [resumo, setResumo] = useState<Resumo | null>(null);
   const [salvo, setSalvo] = useState(false);
+  // FASE A — tela de oportunidades + criação direta no funil
+  const [oportunidades, setOportunidades] = useState<OportunidadeProduto[]>([]);
+  const [noFunil, setNoFunil] = useState<string[]>([]);
+  const [criando, setCriando] = useState<string | null>(null);
 
   async function analisar() {
     if (!arquivo) {
@@ -61,10 +91,45 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
       if (!res.ok) throw new Error(json.error || "Falha na análise.");
       setResumo(json.resumo);
       setSalvo(!!json.salvo);
+      setOportunidades(Array.isArray(json.oportunidades) ? json.oportunidades : []);
     } catch (e: any) {
       setErro(e.message || "Erro inesperado.");
     } finally {
       setAnalisando(false);
+    }
+  }
+
+  async function criarNoFunil(opp: OportunidadeProduto) {
+    setCriando(opp.produto);
+    setErro(null);
+    try {
+      const { data: { session } } = await (
+        await import("@/lib/supabase/client")
+      ).createClient().auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error("Sessão expirada. Entre de novo.");
+      const auth = ["Bearer", token].join(" ");
+      const res = await fetch("/api/oportunidades", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: auth,
+        },
+        body: JSON.stringify({
+          cliente_id: clienteId,
+          titulo: ROTULOS[opp.produto] || opp.produto,
+          descricao: `${opp.motivo}${opp.evidencia ? ` (evidência: ${opp.evidencia})` : ""}`,
+        }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || "Falha ao criar o card.");
+      }
+      setNoFunil((atual) => [...atual, opp.produto]);
+    } catch (e: any) {
+      setErro(e.message || "Erro ao criar o card no funil.");
+    } finally {
+      setCriando(null);
     }
   }
 
@@ -77,7 +142,7 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
 
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="bg-[#0f1d32] border-[#1c2e4a] text-white max-w-lg">
+      <DialogContent className="bg-[#0f1d32] border-[#1c2e4a] text-white max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>🔍 Análise da conta</DialogTitle>
         </DialogHeader>
@@ -119,6 +184,61 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
                 ✅ Concessionária, UC e vencimento salvos na pasta do cliente.
               </p>
             )}
+
+            {/* FASE A — TELA DE OPORTUNIDADES (protocolo dos produtos) */}
+            {oportunidades.length > 0 && (
+              <div className="space-y-2 pt-1">
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  🎯 Oportunidades — regras comerciais
+                </p>
+                {oportunidades.map((opp) => (
+                  <div
+                    key={opp.produto}
+                    className="rounded-lg border border-white/10 bg-white/5 p-2.5"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold text-white">
+                        {ROTULOS[opp.produto] || opp.produto}
+                      </span>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                          CORES_STATUS[opp.status]
+                        }`}
+                      >
+                        {ROTULOS_STATUS[opp.status]}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">{opp.motivo}</p>
+                    {opp.evidencia && (
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Evidência: {opp.evidencia}
+                      </p>
+                    )}
+                    {opp.pendencia && (
+                      <p className="text-xs text-amber-500/90 mt-0.5">
+                        Pendência: {opp.pendencia}
+                      </p>
+                    )}
+                    {opp.status === "identificada" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="mt-2 h-7"
+                        disabled={criando === opp.produto || noFunil.includes(opp.produto)}
+                        onClick={() => criarNoFunil(opp)}
+                      >
+                        {noFunil.includes(opp.produto)
+                          ? "✓ No funil"
+                          : criando === opp.produto
+                          ? "Criando..."
+                          : "➕ Criar no funil"}
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {erro && <p className="text-sm text-red-400">{erro}</p>}
             <Button variant="outline" onClick={onClose} className="w-full">
               Fechar
             </Button>

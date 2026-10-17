@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { analisarFatura, analisarFaturaTexto } from "@/lib/ia/analisar-fatura";
 import { paraNumero } from "@/lib/clientes/fatura-conta";
+import { aplicarRegras, calcularMediaFinanceira } from "@/lib/ia/regras-produtos";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -104,10 +105,42 @@ export async function POST(
     }
   }
 
+  // FASE A (17/10) — regras comerciais do protocolo: a análise vira
+  // TELA DE OPORTUNIDADES. Média do RECIEE sai das faturas já
+  // cadastradas (menos de 3 = null → preliminar, nunca descarte).
+  let oportunidades: ReturnType<typeof aplicarRegras> = [];
+  try {
+    const { data: linhasFatura } = await admin
+      .from("cliente_pasta_linhas")
+      .select("dados")
+      .eq("cliente_id", clienteId)
+      .eq("linha", "gestao_fatura");
+    const valores = (linhasFatura ?? []).map(
+      (l: { dados: Record<string, unknown> | null }) => {
+        const v = Number(l.dados?.valor);
+        return Number.isFinite(v) && v > 0 ? v : null;
+      }
+    );
+    oportunidades = aplicarRegras({
+      grupo: resumo.grupo,
+      contratacao_livre: resumo.contratacao_livre,
+      valor_medio_mensal: calcularMediaFinanceira(valores),
+      consumo_ponta: resumo.consumo_ponta,
+      consumo_total: resumo.consumo ? Number(resumo.consumo) : null,
+      cnae_principal: resumo.cnae_principal,
+      energia_injetada: resumo.energia_injetada,
+      uc_geradora: resumo.uc_geradora,
+      uc_consumidora: resumo.uc_consumidora,
+    });
+  } catch {
+    oportunidades = [];
+  }
+
   return NextResponse.json({
     resumo,
     salvo,
     camposSalvos: Object.keys(update),
     faturaCompletada,
+    oportunidades,
   });
 }
