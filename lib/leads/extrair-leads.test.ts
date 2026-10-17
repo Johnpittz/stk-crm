@@ -76,4 +76,20 @@ describe("extrairLeads", () => {
     expect(leads[0].telefone).toBe("62933334444");
     expect(leads[0].nome).toBe("Carlos Andrade");
   });
+
+  // ─── Planilhas pt-BR (separador ponto-e-vírgula) — usabilidade 17/10 ───
+  it("CSV com ponto-e-vírgula: nome antes do telefone", () => {
+    const leads = extrairLeads(
+      "Nome;Telefone\nMaria Silva;62999998888\nJoão Souza;62912345678",
+    );
+    expect(leads).toEqual([
+      { nome: "Maria Silva", telefone: "62999998888" },
+      { nome: "João Souza", telefone: "62912345678" },
+    ]);
+  });
+
+  it("CSV com ponto-e-vírgula: telefone PRIMEIRO e nome depois", () => {
+    const leads = extrairLeads("62999998888;João Souza");
+    expect(leads).toEqual([{ nome: "João Souza", telefone: "62999998888" }]);
+  });
 });

@@ -4,6 +4,17 @@
 
 ---
 
+## 1.8.33 — 17/10/2026
+
+- **Usabilidade (varredura completa com cliques reais nas 10
+  mudanças do doc de 16/10):** testadas as 10 + fix do cursor;
+  achado e corrigido: import de LEADS com planilha pt-BR
+  (separador **ponto-e-vírgula**) perdia o nome quando o **telefone
+  vinha antes** ("62 99999-8888;Maria" → nome vazio; agora pega o
+  texto depois do telefone). 2 testes novos (11/11). Constatado:
+  item 3 segue aguardando SQL `100_artes_textos.sql` (API responde
+  500 "table not found" — seção renderiza, salvar não grava).
+
 ## 1.8.32 — 16/10/2026
 
 - **Correção — CURSOR SUMINDO nos formulários de Cliente (João):**

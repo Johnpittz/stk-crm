@@ -61,7 +61,14 @@ export function extrairLeads(texto: string): LeadExtraido[] {
       achou = true;
 
       // nome: texto entre o telefone anterior e este (mesma linha)
-      const antes = limpa.slice(fimAnterior, match.index);
+      let antes = limpa.slice(fimAnterior, match.index);
+      // Planilha pt-BR pode ter o telefone ANTES do nome
+      // ("62 99999-8888;Maria Silva") → pega o texto depois dele.
+      if (!antes.trim()) {
+        const resto = limpa.slice(match.index + match[0].length);
+        const proximo = new RegExp(REGEX_TELEFONE.source).exec(resto);
+        antes = resto.slice(0, proximo ? proximo.index : resto.length);
+      }
       fimAnterior = match.index + match[0].length;
       const nome = limparNome(antes) || ultimoNome;
       leads.push({ nome, telefone });
