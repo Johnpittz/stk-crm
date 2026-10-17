@@ -4,6 +4,14 @@
 
 ---
 
+## 1.8.36 — 17/10/2026
+
+- **KANBAN embutido nas telas de cliente (João):**
+  - Mostra SÓ os cards do cliente daquela tela (filtro por clientes.id);
+    sem nada dele, ficam só os quadros vazios.
+  - Maior: colunas com altura mínima (460px na edição, 360px na criação),
+    página mais larga (6xl) e formulário mais enxuto — sem scroll gigante.
+
 ## 1.8.35 — 17/10/2026
 
 - **CLIENTES — ajuste do João (2 prints):**

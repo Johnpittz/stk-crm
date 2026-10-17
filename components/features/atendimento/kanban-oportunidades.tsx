@@ -103,6 +103,11 @@ interface KanbanOportunidadesProps {
   busca?: string;
   dataInicio?: string;
   dataFim?: string;
+  /** PARTE 11 (17/10) — embutido na pasta do cliente: mostra SÓ os cards
+   *  deste cliente (sem nada dele, só os quadros vazios). */
+  clienteId?: string;
+  /** PARTE 11 — altura mínima das colunas em px (kanban maior embutido). */
+  alturaColuna?: number;
 }
 
 export function KanbanOportunidades({
@@ -113,6 +118,8 @@ export function KanbanOportunidades({
   busca = "",
   dataInicio = "",
   dataFim = "",
+  clienteId,
+  alturaColuna,
 }: KanbanOportunidadesProps) {
   const [oportunidades, setOportunidades] = useState<Oportunidade[]>([]);
   const [loading, setLoading] = useState(true);
@@ -149,11 +156,6 @@ export function KanbanOportunidades({
     };
   }, [supabase]);
 
-  // C2 — contagem por coluna para o badge do cabeçalho
-  const paradasPorEtapa = useMemo(
-    () => contarParadasPorEtapa(oportunidades, new Date(), regraParada),
-    [oportunidades, regraParada]
-  );
 
   const fetchOportunidades = useCallback(async () => {
     setLoading(true);
@@ -269,6 +271,8 @@ export function KanbanOportunidades({
   };
 
   const oportunidadesFiltradas = oportunidades.filter((t) => {
+    // PARTE 11 — embutido na pasta: só cards deste cliente
+    if (clienteId && t.clientes?.id !== clienteId) return false;
     const termo = busca.toLowerCase().trim();
     const matchBusca =
       !termo ||
@@ -295,6 +299,12 @@ export function KanbanOportunidades({
 
     return matchBusca && matchData;
   });
+
+  // C2 — contagem por coluna para o badge (respeita o filtro do embutido)
+  const paradasPorEtapa = useMemo(
+    () => contarParadasPorEtapa(oportunidadesFiltradas, new Date(), regraParada),
+    [oportunidadesFiltradas, regraParada]
+  );
 
   const getOportunidadesPorColuna = (colunaId: string) =>
     oportunidadesFiltradas
@@ -364,7 +374,10 @@ export function KanbanOportunidades({
                           ? ""
                           : "w-full"
                       )}
-                      style={{ backgroundColor: `${coluna.cor}15` }}
+                      style={{
+                        backgroundColor: `${coluna.cor}15`,
+                        ...(alturaColuna ? { minHeight: alturaColuna } : {}),
+                      }}
                     >
                       {/* Header da Coluna */}
                       <div

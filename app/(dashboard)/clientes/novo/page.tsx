@@ -442,7 +442,7 @@ export default function NovoClientePage() {
   // PARTE 11 (PPTX 17/10) — pós-salvar: card no funil + 2 comandos
   if (clienteSalvo) {
     return (
-      <div className="max-w-5xl mx-auto pb-12 space-y-6">
+      <div className="max-w-6xl mx-auto pb-12 space-y-6">
         <div className="rounded-lg border border-emerald-700/50 bg-emerald-900/20 p-5">
           <h1 className="text-lg font-semibold text-white">
             ✅ Cliente salvo: {clienteSalvo.nome}
@@ -466,7 +466,7 @@ export default function NovoClientePage() {
         </div>
 
         <Section icon={<Target className="h-4 w-4 text-[#3B64CF]" />} title="Funil de Vendas — card criado">
-          <KanbanOportunidades atendimentos={[]} onAbrirChat={() => {}} />
+          <KanbanOportunidades clienteId={clienteSalvo.id} alturaColuna={360} atendimentos={[]} onAbrirChat={() => {}} />
         </Section>
 
         {mostrarAnalise && (

@@ -628,7 +628,7 @@ export default function EditarClientePage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto pb-12">
+    <div className="max-w-6xl mx-auto pb-12">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Button
@@ -664,7 +664,7 @@ export default function EditarClientePage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-4">
         {/* ═══════ PARTE 11 — ORIGEM (PPTX 17/10) ═══════ */}
         <Section icon={<Target className="h-4 w-4 text-[#3B64CF]" />} title="Origem">
           <div className="space-y-4">
@@ -1109,7 +1109,7 @@ export default function EditarClientePage() {
         icon={<Target className="h-4 w-4 text-[#3B64CF]" />}
         title="Funil de Vendas — Followup"
       >
-        <KanbanOportunidades atendimentos={[]} onAbrirChat={() => {}} />
+        <KanbanOportunidades clienteId={clienteId} alturaColuna={460} atendimentos={[]} onAbrirChat={() => {}} />
       </Section>
 
       {mostrarAnalise && (
