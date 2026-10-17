@@ -4,6 +4,15 @@
 
 ---
 
+## 1.8.38 — 17/10/2026
+
+- **BOTÃO ÚNICO DE FATURA (correção do João):** saiu o campo "Fatura da
+  Conta (opcional)" e saíram os botões "Ver Gestão de Fatura" e
+  "Análise da conta". Ficou SÓ o botão "📤 Upload da Fatura" — ele abre
+  o seletor de arquivo, envia e a conta já cai em Gestão de Fatura
+  (competência do mês, valor/consumo extraídos do PDF). Na criação o
+  botão aparece no painel pós-salvar; na edição, embaixo do formulário.
+
 ## 1.8.37 — 17/10/2026
 
 - **FLUXO DA FATURA (correção do João):** a fatura entra no CADASTRO.

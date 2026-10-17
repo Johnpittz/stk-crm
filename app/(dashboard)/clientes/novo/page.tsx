@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { montarPayloadCliente } from "@/lib/clientes/montar-payload";
 import { opcoesStatus } from "@/lib/clientes/status-cliente";
 import {
@@ -16,7 +16,6 @@ import {
   validarOrigem,
 } from "@/lib/clientes/origem-cliente";
 import { KanbanOportunidades } from "@/components/features/atendimento/kanban-oportunidades";
-import { AnaliseContaModal } from "@/components/features/clientes/analise-conta-modal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +34,6 @@ import {
   User,
   MapPin,
   Target,
-  Receipt,
   BarChart3,
   MessageSquare,
   Save,
@@ -236,9 +234,9 @@ export default function NovoClientePage() {
   >([]);
   const [clienteSalvo, setClienteSalvo] = useState<{ id: string; nome: string } | null>(null);
   const [oppId, setOppId] = useState<string | null>(null);
-  const [mostrarAnalise, setMostrarAnalise] = useState(false);
+  // PARTE 11 v3 — só o botão "Upload da Fatura" (sem campo, sem os 2 botões)
+  const faturaInputRef = useRef<HTMLInputElement>(null);
   // PARTE 11 (v2, 17/10) — fatura anexada no cadastro já cai em Gestão de Fatura
-  const [faturaArquivo, setFaturaArquivo] = useState<File | null>(null);
   const [faturaSalva, setFaturaSalva] = useState<string | null>(null);
 
   useEffect(() => {
@@ -435,28 +433,6 @@ export default function NovoClientePage() {
       } catch {
         /* card é conforto — o cadastro já foi salvo */
       }
-      // PARTE 11 v2 — a fatura anexada já entra em Gestão de Fatura
-      if (faturaArquivo) {
-        try {
-          const fd = new FormData();
-          fd.append("arquivo", faturaArquivo);
-          const fatRes = await fetch(`/api/clientes/${cliente.id}/fatura`, {
-            method: "POST",
-            headers: { Authorization: auth },
-            body: fd,
-          });
-          const fatJson = await fatRes.json();
-          if (fatRes.ok) {
-            setFaturaSalva(
-              fatJson.valor == null
-                ? `Fatura registrada (competência ${fatJson.competencia}) sem valor — clique em "Análise da conta" pra IA completar.`
-                : `Fatura inserida em Gestão de Fatura — competência ${fatJson.competencia} — R$ ${fatJson.valor}${fatJson.consumo != null ? ` — ${fatJson.consumo} kWh` : ""}`
-            );
-          }
-        } catch {
-          /* fatura é conforto: o cliente já foi criado */
-        }
-      }
 
       setClienteSalvo({ id: cliente.id, nome: cliente.nome_razao_social });
       setLoading(false);
@@ -466,7 +442,37 @@ export default function NovoClientePage() {
     }
   };
 
-  // PARTE 11 (PPTX 17/10) — pós-salvar: card no funil + 2 comandos
+  // PARTE 11 v3 — o botão "Upload da Fatura" sobe a conta e ela já
+  // cai em Gestão de Fatura (competência do mês).
+  async function enviarFatura(clienteId: string, file: File) {
+    try {
+      const { data: sd } = await supabase.auth.getSession();
+      const token = sd.session?.access_token;
+      if (!token) {
+        setFaturaSalva("Sessão expirada. Entre de novo.");
+        return;
+      }
+      const fd = new FormData();
+      fd.append("arquivo", file);
+      const res = await fetch(`/api/clientes/${clienteId}/fatura`, {
+        method: "POST",
+        headers: { Authorization: ["Bearer", token].join(" ") },
+        body: fd,
+      });
+      const json = await res.json();
+      setFaturaSalva(
+        res.ok
+          ? json.valor == null
+            ? `Fatura registrada em Gestão de Fatura (competência ${json.competencia}) — valor em branco.`
+            : `Fatura inserida em Gestão de Fatura — competência ${json.competencia} — R$ ${json.valor}${json.consumo != null ? ` — ${json.consumo} kWh` : ""}`
+          : json.error || "Falha ao enviar a fatura."
+      );
+    } catch {
+      setFaturaSalva("Erro ao enviar a fatura. Tente de novo.");
+    }
+  }
+
+  // PARTE 11 (PPTX 17/10) — pós-salvar: card no funil + comandos
   if (clienteSalvo) {
     return (
       <div className="max-w-6xl mx-auto pb-12 space-y-6">
@@ -483,10 +489,20 @@ export default function NovoClientePage() {
             <p className="text-sm text-emerald-400 mt-1">✅ {faturaSalva}</p>
           )}
           <div className="flex flex-wrap gap-3 mt-4">
-            <Button onClick={() => router.push(`/clientes/${clienteSalvo.id}?aba=gestao_fatura`)}>📋 Ver Gestão de Fatura</Button>
-            <Button onClick={() => setMostrarAnalise(true)}>
-              🔍 Análise da conta
+            <Button onClick={() => faturaInputRef.current?.click()}>
+              📤 Upload da Fatura
             </Button>
+            <input
+              ref={faturaInputRef}
+              type="file"
+              accept="image/*,application/pdf"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) enviarFatura(clienteSalvo.id, f);
+                e.target.value = "";
+              }}
+            />
             <Button variant="outline" onClick={() => router.push("/clientes")}>
               ← Voltar para Clientes
             </Button>
@@ -497,9 +513,6 @@ export default function NovoClientePage() {
           <KanbanOportunidades clienteId={clienteSalvo.id} alturaColuna={360} atendimentos={[]} onAbrirChat={() => {}} />
         </Section>
 
-        {mostrarAnalise && (
-          <AnaliseContaModal clienteId={clienteSalvo.id} onClose={() => setMostrarAnalise(false)} />
-        )}
       </div>
     );
   }
@@ -882,23 +895,6 @@ export default function NovoClientePage() {
           </div>
         </Section>
 
-
-        {/* ═══════ PARTE 11 — FATURA DA CONTA (já cai em Gestão de Fatura) ═══════ */}
-        <Section icon={<Receipt className="h-4 w-4 text-[#3B64CF]" />} title="Fatura da Conta (opcional)">
-          <div className="space-y-2">
-            <p className="text-sm text-slate-400">
-              Já tem a conta em mãos? Anexe aqui — ela entra direto em
-              Gestão de Fatura com a competência do mês. A
-              &quot;Análise da conta&quot; (IA) completa os detalhes depois.
-            </p>
-            <input
-              type="file"
-              accept="image/*,application/pdf"
-              onChange={(e) => setFaturaArquivo(e.target.files?.[0] || null)}
-              className="block w-full text-sm text-slate-400 file:mr-4 file:rounded-lg file:border-0 file:bg-[#3B64CF]/20 file:px-4 file:py-2 file:text-white file:text-sm hover:file:bg-[#3B64CF]/30 cursor-pointer"
-            />
-          </div>
-        </Section>
 
         {/* ═══════ Observações e Classificação ═══════ */}
         <Section
