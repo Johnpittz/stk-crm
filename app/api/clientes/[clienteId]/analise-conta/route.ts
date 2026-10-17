@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { analisarFatura, analisarFaturaTexto } from "@/lib/ia/analisar-fatura";
+import { paraNumero } from "@/lib/clientes/fatura-conta";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -77,5 +78,36 @@ export async function POST(
     salvo = !error;
   }
 
-  return NextResponse.json({ resumo, salvo, camposSalvos: Object.keys(update) });
+  // PARTE 11 — completa a linha da Gestão de Fatura do mês (se faltar)
+  let faturaCompletada = false;
+  if (resumo.valor || resumo.consumo) {
+    const mes = new Date().toISOString().slice(0, 7);
+    const { data: linhas } = await admin
+      .from("cliente_pasta_linhas")
+      .select("id, dados")
+      .eq("cliente_id", clienteId)
+      .eq("linha", "gestao_fatura")
+      .order("created_at", { ascending: false });
+    const alvo = (linhas || []).find(
+      (l: any) => l.dados && l.dados.competencia === mes
+    );
+    if (alvo) {
+      const dados = { ...alvo.dados };
+      if (!dados.valor && resumo.valor) dados.valor = paraNumero(resumo.valor);
+      if (!dados.consumo_kwh && resumo.consumo)
+        dados.consumo_kwh = paraNumero(resumo.consumo);
+      const { error: errLin } = await admin
+        .from("cliente_pasta_linhas")
+        .update({ dados })
+        .eq("id", alvo.id);
+      faturaCompletada = !errLin;
+    }
+  }
+
+  return NextResponse.json({
+    resumo,
+    salvo,
+    camposSalvos: Object.keys(update),
+    faturaCompletada,
+  });
 }

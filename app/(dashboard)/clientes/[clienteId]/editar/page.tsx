@@ -45,6 +45,7 @@ import {
   User,
   MapPin,
   Target,
+  Receipt,
   BarChart3,
   MessageSquare,
   Save,
@@ -321,6 +322,9 @@ export default function EditarClientePage() {
     Array<{ id: string; nome_completo: string }>
   >([]);
   const [mostrarAnalise, setMostrarAnalise] = useState(false);
+  // PARTE 11 v2 — fatura anexada já cai em Gestão de Fatura
+  const [faturaArquivo, setFaturaArquivo] = useState<File | null>(null);
+  const [faturaSalva, setFaturaSalva] = useState<string | null>(null);
 
   useEffect(() => {
     let vivo = true;
@@ -534,6 +538,34 @@ export default function EditarClientePage() {
         return;
       }
 
+      // PARTE 11 v2 — a fatura anexada já entra em Gestão de Fatura
+      if (faturaArquivo) {
+        try {
+          const { data: sd } = await supabase.auth.getSession();
+          const token = sd.session?.access_token;
+          if (token) {
+            const fd = new FormData();
+            fd.append("arquivo", faturaArquivo);
+            const fatRes = await fetch(`/api/clientes/${clienteId}/fatura`, {
+              method: "POST",
+              headers: { Authorization: ["Bearer", token].join(" ") },
+              body: fd,
+            });
+            const fatJson = await fatRes.json();
+            if (fatRes.ok) {
+              setFaturaSalva(
+                fatJson.valor == null
+                  ? `Fatura registrada (competência ${fatJson.competencia}) sem valor — use "Análise da conta" pra IA completar.`
+                  : `Fatura inserida em Gestão de Fatura — competência ${fatJson.competencia} — R$ ${fatJson.valor}`
+              );
+              setLoading(false);
+              return; // fica na tela: mostra a fatura + comandos
+            }
+          }
+        } catch {
+          /* fatura é conforto: o cliente já foi salvo */
+        }
+      }
       router.push(`/clientes/${clienteId}`);
     } catch (err: any) {
       setSubmitError(err.message || "Erro inesperado ao salvar.");
@@ -661,6 +693,12 @@ export default function EditarClientePage() {
       {submitError && (
         <div className="mb-4 rounded-md bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400">
           {submitError}
+        </div>
+      )}
+
+      {faturaSalva && (
+        <div className="mb-4 rounded-md bg-emerald-500/10 border border-emerald-500/20 p-3 text-sm text-emerald-400">
+          ✅ {faturaSalva}
         </div>
       )}
 
@@ -1012,6 +1050,23 @@ export default function EditarClientePage() {
           </div>
         </Section>
 
+        {/* ═══════ PARTE 11 — FATURA DA CONTA (já cai em Gestão de Fatura) ═══════ */}
+        <Section icon={<Receipt className="h-4 w-4 text-[#3B64CF]" />} title="Fatura da Conta (opcional)">
+          <div className="space-y-2">
+            <p className="text-sm text-slate-400">
+              Já tem a conta em mãos? Anexe aqui — ela entra direto em
+              Gestão de Fatura com a competência do mês. A
+              &quot;Análise da conta&quot; (IA) completa os detalhes depois.
+            </p>
+            <input
+              type="file"
+              accept="image/*,application/pdf"
+              onChange={(e) => setFaturaArquivo(e.target.files?.[0] || null)}
+              className="block w-full text-sm text-slate-400 file:mr-4 file:rounded-lg file:border-0 file:bg-[#3B64CF]/20 file:px-4 file:py-2 file:text-white file:text-sm hover:file:bg-[#3B64CF]/30 cursor-pointer"
+            />
+          </div>
+        </Section>
+
         {/* ═══════ Observações e Classificação ═══════ */}
         <Section
           icon={<MessageSquare className="h-4 w-4 text-[#3B64CF]" />}
@@ -1098,7 +1153,7 @@ export default function EditarClientePage() {
       {/* ═══════ PARTE 11 (PPTX 17/10) — conta + funil embaixo do form ═══════ */}
       <div className="flex flex-wrap gap-3 mt-2">
         <Button onClick={() => router.push(`/clientes/${clienteId}?aba=gestao_fatura`)}>
-          📤 Upload da conta
+          📋 Ver Gestão de Fatura
         </Button>
         <Button onClick={() => setMostrarAnalise(true)}>
           🔍 Análise da conta

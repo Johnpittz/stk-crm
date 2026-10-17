@@ -4,6 +4,20 @@
 
 ---
 
+## 1.8.37 — 17/10/2026
+
+- **FLUXO DA FATURA (correção do João):** a fatura entra no CADASTRO.
+  - Novo campo "Fatura da Conta (opcional)" na criação e na edição
+    (foto ou PDF). Ao salvar: a fatura já cai em GESTÃO DE FATURA
+    (linha com competência do mês; do PDF extrai valor e consumo —
+    POST /api/clientes/[id]/fatura) e o card já entra no funil.
+  - Botão "Upload da conta" virou "Ver Gestão de Fatura" (o upload
+    agora é no formulário).
+  - "Análise da conta" (IA) segue opcional/posterior: além de salvar
+    concessionária/UC/vencimento, agora completa valor/consumo da linha
+    da Gestão de Fatura do mês quando faltar.
+  - Testes novos (fatura-conta: competência, extração, linha): +6 → 616.
+
 ## 1.8.36 — 17/10/2026
 
 - **KANBAN embutido nas telas de cliente (João):**
