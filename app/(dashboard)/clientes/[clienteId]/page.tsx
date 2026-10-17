@@ -21,6 +21,7 @@ import {
   FileText,
   MessageSquare,
   Headphones,
+  Store,
   BarChart3,
   TrendingUp,
   AlertTriangle,
@@ -177,6 +178,8 @@ type TabId =
   | "sigma"
   | "bess"
   | "gestao_fatura"
+  | "mercado_livre"
+  | "usina"
   | "atendimentos"
   | "oportunidades";
 
@@ -189,6 +192,9 @@ const TABS: { id: TabId; label: string; icon: any }[] = [
   { id: "sigma", label: "Sigma Solar", icon: Sun },
   { id: "bess", label: "BESS", icon: Battery },
   { id: "gestao_fatura", label: "Gestão de Fatura", icon: Receipt },
+  // FASE B (17/10) — produtos novos com inserção manual
+  { id: "mercado_livre", label: "Mercado Livre", icon: Store },
+  { id: "usina", label: "Usina Própria", icon: Sun },
   { id: "atendimentos", label: "Atendimentos", icon: Headphones },
   { id: "oportunidades", label: "Ações em Aberto", icon: TrendingUp },
 ];
@@ -292,6 +298,8 @@ export default function ClienteDetalhePage() {
     sigma: [],
     bess: [],
     gestao_fatura: [],
+    mercado_livre: [],
+    usina: [],
   });
 
   // ─── Load client ───
@@ -381,7 +389,9 @@ export default function ClienteDetalhePage() {
         case "eletroposto":
         case "sigma":
         case "bess":
-        case "gestao_fatura": {
+        case "gestao_fatura":
+        case "mercado_livre":
+        case "usina": {
           // 12/10 — pasta do cliente: tabela genérica (migration 099)
           const { data } = await supabase
             .from("cliente_pasta_linhas")
@@ -657,7 +667,9 @@ export default function ClienteDetalhePage() {
         {!tabLoading &&
           (activeTab === "eletroposto" ||
             activeTab === "sigma" ||
-            activeTab === "bess") && (
+            activeTab === "bess" ||
+            activeTab === "mercado_livre" ||
+            activeTab === "usina") && (
             <TabLinhaSimples
               linha={activeTab}
               registros={linhasCliente[activeTab] ?? []}

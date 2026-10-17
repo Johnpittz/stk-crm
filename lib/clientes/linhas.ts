@@ -8,7 +8,13 @@
  * Os dados moram em `cliente_pasta_linhas.dados` (JSONB).
  */
 
-export type LinhaId = "eletroposto" | "sigma" | "bess" | "gestao_fatura";
+export type LinhaId =
+  | "eletroposto"
+  | "sigma"
+  | "bess"
+  | "gestao_fatura"
+  | "mercado_livre"
+  | "usina";
 
 export type TipoCampo = "texto" | "numero" | "moeda" | "select" | "mes" | "data";
 
@@ -106,6 +112,45 @@ export const LINHAS_PASTA: LinhaPasta[] = [
       { nome: "observacoes", label: "Observações", tipo: "texto" },
     ],
   },
+  // FASE B (17/10) — produtos novos: inserção manual em cada aba
+  {
+    id: "mercado_livre",
+    label: "Mercado Livre",
+    descricao: "Contratação de energia no mercado livre (ACL/regulado).",
+    campos: [
+      {
+        nome: "ambiente",
+        label: "Ambiente de contratação",
+        tipo: "select",
+        opcoes: ["Regulado", "Livre"],
+      },
+      {
+        nome: "status",
+        label: "Status",
+        tipo: "select",
+        opcoes: ["Em análise", "Em negociação", "Ativado", "Perdido"],
+      },
+      { nome: "economia_mensal", label: "Economia estimada/mês", tipo: "moeda" },
+      { nome: "observacoes", label: "Observações", tipo: "texto" },
+    ],
+  },
+  {
+    id: "usina",
+    label: "Usina Própria",
+    descricao: "Usina solar própria do cliente (avaliar com estudo).",
+    campos: [
+      { nome: "potencia_kwp", label: "Potência (kWp)", tipo: "numero" },
+      {
+        nome: "status",
+        label: "Status",
+        tipo: "select",
+        opcoes: ["Em estudo", "Em projeto", "Em operação", "Parada"],
+      },
+      { nome: "geracao_mensal_kwh", label: "Geração média/mês (kWh)", tipo: "numero" },
+      { nome: "economia_mensal", label: "Economia estimada/mês", tipo: "moeda" },
+      { nome: "observacoes", label: "Observações", tipo: "texto" },
+    ],
+  },
 ];
 
 export function buscarLinha(id: LinhaId): LinhaPasta {
@@ -173,6 +218,20 @@ export function validarLinha(linha: LinhaId, dados: Record<string, unknown>): st
     if (soc !== null && (soc < 0 || soc > 100)) {
       erros.push("Estado de carga deve estar entre 0 e 100%.");
     }
+  }
+
+  // FASE B (17/10) — validação dos produtos novos
+  if (linha === "mercado_livre") {
+    if (!String(dados.ambiente ?? "").trim())
+      erros.push("Ambiente de contratação é obrigatório.");
+    if (!String(dados.status ?? "").trim()) erros.push("Status é obrigatório.");
+  }
+
+  if (linha === "usina") {
+    const kwp = num("potencia_kwp");
+    if (kwp === null) erros.push("Potência (kWp) é obrigatória.");
+    else if (kwp <= 0) erros.push("Potência (kWp) deve ser maior que zero.");
+    if (!String(dados.status ?? "").trim()) erros.push("Status é obrigatório.");
   }
 
   if (linha === "gestao_fatura") {

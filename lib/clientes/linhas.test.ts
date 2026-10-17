@@ -17,15 +17,17 @@ import {
 } from "./linhas";
 
 describe("catálogo LINHAS_PASTA", () => {
-  it("tem exatamente as 4 linhas pedidas, com ids únicos", () => {
+  it("tem as 6 linhas (4 originais + Mercado Livre e Usina própria, Fase B)", () => {
     expect(LINHAS_PASTA.map((l) => l.id)).toEqual([
       "eletroposto",
       "sigma",
       "bess",
       "gestao_fatura",
+      "mercado_livre",
+      "usina",
     ]);
     const ids = new Set(LINHAS_PASTA.map((l) => l.id));
-    expect(ids.size).toBe(4);
+    expect(ids.size).toBe(6);
   });
 
   it("rótulos são os combinados com o João", () => {
@@ -34,6 +36,24 @@ describe("catálogo LINHAS_PASTA", () => {
     expect(porId.sigma).toBe("Sigma Solar");
     expect(porId.bess).toBe("BESS");
     expect(porId.gestao_fatura).toBe("Gestão de Fatura");
+    expect(porId.mercado_livre).toBe("Mercado Livre");
+    expect(porId.usina).toBe("Usina Própria");
+  });
+
+  it("Mercado Livre: ambiente e status obrigatórios", () => {
+    expect(validarLinha("mercado_livre", { status: "Em negociação" })).toContain(
+      "Ambiente de contratação é obrigatório."
+    );
+    expect(validarLinha("mercado_livre", { ambiente: "Livre", status: "Em negociação" })).toEqual([]);
+  });
+
+  it("Usina Própria: potência obrigatória e maior que zero", () => {
+    expect(validarLinha("usina", { status: "Em estudo" })).toContain(
+      "Potência (kWp) é obrigatória."
+    );
+    expect(validarLinha("usina", { potencia_kwp: -5, status: "Em estudo" })).toContain(
+      "Potência (kWp) deve ser maior que zero."
+    );
   });
 
   it("cada linha tem ao menos um campo definido com rótulo", () => {
