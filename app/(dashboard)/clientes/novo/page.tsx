@@ -16,6 +16,7 @@ import {
   validarOrigem,
 } from "@/lib/clientes/origem-cliente";
 import { KanbanOportunidades } from "@/components/features/atendimento/kanban-oportunidades";
+import { AnaliseContaModal } from "@/components/features/clientes/analise-conta-modal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -234,8 +235,9 @@ export default function NovoClientePage() {
   >([]);
   const [clienteSalvo, setClienteSalvo] = useState<{ id: string; nome: string } | null>(null);
   const [oppId, setOppId] = useState<string | null>(null);
-  // PARTE 11 v3 — só o botão "Upload da Fatura" (sem campo, sem os 2 botões)
+  // PARTE 11 v3 — botões "Upload da Fatura" e "Análise da Fatura"
   const faturaInputRef = useRef<HTMLInputElement>(null);
+  const [mostrarAnalise, setMostrarAnalise] = useState(false);
   // PARTE 11 (v2, 17/10) — fatura anexada no cadastro já cai em Gestão de Fatura
   const [faturaSalva, setFaturaSalva] = useState<string | null>(null);
 
@@ -503,11 +505,18 @@ export default function NovoClientePage() {
                 e.target.value = "";
               }}
             />
+            <Button onClick={() => setMostrarAnalise(true)}>
+              🔍 Análise da Fatura
+            </Button>
             <Button variant="outline" onClick={() => router.push("/clientes")}>
               ← Voltar para Clientes
             </Button>
           </div>
         </div>
+
+        {mostrarAnalise && (
+          <AnaliseContaModal clienteId={clienteSalvo.id} onClose={() => setMostrarAnalise(false)} />
+        )}
 
         <Section icon={<Target className="h-4 w-4 text-[#3B64CF]" />} title="Funil de Vendas — card criado">
           <KanbanOportunidades clienteId={clienteSalvo.id} alturaColuna={360} atendimentos={[]} onAbrirChat={() => {}} />

@@ -4,6 +4,12 @@
 
 ---
 
+## 1.8.39 — 17/10/2026
+
+- **Botão "🔍 Análise da Fatura" de volta** (João): nas duas telas ele
+  anda junto com "📤 Upload da Fatura" — a IA lê a conta, salva
+  concessionária/UC/vencimento e completa valor/consumo da linha.
+
 ## 1.8.38 — 17/10/2026
 
 - **BOTÃO ÚNICO DE FATURA (correção do João):** saiu o campo "Fatura da

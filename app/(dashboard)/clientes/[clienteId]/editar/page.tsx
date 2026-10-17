@@ -12,6 +12,7 @@ import {
   montarCamposOrigem,
 } from "@/lib/clientes/origem-cliente";
 import { KanbanOportunidades } from "@/components/features/atendimento/kanban-oportunidades";
+import { AnaliseContaModal } from "@/components/features/clientes/analise-conta-modal";
 import { opcoesStatus } from "@/lib/clientes/status-cliente";
 import {
   FormUsinaSolar,
@@ -319,8 +320,9 @@ export default function EditarClientePage() {
   const [vendedores, setVendedores] = useState<
     Array<{ id: string; nome_completo: string }>
   >([]);
-  // PARTE 11 v3 — só o botão "Upload da Fatura" (sem campo, sem os 2 botões)
+  // PARTE 11 v3 — botões "Upload da Fatura" e "Análise da Fatura"
   const faturaInputRef = useRef<HTMLInputElement>(null);
+  const [mostrarAnalise, setMostrarAnalise] = useState(false);
   const [faturaSalva, setFaturaSalva] = useState<string | null>(null);
 
   useEffect(() => {
@@ -1149,7 +1151,17 @@ export default function EditarClientePage() {
             e.target.value = "";
           }}
         />
+        <Button onClick={() => setMostrarAnalise(true)}>
+          🔍 Análise da Fatura
+        </Button>
       </div>
+
+      {mostrarAnalise && (
+        <AnaliseContaModal
+          clienteId={clienteId}
+          onClose={() => setMostrarAnalise(false)}
+        />
+      )}
 
       <Section
         icon={<Target className="h-4 w-4 text-[#3B64CF]" />}
