@@ -46,6 +46,13 @@ describe("extrairDadosConta", () => {
     expect(d.consumo).toBe(5334.96);
   });
 
+  it("acha valor mascarado SEM rótulo (fatura Equatorial só traz R$*******4.687,56)", () => {
+    // achado no teste de usabilidade 18/10: a capa não tem "TOTAL A PAGAR";
+    // o único cifrão com asteriscos é o valor protegido
+    const t = "POLO EMPRESARIAL GOIAS CEP: 74000000 0 % R$*******4.687,56 04/10/2023";
+    expect(extrairDadosConta(t).valor).toBe(4687.56);
+  });
+
   it("sem dados devolve null (nunca lança)", () => {
     const r = extrairDadosConta("página em branco");
     expect(r.valor).toBeNull();

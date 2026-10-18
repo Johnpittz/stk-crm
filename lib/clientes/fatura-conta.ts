@@ -26,6 +26,12 @@ export function extrairDadosConta(texto: string): DadosConta {
   const reValor = /(?:total\s+a\s+pagar|valor\s+total|total\s+da\s+fatura)[^\n$]*?r?\$?[\s*]*([\d.,]+)/i;
   const mv = t.match(reValor);
   if (mv) valor = paraNumero(mv[1]);
+  // 18/10: sem rótulo na capa (só o cifrão protegido) — o único "R$***"
+  // da fatura é o valor a pagar; a análise da IA completa o resto
+  if (valor == null) {
+    const mm = t.match(/r\$\s*\*+\s*([\d.,]+)/i);
+    if (mm) valor = paraNumero(mm[1]);
+  }
 
   // Consumo: "CONSUMO 342 kWh", "CONSUMO: 100 kWh"
   let consumo: number | null = null;

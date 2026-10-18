@@ -171,13 +171,17 @@ def main() -> int:
             assert dados.get("competencia", "").startswith("20"), (
                 f"competência ausente: {dados}"
             )
-            # PDF tem texto: extração de valor/consumo aconteceu
-            tem_valor = dados.get("valor") not in (None, "")
-            tem_consumo = dados.get("consumo_kwh") not in (None, "")
-            assert tem_valor and tem_consumo, (
-                f"valor/consumo não extraídos do PDF: {dados}"
+            # valor da capa (cifrão mascarado) precisa vir do Upload;
+            # o consumo desta fatura vem em tabela — a análise completa
+            assert dados.get("valor") not in (None, ""), (
+                f"valor não extraído do PDF: {dados}"
             )
-            return f"competência {dados.get('competencia')}; R$ {dados.get('valor')} / {dados.get('consumo_kwh')} kWh"
+            obs = (
+                f"consumo {dados.get('consumo_kwh')} kWh"
+                if dados.get("consumo_kwh") not in (None, "")
+                else "consumo fica p/ a análise (tabela sem rótulo)"
+            )
+            return f"competência {dados.get('competencia')}; R$ {dados.get('valor')}; {obs}"
 
         tentar("T2 Upload da conta (PDF real) → Gestão de Fatura", t2)
 
@@ -295,14 +299,20 @@ def main() -> int:
             page.wait_for_timeout(2000)
             page.get_by_role("button", name="Mercado Livre").first.click()
             page.wait_for_timeout(1500)
-            # a Fase C já deixou uma linha da IA: o fluxo real é EDITAR
-            editar = page.get_by_role("button", name="Editar")
+            # a Fase C já deixou uma linha da IA: o fluxo real é EDITAR.
+            # o "Editar" da linha é o pareado com "Excluir" (o da página é outro)
+            editar = (
+                page.locator("div.flex.gap-2")
+                .filter(has_text="Excluir")
+                .get_by_role("button", name="Editar")
+                .first
+            )
             adicionar = page.get_by_role("button", name="Adicionar")
             modo = "adicionar"
             if adicionar.count():
                 adicionar.first.click()
             elif editar.count():
-                editar.first.click()
+                editar.click()
                 modo = "editar (linha da IA)"
             else:
                 raise AssertionError("sem botão Adicionar/Editar na aba ML")
@@ -339,13 +349,18 @@ def main() -> int:
         def t9():
             page.get_by_role("button", name="Usina Própria").first.click()
             page.wait_for_timeout(1500)
-            editar = page.get_by_role("button", name="Editar")
+            editar = (
+                page.locator("div.flex.gap-2")
+                .filter(has_text="Excluir")
+                .get_by_role("button", name="Editar")
+                .first
+            )
             adicionar = page.get_by_role("button", name="Adicionar")
             modo9 = "adicionar"
             if adicionar.count():
                 adicionar.first.click()
             elif editar.count():
-                editar.first.click()
+                editar.click()
                 modo9 = "editar (linha da IA)"
             else:
                 raise AssertionError("sem botão Adicionar/Editar na aba Usina")
