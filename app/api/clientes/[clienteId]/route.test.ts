@@ -73,12 +73,16 @@ describe("PUT /api/clientes/[clienteId] — edição + log", () => {
     expect([...logs[0].campos].sort()).toEqual(["cargo_contato", "email", "nome_contato"]);
   });
 
-  it("404 para cliente inexistente e SEM trilha", async () => {
+  it("enriquece: cria a linha quando só existe o pré-cadastro", async () => {
+    // 18/10 (pedido do João): quem aparece na listagem já tem pré-cadastro.
+    // Editar deve ENRIQUECER — criar a linha em `clientes` — e não 404.
+    const idNovo = "99999999-9999-9999-9999-999999999999";
     const res = await PUT(req({ nome_contato: "Ana" }), {
-      params: { clienteId: "99999999-9999-9999-9999-999999999999" },
+      params: { clienteId: idNovo },
     });
-    expect(res.status).toBe(404);
-    expect(cenario.tabelas.cliente_auditoria ?? []).toHaveLength(0);
+    expect(res.status).toBe(200);
+    const criado = cenario.tabelas.clientes.find((c: any) => c.id === idNovo)!;
+    expect(criado.nome_contato).toBe("Ana");
   });
 
   it("400 quando não há campo permitido no corpo", async () => {

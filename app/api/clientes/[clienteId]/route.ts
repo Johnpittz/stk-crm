@@ -101,19 +101,29 @@ export async function PUT(
       .eq("id", id)
       .maybeSingle();
 
+    // 18/10 (pedido do João): quem aparece na listagem já tem pré-cadastro
+    // (view unificada). A edição ENRIQUECE o cadastro — se a linha ainda não
+    // existe em `clientes`, o PUT passa a CRIÁ-LA com o mesmo id.
+    let data: any = null;
+    let error: any = null;
     if (!antes) {
-      return NextResponse.json(
-        { error: "Cliente não encontrado" },
-        { status: 404 }
-      );
+      const r = await supabase
+        .from("clientes")
+        .insert({ id, ...updateData })
+        .select()
+        .maybeSingle();
+      data = r.data;
+      error = r.error;
+    } else {
+      const r = await supabase
+        .from("clientes")
+        .update(updateData)
+        .eq("id", id)
+        .select()
+        .maybeSingle();
+      data = r.data;
+      error = r.error;
     }
-
-    const { data, error } = await supabase
-      .from("clientes")
-      .update(updateData)
-      .eq("id", id)
-      .select()
-      .maybeSingle();
 
     if (error) throw error;
 

@@ -377,21 +377,14 @@ export default function EditarClientePage() {
           .single();
 
         if (result.error) {
-          // 18/10: a view unificada junta clientes que NÃO têm cadastro na
-          // tabela `clientes`. Editar esses dava "Cliente não encontrado" no
-          // salvar (a rota só grava na tabela). Bloqueia com aviso claro.
+          // 18/10: quem aparece na listagem já tem pré-cadastro (unificado).
+          // A edição serve para ENRIQUECER o cadastro — o salvar cria a
+          // linha em `clientes` quando ela ainda não existe.
           const fallback = await supabase
             .from("v_unified_clientes")
             .select("*")
             .eq("id", clienteId)
             .single();
-          if (fallback.data) {
-            setFetchError(
-              "Este cliente não tem cadastro próprio no CRM (aparece só na lista unificada). " +
-                "Para editar, cadastre-o em Clientes → Novo Cliente.",
-            );
-            return;
-          }
           data = fallback.data;
           error = fallback.error;
         } else {
