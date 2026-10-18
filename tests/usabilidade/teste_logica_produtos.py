@@ -159,9 +159,11 @@ def main() -> int:
 
         # ------------------------------------- T2 upload → Gestão de Fatura
         def t2():
+            # CAMINHO REAL do vendedor: clique no BOTÃO e escolha no diálogo
             page.goto(f"{BASE}/clientes/{cid}/editar", wait_until="networkidle")
-            inp = page.locator('input[type=file]').first
-            inp.set_input_files(str(CROPS))
+            with page.expect_file_chooser() as fc_info:
+                page.get_by_role("button", name="Upload da Fatura").first.click()
+            fc_info.value.set_files(str(CROPS))
             # envio automático ao escolher; espera a confirmação
             esperar_texto(page, r"Fatura (inserida|registrada)", 40_000)
             linhas = linhas_do_cliente(cid)

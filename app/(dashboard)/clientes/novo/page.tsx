@@ -240,6 +240,7 @@ export default function NovoClientePage() {
   const [mostrarAnalise, setMostrarAnalise] = useState(false);
   // PARTE 11 (v2, 17/10) — fatura anexada no cadastro já cai em Gestão de Fatura
   const [faturaSalva, setFaturaSalva] = useState<string | null>(null);
+  const [faturaEnviando, setFaturaEnviando] = useState(false);
 
   useEffect(() => {
     let vivo = true;
@@ -447,6 +448,7 @@ export default function NovoClientePage() {
   // PARTE 11 v3 — o botão "Upload da Fatura" sobe a conta e ela já
   // cai em Gestão de Fatura (competência do mês).
   async function enviarFatura(clienteId: string, file: File) {
+    setFaturaEnviando(true);
     try {
       const { data: sd } = await supabase.auth.getSession();
       const token = sd.session?.access_token;
@@ -471,6 +473,8 @@ export default function NovoClientePage() {
       );
     } catch {
       setFaturaSalva("Erro ao enviar a fatura. Tente de novo.");
+    } finally {
+      setFaturaEnviando(false);
     }
   }
 
@@ -491,8 +495,11 @@ export default function NovoClientePage() {
             <p className="text-sm text-emerald-400 mt-1">✅ {faturaSalva}</p>
           )}
           <div className="flex flex-wrap gap-3 mt-4">
-            <Button onClick={() => faturaInputRef.current?.click()}>
-              📤 Upload da Fatura
+            <Button
+              onClick={() => faturaInputRef.current?.click()}
+              disabled={faturaEnviando}
+            >
+              {faturaEnviando ? "⏳ Enviando a conta..." : "📤 Upload da Fatura"}
             </Button>
             <input
               ref={faturaInputRef}
@@ -505,7 +512,7 @@ export default function NovoClientePage() {
                 e.target.value = "";
               }}
             />
-            <Button onClick={() => setMostrarAnalise(true)}>
+            <Button onClick={() => setMostrarAnalise(true)} disabled={faturaEnviando}>
               🔍 Análise da Fatura
             </Button>
             <Button variant="outline" onClick={() => router.push("/clientes")}>

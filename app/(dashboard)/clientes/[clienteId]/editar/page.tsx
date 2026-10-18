@@ -324,6 +324,9 @@ export default function EditarClientePage() {
   const faturaInputRef = useRef<HTMLInputElement>(null);
   const [mostrarAnalise, setMostrarAnalise] = useState(false);
   const [faturaSalva, setFaturaSalva] = useState<string | null>(null);
+  // 18/10: feedback enquanto a conta sobe (sem isso o vendedor acha que
+  // "nada aconteceu" — reclamação do teste de usabilidade com clique real)
+  const [faturaEnviando, setFaturaEnviando] = useState(false);
 
   useEffect(() => {
     let vivo = true;
@@ -494,6 +497,7 @@ export default function EditarClientePage() {
   // PARTE 11 v3 — o botão "Upload da Fatura" sobe a conta e ela já
   // cai em Gestão de Fatura (competência do mês).
   async function enviarFatura(clienteIdArq: string, file: File) {
+    setFaturaEnviando(true);
     try {
       const { data: sd } = await supabase.auth.getSession();
       const token = sd.session?.access_token;
@@ -519,6 +523,8 @@ export default function EditarClientePage() {
       );
     } catch {
       setFaturaSalva("Erro ao enviar a fatura. Tente de novo.");
+    } finally {
+      setFaturaEnviando(false);
     }
   }
 
@@ -695,12 +701,6 @@ export default function EditarClientePage() {
       {submitError && (
         <div className="mb-4 rounded-md bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400">
           {submitError}
-        </div>
-      )}
-
-      {faturaSalva && (
-        <div className="mb-4 rounded-md bg-emerald-500/10 border border-emerald-500/20 p-3 text-sm text-emerald-400">
-          ✅ {faturaSalva}
         </div>
       )}
 
@@ -1136,9 +1136,12 @@ export default function EditarClientePage() {
       </form>
 
       {/* ═══════ PARTE 11 (PPTX 17/10) — conta + funil embaixo do form ═══════ */}
-      <div className="flex flex-wrap gap-3 mt-2">
-        <Button onClick={() => faturaInputRef.current?.click()}>
-          📤 Upload da Fatura
+      <div className="flex flex-wrap items-center gap-3 mt-2">
+        <Button
+          onClick={() => faturaInputRef.current?.click()}
+          disabled={faturaEnviando}
+        >
+          {faturaEnviando ? "⏳ Enviando a conta..." : "📤 Upload da Fatura"}
         </Button>
         <input
           ref={faturaInputRef}
@@ -1151,9 +1154,17 @@ export default function EditarClientePage() {
             e.target.value = "";
           }}
         />
-        <Button onClick={() => setMostrarAnalise(true)}>
+        <Button onClick={() => setMostrarAnalise(true)} disabled={faturaEnviando}>
           🔍 Análise da Fatura
         </Button>
+        {faturaSalva && (
+          <div
+            role="status"
+            className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-sm text-emerald-400"
+          >
+            ✅ {faturaSalva}
+          </div>
+        )}
       </div>
 
       {mostrarAnalise && (
