@@ -394,6 +394,14 @@ export default function EditarClientePage() {
         }
 
         setForm(mapClienteToForm(normalizarCliente(data)));
+        // 18/10: clientes antigos podem ter tipo vazio no banco — sem tipo a
+        // validação de CPF/CNPJ nunca passava e o salvamento ficava MUDO.
+        if (!data.tipo_cliente) {
+          setForm((f) => {
+            const digitos = f.cpf_cnpj.replace(/\D/g, "");
+            return { ...f, tipo: digitos.length === 14 ? "pj" : "pf" };
+          });
+        }
         // PARTE 11 — carrega a origem nova gravada
         setOrigemTipo(data.origem_tipo || "");
         setOrigemSubtipo(data.origem_subtipo || "");
@@ -543,7 +551,15 @@ export default function EditarClientePage() {
     e.preventDefault();
     setSubmitError(null);
 
-    if (!validate()) return;
+    if (!validate()) {
+      // 18/10: o erro de campo fica lá em cima — leva o olhar até ele
+      setTimeout(() => {
+        document
+          .querySelector("p.text-red-400")
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 60);
+      return;
+    }
 
     setLoading(true);
     try {
