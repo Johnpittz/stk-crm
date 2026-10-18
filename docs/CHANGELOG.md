@@ -4,7 +4,13 @@
 
 ---
 
-## 1.8.42 — 17/10/2026
+## 1.8.43 — 18/10/2026
+
+- **Leitura de fatura cai sem MIMO? Usa Gemini** (bug achado no teste
+  ao vivo: a análise da conta retornava "Não consegui ler os dados" em
+  produção porque `chamarModeloVision` só falava com MIMO).
+  `provedorVision()` escolhe MIMO se houver chave, senão Gemini, senão
+  lança; +3 testes.
 
 - **FASE C — ponte IA → abas do cliente:** quando a Análise identifica
   um produto que tem aba própria (BESS, Eletroposto, Sigma, Mercado

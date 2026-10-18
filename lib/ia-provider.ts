@@ -41,6 +41,15 @@ export function provedorIA(env: Env = process.env): ProvedorIA {
   return 'mimo'
 }
 
+/** Provedor de VISÃO (leitura de fatura): MIMO se houver chave, senão
+ * Gemini, senão lança. A produção pode ter só uma das duas — a leitura da
+ * conta não pode morrer por isso (Fase A, 18/10). */
+export function provedorVision(env: Env = process.env): ProvedorIA {
+  if (valor(env, 'XIAOMI_API_KEY') && valor(env, 'XIAOMI_BASE_URL')) return 'mimo'
+  if (valor(env, 'GEMINI_API_KEY')) return 'gemini'
+  throw new Error('Nenhuma chave de IA no ambiente (mimo nem gemini)')
+}
+
 /** true quando o provedor escolhido tem credencial no ambiente. */
 export function temChaveIA(env: Env = process.env): boolean {
   if (provedorIA(env) === 'mimo') {
@@ -67,6 +76,16 @@ export async function chamarModeloVision(
   prompt: string,
   imagemDataUrl: string,
   env: Env = process.env,
+): Promise<string> {
+  return provedorVision(env) === 'mimo'
+    ? chamarMimoVision(prompt, imagemDataUrl, env)
+    : chamarGeminiVision(prompt, imagemDataUrl, env)
+}
+
+async function chamarMimoVision(
+  prompt: string,
+  imagemDataUrl: string,
+  env: Env,
 ): Promise<string> {
   const chave = valor(env, 'XIAOMI_API_KEY')
   const base = valor(env, 'XIAOMI_BASE_URL').replace(/\/+$/, '')
@@ -106,6 +125,53 @@ export async function chamarModeloVision(
       throw new Error('MIMO devolveu resposta vazia')
     }
     return String(texto).trim()
+  } finally {
+    clearTimeout(limite)
+  }
+}
+
+async function chamarGeminiVision(
+  prompt: string,
+  imagemDataUrl: string,
+  env: Env,
+): Promise<string> {
+  const chave = valor(env, 'GEMINI_API_KEY')
+  if (!chave) throw new Error('GEMINI_API_KEY ausente (visão gemini)')
+  const corte = imagemDataUrl.indexOf(',')
+  if (corte < 0) throw new Error('data URL de imagem inválida')
+  const cabecalho = imagemDataUrl.slice(0, corte)
+  const mime = cabecalho.slice(5, cabecalho.indexOf(';')) || 'image/png'
+  const dados = imagemDataUrl.slice(corte + 1)
+  const controller = new AbortController()
+  const limite = setTimeout(() => controller.abort(), 30000)
+  try {
+    const response = await fetch(`${GEMINI_API_URL}?key=${chave}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { text: prompt },
+              { inline_data: { mime_type: mime, data: dados } },
+            ],
+          },
+        ],
+        generationConfig: { temperature: 0.4 },
+      }),
+      signal: controller.signal,
+    })
+    if (!response.ok) {
+      const detalhe = await response.text().catch(() => '')
+      throw new Error(`GEMINI HTTP ${response.status}: ${detalhe.slice(0, 300)}`)
+    }
+    const data = await response.json()
+    const texto = (data?.candidates?.[0]?.content?.parts ?? [])
+      .map((p: { text?: string }) => p?.text ?? '')
+      .join('')
+      .trim()
+    if (!texto) throw new Error('Gemini devolveu resposta vazia')
+    return texto
   } finally {
     clearTimeout(limite)
   }

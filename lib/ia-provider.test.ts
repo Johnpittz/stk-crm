@@ -17,7 +17,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
  *  - GEMINI_API_URL permanece o caminho antigo, intacto.
  */
 
-import { provedorIA, chamarModelo, chamarModeloVision } from './ia-provider'
+import { provedorIA, provedorVision, chamarModelo, chamarModeloVision } from './ia-provider'
 import { responderComBase } from './ai-assistant'
 import { MARCADOR_ENCAMINHAR, type EntradaConhecimento } from './base-conhecimento'
 
@@ -196,7 +196,7 @@ describe('chamarModeloVision — mídia do cliente (conta por foto/PDF, 06/10)',
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
     vi.stubEnv('XIAOMI_API_KEY', '')
-    await expect(chamarModeloVision('oi', 'data:image/png;base64,QQ==')).rejects.toThrow(/XIAOMI_API_KEY/)
+    await expect(chamarModeloVision('oi', 'data:image/png;base64,QQ==')).rejects.toThrow(/chave de IA|XIAOMI_API_KEY/)
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })
@@ -249,5 +249,30 @@ describe('responderComBase via MIMO — guardrail preservado', () => {
   it('base vazia continua sendo base_vazia (não erro_ia)', async () => {
     const r = await responderComBase({ mensagemCliente: 'Prazo?', base: [] })
     expect(r.motivo).toBe('base_vazia')
+  })
+})
+
+describe('provedorVision - quem le a fatura com imagem (Fase A)', () => {
+  afterEach(() => vi.unstubAllEnvs())
+
+  it('com chave MIMO responde mimo', () => {
+    vi.stubEnv('XIAOMI_API_KEY', 'x')
+    vi.stubEnv('XIAOMI_BASE_URL', 'https://mimo.test')
+    vi.stubEnv('GEMINI_API_KEY', 'g')
+    expect(provedorVision(process.env)).toBe('mimo')
+  })
+
+  it('sem MIMO e com Gemini responde gemini', () => {
+    vi.stubEnv('XIAOMI_API_KEY', '')
+    vi.stubEnv('XIAOMI_BASE_URL', '')
+    vi.stubEnv('GEMINI_API_KEY', 'g')
+    expect(provedorVision(process.env)).toBe('gemini')
+  })
+
+  it('sem nenhuma chave lança (nada de ler fatura sem IA)', () => {
+    vi.stubEnv('XIAOMI_API_KEY', '')
+    vi.stubEnv('XIAOMI_BASE_URL', '')
+    vi.stubEnv('GEMINI_API_KEY', '')
+    expect(() => provedorVision(process.env)).toThrow()
   })
 })
