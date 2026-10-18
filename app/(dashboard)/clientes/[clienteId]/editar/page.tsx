@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { mostrarCamposEmpresa, tituloEndereco } from "@/lib/clientes/campos-pessoa";
 import { normalizarCliente } from "@/lib/clientes/normalizar";
@@ -306,6 +306,8 @@ const Section = ({
 
 export default function EditarClientePage() {
   const router = useRouter();
+  // 18/10: ?salvo=1 vindo do Cadastro — mostra o aviso de salvo no topo
+  const paramsBusca = useSearchParams();
   const params = useParams();
   const clienteId = params.clienteId as string;
   const supabase = createClient();
@@ -406,6 +408,15 @@ export default function EditarClientePage() {
 
     fetchCliente();
   }, [clienteId, supabase]);
+
+  // 18/10: quando o salvar falha, leva o olhar até a mensagem de erro
+  useEffect(() => {
+    if (submitError) {
+      document
+        .querySelector('[data-testid="erro-salvar"]')
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [submitError]);
 
   const set = useCallback(
     <K extends keyof FormData>(key: K, value: FormData[K]) => {
@@ -541,12 +552,19 @@ export default function EditarClientePage() {
       // mandando `nome_completo` — coluna inexistente (PGRST204) — e o
       // formulário inteiro falhava.
       // PARTE 11 — origem nova precisa de subtipo (+ vendedor ou nome)
-    const errosOrigem = validarOrigem({
-      origem_tipo: origemTipo || undefined,
-      origem_subtipo: origemSubtipo || undefined,
-      vendedor_responsavel_id: vendedorId || undefined,
-      origem_indicacao_nome: parceiroNome || undefined,
-    });
+    // 18/10: clientes ANTIGOS (anteriores à origem nova) salvam sem origem;
+    // a validação só entra quando o vendedor mexeu em algum campo dela.
+    const mexeuNaOrigem = Boolean(
+      origemTipo || origemSubtipo || vendedorId || parceiroNome
+    );
+    const errosOrigem = mexeuNaOrigem
+      ? validarOrigem({
+          origem_tipo: origemTipo || undefined,
+          origem_subtipo: origemSubtipo || undefined,
+          vendedor_responsavel_id: vendedorId || undefined,
+          origem_indicacao_nome: parceiroNome || undefined,
+        })
+      : [];
     if (errosOrigem.length) {
       setSubmitError(errosOrigem[0]);
       return;
@@ -742,6 +760,7 @@ export default function EditarClientePage() {
               <select
                 value={vendedorId}
                 onChange={(e) => setVendedorId(e.target.value)}
+                style={{ colorScheme: "dark" }}
                 className={`${inputCls} max-w-xs text-white`}
               >
                 <option value="">Escolha o vendedor (vincula o cliente)...</option>
@@ -1134,6 +1153,18 @@ export default function EditarClientePage() {
           </Button>
         </div>
       </form>
+
+      {paramsBusca.get("salvo") === "1" && (
+        <div className="mb-4 rounded-md bg-green-500/10 border border-green-500/20 p-3 text-sm text-green-400">
+          ✅ Cliente salvo! Agora insira a fatura (ou faça a análise) para o
+          card entrar no funil.
+        </div>
+      )}
+      {submitError && (
+        <div data-testid="erro-salvar" className="mb-4 rounded-md bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400">
+          ⚠️ {submitError}
+        </div>
+      )}
 
       {/* ═══════ PARTE 11 (PPTX 17/10) — conta + funil embaixo do form ═══════ */}
       <div className="flex flex-wrap items-center gap-3 mt-2">

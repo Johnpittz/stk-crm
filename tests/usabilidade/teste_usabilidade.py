@@ -262,12 +262,14 @@ def main() -> int:
                 raise AssertionError(
                     f"sem 'Cliente salvo' | rede {rede[-3:]} | msg {erros[:2]}"
                 ) from exc
+            # 18/10: criar = mesma tela do Editar (redirect) com kanban individual
             esperar_texto(page, r"RECEBEU A CONTA", 15_000)
+            assert "Upload da Fatura" in page.inner_text("body"), "sem botão na tela"
             corpo = page.inner_text("body")
-            assert nome_teste in corpo, "card do novo cliente não apareceu"
-            # kanban só do cliente: card aparece 1x
-            assert corpo.count(nome_teste) <= 3, "card duplicado no kanban"
-            return "salvo + card em RECEBEU A CONTA"
+            assert nome_teste in corpo, "form da edição sem o nome"
+            # card NÃO nasce no salvamento (nasce no Upload da Fatura)
+            assert "Conta de energia" not in corpo, "card não deve existir antes da fatura"
+            return "salvo → tela do Editar com kanban (card nasce na fatura)"
 
         tentar("T4 salvar → painel pós-salvar + card no funil", t4)
 

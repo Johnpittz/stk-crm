@@ -411,32 +411,11 @@ export default function NovoClientePage() {
         return;
       }
 
-      // PARTE 11 (PPTX 17/10): criar o card no funil (coluna RECEBEU A
-      // CONTA, pré-preenchido) e mostrar o painel de pós-salvamento.
+      // 18/10 (pedido do João): criar cliente = abrir a MESMA tela do
+      // Editar (form + Upload da Fatura + kanban individual). O card no
+      // funil nasce quando a FATURA é inserida (ou pela Análise).
       const cliente = result.cliente;
-      try {
-        const oppRes = await fetch("/api/oportunidades", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: auth,
-          },
-          body: JSON.stringify({
-            cliente_id: cliente.id,
-            cliente_nome: cliente.nome_razao_social,
-            titulo: cliente.nome_razao_social,
-            descricao: `Cliente criado no cadastro (origem: ${OPÇÕES_ORIGEM[origemTipo]?.rotulo || "não informada"})`,
-            ...(origemTipo === "vendedor" && vendedorId ? { vendedor_id: vendedorId } : {}),
-          }),
-        });
-        if (oppRes.ok) {
-          const oppJson = await oppRes.json();
-          if (oppJson.oportunidade?.id) setOppId(oppJson.oportunidade.id);
-        }
-      } catch {
-        /* card é conforto — o cadastro já foi salvo */
-      }
-
+      router.push(`/clientes/${cliente.id}/editar?salvo=1`);
       setClienteSalvo({ id: cliente.id, nome: cliente.nome_razao_social });
       setLoading(false);
     } catch (err: any) {
@@ -601,6 +580,7 @@ export default function NovoClientePage() {
               <select
                 value={vendedorId}
                 onChange={(e) => setVendedorId(e.target.value)}
+                style={{ colorScheme: "dark" }}
                 className={`${inputCls} max-w-xs text-white`}
               >
                 <option value="">Escolha o vendedor (vincula o cliente)...</option>
