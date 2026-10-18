@@ -352,11 +352,12 @@ export default function NovoClientePage() {
   };
 
   // ─── Submit ───
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitError(null);
-
-    if (!validate()) return;
+  // 18/10: cria o cliente — usado pelo "Salvar Cliente" e pelo "Upload da
+  // Fatura" (que salva o cadastro junto antes de subir a conta).
+  async function criarCliente(): Promise<
+    { id: string; nome_razao_social: string } | null
+  > {
+    if (!validate()) return null;
 
     // PARTE 11 — origem nova precisa de subtipo (+ vendedor ou nome)
     const errosOrigem = validarOrigem({
@@ -367,79 +368,80 @@ export default function NovoClientePage() {
     });
     if (errosOrigem.length) {
       setSubmitError(errosOrigem[0]);
-      return;
+      return null;
     }
 
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
+      setSubmitError("Sessão expirada. Faça login novamente.");
+      return null;
+    }
+
+    const payload = {
+      ...form,
+      origem_tipo: origemTipo || null,
+      origem_subtipo: origemSubtipo || null,
+      vendedor_responsavel_id: vendedorId || null,
+      origem_indicacao_nome: parceiroNome || null,
+    };
+
+    const res = await fetch("/api/clientes", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload),
+    });
+    const result = await res.json();
+    if (!res.ok) {
+      setSubmitError(result.error || "Erro ao salvar cliente.");
+      return null;
+    }
+    return result.cliente;
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitError(null);
     setLoading(true);
-
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      const auth = ["Bearer", token].join(" ");
-
-      if (!token) {
-        setSubmitError("Sessão expirada. Faça login novamente.");
-        setLoading(false);
-        return;
-      }
-
-      // 06/10: o FORMULÁRIO INTEIRO vai para o POST — quem mapeia para as
-      // colunas reais é montarPayloadCliente lá na rota. Antes esta tela
-      // montava o payload à mão e jogava fora endereço/energia/consumo.
-      const payload = {
-        ...form,
-        origem_tipo: origemTipo || null,
-        origem_subtipo: origemSubtipo || null,
-        vendedor_responsavel_id: vendedorId || null,
-        origem_indicacao_nome: parceiroNome || null,
-      };
-
-      const res = await fetch("/api/clientes", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: auth,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const result = await res.json();
-
-      if (!res.ok) {
-        setSubmitError(result.error || "Erro ao salvar cliente.");
-        setLoading(false);
-        return;
-      }
-
-      // 18/10 (pedido do João): criar cliente = abrir a MESMA tela do
-      // Editar (form + Upload da Fatura + kanban individual). O card no
-      // funil nasce quando a FATURA é inserida (ou pela Análise).
-      const cliente = result.cliente;
-      router.push(`/clientes/${cliente.id}/editar?salvo=1`);
-      setClienteSalvo({ id: cliente.id, nome: cliente.nome_razao_social });
-      setLoading(false);
-    } catch (err: any) {
-      setSubmitError(err.message || "Erro inesperado ao salvar.");
-      setLoading(false);
-    }
+    const cliente = await criarCliente();
+    setLoading(false);
+    if (!cliente) return;
+    // 18/10 — depois de salvar, a MESMA tela do Editar
+    router.push(`/clientes/${cliente.id}/editar?salvo=1`);
   };
 
   // PARTE 11 v3 — o botão "Upload da Fatura" sobe a conta e ela já
-  // cai em Gestão de Fatura (competência do mês).
-  async function enviarFatura(clienteId: string, file: File) {
+  // cai em Gestão de Fatura (competência do mês). 18/10: sem cadastro
+  // salvo ainda, o cliente é criado junto antes do upload.
+  async function enviarFatura(file: File) {
     setFaturaEnviando(true);
     try {
+      setFaturaSalva(null);
       const { data: sd } = await supabase.auth.getSession();
       const token = sd.session?.access_token;
       if (!token) {
         setFaturaSalva("Sessão expirada. Entre de novo.");
         return;
       }
+      let id = clienteSalvo?.id;
+      if (!id) {
+        const cliente = await criarCliente();
+        if (!cliente) {
+          setFaturaSalva(
+            "Complete os dados obrigatórios — o cadastro é salvo junto com a fatura.",
+          );
+          return;
+        }
+        id = cliente.id;
+        setClienteSalvo({ id: cliente.id, nome: cliente.nome_razao_social });
+      }
       const fd = new FormData();
       fd.append("arquivo", file);
-      const res = await fetch(`/api/clientes/${clienteId}/fatura`, {
+      const res = await fetch(`/api/clientes/${id}/fatura`, {
         method: "POST",
-        headers: { Authorization: ["Bearer", token].join(" ") },
+        headers: { Authorization: `Bearer ${token}` },
         body: fd,
       });
       const json = await res.json();
@@ -448,68 +450,13 @@ export default function NovoClientePage() {
           ? json.valor == null
             ? `Fatura registrada em Gestão de Fatura (competência ${json.competencia}) — valor em branco.`
             : `Fatura inserida em Gestão de Fatura — competência ${json.competencia} — R$ ${json.valor}${json.consumo != null ? ` — ${json.consumo} kWh` : ""}${json.cardCriado ? ` · ✅ card aberto em RECEBEU A CONTA` : ""}`
-          : json.error || "Falha ao enviar a fatura."
+          : json.error || "Falha ao enviar a fatura.",
       );
     } catch {
       setFaturaSalva("Erro ao enviar a fatura. Tente de novo.");
     } finally {
       setFaturaEnviando(false);
     }
-  }
-
-  // PARTE 11 (PPTX 17/10) — pós-salvar: card no funil + comandos
-  if (clienteSalvo) {
-    return (
-      <div className="max-w-6xl mx-auto pb-12 space-y-6">
-        <div className="rounded-lg border border-emerald-700/50 bg-emerald-900/20 p-5">
-          <h1 className="text-lg font-semibold text-white">
-            ✅ Cliente salvo: {clienteSalvo.nome}
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            {oppId
-              ? "O card já entrou no Funil de Vendas, na coluna RECEBEU A CONTA."
-              : "Cadastro concluído (o card do funil será criado em instantes)."}
-          </p>
-          {faturaSalva && (
-            <p className="text-sm text-emerald-400 mt-1">✅ {faturaSalva}</p>
-          )}
-          <div className="flex flex-wrap gap-3 mt-4">
-            <Button
-              onClick={() => faturaInputRef.current?.click()}
-              disabled={faturaEnviando}
-            >
-              {faturaEnviando ? "⏳ Enviando a conta..." : "📤 Upload da Fatura"}
-            </Button>
-            <input
-              ref={faturaInputRef}
-              type="file"
-              accept="image/*,application/pdf"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) enviarFatura(clienteSalvo.id, f);
-                e.target.value = "";
-              }}
-            />
-            <Button onClick={() => setMostrarAnalise(true)} disabled={faturaEnviando}>
-              🔍 Análise da Fatura
-            </Button>
-            <Button variant="outline" onClick={() => router.push("/clientes")}>
-              ← Voltar para Clientes
-            </Button>
-          </div>
-        </div>
-
-        {mostrarAnalise && (
-          <AnaliseContaModal clienteId={clienteSalvo.id} onClose={() => setMostrarAnalise(false)} />
-        )}
-
-        <Section icon={<Target className="h-4 w-4 text-[#3B64CF]" />} title="Funil de Vendas — card criado">
-          <KanbanOportunidades clienteId={clienteSalvo.id} alturaColuna={360} atendimentos={[]} onAbrirChat={() => {}} />
-        </Section>
-
-      </div>
-    );
   }
 
   // ─── Shared input class ───
@@ -577,17 +524,16 @@ export default function NovoClientePage() {
               </div>
             )}
             {origemTipo === "vendedor" && origemSubtipo && (
-              <select
-                value={vendedorId}
-                onChange={(e) => setVendedorId(e.target.value)}
-                style={{ colorScheme: "dark" }}
-                className={`${inputCls} max-w-xs text-white`}
-              >
-                <option value="">Escolha o vendedor (vincula o cliente)...</option>
-                {vendedores.map((v) => (
-                  <option key={v.id} value={v.id}>{v.nome_completo}</option>
-                ))}
-              </select>
+              <Select value={vendedorId} onValueChange={setVendedorId}>
+                <SelectTrigger className={`${inputCls} max-w-xs text-white`}>
+                  <SelectValue placeholder="Escolha o vendedor (vincula o cliente)..." />
+                </SelectTrigger>
+                <SelectContent className="bg-[#0f1d32] border-[#1c2e4a]">
+                  {vendedores.map((v) => (
+                    <SelectItem key={v.id} value={v.id}>{v.nome_completo}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
             {origemTipo === "parceiro" && origemSubtipo && (
               <Input
@@ -954,6 +900,69 @@ export default function NovoClientePage() {
             setUsinaAberto(false);
           }}
         />
+
+        {/* ═══════ 18/10 — MESMA tela do Editar: Conta + kanban pré-criado ═══════ */}
+        <Section
+          icon={<Target className="h-4 w-4 text-[#3B64CF]" />}
+          title="Funil do Cliente"
+        >
+          <p className="text-xs text-slate-400 mb-3">
+            O kanban já está pré-criado: o card entra automaticamente quando a
+            fatura for inserida.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              onClick={() => faturaInputRef.current?.click()}
+              disabled={faturaEnviando}
+              className="bg-[#3B64CF] hover:bg-[#2d50a8] text-white"
+            >
+              {faturaEnviando ? "⏳ Enviando a conta..." : "📤 Upload da Fatura"}
+            </Button>
+            <input
+              ref={faturaInputRef}
+              type="file"
+              accept="image/*,application/pdf"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) enviarFatura(f);
+                e.target.value = "";
+              }}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!clienteSalvo || mostrarAnalise}
+              title={
+                clienteSalvo
+                  ? undefined
+                  : "Salve o cliente primeiro (ou envie a fatura — o cadastro vai junto)"
+              }
+              onClick={() => setMostrarAnalise(true)}
+              className="border-[#1c2e4a] text-slate-400 hover:text-white hover:bg-white/5"
+            >
+              🔍 Análise da Fatura
+            </Button>
+            {faturaSalva && (
+              <span className="text-sm text-emerald-400">{faturaSalva}</span>
+            )}
+          </div>
+          {mostrarAnalise && clienteSalvo && (
+            <AnaliseContaModal
+              clienteId={clienteSalvo.id}
+              onClose={() => setMostrarAnalise(false)}
+            />
+          )}
+          <div className="mt-4">
+            <KanbanOportunidades
+              preCriado
+              alturaColuna={360}
+              atendimentos={[]}
+              onAbrirChat={() => {}}
+            />
+          </div>
+        </Section>
 
         {/* ═══════ Action Buttons ═══════ */}
         <div className="flex items-center justify-end gap-3 pt-2">

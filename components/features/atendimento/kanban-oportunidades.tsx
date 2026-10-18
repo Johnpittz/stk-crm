@@ -108,6 +108,12 @@ interface KanbanOportunidadesProps {
   clienteId?: string;
   /** PARTE 11 — altura mínima das colunas em px (kanban maior embutido). */
   alturaColuna?: number;
+  /**
+   * 18/10 — kanban PRÉ-CRIADO: mostra só as colunas (sem buscar cards).
+   * Usado na tela de Novo Cliente (mesma tela do Editar), onde o card
+   * entra quando a FATURA for inserida.
+   */
+  preCriado?: boolean;
 }
 
 export function KanbanOportunidades({
@@ -120,6 +126,7 @@ export function KanbanOportunidades({
   dataFim = "",
   clienteId,
   alturaColuna,
+  preCriado = false,
 }: KanbanOportunidadesProps) {
   const [oportunidades, setOportunidades] = useState<Oportunidade[]>([]);
   const [loading, setLoading] = useState(true);
@@ -181,8 +188,13 @@ export function KanbanOportunidades({
   }, [supabase]);
 
   useEffect(() => {
+    // 18/10 — pré-cadastro: só as colunas, sem buscar cards
+    if (preCriado) {
+      setLoading(false);
+      return;
+    }
     fetchOportunidades();
-  }, [fetchOportunidades]);
+  }, [fetchOportunidades, preCriado]);
 
   // Refaz só quando a lista de conversas muda DE VERDADE. Montagem e primeira
   // chegada de dados já cobrem o início — antes eram 3 chamadas (759/632/328 ms).

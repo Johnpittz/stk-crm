@@ -30,9 +30,11 @@ import time
 import urllib.parse
 import urllib.request
 
+import os
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
 
-BASE = "https://stk-crm-amber-delta.vercel.app"
+# 18/10: STK_BASE_URL=http://localhost:3000 testa local antes do deploy
+BASE = os.environ.get("STK_BASE_URL", "https://stk-crm-amber-delta.vercel.app")
 SESSAO_ARQ = pathlib.Path("/root/.hermes/cache/scratch/sessao-stk.json")
 ENV_ARQ = pathlib.Path("/root/stk-crm/.env.local")
 CROPS = pathlib.Path("/root/RECIEE/CROPS/000413805801280 (1).pdf")
@@ -134,7 +136,7 @@ def main() -> int:
                 {
                     "name": COOKIE_NOME,
                     "value": cookie_valor,
-                    "domain": "stk-crm-amber-delta.vercel.app",
+                    "domain": urllib.parse.urlparse(BASE).netloc,
                     "path": "/",
                     "httpOnly": False,  # supabase-js lê via document.cookie
                     "secure": True,

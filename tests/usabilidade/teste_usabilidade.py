@@ -33,9 +33,12 @@ import time
 import urllib.request
 import urllib.parse
 
+import os
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
 
-BASE = "https://stk-crm-amber-delta.vercel.app"
+# 18/10: testa LOCAL primeiro (STK_BASE_URL=http://localhost:3000) — deploy
+# só depois de tudo verde, evitando ciclos de deploy para validar teste
+BASE = os.environ.get("STK_BASE_URL", "https://stk-crm-amber-delta.vercel.app")
 SESSAO_ARQ = pathlib.Path("/root/.hermes/cache/scratch/sessao-stk.json")
 PDF_REAL = pathlib.Path("/root/RECIEE/CROPS/000413805801280 (1).pdf")
 ENV_LOCAL = pathlib.Path("/root/stk-crm/.env.local")
@@ -156,7 +159,7 @@ def main() -> int:
                 {
                     "name": COOKIE_NOME,
                     "value": cookie_valor,
-                    "domain": "stk-crm-amber-delta.vercel.app",
+                    "domain": urllib.parse.urlparse(BASE).netloc,
                     "path": "/",
                     "httpOnly": False,  # o supabase-js lê via document.cookie
                     "secure": True,
@@ -246,9 +249,15 @@ def main() -> int:
             tel.fill("62999990001")
             radio_por_texto(page, "Vendedor").check()
             radio_por_texto(page, "Externo").check()
-            sel = page.locator("select").filter(has_text="Escolha o vendedor").first
+            # 18/10: vendedor agora é Select shadcn (combobox), não <select> nativo
+            sel = page.get_by_role("combobox").filter(
+                has_text="Escolha o vendedor"
+            ).first
             sel.wait_for(timeout=15_000)
-            sel.select_option(index=1)  # primeiro vendedor da lista
+            sel.click()
+            page.wait_for_timeout(500)
+            item = page.get_by_role("option").nth(1)
+            item.click()  # primeiro vendedor da lista
             page.get_by_role("button", name="Salvar Cliente").click()
             try:
                 esperar_texto(page, r"Cliente salvo", 30_000)

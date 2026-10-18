@@ -773,17 +773,16 @@ export default function EditarClientePage() {
               </div>
             )}
             {origemTipo === "vendedor" && origemSubtipo && (
-              <select
-                value={vendedorId}
-                onChange={(e) => setVendedorId(e.target.value)}
-                style={{ colorScheme: "dark" }}
-                className={`${inputCls} max-w-xs text-white`}
-              >
-                <option value="">Escolha o vendedor (vincula o cliente)...</option>
-                {vendedores.map((v) => (
-                  <option key={v.id} value={v.id}>{v.nome_completo}</option>
-                ))}
-              </select>
+              <Select value={vendedorId} onValueChange={setVendedorId}>
+                <SelectTrigger className={`${inputCls} max-w-xs text-white`}>
+                  <SelectValue placeholder="Escolha o vendedor (vincula o cliente)..." />
+                </SelectTrigger>
+                <SelectContent className="bg-[#0f1d32] border-[#1c2e4a]">
+                  {vendedores.map((v) => (
+                    <SelectItem key={v.id} value={v.id}>{v.nome_completo}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
             {origemTipo === "parceiro" && origemSubtipo && (
               <Input
