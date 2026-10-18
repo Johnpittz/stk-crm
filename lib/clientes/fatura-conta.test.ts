@@ -9,6 +9,7 @@ import {
   deveCriarCardFatura,
   extrairDadosConta,
   montarLinhaGestaoFatura,
+  marcarComoAnalisada,
 } from "./fatura-conta";
 
 describe("competenciaAtual", () => {
@@ -89,5 +90,53 @@ describe("montarLinhaGestaoFatura", () => {
     const l = montarLinhaGestaoFatura({ competencia: "2026-10", valor: null, consumo: null });
     expect(l.dados.competencia).toBe("2026-10");
     expect(l.dados.valor).toBeNull();
+  });
+});
+
+// 18/10 — FLUXO ÚNICO (pedido do João): o botão é só "Análise da Fatura".
+// A fatura entra como RECEBIDA no kanban de faturas e, quando a IA termina,
+// vira ANALISADA guardando o resumo lido.
+describe("kanban de faturas (recebida → analisada)", () => {
+  it("montarLinhaGestaoFatura nasce marcada como recebida", () => {
+    const l = montarLinhaGestaoFatura({ competencia: "2026-10", valor: 10, consumo: 5 });
+    expect(l.dados.fluxo).toBe("recebida");
+    expect(l.dados.resumo_analise).toBeNull();
+  });
+
+  it("marcarComoAnalisada guarda o resumo e vira analisada", () => {
+    const l = montarLinhaGestaoFatura({ competencia: "2026-10", valor: null, consumo: null });
+    const r = marcarComoAnalisada(l.dados, {
+      concessionaria: "Equatorial",
+      uc: "12345678",
+      titular: "João",
+      cnpj_cpf: "000.000.000-00",
+      vencimento: "10",
+      consumo: "342",
+      valor: "R$ 1.234,56",
+    });
+    expect(r.fluxo).toBe("analise-concluida");
+    expect(l.dados.fluxo).toBe("recebida");
+    expect((r.resumo_analise as { concessionaria?: string }).concessionaria).toBe("Equatorial");
+    expect((r.resumo_analise as { valor?: string }).valor).toBe("R$ 1.234,56");
+  });
+
+  it("marcarComoAnalisada preenche valor/consumo quando a linha não tinha", () => {
+    const l = montarLinhaGestaoFatura({ competencia: "2026-10", valor: null, consumo: null });
+    const r = marcarComoAnalisada(l.dados, {
+      concessionaria: null, uc: null, titular: null, cnpj_cpf: null,
+      vencimento: null, consumo: "100", valor: "R$ 89,90",
+    });
+    expect(r.valor).toBe(89.9);
+    expect(r.consumo_kwh).toBe(100);
+  });
+
+  it("marcarComoAnalisada não apaga valor já lido do PDF", () => {
+    const l = montarLinhaGestaoFatura({ competencia: "2026-10", valor: 4687.56, consumo: null });
+    const r = marcarComoAnalisada(l.dados, {
+      concessionaria: null, uc: null, titular: null, cnpj_cpf: null,
+      vencimento: null, consumo: "512", valor: null,
+    });
+    expect(r.valor).toBe(4687.56);
+    expect(r.consumo_kwh).toBe(512);
   });
 });

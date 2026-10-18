@@ -104,7 +104,7 @@ export async function POST(
           cliente_id: clienteId,
           cliente_nome: nomeCli,
           titulo: nomeCli,
-          descricao: `Fatura de energia recebida via Upload da Fatura — competência ${linha.dados.competencia}.`,
+          descricao: `Fatura de energia recebida — competência ${linha.dados.competencia}.`,
           etapa: "recebeu_conta",
           vendedor_id: user.id,
         })
@@ -127,7 +127,7 @@ export async function POST(
     cardCriado,
     card_id: cardId,
     aviso: valor == null
-      ? "Fatura registrada sem valor — clique em 'Análise da conta' para a IA completar."
+      ? "Fatura recebida — a IA completa na análise."
       : null,
   });
 }

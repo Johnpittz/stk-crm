@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { analisarFatura, analisarFaturaTexto, diagFatura } from "@/lib/ia/analisar-fatura";
-import { paraNumero } from "@/lib/clientes/fatura-conta";
+import { marcarComoAnalisada, paraNumero } from "@/lib/clientes/fatura-conta";
 import {
   deveCriarLinhaIA,
   linhaDaOportunidade,
@@ -105,10 +105,13 @@ export async function POST(
     salvo = !error;
   }
 
-  // PARTE 11 — completa a linha da Gestão de Fatura do mês (se faltar)
+  // 18/10 — FLUXO ÚNICO (pedido do João): o kanban de faturas mostra a
+  // conta como RECEBIDA quando o vendedor escolhe o arquivo e vira
+  // ANALISADA aqui, quando a IA termina de ler. A linha da Gestão de
+  // Fatura é a MESMA do kanban (uma linha só, dois status).
   let faturaCompletada = false;
-  if (resumo.valor || resumo.consumo) {
-    const mes = new Date().toISOString().slice(0, 7);
+  const mes = new Date().toISOString().slice(0, 7);
+  {
     const { data: linhas } = await admin
       .from("cliente_pasta_linhas")
       .select("id, dados")
@@ -119,15 +122,36 @@ export async function POST(
       (l: any) => l.dados && l.dados.competencia === mes
     );
     if (alvo) {
-      const dados = { ...alvo.dados };
-      if (!dados.valor && resumo.valor) dados.valor = paraNumero(resumo.valor);
-      if (!dados.consumo_kwh && resumo.consumo)
-        dados.consumo_kwh = paraNumero(resumo.consumo);
+      const dados = marcarComoAnalisada(alvo.dados ?? {}, resumo);
       const { error: errLin } = await admin
         .from("cliente_pasta_linhas")
         .update({ dados })
         .eq("id", alvo.id);
       faturaCompletada = !errLin;
+    } else if (linhas && linhas.length > 0) {
+      // 18/10 — FLUXO ÚNICO: a linha já nasceu no passo "recebido" (o
+      // modal manda o arquivo pra /fatura antes). Se a competência do
+      // mês casar, o bloco de cima resolve; aqui entra a conta subida
+      // de outro jeito — marca a mais recente, senão o card fica preso
+      // em "Fatura Recebida".
+      const maisRecente = linhas[0];
+      const dados = marcarComoAnalisada(maisRecente.dados ?? {}, resumo);
+      const { error: errLin } = await admin
+        .from("cliente_pasta_linhas")
+        .update({ dados })
+        .eq("id", maisRecente.id);
+      faturaCompletada = !errLin;
+    } else {
+      // nada no kanban ainda (análise direta, sem passar pelo "recebido")
+      // — cria a linha já marcada como analisada.
+      const dados = marcarComoAnalisada(
+        { competencia: mes, valor: null, consumo_kwh: null, situacao: "Pendente" },
+        resumo
+      );
+      const { error: errNova } = await admin
+        .from("cliente_pasta_linhas")
+        .insert({ cliente_id: clienteId, linha: "gestao_fatura", dados });
+      faturaCompletada = !errNova;
     }
   }
 

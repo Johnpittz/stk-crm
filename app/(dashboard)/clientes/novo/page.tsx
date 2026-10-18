@@ -233,14 +233,9 @@ export default function NovoClientePage() {
   const [vendedores, setVendedores] = useState<
     Array<{ id: string; nome_completo: string }>
   >([]);
-  const [clienteSalvo, setClienteSalvo] = useState<{ id: string; nome: string } | null>(null);
-  const [oppId, setOppId] = useState<string | null>(null);
-  // PARTE 11 v3 — botões "Upload da Fatura" e "Análise da Fatura"
-  const faturaInputRef = useRef<HTMLInputElement>(null);
+  // 18/10 — fluxo único: só "Análise da Fatura" (Upload sumiu). Salvar leva
+  // para o Editar, que tem o kanban de faturas (Recebida → Analisada).
   const [mostrarAnalise, setMostrarAnalise] = useState(false);
-  // PARTE 11 (v2, 17/10) — fatura anexada no cadastro já cai em Gestão de Fatura
-  const [faturaSalva, setFaturaSalva] = useState<string | null>(null);
-  const [faturaEnviando, setFaturaEnviando] = useState(false);
 
   useEffect(() => {
     let vivo = true;
@@ -412,52 +407,6 @@ export default function NovoClientePage() {
     router.push(`/clientes/${cliente.id}/editar?salvo=1`);
   };
 
-  // PARTE 11 v3 — o botão "Upload da Fatura" sobe a conta e ela já
-  // cai em Gestão de Fatura (competência do mês). 18/10: sem cadastro
-  // salvo ainda, o cliente é criado junto antes do upload.
-  async function enviarFatura(file: File) {
-    setFaturaEnviando(true);
-    try {
-      setFaturaSalva(null);
-      const { data: sd } = await supabase.auth.getSession();
-      const token = sd.session?.access_token;
-      if (!token) {
-        setFaturaSalva("Sessão expirada. Entre de novo.");
-        return;
-      }
-      let id = clienteSalvo?.id;
-      if (!id) {
-        const cliente = await criarCliente();
-        if (!cliente) {
-          setFaturaSalva(
-            "Complete os dados obrigatórios — o cadastro é salvo junto com a fatura.",
-          );
-          return;
-        }
-        id = cliente.id;
-        setClienteSalvo({ id: cliente.id, nome: cliente.nome_razao_social });
-      }
-      const fd = new FormData();
-      fd.append("arquivo", file);
-      const res = await fetch(`/api/clientes/${id}/fatura`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd,
-      });
-      const json = await res.json();
-      setFaturaSalva(
-        res.ok
-          ? json.valor == null
-            ? `Fatura registrada em Gestão de Fatura (competência ${json.competencia}) — valor em branco.`
-            : `Fatura inserida em Gestão de Fatura — competência ${json.competencia} — R$ ${json.valor}${json.consumo != null ? ` — ${json.consumo} kWh` : ""}${json.cardCriado ? ` · ✅ card aberto em RECEBEU A CONTA` : ""}`
-          : json.error || "Falha ao enviar a fatura.",
-      );
-    } catch {
-      setFaturaSalva("Erro ao enviar a fatura. Tente de novo.");
-    } finally {
-      setFaturaEnviando(false);
-    }
-  }
 
   // ─── Shared input class ───
   const inputCls =
@@ -902,66 +851,20 @@ export default function NovoClientePage() {
         />
 
         {/* ═══════ 18/10 — MESMA tela do Editar: Conta + kanban pré-criado ═══════ */}
+        {/* -- 18/10: fluxo unico, so "Analise da Fatura" (Upload sumiu).
+            Salvar leva para o Editar, que tem o kanban de faturas
+            (Recebida -> Analisada) junto com o funil. -- */}
         <Section
           icon={<Target className="h-4 w-4 text-[#3B64CF]" />}
-          title="Funil do Cliente"
+          title="Análise da Fatura"
         >
           <p className="text-xs text-slate-400 mb-3">
-            O kanban já está pré-criado: o card entra automaticamente quando a
-            fatura for inserida.
+            Salve o cliente e clique em <b>Análise da Fatura</b>: a conta
+            entra no kanban como <b>Fatura Recebida</b> e, terminando a IA,
+            vira <b>Fatura Analisada</b> — clique no card para ver o que foi
+            lido. O card também abre sozinho no funil em
+            <b>Recebeu a Conta</b>.
           </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              type="button"
-              onClick={() => faturaInputRef.current?.click()}
-              disabled={faturaEnviando}
-              className="bg-[#3B64CF] hover:bg-[#2d50a8] text-white"
-            >
-              {faturaEnviando ? "⏳ Enviando a conta..." : "📤 Upload da Fatura"}
-            </Button>
-            <input
-              ref={faturaInputRef}
-              type="file"
-              accept="image/*,application/pdf"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) enviarFatura(f);
-                e.target.value = "";
-              }}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              disabled={!clienteSalvo || mostrarAnalise}
-              title={
-                clienteSalvo
-                  ? undefined
-                  : "Salve o cliente primeiro (ou envie a fatura — o cadastro vai junto)"
-              }
-              onClick={() => setMostrarAnalise(true)}
-              className="border-[#1c2e4a] text-slate-400 hover:text-white hover:bg-white/5"
-            >
-              🔍 Análise da Fatura
-            </Button>
-            {faturaSalva && (
-              <span className="text-sm text-emerald-400">{faturaSalva}</span>
-            )}
-          </div>
-          {mostrarAnalise && clienteSalvo && (
-            <AnaliseContaModal
-              clienteId={clienteSalvo.id}
-              onClose={() => setMostrarAnalise(false)}
-            />
-          )}
-          <div className="mt-4">
-            <KanbanOportunidades
-              preCriado
-              alturaColuna={360}
-              atendimentos={[]}
-              onAbrirChat={() => {}}
-            />
-          </div>
         </Section>
 
         {/* ═══════ Action Buttons ═══════ */}

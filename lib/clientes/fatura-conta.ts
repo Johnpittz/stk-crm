@@ -74,6 +74,50 @@ export function montarLinhaGestaoFatura(entrada: {
       valor: entrada.valor,
       consumo_kwh: entrada.consumo,
       situacao: "Pendente",
+      // 18/10 — FLUXO ÚNICO: o botão é só "Análise da Fatura". A conta entra
+      // no kanban de faturas como RECEBIDA e só vira ANALISADA quando a IA
+      // termina de ler (aí guarda o resumo em resumo_analise).
+      fluxo: "recebida",
+      resumo_analise: null,
     },
+  };
+}
+
+/**
+ * 18/10 — segunda etapa do fluxo: a IA já leu a conta, então a linha do
+ * kanban de faturas passa de RECEBIDA para ANALISADA guardando o resumo.
+ * Valor/consumo vindos do PDF são preservados (a análise só completa o
+ * que faltava — nunca sobrescreve dado já lido).
+ */
+export function marcarComoAnalisada(
+  dados: Record<string, unknown>,
+  resumo: {
+    concessionaria: string | null;
+    uc: string | null;
+    titular: string | null;
+    cnpj_cpf: string | null;
+    vencimento: string | null;
+    consumo: string | null;
+    valor: string | null;
+  }
+): Record<string, unknown> {
+  const numero = (texto: string | null): number | null => {
+    if (!texto) return null;
+    const bruto = texto.replace(/[^\d,.-]/g, "");
+    if (!bruto) return null;
+    const n = Number(bruto.includes(",") ? bruto.replace(/\./g, "").replace(",", ".") : bruto);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const valorAnalise = numero(resumo.valor);
+  const consumoAnalise = numero(resumo.consumo);
+
+  return {
+    ...dados,
+    valor: dados.valor ?? valorAnalise,
+    consumo_kwh: dados.consumo_kwh ?? consumoAnalise,
+    situacao: "Conferida",
+    fluxo: "analise-concluida",
+    resumo_analise: resumo,
   };
 }

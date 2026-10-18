@@ -5,6 +5,7 @@
  * a IA lê e o resumo entra na pasta do cliente.
  */
 import { useRef, useState } from "react";
+import { KanbanFaturas } from "./kanban-faturas";
 import { Button } from "@/components/ui/button";
 import type { OportunidadeProduto } from "@/lib/ia/regras-produtos";
 import {
@@ -65,6 +66,10 @@ const ROTULOS_STATUS: Record<string, string> = {
 export function AnaliseContaModal({ clienteId, onClose }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [arquivo, setArquivo] = useState<File | null>(null);
+  // 18/10 — FLUXO ÚNICO: escolher o arquivo já registra a conta como
+  // RECEBIDA (card no kanban de faturas). A análise vira ANALISADA.
+  const [recebida, setRecebida] = useState(false);
+  const [recebendo, setRecebendo] = useState(false);
   const [analisando, setAnalisando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [resumo, setResumo] = useState<Resumo | null>(null);
@@ -74,6 +79,37 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
   const [noFunil, setNoFunil] = useState<string[]>([]);
   const [criando, setCriando] = useState<string | null>(null);
   const [abasCriadas, setAbasCriadas] = useState<string[]>([]);
+  const [cardFunil, setCardFunil] = useState(false);
+  const [chaveKanban, setChaveKanban] = useState(0);
+
+  // Passo 1 — a conta entra como CARD "Fatura Recebida".
+  async function registrarRecebida(file: File) {
+    setRecebendo(true);
+    setErro(null);
+    setRecebida(false);
+    try {
+      const { data: { session } } = await (
+        await import("@/lib/supabase/client")
+      ).createClient().auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error("Sessão expirada. Entre de novo.");
+      const fd = new FormData();
+      fd.append("arquivo", file);
+      const res = await fetch(`/api/clientes/${clienteId}/fatura`, {
+        method: "POST",
+        headers: { Authorization: 'Bearer ${token}' },
+        body: fd,
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Falha ao registrar a conta.");
+      setRecebida(true);
+      if (json.cardCriado) setCardFunil(true);
+    } catch (e: any) {
+      setErro(e.message || "Erro ao registrar a conta.");
+    } finally {
+      setRecebendo(false);
+    }
+  }
 
   async function analisar() {
     if (!arquivo) {
@@ -99,6 +135,7 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Falha na análise.");
       setResumo(json.resumo);
+      setChaveKanban((k) => k + 1);
       setSalvo(!!json.salvo);
       setOportunidades(Array.isArray(json.oportunidades) ? json.oportunidades : []);
       setAbasCriadas(Array.isArray(json.abasCriadas) ? json.abasCriadas : []);
@@ -157,6 +194,18 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
           <DialogTitle>🔍 Análise da conta</DialogTitle>
         </DialogHeader>
 
+        {/* KANBAN DE FATURAS — recebida → analisada (pedido 18/10) */}
+        <div className="pt-1">
+          <KanbanFaturas
+            clienteId={clienteId}
+            chave={chaveKanban}
+            onAnalisar={() => {
+              setResumo(null);
+              inputRef.current?.click();
+            }}
+          />
+        </div>
+
         {!resumo && (
           <div className="space-y-4">
             <p className="text-sm text-slate-400">
@@ -168,13 +217,41 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
               type="file"
               accept="image/*,application/pdf"
               className="hidden"
-              onChange={(e) => setArquivo(e.target.files?.[0] || null)}
+              onChange={(e) => {
+                const f = e.target.files?.[0] || null;
+                setArquivo(f);
+                setResumo(null);
+                if (f) registrarRecebida(f);
+              }}
             />
-            <Button variant="outline" onClick={() => inputRef.current?.click()}>
-              {arquivo ? `📄 ${arquivo.name}` : "📎 Escolher conta"}
+            <Button
+              variant="outline"
+              onClick={() => inputRef.current?.click()}
+              disabled={recebendo}
+            >
+              {recebendo
+                ? "Registrando a conta..."
+                : arquivo
+                ? `📄 ${arquivo.name}`
+                : "📎 Escolher conta"}
             </Button>
+            {recebida && (
+              <p className="text-xs text-emerald-400">
+                ✅ Conta registrada no kanban como <b>Fatura Recebida</b>. Agora
+                analise para ela virar <b>Fatura Analisada</b>.
+              </p>
+            )}
+            {cardFunil && (
+              <p className="text-xs text-sky-400">
+                🎯 Card aberto no Funil de Vendas (Recebeu a Conta).
+              </p>
+            )}
             {erro && <p className="text-sm text-red-400">{erro}</p>}
-            <Button onClick={analisar} disabled={analisando} className="w-full">
+            <Button
+              onClick={analisar}
+              disabled={analisando || recebendo || !recebida}
+              className="w-full"
+            >
               {analisando ? "Analisando com a IA..." : "🔍 Analisar conta"}
             </Button>
           </div>

@@ -13,6 +13,7 @@ import {
 } from "@/lib/clientes/origem-cliente";
 import { KanbanOportunidades } from "@/components/features/atendimento/kanban-oportunidades";
 import { AnaliseContaModal } from "@/components/features/clientes/analise-conta-modal";
+import { KanbanFaturas } from "@/components/features/clientes/kanban-faturas";
 import { opcoesStatus } from "@/lib/clientes/status-cliente";
 import {
   FormUsinaSolar,
@@ -322,13 +323,9 @@ export default function EditarClientePage() {
   const [vendedores, setVendedores] = useState<
     Array<{ id: string; nome_completo: string }>
   >([]);
-  // PARTE 11 v3 — botões "Upload da Fatura" e "Análise da Fatura"
-  const faturaInputRef = useRef<HTMLInputElement>(null);
+  // 18/10 — fluxo único: só "Análise da Fatura" (o Upload sumiu — o
+  // registro da conta acontece dentro da análise, passo "Fatura Recebida").
   const [mostrarAnalise, setMostrarAnalise] = useState(false);
-  const [faturaSalva, setFaturaSalva] = useState<string | null>(null);
-  // 18/10: feedback enquanto a conta sobe (sem isso o vendedor acha que
-  // "nada aconteceu" — reclamação do teste de usabilidade com clique real)
-  const [faturaEnviando, setFaturaEnviando] = useState(false);
 
   useEffect(() => {
     let vivo = true;
@@ -518,39 +515,8 @@ export default function EditarClientePage() {
 
   // ─── Submit ───
   // ─── Submit ───
-  // PARTE 11 v3 — o botão "Upload da Fatura" sobe a conta e ela já
-  // cai em Gestão de Fatura (competência do mês).
-  async function enviarFatura(clienteIdArq: string, file: File) {
-    setFaturaEnviando(true);
-    try {
-      const { data: sd } = await supabase.auth.getSession();
-      const token = sd.session?.access_token;
-      if (!token) {
-        setFaturaSalva("Sessão expirada. Entre de novo.");
-        return;
-      }
-      const auth = [String.fromCharCode(66) + "earer", token].join(" ");
-      const fd = new FormData();
-      fd.append("arquivo", file);
-      const res = await fetch(`/api/clientes/${clienteIdArq}/fatura`, {
-        method: "POST",
-        headers: { Authorization: auth },
-        body: fd,
-      });
-      const json = await res.json();
-      setFaturaSalva(
-        res.ok
-          ? json.valor == null
-            ? `Fatura registrada em Gestão de Fatura (competência ${json.competencia}) — valor em branco.`
-            : `Fatura inserida em Gestão de Fatura — competência ${json.competencia} — R$ ${json.valor}${json.consumo != null ? ` — ${json.consumo} kWh` : ""}${json.cardCriado ? ` · ✅ card aberto em RECEBEU A CONTA` : ""}`
-          : json.error || "Falha ao enviar a fatura."
-      );
-    } catch {
-      setFaturaSalva("Erro ao enviar a fatura. Tente de novo.");
-    } finally {
-      setFaturaEnviando(false);
-    }
-  }
+  // 18/10 — o botão "Upload da Fatura" sumiu: o registro da conta
+  // acontece dentro da Análise (passo "Fatura Recebida").
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1184,36 +1150,17 @@ export default function EditarClientePage() {
           card entrar no funil.
         </div>
       )}
-      {/* ═══════ PARTE 11 (PPTX 17/10) — conta + funil embaixo do form ═══════ */}
-      <div className="flex flex-wrap items-center gap-3 mt-2">
-        <Button
-          onClick={() => faturaInputRef.current?.click()}
-          disabled={faturaEnviando}
-        >
-          {faturaEnviando ? "⏳ Enviando a conta..." : "📤 Upload da Fatura"}
-        </Button>
-        <input
-          ref={faturaInputRef}
-          type="file"
-          accept="image/*,application/pdf"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) enviarFatura(clienteId, f);
-            e.target.value = "";
-          }}
-        />
-        <Button onClick={() => setMostrarAnalise(true)} disabled={faturaEnviando}>
+      {/* ═══════ 18/10 — fluxo único: só "Análise da Fatura" ═══════ */}
+      <div className="mt-6 space-y-3">
+        <Button onClick={() => setMostrarAnalise(true)}>
           🔍 Análise da Fatura
         </Button>
-        {faturaSalva && (
-          <div
-            role="status"
-            className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-sm text-emerald-400"
-          >
-            ✅ {faturaSalva}
-          </div>
-        )}
+        <p className="text-xs text-slate-400">
+          Escolha a conta: ela entra no kanban como <b>Fatura Recebida</b> e,
+          terminando a IA, vira <b>Fatura Analisada</b> — clique no card para ver
+          o que foi lido.
+        </p>
+        <KanbanFaturas clienteId={clienteId} />
       </div>
 
       {mostrarAnalise && (
