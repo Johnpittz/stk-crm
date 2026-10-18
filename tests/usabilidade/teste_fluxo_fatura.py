@@ -146,6 +146,19 @@ def main() -> int:
         erros_js: list[str] = []
         page.on("pageerror", lambda e: erros_js.append(str(e)[:200]))
 
+        # o clique nos botões de arquivo ABRE o seletor nativo; o
+        # Playwright entrega o PDF por ele (e, se não abrir, no input)
+        escolhedor: dict = {"fc": None}
+        page.on("filechooser", lambda fc: escolhedor.__setitem__("fc", fc))
+
+        def escolher_arquivo() -> None:
+            page.wait_for_timeout(700)
+            if escolhedor["fc"]:
+                escolhedor["fc"].set_files(str(CROPS))
+                escolhedor["fc"] = None
+            else:
+                page.set_input_files('input[type="file"]', str(CROPS))
+
         editar = f"{BASE}/clientes/{cid}/editar"
 
         # ---------------- F1: Upload sumiu ----------------
@@ -178,8 +191,7 @@ def main() -> int:
             page.wait_for_timeout(900)
             # clique REAL no botão "Escolher conta" (levanta o input de arquivo)
             page.get_by_role("button", name=re.compile("Escolher conta")).first.click()
-            page.wait_for_timeout(500)
-            page.set_input_files('input[type="file"]', str(CROPS))
+            escolher_arquivo()
             # a rota POST /fatura grava a linha
             page.wait_for_timeout(6000)
             linhas = linhas_fatura(cid)
@@ -206,6 +218,9 @@ def main() -> int:
             page.get_by_role("button", name=re.compile("Análise da Fatura")).first.click()
             page.wait_for_timeout(900)
             page.get_by_role("button", name=re.compile("Analisar conta")).first.click()
+            # clicar em Analisar SEM arquivo abre o SELETOR (reanálise):
+            # sem entregar o PDF aqui, nada dispara e a linha fica "recebida"
+            escolher_arquivo()
             # a IA leva alguns segundos E o MIMO tem retry: espera o BANCO
             # confirmar (até ~108s) em vez de um fixo de 45s
             linhas = []
@@ -224,12 +239,23 @@ def main() -> int:
                 erro = re.search(
                     r"Não consegui ler[^\n]*|Falha na análise[^\n]*"
                     r"|Sessão expirada[^\n]*|Escolha a foto[^\n]*"
-                    r"|Erro ao registrar[^\n]*|Failed to fetch[^\n]*",
+                    r"|Erro ao registrar[^\n]*|Failed to fetch[^\n]*"
+                    r"|Erro inesperado[^\n]*",
                     corpo,
                 )
+                # captura o estado do MODAL (não da página inteira): se o
+                # registro/analise nem dispararam, isso aparece aqui
+                modal = ""
+                try:
+                    modal = page.locator("[role=dialog]").inner_text(timeout=2000)
+                except Exception:
+                    modal = "(sem dialog)"
                 raise AssertionError(
                     "nenhuma linha analisada; erro na tela: "
                     + (erro.group(0)[:140] if erro else "sem mensagem")
+                    + f" | registrada={'Conta registrada' in modal}"
+                    + f" | analisando={'Analisando com a IA' in modal}"
+                    + f" | modal={modal[:260].replace(chr(10), ' / ')}"
                     + f"; linhas={linhas}"
                 )
             # mesma competência: NÃO duplicou
@@ -274,8 +300,7 @@ def main() -> int:
             page.get_by_role(
                 "button", name=re.compile("Escolher conta|Trocar conta")
             ).first.click()
-            page.wait_for_timeout(500)
-            page.set_input_files('input[type="file"]', str(CROPS))
+            escolher_arquivo()
             page.wait_for_timeout(6000)
             depois = len(linhas_fatura(cid))
             if depois > antes:
