@@ -196,7 +196,10 @@ async function chamarMimo(prompt: string, env: Env): Promise<string> {
       // 03/10: temperature baixa = resposta literal da base, sem improviso
       // (com 0.7 a IA perguntava antes de responder o que já estava cadastrado)
       temperature: 0.4,
-      max_tokens: 800,
+      // 18/10: 800 era apertado — com reasoning ativo o modelo esgota os
+      // tokens e devolve content VAZIO ("MIMO devolveu resposta vazia" no
+      // 422 da análise de fatura na produção). Folga p/ reasoning + JSON.
+      max_tokens: 3000,
     }),
   })
 
@@ -208,7 +211,8 @@ async function chamarMimo(prompt: string, env: Env): Promise<string> {
   const data = await response.json()
   const texto = data?.choices?.[0]?.message?.content
   if (!texto || !String(texto).trim()) {
-    throw new Error('MIMO devolveu resposta vazia')
+    const motivo = (data?.choices?.[0]?.finish_reason ?? 'vazio') as string
+    throw new Error(`MIMO devolveu resposta vazia (finish=${motivo})`)
   }
   return String(texto).trim()
 }
