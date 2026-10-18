@@ -88,6 +88,12 @@ function paraNumero(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * Diagnóstico do caminho da fatura (06/10 debug): guarda a mensagem da
+ * última falha de IA p/ a rota devolver no 422 (sem segredos — só o erro).
+ */
+export const diagFatura: { erro: string | null } = { erro: null };
+
 /** Lê a resposta (tolerante a ```json e texto em volta) e normaliza. */
 export function parseRespostaFatura(resposta: string): ResumoFatura {
   const bruto = resposta || "";
@@ -121,6 +127,7 @@ export function parseRespostaFatura(resposta: string): ResumoFatura {
  * Caminho de TEXTO (PDF da fatura já convertido em texto pela rota).
  */
 export async function analisarFaturaTexto(textoExtraido: string): Promise<ResumoFatura> {
+  diagFatura.erro = null;
   try {
     const resposta = await chamarModelo(
       `${montarPromptFatura()}\n\nTexto da conta:\n${(textoExtraido || "").slice(0, 6000)}`
@@ -128,10 +135,9 @@ export async function analisarFaturaTexto(textoExtraido: string): Promise<Resumo
     return parseRespostaFatura(resposta);
   } catch (erro) {
     // visível nos logs (Vercel) — a IA pode falhar por chave/timeout
-    console.error(
-      "[analisarFaturaTexto]",
-      (erro as Error)?.message ?? String(erro)
-    );
+    const msg = (erro as Error)?.message ?? String(erro);
+    diagFatura.erro = msg.slice(0, 200);
+    console.error("[analisarFaturaTexto]", msg);
     return { ...VAZIO };
   }
 }
@@ -147,8 +153,10 @@ export async function analisarFatura(entrada: {
   try {
     const dataUrl = `data:${entrada.mimeTipo};base64,${entrada.base64}`;
     const resposta = await chamarModeloVision(montarPromptFatura(), dataUrl);
+    diagFatura.erro = null;
     return parseRespostaFatura(resposta);
-  } catch {
+  } catch (erro) {
+    diagFatura.erro = String((erro as Error)?.message || erro).slice(0, 200);
     return { ...VAZIO };
   }
 }

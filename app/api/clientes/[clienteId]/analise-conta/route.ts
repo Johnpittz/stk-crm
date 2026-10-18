@@ -6,7 +6,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { analisarFatura, analisarFaturaTexto } from "@/lib/ia/analisar-fatura";
+import { analisarFatura, analisarFaturaTexto, diagFatura } from "@/lib/ia/analisar-fatura";
 import { paraNumero } from "@/lib/clientes/fatura-conta";
 import {
   deveCriarLinhaIA,
@@ -82,7 +82,7 @@ export async function POST(
     return NextResponse.json(
       {
         error: "Não consegui ler os dados da conta. Tente uma foto mais nítida.",
-        detalhe,
+        detalhe: detalhe ?? (diagFatura.erro ? `ia: ${diagFatura.erro}` : "ia_vazia"),
       },
       { status: 422 }
     );
