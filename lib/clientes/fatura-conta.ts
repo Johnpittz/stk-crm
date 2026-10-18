@@ -53,6 +53,15 @@ export function paraNumero(bruto: string): number | null {
 }
 
 /** Linha pronta pra inserir em cliente_pasta_linhas (Gestão de Fatura). */
+/**
+ * Card automático no kanban quando a fatura é inserida (pedido 18/10).
+ * Cria em "recebeu_conta" só quando o cliente ainda não tem card lá —
+ * cards em outras etapas (negociação avançada) não bloqueiam.
+ */
+export function deveCriarCardFatura(cards: { etapa?: string | null; [chave: string]: unknown }[]): boolean {
+  return !cards.some((c) => c.etapa === "recebeu_conta");
+}
+
 export function montarLinhaGestaoFatura(entrada: {
   competencia: string;
   valor: number | null;

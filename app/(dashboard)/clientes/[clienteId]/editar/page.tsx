@@ -518,7 +518,7 @@ export default function EditarClientePage() {
         res.ok
           ? json.valor == null
             ? `Fatura registrada em Gestão de Fatura (competência ${json.competencia}) — valor em branco.`
-            : `Fatura inserida em Gestão de Fatura — competência ${json.competencia} — R$ ${json.valor}${json.consumo != null ? ` — ${json.consumo} kWh` : ""}`
+            : `Fatura inserida em Gestão de Fatura — competência ${json.competencia} — R$ ${json.valor}${json.consumo != null ? ` — ${json.consumo} kWh` : ""}${json.cardCriado ? ` · ✅ card aberto em RECEBEU A CONTA` : ""}`
           : json.error || "Falha ao enviar a fatura."
       );
     } catch {

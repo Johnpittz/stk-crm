@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import {
   competenciaAtual,
+  deveCriarCardFatura,
   extrairDadosConta,
   montarLinhaGestaoFatura,
 } from "@/lib/clientes/fatura-conta";
@@ -79,11 +80,52 @@ export async function POST(
     );
   }
 
+  // 18/10 (pedido do João): fatura inserida → CARD AUTOMÁTICO no kanban
+  // na coluna RECEBEU A CONTA. Idempotente: só cria se o cliente ainda
+  // não tem card lá (não duplica ao subir faturas do mesmo mês).
+  let cardCriado = false;
+  let cardId: string | null = null;
+  try {
+    const { data: cards } = await admin
+      .from("oportunidades")
+      .select("id, etapa")
+      .eq("cliente_id", clienteId);
+    if (deveCriarCardFatura((cards ?? []) as { etapa?: string | null }[])) {
+      const { data: cli } = await admin
+        .from("clientes")
+        .select("nome_razao_social")
+        .eq("id", clienteId)
+        .single();
+      const nomeCli =
+        String(cli?.nome_razao_social ?? "").trim() || "Cliente sem nome";
+      const { data: novo, error: errCard } = await admin
+        .from("oportunidades")
+        .insert({
+          cliente_id: clienteId,
+          cliente_nome: nomeCli,
+          titulo: nomeCli,
+          descricao: `Fatura de energia recebida via Upload da Fatura — competência ${linha.dados.competencia}.`,
+          etapa: "recebeu_conta",
+          vendedor_id: user.id,
+        })
+        .select("id")
+        .single();
+      if (!errCard && novo) {
+        cardCriado = true;
+        cardId = novo.id;
+      }
+    }
+  } catch {
+    /* card é conforto: a fatura já está gravada */
+  }
+
   return NextResponse.json({
     linha_id: data.id,
     competencia: linha.dados.competencia,
     valor,
     consumo,
+    cardCriado,
+    card_id: cardId,
     aviso: valor == null
       ? "Fatura registrada sem valor — clique em 'Análise da conta' para a IA completar."
       : null,

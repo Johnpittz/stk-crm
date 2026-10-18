@@ -183,7 +183,21 @@ def main() -> int:
                 if dados.get("consumo_kwh") not in (None, "")
                 else "consumo fica p/ a análise (tabela sem rótulo)"
             )
-            return f"competência {dados.get('competencia')}; R$ {dados.get('valor')}; {obs}"
+            # card automático (pedido 18/10): fatura inserida abre card
+            fim = time.time() + 15
+            cards = []
+            while time.time() < fim:
+                cards = rest_get(
+                    "oportunidades?select=id,etapa&cliente_id=eq." + cid
+                ) or []
+                if cards:
+                    break
+                time.sleep(2)
+            assert cards, "fatura inserida mas NENHUM card abriu no kanban"
+            return (
+                f"competência {dados.get('competencia')}; R$ {dados.get('valor')}; {obs}"
+                f" · {len(cards)} card(s) no funil"
+            )
 
         tentar("T2 Upload da conta (PDF real) → Gestão de Fatura", t2)
 

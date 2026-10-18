@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import {
   competenciaAtual,
+  deveCriarCardFatura,
   extrairDadosConta,
   montarLinhaGestaoFatura,
 } from "./fatura-conta";
@@ -57,6 +58,20 @@ describe("extrairDadosConta", () => {
     const r = extrairDadosConta("página em branco");
     expect(r.valor).toBeNull();
     expect(r.consumo).toBeNull();
+  });
+});
+
+describe("deveCriarCardFatura (pedido 18/10)", () => {
+  it("cria card quando o cliente ainda não tem card em RECEBEU A CONTA", () => {
+    expect(deveCriarCardFatura([])).toBe(true);
+  });
+
+  it("não duplica quando já existe card na etapa", () => {
+    expect(deveCriarCardFatura([{ id: "x", etapa: "recebeu_conta" }])).toBe(false);
+  });
+
+  it("cards em outras etapas não bloqueiam", () => {
+    expect(deveCriarCardFatura([{ id: "x", etapa: "proposta_feita" }])).toBe(true);
   });
 });
 
