@@ -84,22 +84,17 @@ def rest_get(caminho: str) -> list[dict]:
 def cliente_por_nome(nome: str) -> dict | None:
     cod = urllib.parse.quote(nome)
     linhas = rest_get(
-        f"/rest/v1/clientes?select=id,name,origem_tipo,origem_subtipo,"
-        f"vendedor_responsavel_id&name=eq.{cod}&limit=1"
+        f"/rest/v1/clientes?select=id,nome_razao_social,origem_tipo,"
+        f"origem_subtipo,vendedor_responsavel_id"
+        f"&nome_razao_social=eq.{cod}&limit=1"
     )
     return linhas[0] if linhas else None
 
 
 # ---------------------------------------------------------------- utilitários
 def radio_por_texto(page, texto: str):
-    r = page.locator(f'input[type=radio]').filter(
-        has=page.locator(f'text="{texto}"')
-    )
-    if r.count() == 0:
-        # label pode ser irmão: acha pelo label e volta pro input
-        lab = page.get_by_text(texto, exact=True).first
-        r = lab.locator("xpath=ancestor::label[1]//input[@type='radio']")
-    return r.first
+    """Radio de origem: o <label> ENVOLVE o input (padrão do form)."""
+    return page.locator(f"label:text-is('{texto}') input[type=radio]").first
 
 
 def esperar_texto(page, trecho: str, timeout_ms: int = 30_000) -> str:
@@ -163,12 +158,19 @@ def main() -> int:
                     "value": cookie_valor,
                     "domain": "stk-crm-amber-delta.vercel.app",
                     "path": "/",
-                    "httpOnly": True,
+                    "httpOnly": False,  # o supabase-js lê via document.cookie
                     "secure": True,
                 }
             ]
         )
         page = ctx.new_page()
+        rede_api: list[str] = []
+        page.on(
+            "response",
+            lambda r: rede_api.append(f"{r.status} {r.url.split('?')[0][-70:]}")
+            if "/api/" in r.url
+            else None,
+        )
         page.on(
             "pageerror",
             lambda e: erros_js.append(str(e)[:200]),
@@ -177,7 +179,7 @@ def main() -> int:
         # --------------------------------------------- T1 lista "CLIENTE - nº"
         def t1():
             page.goto(f"{BASE}/clientes", wait_until="networkidle")
-            busca = page.locator("main input[type=text]").first
+            busca = page.locator("main input:not([type])").first
             busca.wait_for(timeout=15_000)
             busca.fill("Cliente")
             page.wait_for_timeout(1500)
@@ -209,7 +211,13 @@ def main() -> int:
             sel = page.locator("select").filter(
                 has_text="Administrador"
             ).first
-            sel.wait_for(timeout=8_000)
+            try:
+                sel.wait_for(timeout=20_000)
+            except Exception as exc:
+                rede = [r for r in rede_api if "vendedor" in r.lower()]
+                raise AssertionError(
+                    f"select de vendedores não populou (rede: {rede[-3:]})"
+                ) from exc
             assert sel.locator("option").count() > 1, "select do vendedor sem opções"
             return "Vendedor → Externo → select populou"
 
@@ -217,7 +225,7 @@ def main() -> int:
 
         # ----------------------------------------------- T3 cursor estável
         def t3():
-            nome_in = page.locator('input[type=text]').first
+            nome_in = page.locator('input:not([type])').first
             nome_in.click()
             page.keyboard.type("Jo")
             ainda_foca = page.evaluate(
@@ -231,15 +239,29 @@ def main() -> int:
 
         # ------------------------------------------------ T4 salvar + painel
         def t4():
-            page.locator('input[type=text]').first.fill(nome_teste)
+            page.locator("input:not([type])").first.fill(nome_teste)
             tel = page.locator("div:has(> label)").filter(
                 has_text="Telefone"
-            ).locator('input[type=text]').first
+            ).locator('input:not([type])').first
             tel.fill("62999990001")
             radio_por_texto(page, "Vendedor").check()
             radio_por_texto(page, "Externo").check()
+            sel = page.locator("select").filter(has_text="Escolha o vendedor").first
+            sel.wait_for(timeout=15_000)
+            sel.select_option(index=1)  # primeiro vendedor da lista
             page.get_by_role("button", name="Salvar Cliente").click()
-            esperar_texto(page, r"Cliente salvo", 30_000)
+            try:
+                esperar_texto(page, r"Cliente salvo", 30_000)
+            except Exception as exc:
+                rede = [r for r in rede_api if "cliente" in r.lower()]
+                erros = [
+                    t
+                    for t in page.locator("body").inner_text().splitlines()
+                    if "erro" in t.lower() or "obrigat" in t.lower()
+                ]
+                raise AssertionError(
+                    f"sem 'Cliente salvo' | rede {rede[-3:]} | msg {erros[:2]}"
+                ) from exc
             esperar_texto(page, r"RECEBEU A CONTA", 15_000)
             corpo = page.inner_text("body")
             assert nome_teste in corpo, "card do novo cliente não apareceu"
@@ -339,7 +361,7 @@ def main() -> int:
             # kanban embaixo da edição
             assert "RECEBEU A CONTA" in corpo, "kanban ausente na edição"
             # cursor estável
-            nome_in = page.locator('input[type=text]').first
+            nome_in = page.locator('input:not([type])').first
             nome_in.click()
             page.keyboard.type("Te")
             ok_foco = page.evaluate(
@@ -429,7 +451,7 @@ def main() -> int:
         def t13():
             page.goto(f"{BASE}/clientes", wait_until="networkidle")
             page.wait_for_timeout(1200)
-            busca = page.locator("main input[type=text]").first
+            busca = page.locator("main input:not([type])").first
             busca.fill("Cliente")
             page.wait_for_timeout(1500)
             assert re.search(r"CLIENTE - \d{6,}", page.locator("main").inner_text())
