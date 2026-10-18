@@ -126,7 +126,12 @@ export async function analisarFaturaTexto(textoExtraido: string): Promise<Resumo
       `${montarPromptFatura()}\n\nTexto da conta:\n${(textoExtraido || "").slice(0, 6000)}`
     );
     return parseRespostaFatura(resposta);
-  } catch {
+  } catch (erro) {
+    // visível nos logs (Vercel) — a IA pode falhar por chave/timeout
+    console.error(
+      "[analisarFaturaTexto]",
+      (erro as Error)?.message ?? String(erro)
+    );
     return { ...VAZIO };
   }
 }

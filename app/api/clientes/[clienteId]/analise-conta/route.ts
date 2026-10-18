@@ -48,12 +48,29 @@ export async function POST(
   const buffer = Buffer.from(await arquivo.arrayBuffer());
 
   let resumo;
+  let detalhe: string | null = null;
   if (mime.startsWith("image/")) {
     resumo = await analisarFatura({ mimeTipo: mime, base64: buffer.toString("base64") });
   } else if (mime === "application/pdf" || arquivo.name.toLowerCase().endsWith(".pdf")) {
-    const { extrairTextoPdf } = await import("@/lib/ia/pdf-texto");
-    const texto = (await extrairTextoPdf(buffer)) || "";
-    resumo = await analisarFaturaTexto(texto);
+    try {
+      const { extrairTextoPdf } = await import("@/lib/ia/pdf-texto");
+      const texto = (await extrairTextoPdf(buffer)) || "";
+      if (!texto.trim()) {
+        return NextResponse.json(
+          {
+            error: "Este PDF não tem texto legível. Envie uma foto/print da conta.",
+            detalhe: "pdf_sem_texto",
+          },
+          { status: 422 }
+        );
+      } else {
+        resumo = await analisarFaturaTexto(texto);
+        if (!resumo.concessionaria && !resumo.uc && !resumo.valor) detalhe = "ia_vazia";
+      }
+    } catch (erro) {
+      console.error("[analise-conta] PDF:", (erro as Error)?.message ?? erro);
+      detalhe = "pdf_ilegivel";
+    }
   } else {
     return NextResponse.json(
       { error: "Envie uma imagem (jpg/png/heic) ou PDF da conta" },
@@ -61,9 +78,12 @@ export async function POST(
     );
   }
 
-  if (!resumo.concessionaria && !resumo.uc && !resumo.valor) {
+  if (!resumo || (!resumo.concessionaria && !resumo.uc && !resumo.valor)) {
     return NextResponse.json(
-      { error: "Não consegui ler os dados da conta. Tente uma foto mais nítida." },
+      {
+        error: "Não consegui ler os dados da conta. Tente uma foto mais nítida.",
+        detalhe,
+      },
       { status: 422 }
     );
   }
