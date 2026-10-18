@@ -4,6 +4,18 @@
 
 ---
 
+## 1.8.44 — 18/10/2026
+
+- **Análise da Fatura (PDF) quebra em produção — CORRIGIDO** (achado pelo
+  teste de usabilidade Playwright): a MIMO devolvia `content` vazio no
+  caminho de texto (`max_tokens: 800` esgotado pelo reasoning) → 422
+  "Não consegui ler". `max_tokens` 800→3000 + `finish_reason` no erro;
+  o 422 da rota agora expõe o motivo real da IA (`detalhe`). Comprovado
+  ao vivo: fatura real CROPS → 200 com resumo, oportunidades e Fase C.
+- **Suíte de usabilidade Playwright** (`tests/usabilidade/teste_usabilidade.py`):
+  15 testes com cliques reais e PDFs do projeto — 14/15 verdes (o T9
+  depende do SQL 102).
+
 ## 1.8.43 — 18/10/2026
 
 - **Leitura de fatura cai sem MIMO? Usa Gemini** (bug achado no teste
