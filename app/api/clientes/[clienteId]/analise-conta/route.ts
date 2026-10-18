@@ -7,7 +7,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { analisarFatura, analisarFaturaTexto, diagFatura } from "@/lib/ia/analisar-fatura";
-import { marcarComoAnalisada, paraNumero } from "@/lib/clientes/fatura-conta";
+import { competenciaAtual, marcarComoAnalisada, paraNumero } from "@/lib/clientes/fatura-conta";
+import { diaDeHoje, linhaDoDiaParaRegravar } from "@/lib/clientes/analise-conta";
 import {
   deveCriarLinhaIA,
   linhaDaOportunidade,
@@ -45,13 +46,14 @@ export async function POST(
   }
 
   const mime = arquivo.type || "";
+  const ehPdf = mime === "application/pdf" || arquivo.name.toLowerCase().endsWith(".pdf");
   const buffer = Buffer.from(await arquivo.arrayBuffer());
 
   let resumo;
   let detalhe: string | null = null;
   if (mime.startsWith("image/")) {
     resumo = await analisarFatura({ mimeTipo: mime, base64: buffer.toString("base64") });
-  } else if (mime === "application/pdf" || arquivo.name.toLowerCase().endsWith(".pdf")) {
+  } else if (ehPdf) {
     try {
       const { extrairTextoPdf } = await import("@/lib/ia/pdf-texto");
       const texto = (await extrairTextoPdf(buffer)) || "";
@@ -82,7 +84,10 @@ export async function POST(
   if (!resumo || (!resumo.concessionaria && !resumo.uc && !resumo.valor)) {
     return NextResponse.json(
       {
-        error: "Não consegui ler os dados da conta. Tente uma foto mais nítida.",
+        // PDF não tem "nitidez": a foto é só um dos caminhos possíveis
+        error: ehPdf
+          ? "Não consegui ler os dados deste PDF. Reenvie o arquivo ou envie uma foto/print da conta."
+          : "Não consegui ler os dados da conta. Tente uma foto mais nítida.",
         detalhe: detalhe ?? (diagFatura.erro ? `ia: ${diagFatura.erro}` : "ia_vazia"),
       },
       { status: 422 }
@@ -110,7 +115,7 @@ export async function POST(
   // ANALISADA aqui, quando a IA termina de ler. A linha da Gestão de
   // Fatura é a MESMA do kanban (uma linha só, dois status).
   let faturaCompletada = false;
-  const mes = new Date().toISOString().slice(0, 7);
+  const hoje = diaDeHoje();
   {
     const { data: linhas } = await admin
       .from("cliente_pasta_linhas")
@@ -118,9 +123,15 @@ export async function POST(
       .eq("cliente_id", clienteId)
       .eq("linha", "gestao_fatura")
       .order("created_at", { ascending: false });
-    const alvo = (linhas || []).find(
-      (l: any) => l.dados && l.dados.competencia === mes
-    );
+    // 18/10 — a linha que interessa é a DO DIA. Selecionar por
+    // competência do mês pegava a conta do dia 3 no dia 18: o card
+    // antigo virava "Analisada" e a conta de hoje ficava presa em
+    // "Recebida". Linha antiga fica no histórico, intocada.
+    const alvo =
+      linhaDoDiaParaRegravar(
+        ((linhas ?? []) as { id: string; dados?: Record<string, unknown> | null }[]),
+        hoje
+      ) ?? null;
     if (alvo) {
       const dados = marcarComoAnalisada(alvo.dados ?? {}, resumo);
       const { error: errLin } = await admin
@@ -128,24 +139,17 @@ export async function POST(
         .update({ dados })
         .eq("id", alvo.id);
       faturaCompletada = !errLin;
-    } else if (linhas && linhas.length > 0) {
-      // 18/10 — FLUXO ÚNICO: a linha já nasceu no passo "recebido" (o
-      // modal manda o arquivo pra /fatura antes). Se a competência do
-      // mês casar, o bloco de cima resolve; aqui entra a conta subida
-      // de outro jeito — marca a mais recente, senão o card fica preso
-      // em "Fatura Recebida".
-      const maisRecente = linhas[0];
-      const dados = marcarComoAnalisada(maisRecente.dados ?? {}, resumo);
-      const { error: errLin } = await admin
-        .from("cliente_pasta_linhas")
-        .update({ dados })
-        .eq("id", maisRecente.id);
-      faturaCompletada = !errLin;
     } else {
       // nada no kanban ainda (análise direta, sem passar pelo "recebido")
       // — cria a linha já marcada como analisada.
       const dados = marcarComoAnalisada(
-        { competencia: mes, valor: null, consumo_kwh: null, situacao: "Pendente" },
+        {
+          competencia: competenciaAtual(),
+          dia: hoje,
+          valor: null,
+          consumo_kwh: null,
+          situacao: "Pendente",
+        },
         resumo
       );
       const { error: errNova } = await admin

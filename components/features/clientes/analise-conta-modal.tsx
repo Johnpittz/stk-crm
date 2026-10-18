@@ -4,8 +4,16 @@
  * PARTE 11 (PPTX 17/10) — "Análise da conta": sobe a foto/PDF da fatura,
  * a IA lê e o resumo entra na pasta do cliente.
  */
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { KanbanFaturas } from "./kanban-faturas";
+import {
+  FLUXO_RECEBIDA,
+  diaDeHoje,
+  dicaAnalise,
+  estadoAnalise,
+  rotuloBotaoAnalise,
+  temRecebidaHoje,
+} from "@/lib/clientes/analise-conta";
 import { Button } from "@/components/ui/button";
 import type { OportunidadeProduto } from "@/lib/ia/regras-produtos";
 import {
@@ -68,7 +76,10 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
   const [arquivo, setArquivo] = useState<File | null>(null);
   // 18/10 — FLUXO ÚNICO: escolher o arquivo já registra a conta como
   // RECEBIDA (card no kanban de faturas). A análise vira ANALISADA.
+  // O rótulo vem do BANCO, não da memória — quem abre a página de novo
+  // não perdia o passo 1 e o "Analisar conta" ficava travado pra sempre.
   const [recebida, setRecebida] = useState(false);
+  const [recebidaGravada, setRecebidaGravada] = useState(false);
   const [recebendo, setRecebendo] = useState(false);
   const [analisando, setAnalisando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -81,11 +92,43 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
   const [abasCriadas, setAbasCriadas] = useState<string[]>([]);
   const [cardFunil, setCardFunil] = useState(false);
   const [chaveKanban, setChaveKanban] = useState(0);
+  const [dica, setDica] = useState<string | null>(null);
+
+  // Passo 1.5 — o que já está gravado manda no rótulo do botão.
+  // É o passo que faltava: sem isso a tela esquecia que a conta já tinha
+  // sido registrada e o "Analisar conta" ficava desabilitado pra sempre.
+  useEffect(() => {
+    if (!clienteId) return;
+    let vivo = true;
+    (async () => {
+      try {
+        const { createClient } = await import("@/lib/supabase/client");
+        const { data } = await createClient()
+          .from("cliente_pasta_linhas")
+          .select("dados")
+          .eq("cliente_id", clienteId)
+          .eq("linha", "gestao_fatura");
+        if (!vivo) return;
+        setRecebidaGravada(temRecebidaHoje((data ?? []) as never[]));
+      } catch {
+        // sem leitura não há rótulo: fica no passo 1, que é o seguro
+      }
+    })();
+    return () => {
+      vivo = false;
+    };
+  }, [clienteId, chaveKanban]);
+
+  // Um botão só, duas funções — a coluna do kanban é quem manda.
+  const passoAnalise = estadoAnalise([
+    { dados: recebidaGravada ? { dia: diaDeHoje(), fluxo: FLUXO_RECEBIDA } : null },
+  ]);
 
   // Passo 1 — a conta entra como CARD "Fatura Recebida".
   async function registrarRecebida(file: File) {
     setRecebendo(true);
     setErro(null);
+    setDica(null);
     setRecebida(false);
     try {
       const { data: { session } } = await (
@@ -104,6 +147,9 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Falha ao registrar a conta.");
       setRecebida(true);
+      // o card aparece no kanban na hora e o botão vira "Analisar conta"
+      setRecebidaGravada(true);
+      setChaveKanban((k) => k + 1);
       if (json.cardCriado) setCardFunil(true);
     } catch (e: any) {
       setErro(e.message || "Erro ao registrar a conta.");
@@ -134,7 +180,12 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
         body: fd,
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Falha na análise.");
+      if (!res.ok) {
+        // guarda o PORQUÊ (pdf_sem_texto, ia_vazia...) pra explicar na tela
+        setDica(dicaAnalise(json.detalhe));
+        throw new Error(json.error || "Falha na análise.");
+      }
+      setDica(null);
       setResumo(json.resumo);
       setChaveKanban((k) => k + 1);
       setSalvo(!!json.salvo);
@@ -234,6 +285,8 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
                 ? "Registrando a conta..."
                 : arquivo
                 ? `📄 ${arquivo.name}`
+                : passoAnalise.recebidaHoje
+                ? "📎 Trocar conta"
                 : "📎 Escolher conta"}
             </Button>
             {recebida && (
@@ -247,13 +300,30 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
                 🎯 Card aberto no Funil de Vendas (Recebeu a Conta).
               </p>
             )}
-            {erro && <p className="text-sm text-red-400">{erro}</p>}
+            {erro && (
+              <div className="space-y-1">
+                <p className="text-sm text-red-400">{erro}</p>
+                {dica && <p className="text-xs text-slate-400">{dica}</p>}
+              </div>
+            )}
+            {erro && arquivo && (
+              <Button
+                variant="outline"
+                onClick={analisar}
+                disabled={analisando}
+                className="w-full"
+              >
+                {analisando ? "Analisando com a IA..." : "🔄 Tentar analisar de novo"}
+              </Button>
+            )}
             <Button
               onClick={analisar}
-              disabled={analisando || recebendo || !recebida}
+              disabled={analisando || recebendo || !passoAnalise.recebidaHoje}
               className="w-full"
             >
-              {analisando ? "Analisando com a IA..." : "🔍 Analisar conta"}
+              {analisando
+                ? "Analisando com a IA..."
+                : rotuloBotaoAnalise(passoAnalise)}
             </Button>
           </div>
         )}

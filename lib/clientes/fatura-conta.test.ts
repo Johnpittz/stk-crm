@@ -86,6 +86,23 @@ describe("montarLinhaGestaoFatura", () => {
     expect(l.dados.situacao).toBe("Pendente");
   });
 
+  it("a linha guarda o dia em que a conta chegou", () => {
+    // 18/10: uma conta por DIA. Sem o dia gravado, duas contas do mesmo
+    // mês ficam indistinguíveis e o card antigo voltava pra coluna errada.
+    const l = montarLinhaGestaoFatura({
+      competencia: "2026-10",
+      valor: 10,
+      consumo: 5,
+      dia: "2026-10-18",
+    });
+    expect(l.dados.dia).toBe("2026-10-18");
+  });
+
+  it("sem dia informado, grava o dia de hoje", () => {
+    const l = montarLinhaGestaoFatura({ competencia: "2026-10", valor: 10, consumo: 5 });
+    expect(String(l.dados.dia)).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
   it("valor/consumo nulos ainda montam a linha (falta análise)", () => {
     const l = montarLinhaGestaoFatura({ competencia: "2026-10", valor: null, consumo: null });
     expect(l.dados.competencia).toBe("2026-10");

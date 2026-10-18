@@ -3,6 +3,8 @@
  * GESTÃO DE FATURA. Puro e testável: do texto do
  * PDF acha valor/consumo e monta a linha da pasta.
  */
+import { diaDeHoje } from "./analise-conta";
+
 export interface DadosConta {
   valor: number | null;
   consumo: number | null;
@@ -66,11 +68,14 @@ export function montarLinhaGestaoFatura(entrada: {
   competencia: string;
   valor: number | null;
   consumo: number | null;
+  /** 18/10 — dia em que a conta chegou (AAAA-MM-DD). Opcional: sem ele grava hoje. */
+  dia?: string;
 }): { linha: "gestao_fatura"; dados: Record<string, unknown> } {
   return {
     linha: "gestao_fatura",
     dados: {
       competencia: entrada.competencia,
+      dia: entrada.dia || diaDeHoje(),
       valor: entrada.valor,
       consumo_kwh: entrada.consumo,
       situacao: "Pendente",

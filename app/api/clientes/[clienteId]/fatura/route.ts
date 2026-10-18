@@ -12,6 +12,7 @@ import {
   extrairDadosConta,
   montarLinhaGestaoFatura,
 } from "@/lib/clientes/fatura-conta";
+import { diaDeHoje, linhaDoDiaParaRegravar } from "@/lib/clientes/analise-conta";
 import { extrairTextoPdf } from "@/lib/ia/pdf-texto";
 
 export const runtime = "nodejs";
@@ -67,11 +68,45 @@ export async function POST(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  const { data, error } = await admin
+  // 18/10 — FLUXO ÚNICO: uma conta por dia. Subir o mesmo PDF de novo
+  // atualiza a linha do dia em vez de criar um segundo card na coluna
+  // "Fatura Recebida" (a coluna só esvazia quando a IA analisa).
+  const hoje = diaDeHoje();
+  const { data: linhasExistentes } = await admin
     .from("cliente_pasta_linhas")
-    .insert({ cliente_id: clienteId, linha: linha.linha, dados: linha.dados })
-    .select()
-    .single();
+    .select("id, dados")
+    .eq("cliente_id", clienteId)
+    .eq("linha", "gestao_fatura")
+    .order("created_at", { ascending: true });
+  const doDia = linhaDoDiaParaRegravar(
+    (linhasExistentes ?? []) as { id: string; dados?: Record<string, unknown> | null }[],
+    hoje
+  );
+
+  let data: { id: string } | null = null;
+  let error: { message?: string } | null = null;
+  let regravada = false;
+
+  if (doDia) {
+    const { data: atualizada, error: errUpd } = await admin
+      .from("cliente_pasta_linhas")
+      // completa o dia, mas não apaga o que a análise já leu
+      .update({ dados: { ...linha.dados, dia: hoje } })
+      .eq("id", doDia.id)
+      .select("id")
+      .single();
+    data = atualizada ?? null;
+    error = errUpd ?? null;
+    regravada = !errUpd;
+  } else {
+    const { data: criada, error: errIns } = await admin
+      .from("cliente_pasta_linhas")
+      .insert({ cliente_id: clienteId, linha: linha.linha, dados: linha.dados })
+      .select("id")
+      .single();
+    data = criada ?? null;
+    error = errIns ?? null;
+  }
 
   if (error || !data) {
     return NextResponse.json(
@@ -122,6 +157,8 @@ export async function POST(
   return NextResponse.json({
     linha_id: data.id,
     competencia: linha.dados.competencia,
+    dia: hoje,
+    regravada,
     valor,
     consumo,
     cardCriado,

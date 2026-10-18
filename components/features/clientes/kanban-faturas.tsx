@@ -96,7 +96,7 @@ export function KanbanFaturas({ clienteId, onAnalisar, chave }: Props) {
     carregar();
   }, [carregar, chave]);
 
-  const card = (c: Card, onClick?: () => void) => (
+  const card = (c: Card, onClick?: () => void, ver = "ver →") => (
     <button
       key={c.id}
       type="button"
@@ -111,7 +111,7 @@ export function KanbanFaturas({ clienteId, onAnalisar, chave }: Props) {
         <span className="text-sm font-semibold text-white">
           ⚡ {formatarCompetencia(c.competencia)}
         </span>
-        {onClick && <span className="text-[10px] text-slate-400">ver →</span>}
+        {onClick && <span className="text-[10px] text-slate-400">{ver}</span>}
       </div>
       <p className="text-xs text-slate-400 mt-1">
         {formatarValor(paraNumero(c.valor))}
@@ -137,7 +137,7 @@ export function KanbanFaturas({ clienteId, onAnalisar, chave }: Props) {
                 Nenhuma conta aguardando análise.
               </p>
             )}
-            {recebidas.map((c) => card(c))}
+            {recebidas.map((c) => card(c, onAnalisar, "reanalisar →"))}
           </div>
         </div>
 
