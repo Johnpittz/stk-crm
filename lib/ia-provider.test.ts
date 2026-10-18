@@ -192,6 +192,24 @@ describe('chamarModeloVision — mídia do cliente (conta por foto/PDF, 06/10)',
     await expect(chamarModeloVision('oi', 'data:image/png;base64,QQ==')).rejects.toThrow(/400/)
   })
 
+  it('resposta vazia da MIMO: repete uma vez antes de falhar', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(respostaMimo(''))
+      .mockResolvedValueOnce(respostaMimo('{"concessionaria":"CEMIG"}'))
+    vi.stubGlobal('fetch', fetchMock)
+    const r = await chamarModelo('qualquer prompt')
+    expect(r).toContain('concessionaria')
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('resposta vazia sempre: lança depois da segunda tentativa', async () => {
+    const fetchMock = vi.fn(async () => respostaMimo(''))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(chamarModelo('qualquer prompt')).rejects.toThrow(/vazia/)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
   it('sem XIAOMI_API_KEY lança antes da rede', async () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)

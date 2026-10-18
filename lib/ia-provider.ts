@@ -93,41 +93,87 @@ async function chamarMimoVision(
   if (!base) throw new Error('XIAOMI_BASE_URL ausente (IA_PROVIDER=mimo)')
 
   const controller = new AbortController()
-  const limite = setTimeout(() => controller.abort(), 30000)
+  // 18/10: 30s -> 60s (com o retry a resposta pode demorar o dobro)
+  const limite = setTimeout(() => controller.abort(), 60000)
   try {
+    const umaTentativa = async (): Promise<string> => {
+      const response = await fetch(`${base}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        Authorization: `Bearer ${chave}`,
+        },
+        body: JSON.stringify({
+          model: valor(env, 'XIAOMI_MODEL') || MIMO_MODEL_PADRAO,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: prompt },
+                { type: 'image_url', image_url: { url: imagemDataUrl } },
+              ],
+            },
+          ],
+          temperature: 0.4,
+          max_tokens: 800,
+        }),
+        signal: controller.signal,
+      })
+      if (!response.ok) {
+        const detalhe = await response.text().catch(() => '')
+        throw new Error(`MIMO HTTP ${response.status}: ` + detalhe.slice(0, 300))
+      }
+      const data = await response.json()
+      const texto = data?.choices?.[0]?.message?.content
+      return texto && String(texto).trim() ? String(texto).trim() : ''
+    }
+    // 18/10: a MIMO às vezes devolve content vazio (instabilidade) — repete UMA vez
+    const primeira = await umaTentativa()
+    if (primeira) return primeira
+    const segunda = await umaTentativa()
+    if (segunda) return segunda
+    throw new Error('MIMO devolveu resposta vazia')
+  } finally {
+    clearTimeout(limite)
+  }
+}
+
+async function chamarMimo(prompt: string, env: Env): Promise<string> {
+  const chave = valor(env, 'XIAOMI_API_KEY')
+  const base = valor(env, 'XIAOMI_BASE_URL').replace(/\/+$/, '')
+  if (!chave) throw new Error('XIAOMI_API_KEY ausente (IA_PROVIDER=mimo)')
+  if (!base) throw new Error('XIAOMI_BASE_URL ausente (IA_PROVIDER=mimo)')
+
+  const umaTentativa = async (): Promise<string> => {
     const response = await fetch(`${base}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${chave}`,
+      Authorization: `Bearer ${chave}`,
       },
       body: JSON.stringify({
         model: valor(env, 'XIAOMI_MODEL') || MIMO_MODEL_PADRAO,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'text', text: prompt },
-            { type: 'image_url', image_url: { url: imagemDataUrl } },
-          ],
-        }],
+        messages: [{ role: 'user', content: prompt }],
+        // 03/10: temperature baixa = resposta literal da base, sem improviso
         temperature: 0.4,
-        max_tokens: 800,
+        // 18/10: 800 -> 3000 (reasoning esgotava e content ficava vazio)
+        max_tokens: 3000,
       }),
-      signal: controller.signal,
     })
     if (!response.ok) {
       const detalhe = await response.text().catch(() => '')
-      throw new Error(`MIMO HTTP ${response.status}: ${detalhe.slice(0, 300)}`)
+      throw new Error(`MIMO HTTP ${response.status}: ` + detalhe.slice(0, 300))
     }
     const data = await response.json()
     const texto = data?.choices?.[0]?.message?.content
-    if (!texto || !String(texto).trim()) {
-      throw new Error('MIMO devolveu resposta vazia')
-    }
-    return String(texto).trim()
-  } finally {
-    clearTimeout(limite)
+    return texto && String(texto).trim() ? String(texto).trim() : ''
   }
+  // 18/10: content vazio = instabilidade da MIMO — repete UMA vez antes de falhar
+  const primeira = await umaTentativa()
+  if (primeira) return primeira
+  const segunda = await umaTentativa()
+  if (segunda) return segunda
+  throw new Error('MIMO devolveu resposta vazia')
 }
 
 async function chamarGeminiVision(
@@ -178,46 +224,7 @@ async function chamarGeminiVision(
 }
 
 /** MIMO — API compatível com OpenAI (`{base}/chat/completions`). */
-async function chamarMimo(prompt: string, env: Env): Promise<string> {
-  const chave = valor(env, 'XIAOMI_API_KEY')
-  const base = valor(env, 'XIAOMI_BASE_URL').replace(/\/+$/, '')
-  if (!chave) throw new Error('XIAOMI_API_KEY ausente (IA_PROVIDER=mimo)')
-  if (!base) throw new Error('XIAOMI_BASE_URL ausente (IA_PROVIDER=mimo)')
 
-  const response = await fetch(`${base}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${chave}`,
-    },
-    body: JSON.stringify({
-      model: valor(env, 'XIAOMI_MODEL') || MIMO_MODEL_PADRAO,
-      messages: [{ role: 'user', content: prompt }],
-      // 03/10: temperature baixa = resposta literal da base, sem improviso
-      // (com 0.7 a IA perguntava antes de responder o que já estava cadastrado)
-      temperature: 0.4,
-      // 18/10: 800 era apertado — com reasoning ativo o modelo esgota os
-      // tokens e devolve content VAZIO ("MIMO devolveu resposta vazia" no
-      // 422 da análise de fatura na produção). Folga p/ reasoning + JSON.
-      max_tokens: 3000,
-    }),
-  })
-
-  if (!response.ok) {
-    const detalhe = await response.text().catch(() => '')
-    throw new Error(`MIMO HTTP ${response.status}: ${detalhe.slice(0, 300)}`)
-  }
-
-  const data = await response.json()
-  const texto = data?.choices?.[0]?.message?.content
-  if (!texto || !String(texto).trim()) {
-    const motivo = (data?.choices?.[0]?.finish_reason ?? 'vazio') as string
-    throw new Error(`MIMO devolveu resposta vazia (finish=${motivo})`)
-  }
-  return String(texto).trim()
-}
-
-/** Gemini — caminho legado (Fase 4), mantido como fallback. */
 async function chamarGemini(prompt: string, env: Env): Promise<string> {
   const chave = valor(env, 'GEMINI_API_KEY')
   if (!chave) throw new Error('GEMINI_API_KEY ausente (IA_PROVIDER=gemini)')

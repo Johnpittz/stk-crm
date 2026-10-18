@@ -187,8 +187,8 @@ def main() -> int:
             fim = time.time() + 15
             cards = []
             while time.time() < fim:
-                cards = rest_get(
-                    "oportunidades?select=id,etapa&cliente_id=eq." + cid
+                cards = rest(
+                    "GET", "oportunidades?select=id,etapa&cliente_id=eq." + cid
                 ) or []
                 if cards:
                     break
@@ -222,7 +222,7 @@ def main() -> int:
                 time.sleep(3)
             assert "Analisando" not in ultimo, "IA não respondeu em 150s"
             assert "Não consegui ler" not in ultimo, f"erro da IA: {ultimo[:150]}"
-            esperar_texto(page, r"Identificada|Preliminar", 25_000)
+            esperar_texto(page, r"Identificada|Preliminar", 60_000)
             ultimo = dlg.inner_text()
             assert "Identificada" in ultimo or "Preliminar" in ultimo, (
                 "Tela de Oportunidades não apareceu"
