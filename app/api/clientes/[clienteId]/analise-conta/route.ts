@@ -65,7 +65,8 @@ export async function POST(
         );
       } else {
         resumo = await analisarFaturaTexto(texto);
-        if (!resumo.concessionaria && !resumo.uc && !resumo.valor) detalhe = "ia_vazia";
+        // sem setar detalhe aqui: o diagFatura.erro da própria IA explica
+        // o 422 (resposta sem JSON ou mensagem do provedor).
       }
     } catch (erro) {
       console.error("[analise-conta] PDF:", (erro as Error)?.message ?? erro);
