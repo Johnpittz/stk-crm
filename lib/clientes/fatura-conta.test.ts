@@ -36,6 +36,16 @@ describe("extrairDadosConta", () => {
     expect(r.consumo).toBe(100);
   });
 
+  it("acha valor mascarado com asteriscos (CROPS: R$*******4.687,56)", () => {
+    // achado no teste de usabilidade 18/10: a capa da fatura Equatorial
+    // traz o valor protegido por asteriscos e o Upload não extraía nada
+    const t = "01/10/2023 31 Tipo de Fornecimento: TRIFÁSICO\n" +
+      "TOTAL A PAGAR R$*******4.687,56\nConsumo: 5334,96 kWh";
+    const d = extrairDadosConta(t);
+    expect(d.valor).toBe(4687.56);
+    expect(d.consumo).toBe(5334.96);
+  });
+
   it("sem dados devolve null (nunca lança)", () => {
     const r = extrairDadosConta("página em branco");
     expect(r.valor).toBeNull();

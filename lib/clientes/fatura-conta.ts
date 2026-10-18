@@ -21,7 +21,9 @@ export function extrairDadosConta(texto: string): DadosConta {
 
   // Valor: "TOTAL A PAGAR R$ 1.234,56", "VALOR TOTAL: R$ 89.90"
   let valor: number | null = null;
-  const reValor = /(?:total\s+a\s+pagar|valor\s+total|total\s+da\s+fatura)[^\n$]*?r?\$?\s*([\d.,]+)/i;
+  // 18/10: capas Equatorial trazem o valor mascarado ("R$*******4.687,56")
+  // — aceita asteriscos/espaços entre o cifrão e o número
+  const reValor = /(?:total\s+a\s+pagar|valor\s+total|total\s+da\s+fatura)[^\n$]*?r?\$?[\s*]*([\d.,]+)/i;
   const mv = t.match(reValor);
   if (mv) valor = paraNumero(mv[1]);
 
