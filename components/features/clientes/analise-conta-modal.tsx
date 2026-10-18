@@ -95,9 +95,10 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
       if (!token) throw new Error("Sessão expirada. Entre de novo.");
       const fd = new FormData();
       fd.append("arquivo", file);
+      const auth = ["Bearer", token].join(" ");
       const res = await fetch(`/api/clientes/${clienteId}/fatura`, {
         method: "POST",
-        headers: { Authorization: 'Bearer ${token}' },
+        headers: { Authorization: auth, },
         body: fd,
       });
       const json = await res.json();
