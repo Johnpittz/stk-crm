@@ -316,7 +316,10 @@ def main() -> int:
             assert re.search(r"Concessionária|UC|Consumo|Valor", ultimo), (
                 f"resumo ausente: {ultimo[:200]}"
             )
-            assert "Identificadas" in ultimo or "Preliminares" in ultimo, (
+            # os selos renderizam um instante após o resumo
+            esperar_texto(page, r"Identificada|Preliminar", 20_000)
+            ultimo = dlg.inner_text()
+            assert "Identificada" in ultimo or "Preliminar" in ultimo, (
                 "Tela de Oportunidades ausente"
             )
             # Fase C: sugestão na aba
