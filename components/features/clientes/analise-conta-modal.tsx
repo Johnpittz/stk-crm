@@ -5,6 +5,7 @@
  * a IA lê e o resumo entra na pasta do cliente.
  */
 import { useEffect, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { KanbanFaturas } from "./kanban-faturas";
 import {
   FLUXO_RECEBIDA,
@@ -93,6 +94,7 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
   const [cardFunil, setCardFunil] = useState(false);
   const [chaveKanban, setChaveKanban] = useState(0);
   const [dica, setDica] = useState<string | null>(null);
+  const [pendenteAnalise, setPendenteAnalise] = useState(false);
 
   // Passo 1.5 — o que já está gravado manda no rótulo do botão.
   // É o passo que faltava: sem isso a tela esquecia que a conta já tinha
@@ -102,7 +104,6 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
     let vivo = true;
     (async () => {
       try {
-        const { createClient } = await import("@/lib/supabase/client");
         const { data } = await createClient()
           .from("cliente_pasta_linhas")
           .select("dados")
@@ -131,9 +132,7 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
     setDica(null);
     setRecebida(false);
     try {
-      const { data: { session } } = await (
-        await import("@/lib/supabase/client")
-      ).createClient().auth.getSession();
+      const { data: { session } } = await createClient().auth.getSession();
       const token = session?.access_token;
       if (!token) throw new Error("Sessão expirada. Entre de novo.");
       const fd = new FormData();
@@ -151,29 +150,33 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
       setRecebidaGravada(true);
       setChaveKanban((k) => k + 1);
       if (json.cardCriado) setCardFunil(true);
+      return true;
     } catch (e: any) {
       setErro(e.message || "Erro ao registrar a conta.");
+      return false;
     } finally {
       setRecebendo(false);
     }
   }
 
-  async function analisar() {
-    if (!arquivo) {
-      setErro("Escolha a foto ou o PDF da conta primeiro.");
+  async function analisar(file?: File) {
+    const alvo = file ?? arquivo;
+    if (!alvo) {
+      // página reaberta: o arquivo não fica guardado — pede ele e analisa
+      // assim que chegar (reanálise sem recomeçar o fluxo do zero)
+      setPendenteAnalise(true);
+      inputRef.current?.click();
       return;
     }
     setAnalisando(true);
     setErro(null);
     try {
-      const { data: { session } } = await (
-        await import("@/lib/supabase/client")
-      ).createClient().auth.getSession();
+      const { data: { session } } = await createClient().auth.getSession();
       const token = session?.access_token;
       if (!token) throw new Error("Sessão expirada. Entre de novo.");
       const auth = ["Bearer", token].join(" ");
       const fd = new FormData();
-      fd.append("arquivo", arquivo);
+      fd.append("arquivo", alvo);
       const res = await fetch(`/api/clientes/${clienteId}/analise-conta`, {
         method: "POST",
         headers: { Authorization: auth },
@@ -202,9 +205,7 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
     setCriando(opp.produto);
     setErro(null);
     try {
-      const { data: { session } } = await (
-        await import("@/lib/supabase/client")
-      ).createClient().auth.getSession();
+      const { data: { session } } = await createClient().auth.getSession();
       const token = session?.access_token;
       if (!token) throw new Error("Sessão expirada. Entre de novo.");
       const auth = ["Bearer", token].join(" ");
@@ -273,7 +274,15 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
                 const f = e.target.files?.[0] || null;
                 setArquivo(f);
                 setResumo(null);
-                if (f) registrarRecebida(f);
+                if (!f) return;
+                registrarRecebida(f).then(async (ok) => {
+                  // reanálise: quem clicou em "Analisar" sem arquivo quer
+                  // analisar assim que o arquivo chegar
+                  if (ok && pendenteAnalise) {
+                    setPendenteAnalise(false);
+                    await analisar(f);
+                  }
+                });
               }}
             />
             <Button
@@ -309,7 +318,7 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
             {erro && arquivo && (
               <Button
                 variant="outline"
-                onClick={analisar}
+                onClick={() => analisar()}
                 disabled={analisando}
                 className="w-full"
               >
@@ -317,7 +326,7 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
               </Button>
             )}
             <Button
-              onClick={analisar}
+              onClick={() => analisar()}
               disabled={analisando || recebendo || !passoAnalise.recebidaHoje}
               className="w-full"
             >

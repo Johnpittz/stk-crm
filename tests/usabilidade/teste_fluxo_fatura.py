@@ -206,14 +206,32 @@ def main() -> int:
             page.get_by_role("button", name=re.compile("Análise da Fatura")).first.click()
             page.wait_for_timeout(900)
             page.get_by_role("button", name=re.compile("Analisar conta")).first.click()
-            # a IA leva alguns segundos
-            page.wait_for_timeout(45_000)
-            linhas = linhas_fatura(cid)
-            analisadas = [
-                l for l in linhas if fluxo_de(l.get("dados") or {}) == "analise-concluida"
-            ]
+            # a IA leva alguns segundos E o MIMO tem retry: espera o BANCO
+            # confirmar (até ~108s) em vez de um fixo de 45s
+            linhas = []
+            analisadas = []
+            for _ in range(36):
+                page.wait_for_timeout(3000)
+                linhas = linhas_fatura(cid)
+                analisadas = [
+                    l for l in linhas
+                    if fluxo_de(l.get("dados") or {}) == "analise-concluida"
+                ]
+                if analisadas:
+                    break
             if not analisadas:
-                raise AssertionError(f"nenhuma linha analisada; linhas={linhas}")
+                corpo = page.inner_text("body")
+                erro = re.search(
+                    r"Não consegui ler[^\n]*|Falha na análise[^\n]*"
+                    r"|Sessão expirada[^\n]*|Escolha a foto[^\n]*"
+                    r"|Erro ao registrar[^\n]*|Failed to fetch[^\n]*",
+                    corpo,
+                )
+                raise AssertionError(
+                    "nenhuma linha analisada; erro na tela: "
+                    + (erro.group(0)[:140] if erro else "sem mensagem")
+                    + f"; linhas={linhas}"
+                )
             # mesma competência: NÃO duplicou
             comps = {(l.get("dados") or {}).get("competencia") for l in analisadas}
             if len(analisadas) != 1:
@@ -251,7 +269,11 @@ def main() -> int:
             page.wait_for_timeout(1200)
             page.get_by_role("button", name=re.compile("Análise da Fatura")).first.click()
             page.wait_for_timeout(900)
-            page.get_by_role("button", name=re.compile("Escolher conta")).first.click()
+            # o botão de arquivo muda de rótulo: "Escolher conta" (nada
+            # recebido hoje) ou "Trocar conta" (já recebido — reanálise)
+            page.get_by_role(
+                "button", name=re.compile("Escolher conta|Trocar conta")
+            ).first.click()
             page.wait_for_timeout(500)
             page.set_input_files('input[type="file"]', str(CROPS))
             page.wait_for_timeout(6000)

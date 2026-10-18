@@ -162,4 +162,49 @@ describe("AnaliseContaModal — o banco decide o passo", () => {
       expect(depois).toBe(chamadasAntes + 1);
     });
   });
+
+  it("reanálise: Analisar sem arquivo pede o arquivo e analisa ao chegar", async () => {
+    // é o caso do F4: página reaberta, card em Recebida, arquivo não
+    // guardado — clicar em Analisar tem que pedir o arquivo e seguir
+    supabaseMock.linhas = [LINHA_RECEBIDA_HOJE];
+    const fetchMock = vi.fn(async (url: unknown) => {
+      const u = String(url);
+      if (u.includes("/fatura")) {
+        return { ok: true, json: async () => ({ cardCriado: false }) } as Response;
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          resumo: { concessionaria: "EQUATORIAL", uc: "1" },
+          salvo: false,
+          oportunidades: [],
+          abasCriadas: [],
+        }),
+      } as Response;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<AnaliseContaModal clienteId="c1" onClose={() => {}} />);
+    fireEvent.click(await screen.findByRole("button", { name: /Analisar conta/i }));
+
+    // sem arquivo: NÃO chama a análise nem reclama com o vendedor
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(
+      fetchMock.mock.calls.filter((c) => String(c[0]).includes("/analise-conta"))
+        .length
+    ).toBe(0);
+    expect(screen.queryByText(/Escolha a foto/i)).toBeNull();
+
+    // escolheu: registra e analisa em sequência, sem segundo clique
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, {
+      target: { files: [new File(["x"], "conta.pdf", { type: "application/pdf" })] },
+    });
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.filter((c) => String(c[0]).includes("/analise-conta"))
+          .length
+      ).toBe(1);
+    });
+  });
 });
