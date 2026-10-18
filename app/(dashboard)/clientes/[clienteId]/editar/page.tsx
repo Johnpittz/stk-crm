@@ -377,11 +377,21 @@ export default function EditarClientePage() {
           .single();
 
         if (result.error) {
+          // 18/10: a view unificada junta clientes que NÃO têm cadastro na
+          // tabela `clientes`. Editar esses dava "Cliente não encontrado" no
+          // salvar (a rota só grava na tabela). Bloqueia com aviso claro.
           const fallback = await supabase
             .from("v_unified_clientes")
             .select("*")
             .eq("id", clienteId)
             .single();
+          if (fallback.data) {
+            setFetchError(
+              "Este cliente não tem cadastro próprio no CRM (aparece só na lista unificada). " +
+                "Para editar, cadastre-o em Clientes → Novo Cliente.",
+            );
+            return;
+          }
           data = fallback.data;
           error = fallback.error;
         } else {
@@ -389,7 +399,9 @@ export default function EditarClientePage() {
         }
 
         if (error || !data) {
-          setFetchError("Cliente não encontrado.");
+          setFetchError(
+            "Cliente não encontrado — ele pode ter sido excluído. Volte para a lista de clientes.",
+          );
           return;
         }
 
@@ -603,7 +615,11 @@ export default function EditarClientePage() {
       });
       const result = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setSubmitError(result.error || "Erro ao salvar cliente.");
+        setSubmitError(
+          res.status === 404
+            ? "Cliente não encontrado — ele pode ter sido excluído. Volte para a lista e recarregue."
+            : result.error || "Erro ao salvar cliente.",
+        );
         setLoading(false);
         return;
       }
@@ -733,8 +749,8 @@ export default function EditarClientePage() {
       </div>
 
       {submitError && (
-        <div className="mb-4 rounded-md bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400">
-          {submitError}
+        <div data-testid="erro-salvar" className="mb-4 rounded-md bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400">
+          ⚠️ {submitError}
         </div>
       )}
 
@@ -1175,12 +1191,6 @@ export default function EditarClientePage() {
           card entrar no funil.
         </div>
       )}
-      {submitError && (
-        <div data-testid="erro-salvar" className="mb-4 rounded-md bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400">
-          ⚠️ {submitError}
-        </div>
-      )}
-
       {/* ═══════ PARTE 11 (PPTX 17/10) — conta + funil embaixo do form ═══════ */}
       <div className="flex flex-wrap items-center gap-3 mt-2">
         <Button
