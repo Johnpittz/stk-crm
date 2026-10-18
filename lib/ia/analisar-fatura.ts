@@ -132,7 +132,14 @@ export async function analisarFaturaTexto(textoExtraido: string): Promise<Resumo
     const resposta = await chamarModelo(
       `${montarPromptFatura()}\n\nTexto da conta:\n${(textoExtraido || "").slice(0, 6000)}`
     );
-    return parseRespostaFatura(resposta);
+    const resumo = parseRespostaFatura(resposta);
+    if (!resumo.concessionaria && !resumo.uc && !resumo.valor) {
+      // debug do teste: a IA respondeu mas sem JSON reconhecível
+      diagFatura.erro = `resposta_sem_json: ${String(resposta).slice(0, 150)}`;
+    } else {
+      diagFatura.erro = null;
+    }
+    return resumo;
   } catch (erro) {
     // visível nos logs (Vercel) — a IA pode falhar por chave/timeout
     const msg = (erro as Error)?.message ?? String(erro);
