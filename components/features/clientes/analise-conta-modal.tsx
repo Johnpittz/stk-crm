@@ -206,17 +206,47 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
       if (!token) throw new Error("Sessão expirada. Entre de novo.");
       const fd = new FormData();
       fd.append("linha_id", linhaId);
-      const res = await fetch(`/api/clientes/${clienteId}/analise-conta`, {
-        method: "POST",
-        headers: { Authorization: ["Bearer", token].join(" ") },
-        body: fd,
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        setDica(dicaAnalise(json.detalhe));
-        throw new Error(json.error || "Falha na análise.");
+      const url = `/api/clientes/${clienteId}/analise-conta`;
+      // 19/10 — falha transitória JÁ aconteceu: a 1ª análise do dia morria
+      // no limite da Vercel e o vendedor via um erro mudo, sem saber que
+      // era só esperar. DUAS tentativas antes de avisar; erro da API
+      // (traduzido) não repete — só rede/timeout.
+      for (let tentativa = 0; tentativa < 2; tentativa++) {
+        const ultima = tentativa === 1;
+        let res: Response;
+        try {
+          res = await fetch(url, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+            body: fd,
+          });
+        } catch {
+          if (!ultima) {
+            await new Promise((r) => setTimeout(r, 1500));
+            continue;
+          }
+          throw new Error("Sem conexão com o servidor — tente de novo.");
+        }
+        let json: any = null;
+        try {
+          json = await res.json();
+        } catch {
+          // resposta sem JSON = a função morreu no meio (timeout da Vercel)
+          if (!ultima) {
+            await new Promise((r) => setTimeout(r, 1500));
+            continue;
+          }
+          throw new Error(
+            "A análise caiu no meio (o servidor demorou) — tente de novo."
+          );
+        }
+        if (!res.ok) {
+          setDica(dicaAnalise(json.detalhe));
+          throw new Error(json.error || "Falha na análise.");
+        }
+        aplicarAnaliseFeita(json);
+        return;
       }
-      aplicarAnaliseFeita(json);
     } catch (e: any) {
       setErro(e.message || "Não consegui analisar a conta.");
     } finally {
@@ -227,9 +257,36 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
   async function analisar(file?: File) {
     const alvo = file ?? arquivo;
     if (!alvo) {
+      // 19/10 — relê o BANCO no clique, não confia no estado de quando o
+      // modal abriu: se a conta chegou depois (ou a leitura ainda vinha),
+      // o botão morria sem efeito nenhum e sem avisar nada.
+      let alvoLinha = linhaHoje;
+      try {
+        const { data } = await createClient()
+          .from("cliente_pasta_linhas")
+          .select("id, dados")
+          .eq("cliente_id", clienteId)
+          .eq("linha", "gestao_fatura")
+          .order("created_at", { ascending: true });
+        const linhas = (data ?? []) as {
+          id?: string;
+          dados?: Record<string, unknown> | null;
+        }[];
+        const doDia = linhasDeHoje(linhas);
+        const ultima = doDia[doDia.length - 1];
+        if (ultima) {
+          alvoLinha = {
+            id: String(ultima.id ?? ""),
+            arquivo: temArquivoGuardado(ultima.dados ?? null),
+          };
+          setLinhaHoje(alvoLinha);
+        }
+      } catch {
+        // sem leitura agora, segue com o que a tela já sabia
+      }
       // a conta do dia já está guardada → relê sem escolher de novo
-      if (linhaHoje?.arquivo && linhaHoje.id) {
-        await analisarLinha(linhaHoje.id);
+      if (alvoLinha?.arquivo && alvoLinha.id) {
+        await analisarLinha(alvoLinha.id);
         return;
       }
       // sem arquivo guardado (linha antiga): escolhe e analisa em seguida

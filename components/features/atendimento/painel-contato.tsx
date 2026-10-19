@@ -726,6 +726,15 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
           <h4 className="text-sm font-medium text-white mb-2 flex items-center gap-2">
             <UserPlus className="h-4 w-4" />
             Novo Cliente
+            <button
+              type="button"
+              aria-label="Fechar cadastro de cliente"
+              onClick={() => setMostrarFormCliente(false)}
+              disabled={salvandoCliente}
+              className="ml-auto h-7 w-7 rounded-md flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-40"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </h4>
           <div className="space-y-2">
             <Input
@@ -809,6 +818,15 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
           <h4 className="text-sm font-medium text-white mb-2 flex items-center gap-2">
             <Pencil className="h-4 w-4" />
             Enriquecer Cadastro
+            <button
+              type="button"
+              aria-label="Fechar enriquecimento de cadastro"
+              onClick={() => setMostrarFormEnriquecer(false)}
+              disabled={salvandoCliente}
+              className="ml-auto h-7 w-7 rounded-md flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-40"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </h4>
           <div className="space-y-2">
             <Input

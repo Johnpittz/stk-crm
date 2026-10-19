@@ -9,7 +9,7 @@ import { TogglePresenca } from "@/components/features/atendimento/toggle-presenc
 import { ToggleIA } from "@/components/features/atendimento/toggle-ia";
 import { PainelContato } from "@/components/features/atendimento/painel-contato";
 import { FiltroEtiquetas } from "@/components/features/atendimento/filtro-etiquetas";
-import { Search, Calendar, HelpCircle, Bell, Smartphone, UserPlus, Clock } from "lucide-react";
+import { Search, Calendar, HelpCircle, Bell, Smartphone, UserPlus, Clock, X } from "lucide-react";
 import { SimularWhatsAppModal } from "@/components/features/atendimento/simular-whatsapp-modal";
 import { BuscarContatosWhatsApp } from "@/components/features/atendimento/buscar-contatos-whatsapp";
 import { createClient } from "@/lib/supabase/client";
@@ -59,6 +59,11 @@ export default function AtendimentoPage() {
   // Estado do chat inline e painel de contato
   const [atendimentoChat, setAtendimentoChat] = useState<Atendimento | null>(null);
   const [painelContatoAberto, setPainelContatoAberto] = useState(true);
+  // 19/10 — em telas menores (< 1024px) o painel direito vira OVERLAY por
+  // cima do chat: abrir as três colunas de uma vez escondia a conversa.
+  useEffect(() => {
+    if (window.innerWidth < 1024) setPainelContatoAberto(false);
+  }, []);
   const [etiquetaFiltro, setEtiquetaFiltro] = useState<string | null>(null);
   // C1 (Fase 1) — mostrar só as conversas em que o cliente está há 24h+ esperando
   const [apenasSemResposta, setApenasSemResposta] = useState(false);
@@ -322,7 +327,7 @@ export default function AtendimentoPage() {
     <div className="h-[calc(100vh-9rem)] flex flex-col overflow-hidden">
       
       {/* HEADER COMPACTO — Toggle + IA + Performance + Data + Busca + Ícones */}
-      <div className="shrink-0 flex items-center gap-3 mb-2">
+      <div className="shrink-0 flex flex-wrap items-center gap-3 mb-2">
         <TogglePresenca />
         <ToggleIA />
         <PerformanceRealTime />
@@ -376,10 +381,10 @@ export default function AtendimentoPage() {
       </div>
 
       {/* WhatsApp Web 3 COLUNAS: Lista + Chat + Painel Contato */}
-      <div className="flex-1 min-h-0 flex border border-white/10 rounded-lg overflow-hidden bg-[#0a1628]">
+      <div className="relative flex-1 min-h-0 flex border border-white/10 rounded-lg overflow-hidden bg-[#0a1628]">
         
         {/* PAINEL ESQUERDO: Lista de conversas */}
-        <div className="w-[320px] min-w-[280px] flex flex-col border-r border-white/10 bg-[#0f1d32]">
+        <div className="w-[300px] xl:w-[320px] min-w-[240px] flex flex-col border-r border-white/10 bg-[#0f1d32]">
           
           {/* SELETOR DE INSTÂNCIA WHATSAPP — apenas gestores veem os botões */}
           {instancias.length > 0 && !userInstance && (
@@ -487,7 +492,18 @@ export default function AtendimentoPage() {
 
         {/* PAINEL DIREITO: Info do contato — só aparece quando conversa selecionada */}
         {painelContatoAberto && atendimentoChat && (
-          <div className="w-[480px] min-w-[400px]">
+          // 19/10 — abaixo de lg (tela de outro computador) o painel é um
+          // OVERLAY por cima do chat com X pra fechar; em telas largas
+          // continua sendo a 3ª coluna de sempre.
+          <div className="absolute inset-y-0 right-0 z-30 w-[380px] max-w-[92vw] shadow-[0_0_28px_rgba(0,0,0,0.55)] lg:static lg:z-auto lg:shadow-none lg:w-[400px] lg:min-w-[360px] lg:max-w-none xl:w-[480px] xl:min-w-[400px]">
+            <button
+              type="button"
+              aria-label="Fechar painel de contato"
+              onClick={() => setPainelContatoAberto(false)}
+              className="absolute top-3 right-3 z-40 h-8 w-8 rounded-lg bg-white/10 hover:bg-white/20 text-white/60 hover:text-white flex items-center justify-center transition-colors lg:hidden"
+            >
+              <X className="h-4 w-4" />
+            </button>
             <PainelContato
               atendimento={atendimentoChat}
               onFechar={() => setAtendimentoChat(null)}
