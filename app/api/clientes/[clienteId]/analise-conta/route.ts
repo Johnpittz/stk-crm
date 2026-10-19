@@ -9,6 +9,7 @@ import { createClient } from "@supabase/supabase-js";
 import { analisarFatura, analisarFaturaTexto, diagFatura } from "@/lib/ia/analisar-fatura";
 import { competenciaAtual, marcarComoAnalisada, paraNumero } from "@/lib/clientes/fatura-conta";
 import { diaDeHoje, linhaDoDiaParaRegravar } from "@/lib/clientes/analise-conta";
+import { baixarArquivoFatura } from "@/lib/clientes/arquivo-fatura";
 import {
   deveCriarLinhaIA,
   linhaDaOportunidade,
@@ -40,9 +41,59 @@ export async function POST(
 
   const { clienteId } = params;
   const fd = await request.formData().catch(() => null);
-  const arquivo = fd?.get("arquivo") as File | null;
+  let arquivo = fd?.get("arquivo") as File | null;
+  const linhaId = (fd?.get("linha_id") as string | null) || null;
+
+  // admin cedo: o REANALISAR busca a conta já inserida (linha_id) e o
+  // arquivo que ficou guardado no passo 1 — sem pedir de novo
+  const admin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  let linhaAlvo: { id: string; dados?: Record<string, unknown> | null } | null = null;
+  if (!arquivo && linhaId) {
+    // 19/10 — reanalisar a conta JÁ INSERIDA: reler o arquivo guardado
+    const { data: linha } = await admin
+      .from("cliente_pasta_linhas")
+      .select("id, cliente_id, dados")
+      .eq("id", linhaId)
+      .single();
+    if (!linha || linha.cliente_id !== clienteId) {
+      return NextResponse.json({ error: "Conta não encontrada" }, { status: 404 });
+    }
+    linhaAlvo = linha as { id: string; dados?: Record<string, unknown> | null };
+    const caminho = (linha.dados as { arquivo?: unknown } | null)?.arquivo;
+    if (typeof caminho !== "string" || !caminho) {
+      return NextResponse.json(
+        {
+          error: "Esta conta não tem o arquivo guardado — escolha o PDF/foto de novo.",
+          detalhe: "sem_arquivo_guardado",
+        },
+        { status: 422 }
+      );
+    }
+    const baixado = await baixarArquivoFatura(admin, caminho);
+    if (!baixado) {
+      return NextResponse.json(
+        {
+          error: "Não consegui abrir o arquivo guardado — escolha o PDF/foto de novo.",
+          detalhe: "sem_arquivo_guardado",
+        },
+        { status: 422 }
+      );
+    }
+    const mimeGuardado =
+      ((linha.dados as { arquivo_mime?: unknown } | null)?.arquivo_mime as string) || "";
+    arquivo = new File([new Uint8Array(baixado.bytes)], baixado.nome, {
+      type: mimeGuardado,
+    });
+  }
   if (!arquivo) {
-    return NextResponse.json({ error: "Arquivo (arquivo) é obrigatório" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Envie o arquivo (arquivo) ou informe a conta já inserida (linha_id)" },
+      { status: 400 }
+    );
   }
 
   const mime = arquivo.type || "";
@@ -95,10 +146,6 @@ export async function POST(
   }
 
   // Salva o que casar com colunas reais (só preenche o que a IA achou)
-  const admin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
   const update: Record<string, string> = {};
   if (resumo.concessionaria) update.concessionaria = resumo.concessionaria;
   if (resumo.uc) update.instalacao = resumo.uc;
@@ -127,11 +174,14 @@ export async function POST(
     // competência do mês pegava a conta do dia 3 no dia 18: o card
     // antigo virava "Analisada" e a conta de hoje ficava presa em
     // "Recebida". Linha antiga fica no histórico, intocada.
+    // linhaId (reanalisar pelo card) manda na linha clicada; sem ele,
+    // vale a linha do dia
     const alvo =
-      linhaDoDiaParaRegravar(
+      linhaAlvo ??
+      (linhaDoDiaParaRegravar(
         ((linhas ?? []) as { id: string; dados?: Record<string, unknown> | null }[]),
         hoje
-      ) ?? null;
+      ) ?? null);
     if (alvo) {
       const dados = marcarComoAnalisada(alvo.dados ?? {}, resumo);
       const { error: errLin } = await admin

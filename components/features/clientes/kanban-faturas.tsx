@@ -17,7 +17,9 @@ import { formatarCompetencia, formatarValor } from "@/lib/clientes/linhas";
 
 interface Props {
   clienteId: string | null;
-  onAnalisar?: () => void;
+  /** 19/10 — recebe o card: o id e se o arquivo da conta está guardado
+   * (com arquivo guardado, reanalisar NÃO precisa de novo upload). */
+  onAnalisar?: (card: { id: string; arquivo: string | null }) => void;
   chave?: number;
 }
 
@@ -38,6 +40,7 @@ interface Card {
   consumo: unknown;
   situacao: unknown;
   analisada: boolean;
+  arquivo: string | null;
   resumo: Resumo | null;
 }
 
@@ -80,6 +83,7 @@ export function KanbanFaturas({ clienteId, onAnalisar, chave }: Props) {
         consumo: r.dados?.consumo_kwh ?? null,
         situacao: r.dados?.situacao ?? null,
         analisada: String(r.dados?.fluxo ?? "") === "analise-concluida",
+        arquivo: typeof r.dados?.arquivo === "string" ? r.dados.arquivo : null,
         resumo: (r.dados?.resumo_analise ?? null) as Resumo | null,
       }));
       setRecebidas(cards.filter((c) => !c.analisada));
@@ -137,7 +141,13 @@ export function KanbanFaturas({ clienteId, onAnalisar, chave }: Props) {
                 Nenhuma conta aguardando análise.
               </p>
             )}
-            {recebidas.map((c) => card(c, onAnalisar, "reanalisar →"))}
+            {recebidas.map((c) =>
+        card(
+          c,
+          onAnalisar ? () => onAnalisar({ id: c.id, arquivo: c.arquivo }) : undefined,
+          "reanalisar →"
+        )
+      )}
           </div>
         </div>
 
@@ -203,7 +213,7 @@ export function KanbanFaturas({ clienteId, onAnalisar, chave }: Props) {
                 type="button"
                 onClick={() => {
                   setAberta(null);
-                  onAnalisar();
+                  onAnalisar?.({ id: aberta.id, arquivo: aberta.arquivo });
                 }}
                 className="mt-4 w-full rounded-md bg-[#3B64CF] px-3 py-2 text-sm font-semibold text-white hover:bg-[#2d50a8]"
               >

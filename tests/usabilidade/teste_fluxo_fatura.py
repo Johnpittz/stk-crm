@@ -218,9 +218,12 @@ def main() -> int:
             page.get_by_role("button", name=re.compile("Análise da Fatura")).first.click()
             page.wait_for_timeout(900)
             page.get_by_role("button", name=re.compile("Analisar conta")).first.click()
-            # clicar em Analisar SEM arquivo abre o SELETOR (reanálise):
-            # sem entregar o PDF aqui, nada dispara e a linha fica "recebida"
-            escolher_arquivo()
+            # 19/10 — o arquivo da conta está GUARDADO (passo 1): clicar em
+            # Analisar relê sem escolher nada. Se abrir seletor, é bug.
+            page.wait_for_timeout(900)
+            if escolhedor["fc"]:
+                escolhedor["fc"] = None
+                raise AssertionError("Analisar abriu o seletor de arquivo")
             # a IA leva alguns segundos E o MIMO tem retry: espera o BANCO
             # confirmar (até ~108s) em vez de um fixo de 45s
             linhas = []
@@ -308,6 +311,32 @@ def main() -> int:
             return f"linhas {antes} -> {depois} (sem duplicar)"
 
         tentar("F8 segunda análise não duplica card", f8)
+
+        def f10():
+            # pedido 19/10: clicar em "reanalisar →" do card tem que reler
+            # a conta JÁ INSERIDA — sem perguntar por outro arquivo
+            page.goto(editar, wait_until="networkidle")
+            page.wait_for_timeout(1200)
+            page.get_by_role("button", name=re.compile("Análise da Fatura")).first.click()
+            page.wait_for_timeout(1200)
+            rean = page.get_by_text("reanalisar →")
+            if rean.count() == 0:
+                raise AssertionError("card em Recebida sem reanalisar")
+            rean.first.click()
+            page.wait_for_timeout(1500)
+            if escolhedor["fc"]:
+                escolhedor["fc"] = None
+                raise AssertionError("reanalisar ABRIU o seletor de arquivo")
+            for _ in range(36):
+                page.wait_for_timeout(3000)
+                if any(
+                    fluxo_de(l.get("dados") or {}) == "analise-concluida"
+                    for l in linhas_fatura(cid)
+                ):
+                    return "reanalisou sem escolher arquivo"
+            raise AssertionError("não analisou")
+
+        tentar("F10 reanalisar relê a conta já inserida", f10)
 
         # ---------------- erros de JS ----------------
         if erros_js:

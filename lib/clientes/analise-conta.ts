@@ -72,6 +72,17 @@ export function deveRegravarLinhaDoDia(linhas: LinhaGestao[], hoje = diaDeHoje()
   return linhaDoDiaParaRegravar(linhas, hoje) !== null;
 }
 
+/**
+ * Dá pra reanalisar a conta sem pedir o arquivo de novo?
+ * O passo 1 guarda o PDF enviado; linhas antigas (antes disso) não têm
+ * arquivo guardado e precisam de um novo upload.
+ */
+export function temArquivoGuardado(dados: unknown): boolean {
+  if (!dados) return false;
+  const arquivo = (dados as { arquivo?: unknown } | null)?.arquivo;
+  return typeof arquivo === "string" && arquivo.trim().length > 0;
+}
+
 /** A linha do dia a ser atualizada (a mais recente), ou null se não há. */
 export function linhaDoDiaParaRegravar<T extends LinhaGestao>(
   linhas: T[],
@@ -120,6 +131,9 @@ export function estadoAnalise(
  */
 export function dicaAnalise(detalhe: string | null | undefined): string | null {
   if (!detalhe) return null;
+  if (detalhe === "sem_arquivo_guardado") {
+    return "Esta conta foi inserida antes de guardarmos o arquivo — escolha o PDF/foto de novo para reanalisar.";
+  }
   if (detalhe === "pdf_sem_texto") {
     return "Este PDF não tem texto selecionável — envie uma foto/print da conta.";
   }

@@ -12,7 +12,9 @@ import {
   diaDeHoje,
   dicaAnalise,
   estadoAnalise,
+  linhasDeHoje,
   rotuloBotaoAnalise,
+  temArquivoGuardado,
   temRecebidaHoje,
 } from "@/lib/clientes/analise-conta";
 import { Button } from "@/components/ui/button";
@@ -95,6 +97,9 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
   const [chaveKanban, setChaveKanban] = useState(0);
   const [dica, setDica] = useState<string | null>(null);
   const [pendenteAnalise, setPendenteAnalise] = useState(false);
+  const [linhaHoje, setLinhaHoje] = useState<{ id: string; arquivo: boolean } | null>(
+    null
+  );
 
   // Passo 1.5 — o que já está gravado manda no rótulo do botão.
   // É o passo que faltava: sem isso a tela esquecia que a conta já tinha
@@ -106,11 +111,28 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
       try {
         const { data } = await createClient()
           .from("cliente_pasta_linhas")
-          .select("dados")
+          .select("id, dados")
           .eq("cliente_id", clienteId)
-          .eq("linha", "gestao_fatura");
+          .eq("linha", "gestao_fatura")
+          .order("created_at", { ascending: true });
         if (!vivo) return;
-        setRecebidaGravada(temRecebidaHoje((data ?? []) as never[]));
+        const linhas = (data ?? []) as {
+          id?: string;
+          dados?: Record<string, unknown> | null;
+        }[];
+        setRecebidaGravada(temRecebidaHoje(linhas as never[]));
+        // a conta do dia e se o arquivo dela está guardado: é o que o
+        // REANALISAR relê sem pedir o arquivo de novo
+        const doDia = linhasDeHoje(linhas);
+        const ultima = doDia[doDia.length - 1];
+        setLinhaHoje(
+          ultima
+            ? {
+                id: String(ultima.id ?? ""),
+                arquivo: temArquivoGuardado(ultima.dados ?? null),
+              }
+            : null
+        );
       } catch {
         // sem leitura não há rótulo: fica no passo 1, que é o seguro
       }
@@ -159,11 +181,58 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
     }
   }
 
+  /** Resultado igual para os dois caminhos (arquivo novo ou guardado). */
+  function aplicarAnaliseFeita(json: any) {
+    setDica(null);
+    setResumo(json.resumo);
+    setChaveKanban((k) => k + 1);
+    setSalvo(!!json.salvo);
+    setOportunidades(Array.isArray(json.oportunidades) ? json.oportunidades : []);
+    setAbasCriadas(Array.isArray(json.abasCriadas) ? json.abasCriadas : []);
+  }
+
+  /**
+   * REANALISAR (19/10): relê a conta JÁ INSERIDA com o arquivo que ficou
+   * guardado no passo 1 — sem pedir o arquivo de novo.
+   */
+  async function analisarLinha(linhaId: string) {
+    setResumo(null);
+    setAnalisando(true);
+    setErro(null);
+    setDica(null);
+    try {
+      const { data: { session } } = await createClient().auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error("Sessão expirada. Entre de novo.");
+      const fd = new FormData();
+      fd.append("linha_id", linhaId);
+      const res = await fetch(`/api/clientes/${clienteId}/analise-conta`, {
+        method: "POST",
+        headers: { Authorization: ["Bearer", token].join(" ") },
+        body: fd,
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setDica(dicaAnalise(json.detalhe));
+        throw new Error(json.error || "Falha na análise.");
+      }
+      aplicarAnaliseFeita(json);
+    } catch (e: any) {
+      setErro(e.message || "Não consegui analisar a conta.");
+    } finally {
+      setAnalisando(false);
+    }
+  }
+
   async function analisar(file?: File) {
     const alvo = file ?? arquivo;
     if (!alvo) {
-      // página reaberta: o arquivo não fica guardado — pede ele e analisa
-      // assim que chegar (reanálise sem recomeçar o fluxo do zero)
+      // a conta do dia já está guardada → relê sem escolher de novo
+      if (linhaHoje?.arquivo && linhaHoje.id) {
+        await analisarLinha(linhaHoje.id);
+        return;
+      }
+      // sem arquivo guardado (linha antiga): escolhe e analisa em seguida
       setPendenteAnalise(true);
       inputRef.current?.click();
       return;
@@ -252,8 +321,20 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
           <KanbanFaturas
             clienteId={clienteId}
             chave={chaveKanban}
-            onAnalisar={() => {
+            onAnalisar={(card) => {
               setResumo(null);
+              // o card sabe se o arquivo da conta está guardado: com ele,
+              // reanalisar NÃO pede arquivo de novo (pedido 19/10)
+              if (card?.arquivo && card.id) {
+                void analisarLinha(card.id);
+                return;
+              }
+              // linha antiga (antes de guardarmos o arquivo): precisa
+              // escolher o PDF de novo — e analisa assim que chegar.
+              // erro+dica juntos: é o par que a tela mostra para explicar
+              setPendenteAnalise(true);
+              setErro("Esta conta não tem o arquivo guardado.");
+              setDica(dicaAnalise("sem_arquivo_guardado"));
               inputRef.current?.click();
             }}
           />

@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 import {
   dicaAnalise,
   estadoAnalise,
+  temArquivoGuardado,
   linhasDeHoje,
   linhaDoDiaParaRegravar,
   rotuloBotaoAnalise,
@@ -142,7 +143,27 @@ describe("separarColunas — histórico antigo continua visível", () => {
   });
 });
 
+describe("temArquivoGuardado — dá pra reanalisar sem pedir de novo?", () => {
+  it("linha com arquivo guardado NÃO precisa de novo upload", () => {
+    // é o coração do "reanalisar": o PDF entrou no passo 1 e ficou guardado
+    expect(
+      temArquivoGuardado({ dia: HOJE, fluxo: "recebida", arquivo: "cli/1-conta.pdf" })
+    ).toBe(true);
+  });
+
+  it("linha sem arquivo (inserida antes do guardado) precisa do upload", () => {
+    expect(temArquivoGuardado({ dia: HOJE, fluxo: "recebida" })).toBe(false);
+    expect(temArquivoGuardado({ dia: HOJE, fluxo: "recebida", arquivo: "" })).toBe(false);
+    expect(temArquivoGuardado(null)).toBe(false);
+  });
+});
+
 describe("dicaAnalise — explicação do motivo da falha", () => {
+  it("sem arquivo guardado, manda escolher o arquivo de novo (com clareza)", () => {
+    const d = dicaAnalise("sem_arquivo_guardado");
+    expect(d).toMatch(/escolha o PDF/i);
+  });
+
   it("PDF sem texto selecionável não fala em nitidez", () => {
     const d = dicaAnalise("pdf_sem_texto");
     expect(d).toMatch(/foto\/print/i);

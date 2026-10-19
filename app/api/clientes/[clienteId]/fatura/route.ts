@@ -13,6 +13,7 @@ import {
   montarLinhaGestaoFatura,
 } from "@/lib/clientes/fatura-conta";
 import { diaDeHoje, linhaDoDiaParaRegravar } from "@/lib/clientes/analise-conta";
+import { guardarArquivoFatura } from "@/lib/clientes/arquivo-fatura";
 import { extrairTextoPdf } from "@/lib/ia/pdf-texto";
 
 export const runtime = "nodejs";
@@ -68,6 +69,20 @@ export async function POST(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
+  // 19/10 — guarda o ARQUIVO enviado (o PDF em si, não só os números): é
+  // o que permite "Reanalisar" reler a conta já inserida sem pedir de novo
+  const guardado = await guardarArquivoFatura(admin, clienteId, arquivo);
+  const dadosLinha: Record<string, unknown> = {
+    ...linha.dados,
+    ...(guardado
+      ? {
+          arquivo: guardado,
+          arquivo_nome: arquivo.name,
+          arquivo_mime: arquivo.type || "",
+        }
+      : {}),
+  };
+
   // 18/10 — FLUXO ÚNICO: uma conta por dia. Subir o mesmo PDF de novo
   // atualiza a linha do dia em vez de criar um segundo card na coluna
   // "Fatura Recebida" (a coluna só esvazia quando a IA analisa).
@@ -91,7 +106,7 @@ export async function POST(
     const { data: atualizada, error: errUpd } = await admin
       .from("cliente_pasta_linhas")
       // completa o dia, mas não apaga o que a análise já leu
-      .update({ dados: { ...linha.dados, dia: hoje } })
+      .update({ dados: { ...dadosLinha, dia: hoje } })
       .eq("id", doDia.id)
       .select("id")
       .single();
@@ -101,7 +116,7 @@ export async function POST(
   } else {
     const { data: criada, error: errIns } = await admin
       .from("cliente_pasta_linhas")
-      .insert({ cliente_id: clienteId, linha: linha.linha, dados: linha.dados })
+      .insert({ cliente_id: clienteId, linha: linha.linha, dados: dadosLinha })
       .select("id")
       .single();
     data = criada ?? null;
