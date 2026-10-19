@@ -59,10 +59,11 @@ export default function AtendimentoPage() {
   // Estado do chat inline e painel de contato
   const [atendimentoChat, setAtendimentoChat] = useState<Atendimento | null>(null);
   const [painelContatoAberto, setPainelContatoAberto] = useState(true);
-  // 19/10 — em telas menores (< 1024px) o painel direito vira OVERLAY por
-  // cima do chat: abrir as três colunas de uma vez escondia a conversa.
+  // 19/10 — em telas < 1280px (notebook comum) o painel direito vira
+  // OVERLAY por cima do chat: abrir as três colunas de uma vez escondia
+  // a conversa.
   useEffect(() => {
-    if (window.innerWidth < 1024) setPainelContatoAberto(false);
+    if (window.innerWidth < 1280) setPainelContatoAberto(false);
   }, []);
   const [etiquetaFiltro, setEtiquetaFiltro] = useState<string | null>(null);
   // C1 (Fase 1) — mostrar só as conversas em que o cliente está há 24h+ esperando
@@ -492,15 +493,15 @@ export default function AtendimentoPage() {
 
         {/* PAINEL DIREITO: Info do contato — só aparece quando conversa selecionada */}
         {painelContatoAberto && atendimentoChat && (
-          // 19/10 — abaixo de lg (tela de outro computador) o painel é um
-          // OVERLAY por cima do chat com X pra fechar; em telas largas
-          // continua sendo a 3ª coluna de sempre.
-          <div className="absolute inset-y-0 right-0 z-30 w-[380px] max-w-[92vw] shadow-[0_0_28px_rgba(0,0,0,0.55)] lg:static lg:z-auto lg:shadow-none lg:w-[400px] lg:min-w-[360px] lg:max-w-none xl:w-[480px] xl:min-w-[400px]">
+          // 19/10 — abaixo de xl (1280px, notebook comum) o painel é um
+          // OVERLAY por cima do chat; em telas largas vira a 3ª coluna.
+          // O ✕ fica visível SEMPRE — é a forma de fechar o painel.
+          <div className="absolute inset-y-0 right-0 z-30 w-[380px] max-w-[92vw] shadow-[0_0_28px_rgba(0,0,0,0.55)] xl:static xl:z-auto xl:shadow-none xl:w-[480px] xl:min-w-[400px] xl:max-w-none">
             <button
               type="button"
               aria-label="Fechar painel de contato"
               onClick={() => setPainelContatoAberto(false)}
-              className="absolute top-3 right-3 z-40 h-8 w-8 rounded-lg bg-white/10 hover:bg-white/20 text-white/60 hover:text-white flex items-center justify-center transition-colors lg:hidden"
+              className="absolute top-3 right-3 z-40 h-8 w-8 rounded-lg bg-white/10 hover:bg-white/20 text-white/60 hover:text-white flex items-center justify-center transition-colors"
             >
               <X className="h-4 w-4" />
             </button>
