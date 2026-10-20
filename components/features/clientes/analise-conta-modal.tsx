@@ -165,7 +165,11 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
         headers: { Authorization: auth, },
         body: fd,
       });
-      const json = await res.json();
+      const json = await res.json().catch(() => null);
+      if (!json) {
+        // 19/10 — resposta sem JSON (Vercel cortou) nunca mais vira erro cru
+        throw new Error("O servidor não respondeu ao registrar a conta — tente de novo.");
+      }
       if (!res.ok) throw new Error(json.error || "Falha ao registrar a conta.");
       setRecebida(true);
       // o card aparece no kanban na hora e o botão vira "Analisar conta"
@@ -303,17 +307,45 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
       const auth = ["Bearer", token].join(" ");
       const fd = new FormData();
       fd.append("arquivo", alvo);
-      const res = await fetch(`/api/clientes/${clienteId}/analise-conta`, {
-        method: "POST",
-        headers: { Authorization: auth },
-        body: fd,
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        // guarda o PORQUÊ (pdf_sem_texto, ia_vazia...) pra explicar na tela
-        setDica(dicaAnalise(json.detalhe));
-        throw new Error(json.error || "Falha na análise.");
+      // 19/10 — o corte da Vercel chega como corpo SEM JSON ("An error
+      // o..."): DUAS tentativas antes de avisar, igual ao reanalisar.
+      let json: any = null;
+      for (let tentativa = 0; tentativa < 2; tentativa++) {
+        const ultima = tentativa === 1;
+        let res: Response;
+        try {
+          res = await fetch(`/api/clientes/${clienteId}/analise-conta`, {
+            method: "POST",
+            headers: { Authorization: auth },
+            body: fd,
+          });
+        } catch {
+          if (!ultima) {
+            await new Promise((r) => setTimeout(r, 1500));
+            continue;
+          }
+          throw new Error("Sem conexão com o servidor — tente de novo.");
+        }
+        try {
+          json = await res.json();
+        } catch {
+          // resposta sem JSON = a função morreu no meio (timeout da Vercel)
+          if (!ultima) {
+            await new Promise((r) => setTimeout(r, 1500));
+            continue;
+          }
+          throw new Error(
+            "A análise caiu no meio (o servidor demorou) — tente de novo."
+          );
+        }
+        if (!res.ok) {
+          // guarda o PORQUÊ (pdf_sem_texto, ia_vazia...) pra explicar na tela
+          setDica(dicaAnalise(json.detalhe));
+          throw new Error(json.error || "Falha na análise.");
+        }
+        break;
       }
+      if (!json) throw new Error("Não consegui analisar a conta — tente de novo.");
       setDica(null);
       setResumo(json.resumo);
       setChaveKanban((k) => k + 1);

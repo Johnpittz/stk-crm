@@ -69,6 +69,20 @@ export async function POST(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
+  // 19/10 — cliente apagado com a página aberta: a conta virava linha
+  // órfã e o card falhava por FK sem avisar nada. Confirma antes.
+  const { data: cliExiste } = await admin
+    .from("clientes")
+    .select("id")
+    .eq("id", clienteId)
+    .single();
+  if (!cliExiste) {
+    return NextResponse.json(
+      { error: "Este cliente não existe mais — atualize a página e tente de novo." },
+      { status: 404 }
+    );
+  }
+
   // 19/10 — guarda o ARQUIVO enviado (o PDF em si, não só os números): é
   // o que permite "Reanalisar" reler a conta já inserida sem pedir de novo
   const guardado = await guardarArquivoFatura(admin, clienteId, arquivo);
@@ -144,29 +158,38 @@ export async function POST(
     if (deveCriarCardFatura((cards ?? []) as { etapa?: string | null }[])) {
       const { data: cli } = await admin
         .from("clientes")
-        .select("nome_razao_social")
+        .select("nome_razao_social, vendedor_responsavel_id")
         .eq("id", clienteId)
         .single();
       const nomeCli =
         String(cli?.nome_razao_social ?? "").trim() || "Cliente sem nome";
-      const { data: novo, error: errCard } = await admin
-        .from("oportunidades")
-        .insert({
-          cliente_id: clienteId,
-          cliente_nome: nomeCli,
-          titulo: nomeCli,
-          descricao: `Fatura de energia recebida — competência ${linha.dados.competencia}.`,
-          etapa: "recebeu_conta",
-          vendedor_id: user.id,
-        })
-        .select("id")
-        .single();
-      if (!errCard && novo) {
-        cardCriado = true;
-        cardId = novo.id;
-      } else if (errCard) {
+      // 19/10 — o banco exige um vendedor que EXISTA em `profiles` (FK).
+      // Um vendedor sem cadastro lá derrubava o card em silêncio: tenta o
+      // usuário logado e, se recusar, o vendedor responsável do cliente.
+      const candidatos = [user.id, cli?.vendedor_responsavel_id].filter(
+        (v): v is string => !!v
+      );
+      for (const vendedor of candidatos) {
+        const { data: novo, error: errCard } = await admin
+          .from("oportunidades")
+          .insert({
+            cliente_id: clienteId,
+            cliente_nome: nomeCli,
+            titulo: nomeCli,
+            descricao: `Fatura de energia recebida — competência ${linha.dados.competencia}.`,
+            etapa: "recebeu_conta",
+            vendedor_id: vendedor,
+          })
+          .select("id")
+          .single();
+        if (!errCard && novo) {
+          cardCriado = true;
+          cardId = novo.id;
+          cardErro = null;
+          break;
+        }
         // 19/10 — o card faltou em silêncio num teste real: registrar
-        cardErro = errCard.message;
+        cardErro = errCard?.message ?? "erro desconhecido";
       }
     }
   } catch (e) {

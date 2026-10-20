@@ -150,6 +150,28 @@ describe('chamarModelo — MIMO (compatível OpenAI)', () => {
 
     await expect(chamarModelo('oi')).rejects.toThrow()
   })
+
+  it('MIMO empacotada: aborta a tentativa no limite (nunca estoura os 60s da Vercel)', async () => {
+    // 19/10 — sem limite, a espera virava FUNCTION_INVOCATION_TIMEOUT e o
+    // vendedor via um erro cru em vez de "tente de novo"
+    vi.useFakeTimers()
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) =>
+      new Promise((_res, reject) => {
+        init?.signal?.addEventListener('abort', () =>
+          reject(Object.assign(new Error('aborted'), { name: 'AbortError' })))
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const erro = chamarModelo('oi').then(() => null, (e) => e)
+    await vi.advanceTimersByTimeAsync(26_000) // 1ª tentativa aborta
+    await vi.advanceTimersByTimeAsync(26_000) // 2ª tentativa aborta
+    const e = await erro
+    vi.useRealTimers()
+
+    expect(e).toBeTruthy()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
 })
 
 describe('chamarModeloVision — mídia do cliente (conta por foto/PDF, 06/10)', () => {

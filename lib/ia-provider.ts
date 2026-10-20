@@ -138,41 +138,61 @@ async function chamarMimoVision(
   }
 }
 
-async function chamarMimo(prompt: string, env: Env): Promise<string> {
+async function chamarMimo(prompt: string, env: Env, limiteMs = 26000): Promise<string> {
   const chave = valor(env, 'XIAOMI_API_KEY')
   const base = valor(env, 'XIAOMI_BASE_URL').replace(/\/+$/, '')
   if (!chave) throw new Error('XIAOMI_API_KEY ausente (IA_PROVIDER=mimo)')
   if (!base) throw new Error('XIAOMI_BASE_URL ausente (IA_PROVIDER=mimo)')
 
+  // 19/10 — este caminho NÃO tinha timeout: a MIMO empacotada segurava a
+  // função até a Vercel cortar aos 60s (FUNCTION_INVOCATION_TIMEOUT e o
+  // vendedor via "An error o..." no lugar de "tente de novo").
+  // Limite POR tentativa: duas tentativas cabem nos 60s da função.
   const umaTentativa = async (): Promise<string> => {
-    const response = await fetch(`${base}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      Authorization: `Bearer ${chave}`,
-      },
-      body: JSON.stringify({
-        model: valor(env, 'XIAOMI_MODEL') || MIMO_MODEL_PADRAO,
-        messages: [{ role: 'user', content: prompt }],
-        // 03/10: temperature baixa = resposta literal da base, sem improviso
-        temperature: 0.4,
-        // 18/10: 800 -> 3000 (reasoning esgotava e content ficava vazio)
-        max_tokens: 3000,
-      }),
-    })
-    if (!response.ok) {
-      const detalhe = await response.text().catch(() => '')
-      throw new Error(`MIMO HTTP ${response.status}: ` + detalhe.slice(0, 300))
+    const controller = new AbortController()
+    const limite = setTimeout(() => controller.abort(), limiteMs)
+    try {
+      const response = await fetch(`${base}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        Authorization: "Bearer " + chave,
+        },
+        body: JSON.stringify({
+          model: valor(env, 'XIAOMI_MODEL') || MIMO_MODEL_PADRAO,
+          messages: [{ role: 'user', content: prompt }],
+          // 03/10: temperature baixa = resposta literal da base, sem improviso
+          temperature: 0.4,
+          // 18/10: 800 -> 3000 (reasoning esgotava e content ficava vazio)
+          max_tokens: 3000,
+        }),
+        signal: controller.signal,
+      })
+      if (!response.ok) {
+        const detalhe = await response.text().catch(() => '')
+        throw new Error(`MIMO HTTP ${response.status}: ` + detalhe.slice(0, 300))
+      }
+      const data = await response.json()
+      const texto = data?.choices?.[0]?.message?.content
+      return texto && String(texto).trim() ? String(texto).trim() : ''
+    } finally {
+      clearTimeout(limite)
     }
-    const data = await response.json()
-    const texto = data?.choices?.[0]?.message?.content
-    return texto && String(texto).trim() ? String(texto).trim() : ''
   }
-  // 18/10: content vazio = instabilidade da MIMO — repete UMA vez antes de falhar
-  const primeira = await umaTentativa()
-  if (primeira) return primeira
-  const segunda = await umaTentativa()
-  if (segunda) return segunda
+  // 18/10: content vazio = instabilidade da MIMO — repete UMA vez.
+  // 19/10: timeout também é transitório — a 2ª tentativa cobre a MIMO
+  // lenta; erro HTTP real propaga na hora (não repete em 4xx/5xx).
+  let ultimaFalha: unknown = null
+  for (let tentativa = 0; tentativa < 2; tentativa++) {
+    try {
+      const r = await umaTentativa()
+      if (r) return r
+    } catch (e) {
+      if ((e as Error)?.name !== 'AbortError') throw e
+      ultimaFalha = e
+    }
+  }
+  if (ultimaFalha) throw ultimaFalha
   throw new Error('MIMO devolveu resposta vazia')
 }
 

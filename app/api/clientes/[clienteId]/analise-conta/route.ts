@@ -293,7 +293,7 @@ export async function POST(
       if (faltando.length) {
         const { data: cliFunil } = await admin
           .from("clientes")
-          .select("nome_razao_social")
+          .select("nome_razao_social, vendedor_responsavel_id")
           .eq("id", clienteId)
           .single();
         const nomeFunil =
@@ -306,16 +306,29 @@ export async function POST(
             `Conta analisada pela IA — competência ${compFunil}.` +
             (valorFunil ? ` Valor R$ ${valorFunil}.` : ""),
         };
+        // 19/10 — FK exige vendedor que exista em `profiles`: usuário sem
+        // cadastro lá cai no vendedor responsável do cliente.
+        const candidatos = [user.id, cliFunil?.vendedor_responsavel_id].filter(
+          (v): v is string => !!v
+        );
         for (const etapa of faltando) {
-          const { error } = await admin.from("oportunidades").insert({
-            cliente_id: clienteId,
-            cliente_nome: nomeFunil,
-            titulo: nomeFunil,
-            descricao: descricoes[etapa],
-            etapa,
-            vendedor_id: user.id,
-          });
-          cardsFunil[etapa] = error ? `falhou: ${error.message}` : "criado";
+          let erroCard: string | null = "sem vendedor cadastrado";
+          for (const vendedor of candidatos) {
+            const { error } = await admin.from("oportunidades").insert({
+              cliente_id: clienteId,
+              cliente_nome: nomeFunil,
+              titulo: nomeFunil,
+              descricao: descricoes[etapa],
+              etapa,
+              vendedor_id: vendedor,
+            });
+            if (!error) {
+              erroCard = null;
+              break;
+            }
+            erroCard = error.message;
+          }
+          cardsFunil[etapa] = erroCard ? `falhou: ${erroCard}` : "criado";
         }
       } else {
         cardsFunil.recebeu_conta = "ja_existia";
