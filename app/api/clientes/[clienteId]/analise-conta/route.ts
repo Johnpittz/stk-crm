@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { analisarFatura, analisarFaturaTexto, diagFatura } from "@/lib/ia/analisar-fatura";
-import { competenciaAtual, marcarComoAnalisada, paraNumero, cardsFunilFaltando, montarCadastroUnificado, resumoCardAnalise } from "@/lib/clientes/fatura-conta";
+import { competenciaAtual, marcarComoAnalisada, paraNumero, cardsFunilFaltando, montarCadastroUnificado, resumoCardAnalise, kwhInteiro } from "@/lib/clientes/fatura-conta";
 import { diaDeHoje, linhaDoDiaParaRegravar } from "@/lib/clientes/analise-conta";
 import { baixarArquivoFatura } from "@/lib/clientes/arquivo-fatura";
 import {
@@ -343,7 +343,7 @@ export async function POST(
           analisada: {
             uc: resumo.uc ?? null,
             concessionaria: resumo.concessionaria ?? null,
-            consumo_kwh: numeroBR(resumo.consumo),
+            consumo_kwh: kwhInteiro(numeroBR(resumo.consumo)),
             valor_venda: numeroBR(resumo.valor),
           },
         };

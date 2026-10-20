@@ -13,6 +13,7 @@ import {
   montarLinhaGestaoFatura,
   montarCadastroUnificado,
   resumoCardFatura,
+  kwhInteiro,
 } from "@/lib/clientes/fatura-conta";
 import { diaDeHoje, linhaDoDiaParaRegravar } from "@/lib/clientes/analise-conta";
 import { guardarArquivoFatura } from "@/lib/clientes/arquivo-fatura";
@@ -196,7 +197,7 @@ export async function POST(
               valor: (linha.dados.valor ?? null) as number | null,
               consumo: (linha.dados.consumo_kwh ?? null) as number | null,
             }),
-            consumo_kwh: (linha.dados.consumo_kwh ?? null) as number | null,
+            consumo_kwh: kwhInteiro((linha.dados.consumo_kwh ?? null) as number | null),
             valor_venda: (linha.dados.valor ?? null) as number | null,
             etapa: "recebeu_conta",
             vendedor_id: vendedor,

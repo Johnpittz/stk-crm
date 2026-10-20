@@ -11,6 +11,7 @@ import {
   montarCadastroUnificado,
   resumoCardFatura,
   resumoCardAnalise,
+  kwhInteiro,
   extrairDadosConta,
   montarLinhaGestaoFatura,
   marcarComoAnalisada,
@@ -253,6 +254,22 @@ describe("resumoCardAnalise — descrição do card 'Fatura Analisada'", () => {
 
   it("IA sem nada extraído → frase genérica", () => {
     expect(resumoCardAnalise({})).toBe("Conta analisada pela IA");
+  });
+});
+
+// 19/10 — `consumo_kwh` no banco é INTEGER: mandar "5334.96" derrubava
+// o card da análise (invalid input syntax for type integer).
+describe("kwhInteiro — consumo_kwh é inteiro no banco", () => {
+  it("arredonda o decimal", () => {
+    expect(kwhInteiro(5334.96)).toBe(5335);
+  });
+
+  it("inteiro passa reto", () => {
+    expect(kwhInteiro(4548)).toBe(4548);
+  });
+
+  it("null continua null (campo não obrigatório)", () => {
+    expect(kwhInteiro(null)).toBeNull();
   });
 });
 

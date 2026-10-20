@@ -88,6 +88,15 @@ function brl(valor: number): string {
 }
 
 /**
+ * 19/10 — `consumo_kwh` no banco é INTEGER: o decimal do PDF/IA derrubava
+ * o card (invalid input syntax for type integer).
+ */
+export function kwhInteiro(valor: number | null): number | null {
+  if (valor == null) return null;
+  return Math.round(valor);
+}
+
+/**
  * 19/10 (pedido do João) — descrição do card "Fatura Recebida": conta a
  * história com o que o PDF já deu (competência, situação, valor, consumo).
  */
