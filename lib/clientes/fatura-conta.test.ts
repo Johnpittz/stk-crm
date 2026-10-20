@@ -255,6 +255,12 @@ describe("resumoCardAnalise — descrição do card 'Fatura Analisada'", () => {
   it("IA sem nada extraído → frase genérica", () => {
     expect(resumoCardAnalise({})).toBe("Conta analisada pela IA");
   });
+
+  it("formato en-US da IA vira pt-BR (4687.56 -> R$ 4.687,56)", () => {
+    expect(
+      resumoCardAnalise({ consumo: "5334.96", valor: "4687.56" })
+    ).toBe("consumo 5.334,96 kWh · R$ 4.687,56");
+  });
 });
 
 // 19/10 — `consumo_kwh` no banco é INTEGER: mandar "5334.96" derrubava
