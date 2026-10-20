@@ -130,7 +130,7 @@ export function resumoCardAnalise(r: {
 }): string {
   const partes: string[] = [];
   if (r.grupo) partes.push(`Grupo ${r.grupo}`);
-  const consumoNum = r.consumo ? paraNumero(String(r.consumo)) : null;
+  const consumoNum = r.consumo ? numeroBR(String(r.consumo)) : null;
   const ponta = r.consumo_ponta ?? null;
   if (consumoNum != null && consumoNum > 0) {
     const c = consumoNum.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
@@ -143,7 +143,7 @@ export function resumoCardAnalise(r: {
     partes.push(`consumo na ponta ${ponta.toLocaleString("pt-BR")} kWh`);
   }
   // 19/10 — a IA devolve "4687.56" (en-US): a tela mostra pt-BR.
-  const valorNum = r.valor ? paraNumero(String(r.valor)) : null;
+  const valorNum = r.valor ? numeroBR(String(r.valor)) : null;
   if (valorNum != null && valorNum > 0) partes.push(`R$ ${brl(valorNum)}`);
   if (r.contratacao_livre) partes.push("contratação livre");
   if (r.energia_injetada)
