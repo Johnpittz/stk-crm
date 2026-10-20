@@ -309,10 +309,10 @@ export async function POST(
     try {
       const { data: cardsFunilBanco } = await admin
         .from("oportunidades")
-        .select("id, etapa")
+        .select("id, etapa, titulo")
         .eq("cliente_id", clienteId);
       const faltando = cardsFunilFaltando(
-        (cardsFunilBanco ?? []) as { etapa?: string | null }[]
+        (cardsFunilBanco ?? []) as { etapa?: string | null; titulo?: string | null }[]
       );
       if (faltando.length) {
         const { data: cliFunil } = await admin
@@ -325,31 +325,31 @@ export async function POST(
         const compFunil = competenciaAtual();
         const valorFunil = numeroBR(resumo.valor);
         const descricoes: Record<string, string> = {
-          recebeu_conta: `${nomeFunil} — conta recebida, competência ${compFunil}.`,
-          proposta_feita:
+          recebida: `${nomeFunil} — conta recebida, competência ${compFunil}.`,
+          analisada:
             `${nomeFunil} — analisada pela IA, competência ${compFunil}.` +
             (valorFunil ? ` Valor R$ ${valorFunil}.` : ""),
         };
-        // 19/10 (pedido do João): cards como NOVA TAREFA automática —
-        // um rótulo "Fatura Recebida" e outro "Fatura Analisada".
+        // 19/10 (pedido do João): cards como NOVA TAREFA automática e os
+        // DOIS moram em "Recebeu a Conta" — a coluna conta a história.
         const titulos: Record<string, string> = {
-          recebeu_conta: "Fatura Recebida",
-          proposta_feita: "Fatura Analisada",
+          recebida: "Fatura Recebida",
+          analisada: "Fatura Analisada",
         };
         // 19/10 — FK exige vendedor que exista em `profiles`: usuário sem
         // cadastro lá cai no vendedor responsável do cliente.
         const candidatos = [user.id, cliFunil?.vendedor_responsavel_id].filter(
           (v): v is string => !!v
         );
-        for (const etapa of faltando) {
+        for (const qual of faltando) {
           let erroCard: string | null = "sem vendedor cadastrado";
           for (const vendedor of candidatos) {
             const { error } = await admin.from("oportunidades").insert({
               cliente_id: clienteId,
               cliente_nome: nomeFunil,
-              titulo: titulos[etapa],
-              descricao: descricoes[etapa],
-              etapa,
+              titulo: titulos[qual],
+              descricao: descricoes[qual],
+              etapa: "recebeu_conta",
               vendedor_id: vendedor,
             });
             if (!error) {
@@ -358,11 +358,11 @@ export async function POST(
             }
             erroCard = error.message;
           }
-          cardsFunil[etapa] = erroCard ? `falhou: ${erroCard}` : "criado";
+          cardsFunil[qual] = erroCard ? `falhou: ${erroCard}` : "criado";
         }
       } else {
-        cardsFunil.recebeu_conta = "ja_existia";
-        cardsFunil.proposta_feita = "ja_existia";
+        cardsFunil.recebida = "ja_existia";
+        cardsFunil.analisada = "ja_existia";
       }
     } catch (e) {
       cardsFunil.erro = String((e as Error)?.message ?? e).slice(0, 120);

@@ -164,7 +164,7 @@ export async function POST(
   try {
     const { data: cards } = await admin
       .from("oportunidades")
-      .select("id, etapa")
+      .select("id, etapa, titulo")
       .eq("cliente_id", clienteId);
     if (deveCriarCardFatura((cards ?? []) as { etapa?: string | null }[])) {
       const { data: cli } = await admin

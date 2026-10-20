@@ -65,16 +65,18 @@ describe("extrairDadosConta", () => {
 });
 
 describe("deveCriarCardFatura (pedido 18/10)", () => {
-  it("cria card quando o cliente ainda não tem card em RECEBEU A CONTA", () => {
+  it("cria card quando o cliente não tem o rótulo 'Fatura Recebida'", () => {
     expect(deveCriarCardFatura([])).toBe(true);
+    expect(deveCriarCardFatura([{ id: "x", etapa: "recebeu_conta", titulo: "Ligar" }])).toBe(true);
   });
 
-  it("não duplica quando já existe card na etapa", () => {
-    expect(deveCriarCardFatura([{ id: "x", etapa: "recebeu_conta" }])).toBe(false);
-  });
-
-  it("cards em outras etapas não bloqueiam", () => {
-    expect(deveCriarCardFatura([{ id: "x", etapa: "proposta_feita" }])).toBe(true);
+  it("não duplica quando o rótulo já existe (mesmo em outra coluna)", () => {
+    expect(
+      deveCriarCardFatura([{ id: "x", etapa: "recebeu_conta", titulo: "Fatura Recebida" }])
+    ).toBe(false);
+    expect(
+      deveCriarCardFatura([{ id: "x", etapa: "contrato_enviado", titulo: "Fatura Recebida" }])
+    ).toBe(false);
   });
 });
 
@@ -160,33 +162,42 @@ describe("kanban de faturas (recebida → analisada)", () => {
   });
 });
 
-// 19/10 (pedido do João) — DOIS cards no funil de vendas: a conta que
-// CHEGOU (recebeu_conta) e a conta que a IA ANALISOU (proposta_feita).
-// Sem cliente, a conta analisada não virava card de proposta nenhuma.
-describe("cardsFunilFaltando — quais cards o funil precisa", () => {
-  it("sem card nenhum, faltam os dois (recebida + analisada)", () => {
-    expect(cardsFunilFaltando([])).toEqual(["recebeu_conta", "proposta_feita"]);
+// 19/10 — os DOIS cards da conta moram em RECEBEU A CONTA (pedido do João):
+// a coluna conta a história da fatura (chegou / foi analisada). A checagem é
+// por RÓTULO: se o vendedor arrastar um card pra outra coluna, não duplica.
+describe("cardsFunilFaltando — os dois cards ficam em Recebeu a Conta", () => {
+  it("sem card nenhum → faltam os dois", () => {
+    expect(cardsFunilFaltando([])).toEqual(["recebida", "analisada"]);
   });
 
-  it("só a conta recebida → falta o card de analisada", () => {
-    expect(cardsFunilFaltando([{ etapa: "recebeu_conta" }])).toEqual(["proposta_feita"]);
-  });
-
-  it("só a conta analisada → falta o de recebida", () => {
-    expect(cardsFunilFaltando([{ etapa: "proposta_feita" }])).toEqual(["recebeu_conta"]);
-  });
-
-  it("os dois cards existem → não cria nada (não duplica)", () => {
+  it("só a recebida existe → falta a analisada", () => {
     expect(
-      cardsFunilFaltando([{ etapa: "recebeu_conta" }, { etapa: "proposta_feita" }])
+      cardsFunilFaltando([{ etapa: "recebeu_conta", titulo: "Fatura Recebida" }])
+    ).toEqual(["analisada"]);
+  });
+
+  it("os dois já em Recebeu a Conta → não cria nada", () => {
+    expect(
+      cardsFunilFaltando([
+        { etapa: "recebeu_conta", titulo: "Fatura Recebida" },
+        { etapa: "recebeu_conta", titulo: "Fatura Analisada" },
+      ])
     ).toEqual([]);
   });
 
-  it("card de outra etapa (contrato enviado) não conta como conta", () => {
-    expect(cardsFunilFaltando([{ etapa: "contrato_enviado" }])).toEqual([
-      "recebeu_conta",
-      "proposta_feita",
-    ]);
+  it("vendedor arrastou o card de analisada pra outra coluna → não duplica", () => {
+    expect(
+      cardsFunilFaltando([
+        { etapa: "recebeu_conta", titulo: "Fatura Recebida" },
+        { etapa: "contrato_enviado", titulo: "Fatura Analisada" },
+      ])
+    ).toEqual([]);
+  });
+
+  it("tarefa qualquer na coluna não conta como conta", () => {
+    expect(
+      cardsFunilFaltando([{ etapa: "recebeu_conta", titulo: "Ligar pra Maria" }])
+    ).toEqual(["recebida", "analisada"]);
   });
 });
 

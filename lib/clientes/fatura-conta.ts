@@ -62,22 +62,23 @@ export function paraNumero(bruto: string): number | null {
  * Cria em "recebeu_conta" só quando o cliente ainda não tem card lá —
  * cards em outras etapas (negociação avançada) não bloqueiam.
  */
-export function deveCriarCardFatura(cards: { etapa?: string | null; [chave: string]: unknown }[]): boolean {
-  return !cards.some((c) => c.etapa === "recebeu_conta");
+export function deveCriarCardFatura(cards: { etapa?: string | null; titulo?: string | null; [chave: string]: unknown }[]): boolean {
+  // 19/10 — a checagem é pelo RÓTULO: se o vendedor arrastou o card pra
+  // outra coluna, subir a conta de novo não pode duplicar.
+  return !cards.some((c) => c.titulo === "Fatura Recebida");
 }
 
 /**
- * 19/10 (pedido do João) — o funil tem DOIS cards de conta:
- * - "recebeu_conta": a conta que CHEGOU;
- * - "proposta_feita": a conta que a IA ANALISOU.
- * Devolve as etapas sem card (a rota cria as que faltarem).
+ * 19/10 (pedido do João) — os DOIS cards da conta moram em "Recebeu a
+ * Conta": a coluna conta a história da fatura (chegou / foi analisada).
+ * Devolve o que faltar, por rótulo (arrastar card não duplica).
  */
 export function cardsFunilFaltando(
-  cards: { etapa?: string | null }[]
-): Array<"recebeu_conta" | "proposta_feita"> {
-  const faltando: Array<"recebeu_conta" | "proposta_feita"> = [];
-  if (!cards.some((c) => c.etapa === "recebeu_conta")) faltando.push("recebeu_conta");
-  if (!cards.some((c) => c.etapa === "proposta_feita")) faltando.push("proposta_feita");
+  cards: { etapa?: string | null; titulo?: string | null }[]
+): Array<"recebida" | "analisada"> {
+  const faltando: Array<"recebida" | "analisada"> = [];
+  if (!cards.some((c) => c.titulo === "Fatura Recebida")) faltando.push("recebida");
+  if (!cards.some((c) => c.titulo === "Fatura Analisada")) faltando.push("analisada");
   return faltando;
 }
 
