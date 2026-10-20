@@ -165,6 +165,9 @@ async function chamarMimo(prompt: string, env: Env, limiteMs = 26000): Promise<s
           temperature: 0.4,
           // 18/10: 800 -> 3000 (reasoning esgotava e content ficava vazio)
           max_tokens: 3000,
+          // 19/10 — sem pedir, a MIMO vinha com reasoning pesado e a
+          // análise passava dos 60s da Vercel; LOW corta a espera.
+          reasoning_effort: 'low',
         }),
         signal: controller.signal,
       })
