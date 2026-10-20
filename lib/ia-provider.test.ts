@@ -164,13 +164,13 @@ describe('chamarModelo — MIMO (compatível OpenAI)', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const erro = chamarModelo('oi').then(() => null, (e) => e)
-    await vi.advanceTimersByTimeAsync(26_000) // 1ª tentativa aborta
-    await vi.advanceTimersByTimeAsync(26_000) // 2ª tentativa aborta
+    await vi.advanceTimersByTimeAsync(45_000) // a tentativa aborta
     const e = await erro
     vi.useRealTimers()
 
     expect(e).toBeTruthy()
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    // uma tentativa só: timeout propaga na hora (modal refaz)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })
 

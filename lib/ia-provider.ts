@@ -138,7 +138,7 @@ async function chamarMimoVision(
   }
 }
 
-async function chamarMimo(prompt: string, env: Env, limiteMs = 26000): Promise<string> {
+async function chamarMimo(prompt: string, env: Env, limiteMs = 45000): Promise<string> {
   const chave = valor(env, 'XIAOMI_API_KEY')
   const base = valor(env, 'XIAOMI_BASE_URL').replace(/\/+$/, '')
   if (!chave) throw new Error('XIAOMI_API_KEY ausente (IA_PROVIDER=mimo)')
@@ -183,19 +183,14 @@ async function chamarMimo(prompt: string, env: Env, limiteMs = 26000): Promise<s
     }
   }
   // 18/10: content vazio = instabilidade da MIMO — repete UMA vez.
-  // 19/10: timeout também é transitório — a 2ª tentativa cobre a MIMO
-  // lenta; erro HTTP real propaga na hora (não repete em 4xx/5xx).
-  let ultimaFalha: unknown = null
-  for (let tentativa = 0; tentativa < 2; tentativa++) {
-    try {
-      const r = await umaTentativa()
-      if (r) return r
-    } catch (e) {
-      if ((e as Error)?.name !== 'AbortError') throw e
-      ultimaFalha = e
-    }
-  }
-  if (ultimaFalha) throw ultimaFalha
+  // 19/10 — UMA tentativa de 45s: duas curtas perdiam pra MIMO lenta
+  // (>26s por chamada) e duas de 45s estourariam os 60s da Vercel.
+  // Timeout propaga como erro amigável (o modal refaz sozinho); o retry
+  // só roda quando a resposta vem vazia — aí ainda sobra tempo.
+  const primeira = await umaTentativa()
+  if (primeira) return primeira
+  const segunda = await umaTentativa()
+  if (segunda) return segunda
   throw new Error('MIMO devolveu resposta vazia')
 }
 
