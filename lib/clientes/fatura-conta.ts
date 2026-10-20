@@ -66,6 +66,21 @@ export function deveCriarCardFatura(cards: { etapa?: string | null; [chave: stri
   return !cards.some((c) => c.etapa === "recebeu_conta");
 }
 
+/**
+ * 19/10 (pedido do João) — o funil tem DOIS cards de conta:
+ * - "recebeu_conta": a conta que CHEGOU;
+ * - "proposta_feita": a conta que a IA ANALISOU.
+ * Devolve as etapas sem card (a rota cria as que faltarem).
+ */
+export function cardsFunilFaltando(
+  cards: { etapa?: string | null }[]
+): Array<"recebeu_conta" | "proposta_feita"> {
+  const faltando: Array<"recebeu_conta" | "proposta_feita"> = [];
+  if (!cards.some((c) => c.etapa === "recebeu_conta")) faltando.push("recebeu_conta");
+  if (!cards.some((c) => c.etapa === "proposta_feita")) faltando.push("proposta_feita");
+  return faltando;
+}
+
 export function montarLinhaGestaoFatura(entrada: {
   competencia: string;
   valor: number | null;

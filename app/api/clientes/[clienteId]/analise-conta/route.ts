@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { analisarFatura, analisarFaturaTexto, diagFatura } from "@/lib/ia/analisar-fatura";
-import { competenciaAtual, marcarComoAnalisada, paraNumero } from "@/lib/clientes/fatura-conta";
+import { competenciaAtual, marcarComoAnalisada, paraNumero, cardsFunilFaltando } from "@/lib/clientes/fatura-conta";
 import { diaDeHoje, linhaDoDiaParaRegravar } from "@/lib/clientes/analise-conta";
 import { baixarArquivoFatura } from "@/lib/clientes/arquivo-fatura";
 import {
@@ -275,6 +275,57 @@ export async function POST(
     /* conforto: a oportunidade já aparece na tela mesmo sem a linha */
   }
 
+  // 19/10 (pedido do João) — DOIS cards no funil: a conta que CHEGOU
+  // (recebeu_conta — garantido aqui mesmo que o passo 1 tenha falhado
+  // em silêncio) e a conta que a IA ANALISOU (proposta_feita).
+  // Idempotente: card que já existe não duplica; falha volta visível
+  // em cardsFunil pra nunca mais sumir sem sinal.
+  const cardsFunil: Record<string, string> = {};
+  if (faturaCompletada) {
+    try {
+      const { data: cardsFunilBanco } = await admin
+        .from("oportunidades")
+        .select("id, etapa")
+        .eq("cliente_id", clienteId);
+      const faltando = cardsFunilFaltando(
+        (cardsFunilBanco ?? []) as { etapa?: string | null }[]
+      );
+      if (faltando.length) {
+        const { data: cliFunil } = await admin
+          .from("clientes")
+          .select("nome_razao_social")
+          .eq("id", clienteId)
+          .single();
+        const nomeFunil =
+          String(cliFunil?.nome_razao_social ?? "").trim() || "Cliente sem nome";
+        const compFunil = competenciaAtual();
+        const valorFunil = numeroBR(resumo.valor);
+        const descricoes: Record<string, string> = {
+          recebeu_conta: `Fatura de energia recebida — competência ${compFunil}.`,
+          proposta_feita:
+            `Conta analisada pela IA — competência ${compFunil}.` +
+            (valorFunil ? ` Valor R$ ${valorFunil}.` : ""),
+        };
+        for (const etapa of faltando) {
+          const { error } = await admin.from("oportunidades").insert({
+            cliente_id: clienteId,
+            cliente_nome: nomeFunil,
+            titulo: nomeFunil,
+            descricao: descricoes[etapa],
+            etapa,
+            vendedor_id: user.id,
+          });
+          cardsFunil[etapa] = error ? `falhou: ${error.message}` : "criado";
+        }
+      } else {
+        cardsFunil.recebeu_conta = "ja_existia";
+        cardsFunil.proposta_feita = "ja_existia";
+      }
+    } catch (e) {
+      cardsFunil.erro = String((e as Error)?.message ?? e).slice(0, 120);
+    }
+  }
+
   return NextResponse.json({
     resumo,
     salvo,
@@ -282,5 +333,6 @@ export async function POST(
     faturaCompletada,
     oportunidades,
     abasCriadas,
+    cardsFunil,
   });
 }

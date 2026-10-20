@@ -135,6 +135,7 @@ export async function POST(
   // não tem card lá (não duplica ao subir faturas do mesmo mês).
   let cardCriado = false;
   let cardId: string | null = null;
+  let cardErro: string | null = null;
   try {
     const { data: cards } = await admin
       .from("oportunidades")
@@ -163,10 +164,13 @@ export async function POST(
       if (!errCard && novo) {
         cardCriado = true;
         cardId = novo.id;
+      } else if (errCard) {
+        // 19/10 — o card faltou em silêncio num teste real: registrar
+        cardErro = errCard.message;
       }
     }
-  } catch {
-    /* card é conforto: a fatura já está gravada */
+  } catch (e) {
+    cardErro = String((e as Error)?.message ?? e).slice(0, 120);
   }
 
   return NextResponse.json({
@@ -178,6 +182,7 @@ export async function POST(
     consumo,
     cardCriado,
     card_id: cardId,
+    card_erro: cardErro,
     aviso: valor == null
       ? "Fatura recebida — a IA completa na análise."
       : null,

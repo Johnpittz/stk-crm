@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   competenciaAtual,
   deveCriarCardFatura,
+  cardsFunilFaltando,
   extrairDadosConta,
   montarLinhaGestaoFatura,
   marcarComoAnalisada,
@@ -155,5 +156,35 @@ describe("kanban de faturas (recebida → analisada)", () => {
     });
     expect(r.valor).toBe(4687.56);
     expect(r.consumo_kwh).toBe(512);
+  });
+});
+
+// 19/10 (pedido do João) — DOIS cards no funil de vendas: a conta que
+// CHEGOU (recebeu_conta) e a conta que a IA ANALISOU (proposta_feita).
+// Sem cliente, a conta analisada não virava card de proposta nenhuma.
+describe("cardsFunilFaltando — quais cards o funil precisa", () => {
+  it("sem card nenhum, faltam os dois (recebida + analisada)", () => {
+    expect(cardsFunilFaltando([])).toEqual(["recebeu_conta", "proposta_feita"]);
+  });
+
+  it("só a conta recebida → falta o card de analisada", () => {
+    expect(cardsFunilFaltando([{ etapa: "recebeu_conta" }])).toEqual(["proposta_feita"]);
+  });
+
+  it("só a conta analisada → falta o de recebida", () => {
+    expect(cardsFunilFaltando([{ etapa: "proposta_feita" }])).toEqual(["recebeu_conta"]);
+  });
+
+  it("os dois cards existem → não cria nada (não duplica)", () => {
+    expect(
+      cardsFunilFaltando([{ etapa: "recebeu_conta" }, { etapa: "proposta_feita" }])
+    ).toEqual([]);
+  });
+
+  it("card de outra etapa (contrato enviado) não conta como conta", () => {
+    expect(cardsFunilFaltando([{ etapa: "contrato_enviado" }])).toEqual([
+      "recebeu_conta",
+      "proposta_feita",
+    ]);
   });
 });
