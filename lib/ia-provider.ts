@@ -168,7 +168,7 @@ async function chamarMimo(prompt: string, env: Env, limiteMs = 45000): Promise<s
           // peso; 1500 de folga cobre o JSON (nunca 800 — aí o reasoning
           // esgota e content fica vazio, bug do 18/10).
           max_tokens: 1500,
-          reasoning_effort: 'minimal',
+          reasoning_effort: 'none',
         }),
         signal: controller.signal,
       })
