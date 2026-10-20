@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { analisarFatura, analisarFaturaTexto, diagFatura } from "@/lib/ia/analisar-fatura";
-import { competenciaAtual, marcarComoAnalisada, paraNumero, cardsFunilFaltando } from "@/lib/clientes/fatura-conta";
+import { competenciaAtual, marcarComoAnalisada, paraNumero, cardsFunilFaltando, montarCadastroUnificado } from "@/lib/clientes/fatura-conta";
 import { diaDeHoje, linhaDoDiaParaRegravar } from "@/lib/clientes/analise-conta";
 import { baixarArquivoFatura } from "@/lib/clientes/arquivo-fatura";
 import {
@@ -51,6 +51,30 @@ export async function POST(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
+
+  // 19/10 — a listagem vem da view unificada: muitos clientes SÓ existem
+  // lá. Sem linha em `clientes`, o banco recusa o card do funil (FK) — o
+  // quadro ficava zerado. Mesmo padrão do PUT da edição: cria a linha com
+  // o MESMO id antes de seguir.
+  {
+    const { data: cadastro } = await admin
+      .from("clientes")
+      .select("id")
+      .eq("id", clienteId)
+      .maybeSingle();
+    if (!cadastro) {
+      const { data: view } = await admin
+        .from("v_unified_clientes")
+        .select("nome")
+        .eq("id", clienteId)
+        .maybeSingle();
+      const payload = montarCadastroUnificado(
+        clienteId,
+        (view ?? null) as { nome?: string | null } | null
+      );
+      if (payload) await admin.from("clientes").insert(payload);
+    }
+  }
 
   let linhaAlvo: { id: string; dados?: Record<string, unknown> | null } | null = null;
   if (!arquivo && linhaId) {
@@ -301,10 +325,16 @@ export async function POST(
         const compFunil = competenciaAtual();
         const valorFunil = numeroBR(resumo.valor);
         const descricoes: Record<string, string> = {
-          recebeu_conta: `Fatura de energia recebida — competência ${compFunil}.`,
+          recebeu_conta: `${nomeFunil} — conta recebida, competência ${compFunil}.`,
           proposta_feita:
-            `Conta analisada pela IA — competência ${compFunil}.` +
+            `${nomeFunil} — analisada pela IA, competência ${compFunil}.` +
             (valorFunil ? ` Valor R$ ${valorFunil}.` : ""),
+        };
+        // 19/10 (pedido do João): cards como NOVA TAREFA automática —
+        // um rótulo "Fatura Recebida" e outro "Fatura Analisada".
+        const titulos: Record<string, string> = {
+          recebeu_conta: "Fatura Recebida",
+          proposta_feita: "Fatura Analisada",
         };
         // 19/10 — FK exige vendedor que exista em `profiles`: usuário sem
         // cadastro lá cai no vendedor responsável do cliente.
@@ -317,7 +347,7 @@ export async function POST(
             const { error } = await admin.from("oportunidades").insert({
               cliente_id: clienteId,
               cliente_nome: nomeFunil,
-              titulo: nomeFunil,
+              titulo: titulos[etapa],
               descricao: descricoes[etapa],
               etapa,
               vendedor_id: vendedor,

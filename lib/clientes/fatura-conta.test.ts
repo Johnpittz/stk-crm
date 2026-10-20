@@ -8,6 +8,7 @@ import {
   competenciaAtual,
   deveCriarCardFatura,
   cardsFunilFaltando,
+  montarCadastroUnificado,
   extrairDadosConta,
   montarLinhaGestaoFatura,
   marcarComoAnalisada,
@@ -186,5 +187,28 @@ describe("cardsFunilFaltando — quais cards o funil precisa", () => {
       "recebeu_conta",
       "proposta_feita",
     ]);
+  });
+});
+
+// 19/10 — a listagem de clientes vem da view unificada (v_unified_clientes);
+// muitos clientes SÓ existem lá. Sem linha em `clientes`, o banco recusa o
+// card do funil (FK) e o quadro do João ficava zerado pra sempre.
+describe("montarCadastroUnificado — enriquece o cadastro (mesmo id)", () => {
+  it("sem cadastro e com nome na view → payload com o MESMO id", () => {
+    expect(montarCadastroUnificado("abc-123", { nome: "João Pedro" })).toEqual({
+      id: "abc-123",
+      nome_razao_social: "João Pedro",
+    });
+  });
+
+  it("view sem nome → segue com nome neutro (nada impede o card)", () => {
+    expect(montarCadastroUnificado("abc-123", { nome: "   " })).toEqual({
+      id: "abc-123",
+      nome_razao_social: "Cliente sem nome",
+    });
+  });
+
+  it("nem na view → null (deixa o fluxo normal tratar)", () => {
+    expect(montarCadastroUnificado("abc-123", null)).toBeNull();
   });
 });

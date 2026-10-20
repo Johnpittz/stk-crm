@@ -81,6 +81,22 @@ export function cardsFunilFaltando(
   return faltando;
 }
 
+/**
+ * 19/10 — a listagem de clientes vem da view unificada (v_unified_clientes);
+ * muitos clientes SÓ existem lá (pré-cadastro do atendimento). Sem linha em
+ * `clientes`, o banco recusa o card do funil (FK) e o quadro do vendedor
+ * ficava zerado pra sempre. Mesmo padrão do PUT da edição: cria a linha com
+ * o MESMO id. Devolve o payload do insert, ou null se nem na view existe.
+ */
+export function montarCadastroUnificado(
+  clienteId: string,
+  view: { nome?: string | null } | null
+): { id: string; nome_razao_social: string } | null {
+  if (!view) return null;
+  const nome = String(view.nome ?? "").trim() || "Cliente sem nome";
+  return { id: clienteId, nome_razao_social: nome };
+}
+
 export function montarLinhaGestaoFatura(entrada: {
   competencia: string;
   valor: number | null;

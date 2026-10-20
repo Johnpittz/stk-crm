@@ -11,6 +11,7 @@ import {
   deveCriarCardFatura,
   extrairDadosConta,
   montarLinhaGestaoFatura,
+  montarCadastroUnificado,
 } from "@/lib/clientes/fatura-conta";
 import { diaDeHoje, linhaDoDiaParaRegravar } from "@/lib/clientes/analise-conta";
 import { guardarArquivoFatura } from "@/lib/clientes/arquivo-fatura";
@@ -68,6 +69,30 @@ export async function POST(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
+
+  // 19/10 — a listagem vem da view unificada: muitos clientes SÓ existem
+  // lá. Sem linha em `clientes`, o banco recusa o card do funil (FK) e o
+  // quadro ficava zerado. Mesmo padrão do PUT da edição: cria a linha com
+  // o MESMO id antes de seguir.
+  {
+    const { data: cadastro } = await admin
+      .from("clientes")
+      .select("id")
+      .eq("id", clienteId)
+      .maybeSingle();
+    if (!cadastro) {
+      const { data: view } = await admin
+        .from("v_unified_clientes")
+        .select("nome")
+        .eq("id", clienteId)
+        .maybeSingle();
+      const payload = montarCadastroUnificado(
+        clienteId,
+        (view ?? null) as { nome?: string | null } | null
+      );
+      if (payload) await admin.from("clientes").insert(payload);
+    }
+  }
 
   // 19/10 — guarda o ARQUIVO enviado (o PDF em si, não só os números): é
   // o que permite "Reanalisar" reler a conta já inserida sem pedir de novo
@@ -161,8 +186,10 @@ export async function POST(
           .insert({
             cliente_id: clienteId,
             cliente_nome: nomeCli,
-            titulo: nomeCli,
-            descricao: `Fatura de energia recebida — competência ${linha.dados.competencia}.`,
+            // 19/10 (pedido do João): card como NOVA TAREFA automática,
+            // com o rótulo do estado da conta — nome na descrição.
+            titulo: "Fatura Recebida",
+            descricao: `${nomeCli} — competência ${linha.dados.competencia}.`,
             etapa: "recebeu_conta",
             vendedor_id: vendedor,
           })
