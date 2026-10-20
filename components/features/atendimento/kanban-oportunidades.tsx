@@ -172,8 +172,14 @@ export function KanbanOportunidades({
       } = await supabase.auth.getSession();
       if (!session) return;
 
-      const res = await fetch("/api/oportunidades", {
-        headers: { Authorization: `Bearer ${session.access_token}` },
+      // 19/10 — na pasta do cliente, pergunta pelos cards DAQUELE
+      // cliente: o funil embutido não fica mais zerado por causa do
+      // filtro "vê só os cards com seu vendedor"
+      const url = clienteId
+        ? `/api/oportunidades?cliente_id=${encodeURIComponent(clienteId)}`
+        : "/api/oportunidades";
+      const res = await fetch(url, {
+        headers: { Authorization: ["Bearer", session.access_token].join(" ") },
       });
 
       const data = await res.json();
@@ -246,7 +252,7 @@ export function KanbanOportunidades({
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: ["Bearer", session.access_token].join(" "),
         },
         body: JSON.stringify({
           id: draggableId,
@@ -271,7 +277,7 @@ export function KanbanOportunidades({
 
       const res = await fetch(`/api/oportunidades?id=${id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${session.access_token}` },
+        headers: { Authorization: ["Bearer", session.access_token].join(" ") },
       });
 
       if (res.ok) {

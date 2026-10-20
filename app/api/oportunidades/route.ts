@@ -25,6 +25,11 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const etapa = searchParams.get("etapa");
+  // 19/10 — na pasta do cliente o funil embutido pergunta pelaquele
+  // cliente: lista os cards DA pasta, de quem for o vendedor. Antes,
+  // "vê só os seus" escondia o card quando o insert caía no vendedor
+  // responsável (FK de profiles) e o funil ficava zerado no banco cheio.
+  const clienteFiltro = searchParams.get("cliente_id");
 
   // Verificar se é gestor
   const { data: meuPerfil } = await supabase
@@ -34,14 +39,16 @@ export async function GET(request: NextRequest) {
     .single();
   const isGestor = ["diretor", "admin", "gerente_comercial"].includes(meuPerfil?.cargo || "");
 
-  let query = supabase
+  let query = (clienteFiltro ? createAdminClient() : supabase)
     .from("oportunidades")
     .select("*, clientes(id, nome_razao_social, telefone, celular)")
     .order("created_at", { ascending: false })
     .limit(200);
 
-  // Se não é gestor, vê só as suas
-  if (!isGestor) {
+  if (clienteFiltro) {
+    query = query.eq("cliente_id", clienteFiltro);
+  } else if (!isGestor) {
+    // Se não é gestor, vê só as suas
     query = query.eq("vendedor_id", user.id);
   }
 
