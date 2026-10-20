@@ -16,6 +16,7 @@ import {
   montarDadosLinhaIA,
 } from "@/lib/clientes/ponte-ia";
 import { aplicarRegras, calcularMediaFinanceira } from "@/lib/ia/regras-produtos";
+import { numeroBR } from "@/lib/ia/analisar-fatura";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -229,8 +230,10 @@ export async function POST(
       grupo: resumo.grupo,
       contratacao_livre: resumo.contratacao_livre,
       valor_medio_mensal: calcularMediaFinanceira(valores),
-      consumo_ponta: resumo.consumo_ponta,
-      consumo_total: resumo.consumo ? Number(resumo.consumo) : null,
+      // 19/10 — protocolo: Grupo B não tem medição de ponta; o total do
+      // mês NUNCA aciona o BESS (só Grupo A mede ponta).
+      consumo_ponta: resumo.grupo === "A" ? resumo.consumo_ponta : null,
+      consumo_total: numeroBR(resumo.consumo),
       cnae_principal: resumo.cnae_principal,
       energia_injetada: resumo.energia_injetada,
       uc_geradora: resumo.uc_geradora,

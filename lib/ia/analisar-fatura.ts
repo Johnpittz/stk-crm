@@ -4,7 +4,6 @@
  * Puro e testável: a rota só junta bytes + chamada do provedor.
  */
 import { chamarModelo, chamarModeloVision } from "../ia-provider";
-
 export interface ResumoFatura {
   concessionaria: string | null;
   uc: string | null;
@@ -52,13 +51,18 @@ export function montarPromptFatura(): string {
     "valor = valor total a pagar (só números, com ponto). Campo não",
     "encontrado = null.",
     "Também extraia, quando estiver na conta: grupo = classe tarifária",
-    "(\"A\" ou \"B\"); contratacao_livre = true se a conta indicar",
+    "('A' ou 'B' — se a conta mostrar B3, B2, A5, devolva só a letra);",
+    "contratacao_livre = true se a conta indicar",
     "contratação livre/demanda livre/ACL e false se for mercado regulado;",
     "cnae_principal = CNAE do titular (se houver); consumo_ponta = consumo",
-    "no HORÁRIO DE PONTA em kWh; energia_injetada = energia injetada ou",
+    "no HORÁRIO DE PONTA em kWh (se a conta não medir ponta — Grupo B —,",
+    "devolva null; nunca use o consumo total no lugar da ponta);",
+    "energia_injetada = energia injetada ou",
     "compensada (usina solar) em kWh; uc_geradora = número da UC geradora",
     "e uc_consumidora = número da UC consumidora (sem pontos/traços).",
     "Nesses campos use true/false/número ou null — sem aspas.",
+    "Números: SEM separador de milhar e com PONTO decimal (5571.22,",
+    "4548.0) — mesmo que a conta escreva 5.571,22.",
   ].join(" ");
 }
 
@@ -69,9 +73,16 @@ function campo(json: Record<string, unknown>, chave: string): string | null {
   return t === "" || t.toLowerCase() === "null" ? null : t;
 }
 
-function paraGrupo(v: unknown): "A" | "B" | null {
-  const t = String(v ?? "").trim().toUpperCase();
-  return t === "A" || t === "B" ? t : null;
+/**
+ * 19/10 — protocolo Sustentalski: a conta real traz "B3 — Comercial",
+ * "A5", "B2 — Rural". Classe A/B é a PRIMEIRA letra; exigir "A"/"B"
+ * exatos jogava o grupo pra null e a tela de oportunidades de Grupo B
+ * inteira ficava "preliminar" sem motivo nenhum.
+ */
+export function paraGrupo(v: unknown): "A" | "B" | null {
+  // a classe pode vir no meio do texto ("Grupo B3", "B2 — Rural")
+  const m = String(v ?? "").toUpperCase().match(/(?:^|\s)([AB])(?=\d|\s|$)/);
+  return m ? (m[1] as "A" | "B") : null;
 }
 
 function paraBooleano(v: unknown): boolean | null {
@@ -85,6 +96,32 @@ function paraBooleano(v: unknown): boolean | null {
 function paraNumero(v: unknown): number | null {
   if (v == null || v === "") return null;
   const n = Number(String(v).replace(",", ".").replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * 19/10 — número como a CONTA brasileira escreve: "5.495,48" (milhar +
+ * decimal), "4.548" (milhar só), "5495.48" (americano), "1.174665"
+ * (preço unitário). `Number()` cru dava NaN em "10.994,80" e virava
+ * 4,548 em "4.548" — é o que deixou valor/consumo errados na tela.
+ */
+export function numeroBR(v: unknown): number | null {
+  if (v == null) return null;
+  let t = String(v).replace(/[^\d.,-]/g, "");
+  if (!t) return null;
+  const virgula = t.lastIndexOf(",");
+  const ponto = t.lastIndexOf(".");
+  if (virgula >= 0 && ponto >= 0) {
+    // os dois separadores: quem vem DEPOIS é o decimal
+    t = virgula > ponto ? t.replace(/\./g, "").replace(",", ".") : t.replace(/,/g, "");
+  } else if (virgula >= 0) {
+    // só vírgula: em conta BR é decimal — "1,025" (3 dígitos) é milhar
+    t = /^-?\d{1,3}(,\d{3})+$/.test(t) ? t.replace(/,/g, "") : t.replace(",", ".");
+  } else if (ponto >= 0 && /^\d{1,3}(\.\d{3})+$/.test(t)) {
+    // só ponto e casa de milhar ("4.548") → milhar; "1.174665" não casa → decimal
+    t = t.replace(/\./g, "");
+  }
+  const n = Number(t);
   return Number.isFinite(n) ? n : null;
 }
 
@@ -113,8 +150,8 @@ export function parseRespostaFatura(resposta: string): ResumoFatura {
       grupo: paraGrupo(json.grupo),
       contratacao_livre: paraBooleano(json.contratacao_livre),
       cnae_principal: campo(json, "cnae_principal"),
-      consumo_ponta: paraNumero(json.consumo_ponta),
-      energia_injetada: paraNumero(json.energia_injetada),
+      consumo_ponta: numeroBR(json.consumo_ponta),
+      energia_injetada: numeroBR(json.energia_injetada),
       uc_geradora: campo(json, "uc_geradora"),
       uc_consumidora: campo(json, "uc_consumidora"),
     };

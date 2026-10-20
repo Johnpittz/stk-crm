@@ -4,6 +4,8 @@
  * PDF acha valor/consumo e monta a linha da pasta.
  */
 import { diaDeHoje } from "./analise-conta";
+// 19/10 — "4.548" é milhar na conta; o Number() local lia 4,548
+import { numeroBR } from "../ia/analisar-fatura";
 
 export interface DadosConta {
   valor: number | null;
@@ -106,16 +108,8 @@ export function marcarComoAnalisada(
     valor: string | null;
   }
 ): Record<string, unknown> {
-  const numero = (texto: string | null): number | null => {
-    if (!texto) return null;
-    const bruto = texto.replace(/[^\d,.-]/g, "");
-    if (!bruto) return null;
-    const n = Number(bruto.includes(",") ? bruto.replace(/\./g, "").replace(",", ".") : bruto);
-    return Number.isFinite(n) ? n : null;
-  };
-
-  const valorAnalise = numero(resumo.valor);
-  const consumoAnalise = numero(resumo.consumo);
+  const valorAnalise = numeroBR(resumo.valor);
+  const consumoAnalise = numeroBR(resumo.consumo);
 
   return {
     ...dados,

@@ -10,11 +10,11 @@ vi.mock("../ia-provider", () => ({
   chamarModeloVision: vi.fn(async () => ""),
 }));
 
-import { montarPromptFatura, analisarFatura, analisarFaturaTexto } from "./analisar-fatura";
+import { montarPromptFatura, analisarFatura, analisarFaturaTexto, parseRespostaFatura } from "./analisar-fatura";
 import { chamarModeloVision, chamarModelo } from "../ia-provider";
 
 describe("FASE A - campos novos da extração (regras comerciais)", () => {
-  it("prompt cobra grupo, contratação livre, CNAE, ponta, injetada e UCs", () => {
+  it("prompt cobra grupo, contratação livre, CNAE, ponta e UCs", () => {
     const p = montarPromptFatura();
     expect(p).toContain("grupo");
     expect(p).toMatch(/livre/i);
@@ -22,6 +22,56 @@ describe("FASE A - campos novos da extração (regras comerciais)", () => {
     expect(p).toMatch(/ponta/i);
     expect(p).toMatch(/geradora/i);
     expect(p).toContain("JSON");
+  });
+
+  // 19/10 — protocolo "lógica dos produtos": a conta REAL traz "B3",
+  // "B2 — Rural", "A5"... Aceitar só "A"/"B" exatos jogava o grupo pra
+  // null e TODA a tela de oportunidades de Grupo B virava "preliminar".
+  it("paraGrupo aceita o grupo como a conta escreve (B3, A5, B2 - Rural)", async () => {
+    const { paraGrupo } = await import("./analisar-fatura");
+    expect(paraGrupo("B3")).toBe("B");
+    expect(paraGrupo("B2 — Rural")).toBe("B");
+    expect(paraGrupo("A5")).toBe("A");
+    expect(paraGrupo("Grupo B3")).toBe("B");
+    expect(paraGrupo("b3 comercial")).toBe("B");
+    expect(paraGrupo("A")).toBe("A");
+    expect(paraGrupo(null)).toBe(null);
+    expect(paraGrupo("")).toBe(null);
+  });
+
+  // 19/10 — números da conta em português: "5.495,48" (milhar+decimal),
+  // "4.548" (só milhar), "1.174665" (preço unitário). Number() cru dava
+  // NaN ou engolia o ponto de milhar — é o que deixou valor/consumo
+  // errados na tela e matou a média do RECIEE.
+  it("numeroBR entende o formato da conta brasileira", async () => {
+    const { numeroBR } = await import("./analisar-fatura");
+    expect(numeroBR("5.495,48")).toBe(5495.48);
+    expect(numeroBR("4.548,00")).toBe(4548);
+    expect(numeroBR("4.548")).toBe(4548);
+    expect(numeroBR("10.994,80")).toBe(10994.8);
+    expect(numeroBR("5495.48")).toBe(5495.48);
+    expect(numeroBR("1.174665")).toBe(1.174665);
+    expect(numeroBR("R$ 5.571,22")).toBe(5571.22);
+    expect(numeroBR(null)).toBe(null);
+    expect(numeroBR("")).toBe(null);
+  });
+
+  it("parse lê grupo B3 e números com vírgula como a conta real traz", () => {
+    const r = parseRespostaFatura(
+      JSON.stringify({
+        concessionaria: "Equatorial Goiás",
+        uc: "196314801274",
+        titular: "HOTEL RIO DOS BOIS",
+        consumo: "4.548,00",
+        valor: "5.571,22",
+        grupo: "B3 — Comercial",
+        consumo_ponta: "4.100,50",
+        energia_injetada: "1.234,5",
+      })
+    );
+    expect(r.grupo).toBe("B");
+    expect(r.consumo_ponta).toBe(4100.5);
+    expect(r.energia_injetada).toBe(1234.5);
   });
 
   it("parse reconhece grupo A/B, contratação livre, ponta e UCs", async () => {
