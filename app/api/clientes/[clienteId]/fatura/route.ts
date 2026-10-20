@@ -12,6 +12,7 @@ import {
   extrairDadosConta,
   montarLinhaGestaoFatura,
   montarCadastroUnificado,
+  resumoCardFatura,
 } from "@/lib/clientes/fatura-conta";
 import { diaDeHoje, linhaDoDiaParaRegravar } from "@/lib/clientes/analise-conta";
 import { guardarArquivoFatura } from "@/lib/clientes/arquivo-fatura";
@@ -186,10 +187,17 @@ export async function POST(
           .insert({
             cliente_id: clienteId,
             cliente_nome: nomeCli,
-            // 19/10 (pedido do João): card como NOVA TAREFA automática,
-            // com o rótulo do estado da conta — nome na descrição.
+            // 19/10 (pedido do João): card como NOVA TAREFA automática —
+            // rótulo do estado + o que o PDF já deu na descrição.
             titulo: "Fatura Recebida",
-            descricao: `${nomeCli} — competência ${linha.dados.competencia}.`,
+            descricao: resumoCardFatura({
+              competencia: (linha.dados.competencia ?? null) as string | null,
+              situacao: (linha.dados.situacao ?? null) as string | null,
+              valor: (linha.dados.valor ?? null) as number | null,
+              consumo: (linha.dados.consumo_kwh ?? null) as number | null,
+            }),
+            consumo_kwh: (linha.dados.consumo_kwh ?? null) as number | null,
+            valor_venda: (linha.dados.valor ?? null) as number | null,
             etapa: "recebeu_conta",
             vendedor_id: vendedor,
           })

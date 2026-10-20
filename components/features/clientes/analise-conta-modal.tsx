@@ -29,6 +29,11 @@ import {
 interface Props {
   clienteId: string;
   onClose: () => void;
+  /**
+   * 19/10 — a página re-busca a pasta/funil/quadro na hora: a fatura
+   * aparece sem F5 assim que inserir e assim que analisar.
+   */
+  aoAtualizar?: () => void;
 }
 
 interface Resumo {
@@ -74,7 +79,7 @@ const ROTULOS_STATUS: Record<string, string> = {
   inconclusiva: "Inconclusiva",
 };
 
-export function AnaliseContaModal({ clienteId, onClose }: Props) {
+export function AnaliseContaModal({ clienteId, onClose, aoAtualizar }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [arquivo, setArquivo] = useState<File | null>(null);
   // 18/10 — FLUXO ÚNICO: escolher o arquivo já registra a conta como
@@ -176,6 +181,8 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
       setRecebidaGravada(true);
       setChaveKanban((k) => k + 1);
       if (json.cardCriado) setCardFunil(true);
+      // 19/10 — página re-busca tudo: a conta aparece sem F5
+      aoAtualizar?.();
       return true;
     } catch (e: any) {
       setErro(e.message || "Erro ao registrar a conta.");
@@ -190,6 +197,8 @@ export function AnaliseContaModal({ clienteId, onClose }: Props) {
     setDica(null);
     setResumo(json.resumo);
     setChaveKanban((k) => k + 1);
+    // 19/10 — página re-busca tudo: a análise aparece sem F5
+    aoAtualizar?.();
     setSalvo(!!json.salvo);
     setOportunidades(Array.isArray(json.oportunidades) ? json.oportunidades : []);
     setAbasCriadas(Array.isArray(json.abasCriadas) ? json.abasCriadas : []);

@@ -82,6 +82,62 @@ export function cardsFunilFaltando(
   return faltando;
 }
 
+/** 19/10 — "R$ 6.668,18" (pt-BR) a partir de number|null. */
+function brl(valor: number): string {
+  return valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+}
+
+/**
+ * 19/10 (pedido do João) — descrição do card "Fatura Recebida": conta a
+ * história com o que o PDF já deu (competência, situação, valor, consumo).
+ */
+export function resumoCardFatura(d: {
+  competencia?: string | null;
+  situacao?: string | null;
+  valor?: number | null;
+  consumo?: number | null;
+}): string {
+  const partes: string[] = [];
+  if (d.competencia) partes.push(`Competência ${d.competencia}`);
+  if (d.situacao) partes.push(String(d.situacao));
+  if (d.valor != null && d.valor > 0) partes.push(`R$ ${brl(d.valor)}`);
+  if (d.consumo != null && d.consumo > 0)
+    partes.push(`${d.consumo.toLocaleString("pt-BR")} kWh`);
+  return partes.length ? partes.join(" · ") : "Conta de energia";
+}
+
+/**
+ * 19/10 (pedido do João) — descrição do card "Fatura Analisada": o que a
+ * IA leu da conta (grupo, consumo, ponta, valor, contratação livre,
+ * energia injetada).
+ */
+export function resumoCardAnalise(r: {
+  grupo?: "A" | "B" | null;
+  consumo?: string | null;
+  consumo_ponta?: number | null;
+  valor?: string | null;
+  contratacao_livre?: boolean | null;
+  energia_injetada?: number | null;
+}): string {
+  const partes: string[] = [];
+  if (r.grupo) partes.push(`Grupo ${r.grupo}`);
+  const ponta = r.consumo_ponta ?? null;
+  if (r.consumo) {
+    partes.push(
+      ponta
+        ? `consumo ${r.consumo} kWh (na ponta ${ponta.toLocaleString("pt-BR")} kWh)`
+        : `consumo ${r.consumo} kWh`
+    );
+  } else if (ponta) {
+    partes.push(`consumo na ponta ${ponta.toLocaleString("pt-BR")} kWh`);
+  }
+  if (r.valor) partes.push(`R$ ${r.valor}`);
+  if (r.contratacao_livre) partes.push("contratação livre");
+  if (r.energia_injetada)
+    partes.push(`injetada ${r.energia_injetada.toLocaleString("pt-BR")} kWh`);
+  return partes.length ? partes.join(" · ") : "Conta analisada pela IA";
+}
+
 /**
  * 19/10 — a listagem de clientes vem da view unificada (v_unified_clientes);
  * muitos clientes SÓ existem lá (pré-cadastro do atendimento). Sem linha em

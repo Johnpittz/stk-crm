@@ -326,6 +326,9 @@ export default function EditarClientePage() {
   // 18/10 — fluxo único: só "Análise da Fatura" (o Upload sumiu — o
   // registro da conta acontece dentro da análise, passo "Fatura Recebida").
   const [mostrarAnalise, setMostrarAnalise] = useState(false);
+  // 19/10 — versão dos dados da pasta: quando a análise/conta muda, a
+  // página re-busca tudo (fatura aparece sem F5).
+  const [versaoDados, setVersaoDados] = useState(0);
 
   useEffect(() => {
     let vivo = true;
@@ -1160,13 +1163,14 @@ export default function EditarClientePage() {
           terminando a IA, vira <b>Fatura Analisada</b> — clique no card para ver
           o que foi lido.
         </p>
-        <KanbanFaturas clienteId={clienteId} />
+        <KanbanFaturas key={`faturas-${versaoDados}`} clienteId={clienteId} />
       </div>
 
       {mostrarAnalise && (
         <AnaliseContaModal
           clienteId={clienteId}
           onClose={() => setMostrarAnalise(false)}
+          aoAtualizar={() => setVersaoDados((v) => v + 1)}
         />
       )}
 
@@ -1174,7 +1178,7 @@ export default function EditarClientePage() {
         icon={<Target className="h-4 w-4 text-[#3B64CF]" />}
         title="Funil de Vendas — Followup"
       >
-        <KanbanOportunidades clienteId={clienteId} alturaColuna={460} atendimentos={[]} onAbrirChat={() => {}} />
+        <KanbanOportunidades key={`funil-${versaoDados}`} clienteId={clienteId} alturaColuna={460} atendimentos={[]} onAbrirChat={() => {}} />
       </Section>
 
 

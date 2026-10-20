@@ -483,8 +483,15 @@ export function KanbanOportunidades({
 
                                       {/* Título/Descrição */}
                                       {oportunidade.titulo && oportunidade.clientes?.nome_razao_social && (
-                                        <p className="text-xs text-slate-400 leading-snug line-clamp-1 mb-2">
+                                        <p className="text-xs text-slate-400 leading-snug line-clamp-1 mb-1">
                                           {oportunidade.titulo}
+                                        </p>
+                                      )}
+                                      {/* 19/10 — a conta automática mostra o que a
+                                          IA leu (grupo, consumo, valor...) */}
+                                      {oportunidade.descricao && (
+                                        <p className="text-[10px] text-slate-500 leading-snug line-clamp-2 mb-1">
+                                          {oportunidade.descricao}
                                         </p>
                                       )}
                                     </div>

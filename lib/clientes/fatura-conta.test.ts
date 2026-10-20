@@ -9,6 +9,8 @@ import {
   deveCriarCardFatura,
   cardsFunilFaltando,
   montarCadastroUnificado,
+  resumoCardFatura,
+  resumoCardAnalise,
   extrairDadosConta,
   montarLinhaGestaoFatura,
   marcarComoAnalisada,
@@ -198,6 +200,59 @@ describe("cardsFunilFaltando — os dois cards ficam em Recebeu a Conta", () => 
     expect(
       cardsFunilFaltando([{ etapa: "recebeu_conta", titulo: "Ligar pra Maria" }])
     ).toEqual(["recebida", "analisada"]);
+  });
+});
+
+// 19/10 (pedido do João) — o card virou uma "tarefa automática" e precisa
+// contar a história da conta: a recebida com o que o PDF já deu, a
+// analisada com o que a IA leu.
+describe("resumoCardFatura — descrição do card 'Fatura Recebida'", () => {
+  it("mostra competência, situação, valor e consumo", () => {
+    expect(
+      resumoCardFatura({
+        competencia: "2026-10",
+        situacao: "Pendente",
+        valor: 6668.18,
+        consumo: 4548,
+      })
+    ).toBe("Competência 2026-10 · Pendente · R$ 6.668,18 · 4.548 kWh");
+  });
+
+  it("sem valor/consumo, só o que existe", () => {
+    expect(resumoCardFatura({ competencia: "2026-10", situacao: "Pendente" })).toBe(
+      "Competência 2026-10 · Pendente"
+    );
+  });
+
+  it("sem nada, frase genérica", () => {
+    expect(resumoCardFatura({})).toBe("Conta de energia");
+  });
+});
+
+describe("resumoCardAnalise — descrição do card 'Fatura Analisada'", () => {
+  it("mostra grupo, consumo, ponta, valor, livre e injetada", () => {
+    expect(
+      resumoCardAnalise({
+        grupo: "B",
+        consumo: "4.548",
+        consumo_ponta: 1200,
+        valor: "6.668,18",
+        contratacao_livre: true,
+        energia_injetada: 900,
+      })
+    ).toBe(
+      "Grupo B · consumo 4.548 kWh (na ponta 1.200 kWh) · R$ 6.668,18 · contratação livre · injetada 900 kWh"
+    );
+  });
+
+  it("sem ponta, o consumo fica simples", () => {
+    expect(resumoCardAnalise({ grupo: "A", consumo: "1.200", valor: "300,00" })).toBe(
+      "Grupo A · consumo 1.200 kWh · R$ 300,00"
+    );
+  });
+
+  it("IA sem nada extraído → frase genérica", () => {
+    expect(resumoCardAnalise({})).toBe("Conta analisada pela IA");
   });
 });
 

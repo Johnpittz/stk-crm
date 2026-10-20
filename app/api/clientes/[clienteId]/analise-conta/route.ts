@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { analisarFatura, analisarFaturaTexto, diagFatura } from "@/lib/ia/analisar-fatura";
-import { competenciaAtual, marcarComoAnalisada, paraNumero, cardsFunilFaltando, montarCadastroUnificado } from "@/lib/clientes/fatura-conta";
+import { competenciaAtual, marcarComoAnalisada, paraNumero, cardsFunilFaltando, montarCadastroUnificado, resumoCardAnalise } from "@/lib/clientes/fatura-conta";
 import { diaDeHoje, linhaDoDiaParaRegravar } from "@/lib/clientes/analise-conta";
 import { baixarArquivoFatura } from "@/lib/clientes/arquivo-fatura";
 import {
@@ -326,15 +326,26 @@ export async function POST(
         const valorFunil = numeroBR(resumo.valor);
         const descricoes: Record<string, string> = {
           recebida: `${nomeFunil} — conta recebida, competência ${compFunil}.`,
-          analisada:
-            `${nomeFunil} — analisada pela IA, competência ${compFunil}.` +
-            (valorFunil ? ` Valor R$ ${valorFunil}.` : ""),
+          // 19/10 (pedido do João): o card de análise mostra o que a IA
+          // LEU da conta (grupo, consumo, ponta, valor, livre, injetada).
+          analisada: resumoCardAnalise(resumo),
         };
         // 19/10 (pedido do João): cards como NOVA TAREFA automática e os
         // DOIS moram em "Recebeu a Conta" — a coluna conta a história.
         const titulos: Record<string, string> = {
           recebida: "Fatura Recebida",
           analisada: "Fatura Analisada",
+        };
+        // 19/10 — o card de análise também preenche os campos estruturados
+        // (UC, concessionária, consumo, valor) pro funil calcular/mostrar.
+        const extras: Record<string, Record<string, unknown>> = {
+          recebida: {},
+          analisada: {
+            uc: resumo.uc ?? null,
+            concessionaria: resumo.concessionaria ?? null,
+            consumo_kwh: numeroBR(resumo.consumo),
+            valor_venda: numeroBR(resumo.valor),
+          },
         };
         // 19/10 — FK exige vendedor que exista em `profiles`: usuário sem
         // cadastro lá cai no vendedor responsável do cliente.
@@ -351,6 +362,7 @@ export async function POST(
               descricao: descricoes[qual],
               etapa: "recebeu_conta",
               vendedor_id: vendedor,
+              ...(extras[qual] ?? {}),
             });
             if (!error) {
               erroCard = null;
