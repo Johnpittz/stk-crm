@@ -69,20 +69,6 @@ export async function POST(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  // 19/10 — cliente apagado com a página aberta: a conta virava linha
-  // órfã e o card falhava por FK sem avisar nada. Confirma antes.
-  const { data: cliExiste } = await admin
-    .from("clientes")
-    .select("id")
-    .eq("id", clienteId)
-    .single();
-  if (!cliExiste) {
-    return NextResponse.json(
-      { error: "Este cliente não existe mais — atualize a página e tente de novo." },
-      { status: 404 }
-    );
-  }
-
   // 19/10 — guarda o ARQUIVO enviado (o PDF em si, não só os números): é
   // o que permite "Reanalisar" reler a conta já inserida sem pedir de novo
   const guardado = await guardarArquivoFatura(admin, clienteId, arquivo);
