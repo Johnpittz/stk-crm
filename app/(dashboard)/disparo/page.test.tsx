@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 /**
- * ITEM 2 (16/10) — UM único menu "Disparo" no Marketing (decisão do João:
- * "um único menu Disparo (sem Campanhas)"). A tela /disparo passa a ser
- * TUDO junto numa tela só, sem abas: criar disparo (BulkSender + artes),
- * campanhas (com Novo Disparo / remarketing) e relatórios.
+ * ITEM 2 (16/10) — UM único menu "Disparo" no Marketing (decisão do João).
+ * A tela /disparo empilha: criar disparo (BulkSender, com as abas
+ * Avulso/Em Massa/Remarketing NA TELA desde 19/10), campanhas e
+ * relatórios.
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
@@ -11,8 +11,10 @@ import { render, screen, cleanup } from "@testing-library/react";
 vi.mock("@/components/features/disparo/bulk-sender", () => ({
   BulkSender: () => <div data-testid="sec-criar" />,
 }));
-vi.mock("../marketing/campanhas/page", () => ({
-  default: () => <div data-testid="sec-campanhas" />,
+// 19/10 — o conteúdo mora em components/features/campanhas (a page da
+// rota virou casca fina que só re-exporta este componente)
+vi.mock("@/components/features/campanhas/campanhas-conteudo", () => ({
+  CampanhasConteudo: () => <div data-testid="sec-campanhas" />,
 }));
 vi.mock("../marketing/relatorios/page", () => ({
   default: () => <div data-testid="sec-relatorios" />,
@@ -33,8 +35,8 @@ describe(" tela única /disparo (item 2)", () => {
     expect(screen.getByTestId("sec-relatorios")).toBeTruthy();
   });
 
-  it("explica no topo que tudo ficou junto (sem abas)", () => {
+  it("explica no topo o que a tela oferece (sem trocar de tela)", () => {
     render(<DisparoPage />);
-    expect(screen.getByText(/tudo em um lugar/i)).toBeTruthy();
+    expect(screen.getByText(/sem trocar de tela/i)).toBeTruthy();
   });
 });
