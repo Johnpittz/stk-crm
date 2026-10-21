@@ -872,9 +872,26 @@ export function CampanhasConteudo({
   // corpo do dialogo, sem modal (props exibirSomenteCriar).
   const criarDisparoCorpo = (
     <>
-          <DialogHeader>
-            <DialogTitle className="text-white">Criar Disparo - {campanhaSelecionada?.nome}</DialogTitle>
-          </DialogHeader>
+          {/* 19/10 — DialogTitle exige o contexto do Dialog: no modo em-tela
+              (tela de Disparo) usamos um cabeçalho próprio com Fechar */}
+          {exibirSomenteCriar ? (
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h3 className="text-white font-semibold">Criar Disparo</h3>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => { resetarDialog(); aoFechar?.(); }}
+                className="text-white/50 hover:text-white"
+              >
+                <X className="h-4 w-4 mr-1" /> Fechar
+              </Button>
+            </div>
+          ) : (
+            <DialogHeader>
+              <DialogTitle className="text-white">Criar Disparo - {campanhaSelecionada?.nome}</DialogTitle>
+            </DialogHeader>
+          )
+          }
           
           <Tabs value={tipoEnvio} onValueChange={(v) => setTipoEnvio(v as 'avulso' | 'massa' | 'remarketing')}>
             {/* 19/10 — na tela de Disparo as abas ficam no topo (bulk):
@@ -1408,18 +1425,7 @@ export function CampanhasConteudo({
   );
 
   const blocoCriarEmTela = (
-    <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 max-w-3xl">
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <h3 className="text-white font-semibold">Criar Disparo</h3>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => { resetarDialog(); aoFechar?.(); }}
-          className="text-white/50 hover:text-white"
-        >
-          <X className="h-4 w-4 mr-1" /> Fechar
-        </Button>
-      </div>
+    <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 max-w-3xl mb-4">
       {criarDisparoCorpo}
     </div>
   );
