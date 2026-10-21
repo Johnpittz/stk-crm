@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { resumoEnvios } from "./resumo-envios";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CampanhasConteudo } from "@/components/features/campanhas/campanhas-conteudo";
 
 interface Campaign {
   id: string;
@@ -70,12 +72,11 @@ function Kpi({
   );
 }
 
-export function BulkSender({
-  aoEscolherDisparo,
-}: {
-  /** 19/10 — abre o fluxo escolhido (Excel/Remarketing) no diálogo Novo Disparo */
-  aoEscolherDisparo?: (tipo: "massa" | "remarketing") => void;
-} = {}) {
+export function BulkSender() {
+  // 19/10 (pedido do João) — as 3 opções de disparo NA TELA: Avulso é o
+  // form daqui; Em Massa/Remarketing embutem o mesmo formulário do
+  // "Novo Disparo" (sem modal), já na aba certa.
+  const [abaDisparo, setAbaDisparo] = useState<"avulso" | "massa" | "remarketing">("avulso");
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [newInstance, setNewInstance] = useState("STK-3");
   const [newIntervalo, setNewIntervalo] = useState(5);
@@ -311,38 +312,39 @@ export function BulkSender({
       {/* 19/10 (pedido do João) — sem header aqui: a página já tem o
           título "Disparo" (sobrava DOIS textos falando de disparo) */}
 
-      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <Tabs
+        value={abaDisparo}
+        onValueChange={(v) => setAbaDisparo(v as "avulso" | "massa" | "remarketing")}
+        className="flex-1 min-h-0 flex flex-col"
+      >
+        <TabsList className="bg-[#0f1d32] border border-white/10 w-full max-w-lg mb-4 shrink-0">
+          <TabsTrigger
+            value="avulso"
+            className="flex-1 text-white/60 data-[state=active]:bg-emerald-600 data-[state=active]:text-white"
+          >
+            <Send className="h-4 w-4 mr-2" /> Avulso
+          </TabsTrigger>
+          <TabsTrigger
+            value="massa"
+            className="flex-1 text-white/60 data-[state=active]:bg-emerald-600 data-[state=active]:text-white"
+          >
+            <FileSpreadsheet className="h-4 w-4 mr-2" /> Em Massa
+          </TabsTrigger>
+          <TabsTrigger
+            value="remarketing"
+            className="flex-1 text-white/60 data-[state=active]:bg-emerald-600 data-[state=active]:text-white"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" /> Remarketing
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="avulso" className="flex-1 min-h-0 mt-0">
+          <div className="h-full grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Formulário */}
         <div className="lg:col-span-1 bg-[#0f1d32] border border-white/10 rounded-lg p-4 overflow-y-auto">
           <h2 className="text-lg font-semibold text-white mb-4">
             Nova Campanha
           </h2>
-
-          {/* 19/10 (pedido do João) — as duas opções que só existiam no
-              diálogo "Novo Disparo" agora ficam já na tela de disparo */}
-          <div className="border border-white/10 rounded-lg p-3 bg-white/5 mb-4">
-            <p className="text-xs font-medium text-white/60 mb-2">
-              Outros tipos de disparo
-            </p>
-            <div className="grid grid-cols-1 gap-2">
-              <Button
-                variant="outline"
-                onClick={() => aoEscolherDisparo?.("massa")}
-                className="justify-start border-white/15 text-white/80 hover:text-white hover:bg-white/10"
-              >
-                <FileSpreadsheet className="h-4 w-4 mr-2" />
-                Disparo em Massa (Excel)
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => aoEscolherDisparo?.("remarketing")}
-                className="justify-start border-white/15 text-white/80 hover:text-white hover:bg-white/10"
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Remarketing (24h sem resposta)
-              </Button>
-            </div>
-          </div>
 
           <div className="space-y-4">
             {/* Nome */}
@@ -622,7 +624,22 @@ export function BulkSender({
             })()}
           </ScrollArea>
         </div>
-      </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="massa" className="flex-1 min-h-0 mt-0 overflow-y-auto">
+          <CampanhasConteudo
+            exibirSomenteCriar="massa"
+            aoFechar={() => setAbaDisparo("avulso")}
+          />
+        </TabsContent>
+        <TabsContent value="remarketing" className="flex-1 min-h-0 mt-0 overflow-y-auto">
+          <CampanhasConteudo
+            exibirSomenteCriar="remarketing"
+            aoFechar={() => setAbaDisparo("avulso")}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

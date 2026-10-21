@@ -26,15 +26,7 @@ export default function DisparoPage() {
         <h2 id="sec-criar" className="text-lg font-semibold text-white mb-3">
           Criar disparo
         </h2>
-        <BulkSender
-          aoEscolherDisparo={(tipo) =>
-            window.dispatchEvent(
-              new CustomEvent<"massa" | "remarketing">("abrir-disparo-em-massa", {
-                detail: tipo,
-              })
-            )
-          }
-        />
+        <BulkSender />
       </section>
 
       <section aria-labelledby="sec-campanhas">
