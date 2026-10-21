@@ -67,6 +67,9 @@ interface ContatoPlanilha {
   telefone: string;
 }
 
+/**
+ * ITEM 2 (16/10) — conteúdo do menu Disparo e da rota /marketing/campanhas.
+ */
 export default function CampanhasPage() {
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,6 +83,18 @@ export default function CampanhasPage() {
   const [promocoes, setPromocoes] = useState<any[]>([]);
   const [sending, setSending] = useState(false);
   const [tipoEnvio, setTipoEnvio] = useState<'avulso' | 'massa' | 'remarketing'>('avulso');
+  // 19/10 — a tela de Disparo pede, pelos botões "Excel"/"Remarketing",
+  // pra abrir o "Novo Disparo" já na aba escolhida (evento de janela:
+  // page de rota do Next não aceita props, nem named exports).
+  useEffect(() => {
+    const abrir = (e: Event) => {
+      const tipo = (e as CustomEvent<'massa' | 'remarketing'>).detail;
+      setTipoEnvio(tipo);
+      setShowDisparoDialog(true);
+    };
+    window.addEventListener('abrir-disparo-em-massa', abrir);
+    return () => window.removeEventListener('abrir-disparo-em-massa', abrir);
+  }, []);
   // M1 — preview do público de remarketing (calculado pelo servidor com a regra única)
   const [publicoRemarketing, setPublicoRemarketing] = useState<any>(null);
   const [carregandoPublico, setCarregandoPublico] = useState(false);

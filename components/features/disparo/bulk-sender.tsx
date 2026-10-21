@@ -18,6 +18,8 @@ import {
   Loader2,
   Image,
   X,
+  FileSpreadsheet,
+  RefreshCw,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { resumoEnvios } from "./resumo-envios";
@@ -68,7 +70,12 @@ function Kpi({
   );
 }
 
-export function BulkSender() {
+export function BulkSender({
+  aoEscolherDisparo,
+}: {
+  /** 19/10 — abre o fluxo escolhido (Excel/Remarketing) no diálogo Novo Disparo */
+  aoEscolherDisparo?: (tipo: "massa" | "remarketing") => void;
+} = {}) {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [newInstance, setNewInstance] = useState("STK-3");
   const [newIntervalo, setNewIntervalo] = useState(5);
@@ -310,6 +317,32 @@ export function BulkSender() {
           <h2 className="text-lg font-semibold text-white mb-4">
             Nova Campanha
           </h2>
+
+          {/* 19/10 (pedido do João) — as duas opções que só existiam no
+              diálogo "Novo Disparo" agora ficam já na tela de disparo */}
+          <div className="border border-white/10 rounded-lg p-3 bg-white/5 mb-4">
+            <p className="text-xs font-medium text-white/60 mb-2">
+              Outros tipos de disparo
+            </p>
+            <div className="grid grid-cols-1 gap-2">
+              <Button
+                variant="outline"
+                onClick={() => aoEscolherDisparo?.("massa")}
+                className="justify-start border-white/15 text-white/80 hover:text-white hover:bg-white/10"
+              >
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Disparo em Massa (Excel)
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => aoEscolherDisparo?.("remarketing")}
+                className="justify-start border-white/15 text-white/80 hover:text-white hover:bg-white/10"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Remarketing (24h sem resposta)
+              </Button>
+            </div>
+          </div>
 
           <div className="space-y-4">
             {/* Nome */}
