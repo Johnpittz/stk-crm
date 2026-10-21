@@ -613,15 +613,19 @@ export default function NovoClientePage() {
               </div>
             )}
 
-            <div className="space-y-1.5">
-              <Label className={labelCls}>Data de Nascimento</Label>
-              <Input
-                type="date"
-                value={form.data_nascimento_proprietario}
-                onChange={(e) => set("data_nascimento_proprietario", e.target.value)}
-                className={`${inputCls} [color-scheme:dark]`}
-              />
-            </div>
+            {/* ITEM 1 — PF não mostra a data do proprietário: a pessoa
+                FÍSICA já tem a própria Data de Nascimento acima */}
+            {mostrarCamposEmpresa(form.tipo) && (
+              <div className="space-y-1.5">
+                <Label className={labelCls}>Data de Nascimento do Proprietário</Label>
+                <Input
+                  type="date"
+                  value={form.data_nascimento_proprietario}
+                  onChange={(e) => set("data_nascimento_proprietario", e.target.value)}
+                  className={`${inputCls} [color-scheme:dark]`}
+                />
+              </div>
+            )}
 
             {/* Email */}
             <div className="space-y-1.5">
