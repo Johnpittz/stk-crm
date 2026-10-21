@@ -72,6 +72,15 @@ function Kpi({
   );
 }
 
+/** 21/10 — rótulo de status na atividade recente. */
+function rotuloStatus(status: string) {
+  if (status === "running") return "🚀 Enviando";
+  if (status === "completed") return "✅ Concluída";
+  if (status === "failed") return "❌ Falhou";
+  if (status === "paused") return "⏸️ Pausada";
+  return "⏳ Pendente";
+}
+
 export function BulkSender() {
   // 19/10 (pedido do João) — as 3 opções de disparo NA TELA: Avulso é o
   // form daqui; Em Massa/Remarketing embutem o mesmo formulário do
@@ -723,6 +732,11 @@ export function BulkSender() {
           <ScrollArea className="flex-1 min-h-0">
             {(() => {
               const r = resumoEnvios(campaigns);
+              // 21/10 — "não gravou no sistema": o painel só sumava os
+              // agregados e NINGUÉM VIA o disparo feito. Atividade recente.
+              const recentes = [...campaigns]
+                .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))
+                .slice(0, 6);
               const pendentes = campaigns.filter((c) => c.status === "pending");
               const ultimaAtividade = campaigns
                 .map((c) => c.createdAt)
@@ -779,6 +793,36 @@ export function BulkSender() {
                       <b className="text-white/70">{formatarData(ultimaAtividade)}</b>
                     </span>
                   </div>
+
+                  {/* Atividade recente (21/10): cada disparo visível com
+                      nome, hora, status, enviados e falhas */}
+                  {recentes.length > 0 && (
+                    <div>
+                      <p className="text-xs text-white/40 mb-2">
+                        Atividade recente
+                      </p>
+                      <div className="space-y-1.5">
+                        {recentes.map((c) => (
+                          <div
+                            key={c.id}
+                            className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs"
+                          >
+                            <span className="text-white/70 flex-1 truncate">
+                              {c.name || "(sem nome)"}
+                            </span>
+                            <span className="text-white/30 shrink-0">
+                              {formatarData(c.createdAt)}
+                            </span>
+                            <span className="shrink-0">{rotuloStatus(c.status)}</span>
+                            <span className="text-emerald-400 shrink-0">
+                              ✓ {c.sent}
+                            </span>
+                            <span className="text-red-400 shrink-0">✗ {c.failed}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Campanhas criadas e ainda não enviadas — a ação de
                       disparar continua aqui, sem precisar da lista antiga */}
