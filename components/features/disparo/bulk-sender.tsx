@@ -8,10 +8,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Play,
   Send,
-  Users,
   CheckCircle,
   XCircle,
-  Clock,
+  TrendingUp,
   FileText,
   Trash2,
   Smartphone,
@@ -21,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { resumoEnvios } from "./resumo-envios";
 
 interface Campaign {
   id: string;
@@ -41,6 +41,31 @@ interface InstanciaWhatsApp {
   name: string;
   number: string;
   status: string;
+}
+
+/** 19/10 — cartão de indicador do painel de envios (padrão dashboard). */
+function Kpi({
+  titulo,
+  valor,
+  cor,
+  icone,
+}: {
+  titulo: string;
+  valor: number | string;
+  cor: string;
+  icone: React.ReactNode;
+}) {
+  return (
+    <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+      <div className="flex items-center gap-1.5 text-[11px] text-white/40 mb-1">
+        {icone}
+        {titulo}
+      </div>
+      <p className={`text-2xl font-bold ${cor}`}>
+        {typeof valor === "number" ? valor.toLocaleString("pt-BR") : valor}
+      </p>
+    </div>
+  );
 }
 
 export function BulkSender() {
@@ -261,8 +286,12 @@ export function BulkSender() {
     }
   };
 
-  const formatarData = (data: string) => {
-    return new Date(data).toLocaleString("pt-BR", {
+  const formatarData = (data: string | null | undefined) => {
+    // 19/10 — "invalid date" na tela antiga: sem data ou data inválida, mostra "—"
+    if (!data) return "—";
+    const d = new Date(data);
+    if (Number.isNaN(d.getTime())) return "—";
+    return d.toLocaleString("pt-BR", {
       day: "2-digit",
       month: "2-digit",
       hour: "2-digit",
@@ -272,15 +301,8 @@ export function BulkSender() {
 
   return (
     <div className="h-[calc(100vh-9rem)] flex flex-col overflow-hidden">
-      {/* Header */}
-      <div className="shrink-0 mb-4">
-        <h1 className="text-2xl font-bold text-white">
-          📨 Disparo em Massa
-        </h1>
-        <p className="text-sm text-white/50">
-          Envie mensagens para múltiplos contatos
-        </p>
-      </div>
+      {/* 19/10 (pedido do João) — sem header aqui: a página já tem o
+          título "Disparo" (sobrava DOIS textos falando de disparo) */}
 
       <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Formulário */}
@@ -445,139 +467,126 @@ export function BulkSender() {
           </div>
         </div>
 
-        {/* Lista de campanhas */}
+        {/* 19/10 (pedido do João) — PAINEL DE ENVIOS no lugar da lista de
+            campanhas: agregado com os números certos (dashboard) */}
         <div className="lg:col-span-2 bg-[#0f1d32] border border-white/10 rounded-lg p-4 overflow-hidden flex flex-col">
-          <h2 className="text-lg font-semibold text-white mb-4">
-            Campanhas
-          </h2>
+          <div className="flex items-baseline justify-between mb-4">
+            <h2 className="text-lg font-semibold text-white">Painel de Envios</h2>
+            <p className="text-xs text-white/30">
+              Atualiza sozinho enquanto há disparos rodando
+            </p>
+          </div>
 
           <ScrollArea className="flex-1 min-h-0">
-            {campaigns.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-40 text-white/30">
-                <FileText className="h-8 w-8 mb-2 opacity-40" />
-                <p className="text-sm">Nenhuma campanha criada</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {campaigns.map((campaign) => (
-                  <div
-                    key={campaign.id}
-                    className="p-4 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition-colors"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-white">
-                            {campaign.name}
-                          </h3>
-                          <Badge
-                            className={
-                              campaign.status === "running"
-                                ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
-                                : campaign.status === "completed"
-                                ? "bg-green-500/20 text-green-300 border-green-500/30"
-                                : campaign.status === "failed"
-                                ? "bg-red-500/20 text-red-300 border-red-500/30"
-                                : "bg-white/10 text-white/50 border-white/10"
-                            }
+            {(() => {
+              const r = resumoEnvios(campaigns);
+              const pendentes = campaigns.filter((c) => c.status === "pending");
+              const ultimaAtividade = campaigns
+                .map((c) => c.createdAt)
+                .filter((d) => !!d && !Number.isNaN(new Date(d).getTime()))
+                .sort()
+                .pop();
+              return (
+                <div className="space-y-4">
+                  {/* KPIs */}
+                  <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+                    <Kpi
+                      titulo="Mensagens enviadas"
+                      valor={r.enviadas}
+                      cor="text-emerald-400"
+                      icone={<CheckCircle className="h-4 w-4" />}
+                    />
+                    <Kpi
+                      titulo="Falhas"
+                      valor={r.falhas}
+                      cor="text-red-400"
+                      icone={<XCircle className="h-4 w-4" />}
+                    />
+                    <Kpi
+                      titulo="Taxa de sucesso"
+                      valor={`${r.taxa}%`}
+                      cor="text-blue-300"
+                      icone={<TrendingUp className="h-4 w-4" />}
+                    />
+                    <Kpi
+                      titulo="Em andamento"
+                      valor={r.emAndamento}
+                      cor="text-amber-300"
+                      icone={<Timer className="h-4 w-4" />}
+                    />
+                  </div>
+
+                  {/* Linha de contexto */}
+                  <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-white/40 bg-white/5 border border-white/10 rounded-lg px-4 py-3">
+                    <span>
+                      <b className="text-white/70">{r.totalCampanhas}</b> campanhas
+                    </span>
+                    <span>
+                      <b className="text-white/70">{r.concluidas}</b> concluídas
+                    </span>
+                    <span>
+                      <b className="text-white/70">{r.falharamCampanha}</b> falharam
+                    </span>
+                    <span>
+                      <b className="text-white/70">{r.contatos.toLocaleString("pt-BR")}</b>{" "}
+                      contatos na fila
+                    </span>
+                    <span>
+                      última atividade:{" "}
+                      <b className="text-white/70">{formatarData(ultimaAtividade)}</b>
+                    </span>
+                  </div>
+
+                  {/* Campanhas criadas e ainda não enviadas — a ação de
+                      disparar continua aqui, sem precisar da lista antiga */}
+                  {pendentes.length > 0 && (
+                    <div className="bg-amber-500/10 border border-amber-400/30 rounded-lg p-3">
+                      <p className="text-xs font-semibold text-amber-300 mb-2">
+                        ⏳ {pendentes.length} disparo(s) criado(s) e ainda não enviados
+                      </p>
+                      <div className="space-y-2">
+                        {pendentes.map((c) => (
+                          <div
+                            key={c.id}
+                            className="flex items-center justify-between gap-2 bg-black/20 rounded px-3 py-2"
                           >
-                            {campaign.status === "pending" && "⏳ Pendente"}
-                            {campaign.status === "running" && (
-                              <>
-                                <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
-                                Enviando
-                              </>
-                            )}
-                            {campaign.status === "paused" && "⏸️ Pausada"}
-                            {campaign.status === "completed" && "✅ Concluída"}
-                            {campaign.status === "failed" && "❌ Falhou"}
-                          </Badge>
-                          {campaign.instancia && (
-                            <Badge className="bg-white/5 text-white/40 border-white/10 text-[10px]">
-                              📱 {campaign.instancia.slice(-4)}
-                            </Badge>
-                          )}
-                          {campaign.imagem_url && (
-                            <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30 text-[10px]">
-                              🖼️ Com imagem
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-white/40 mt-1 line-clamp-2">
-                          {campaign.message}
-                        </p>
-                        <div className="flex items-center gap-4 mt-2 text-xs text-white/30">
-                          <span className="flex items-center gap-1">
-                            <Users className="h-3 w-3" />
-                            {campaign.numbers.length} contatos
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <CheckCircle className="h-3 w-3 text-green-400" />
-                            {campaign.sent} enviados
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <XCircle className="h-3 w-3 text-red-400" />
-                            {campaign.failed} falharam
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {formatarData(campaign.createdAt)}
-                          </span>
-                          {campaign.intervalo && (
-                            <span className="flex items-center gap-1">
-                              <Timer className="h-3 w-3" />
-                              a cada {campaign.intervalo}s
-                            </span>
-                          )}
-                        </div>
-                        {/* Barra de progresso */}
-                        {campaign.status === "running" &&
-                          campaign.numbers.length > 0 && (
-                            <div className="mt-2">
-                              <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-                                <div
-                                  className="h-full bg-[#3B64CF] rounded-full transition-all duration-500"
-                                  style={{
-                                    width: `${
-                                      ((campaign.sent + campaign.failed) /
-                                        campaign.numbers.length) *
-                                      100
-                                    }%`,
-                                  }}
-                                />
-                              </div>
-                              <p className="text-[10px] text-white/30 mt-1">
-                                {campaign.sent + campaign.failed} de{" "}
-                                {campaign.numbers.length}
-                              </p>
+                            <span className="text-sm text-white/70 truncate">{c.name}</span>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Button
+                                size="sm"
+                                onClick={() => enviarCampanha(c)}
+                                className="bg-[#3B64CF] hover:bg-[#3B64CF]/80 text-white"
+                              >
+                                <Play className="h-4 w-4 mr-1" />
+                                Enviar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => deletarCampanha(c.id)}
+                                className="text-white/30 hover:text-red-400 hover:bg-red-500/10"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </div>
-                          )}
-                      </div>
-                      <div className="flex items-center gap-2 ml-4">
-                        {campaign.status === "pending" && (
-                          <Button
-                            size="sm"
-                            onClick={() => enviarCampanha(campaign)}
-                            className="bg-[#3B64CF] hover:bg-[#3B64CF]/80 text-white"
-                          >
-                            <Play className="h-4 w-4 mr-1" />
-                            Enviar
-                          </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => deletarCampanha(campaign.id)}
-                          className="text-white/30 hover:text-red-400 hover:bg-red-500/10"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  )}
+
+                  {r.totalCampanhas === 0 && (
+                    <div className="flex flex-col items-center justify-center h-40 text-white/30">
+                      <FileText className="h-8 w-8 mb-2 opacity-40" />
+                      <p className="text-sm">
+                        Nenhum disparo ainda — os números aparecem aqui depois da
+                        primeira campanha
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </ScrollArea>
         </div>
       </div>

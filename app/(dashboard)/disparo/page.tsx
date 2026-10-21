@@ -2,12 +2,11 @@
 
 /**
  * ITEM 2 (16/10) — tela ÚNICA do Disparo (decisão do João: "um único menu
- * Disparo (sem Campanhas)"). Tudo junto, sem abas: criar disparo
- * (BulkSender + carga de arte da galeria), campanhas (com Novo Disparo,
- * massa e remarketing) e relatórios — empilhados na mesma tela.
+ * Disparo (sem Campanhas)"). 19/10: a seção Campanhas saiu (histórico
+ * vive em Marketing > Campanhas) — no BulkSender há um PAINEL DE ENVIOS
+ * com os agregados reais; relatórios seguem aqui.
  */
 import { BulkSender } from "@/components/features/disparo/bulk-sender";
-import CampanhasConteudo from "../marketing/campanhas/page";
 import RelatoriosConteudo from "../marketing/relatorios/page";
 
 export default function DisparoPage() {
@@ -16,8 +15,8 @@ export default function DisparoPage() {
       <div>
         <h1 className="text-2xl font-bold text-white">Disparo</h1>
         <p className="text-white/50 text-sm mt-1">
-          Tudo em um lugar: criar disparo, acompanhar as campanhas e ver os
-          relatórios — sem trocar de tela.
+          Crie disparos e acompanhe os envios no painel ao lado — sem trocar
+          de tela.
         </p>
       </div>
 
@@ -26,13 +25,6 @@ export default function DisparoPage() {
           Criar disparo
         </h2>
         <BulkSender />
-      </section>
-
-      <section aria-labelledby="sec-campanhas">
-        <h2 id="sec-campanhas" className="text-lg font-semibold text-white mb-3">
-          Campanhas
-        </h2>
-        <CampanhasConteudo />
       </section>
 
       <section aria-labelledby="sec-relatorios">
