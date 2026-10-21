@@ -91,6 +91,41 @@ describe('GET /api/bulk/campaigns — lista sem o blob de imagens', () => {
   })
 })
 
+describe('POST /api/bulk/campaigns — fluxo de mensagens (pedido 19/10)', () => {
+  it('guarda o fluxo (texto + imagem pro Storage) e a pausa entre passos', async () => {
+    const res = await POST(
+      new NextRequest('http://localhost/api/bulk/campaigns', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Avulso com fluxo',
+          numbers: ['5562999990000'],
+          message: '',
+          intervalo_passos: 7,
+          fluxo_mensagens: [
+            { type: 'text', content: 'oi, tudo bem?' },
+            { type: 'image', base64: 'AAAA', mimetype: 'image/png' },
+          ],
+        }),
+      })
+    )
+    expect(res.status).toBe(200)
+
+    const gravado: any = inserts.at(-1)
+    // a pausa entre passos do fluxo tinha que ser GRAVADA (o robô da VPS
+    // usa intervalo_passos entre cada mensagem do fluxo)
+    expect(gravado.intervalo_passos).toBe(7)
+    expect(gravado.fluxo_mensagens).toHaveLength(2)
+    expect(gravado.fluxo_mensagens[0]).toEqual({ type: 'text', content: 'oi, tudo bem?' })
+    // a imagem subiu pro Storage e o passo ficou como URL (não base64 no banco)
+    expect(uploads).toHaveLength(1)
+    expect(gravado.fluxo_mensagens[1].type).toBe('image')
+    expect(gravado.fluxo_mensagens[1].url).toContain('https://')
+    // sem fluxo gravado na mensagem única (o robô envia a sequência, não texto solto)
+    expect(gravado.message).toBe('')
+  })
+})
+
 describe('POST /api/bulk/campaigns — retorno da criação', () => {
   it('também não devolve fluxo_mensagens', async () => {
     const res = await POST(

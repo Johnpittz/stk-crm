@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = getSupabase();
     const body = await request.json();
-    const { name, message, numbers, instancia, intervalo, campanha_id, promocao_id, imagem_base64, imagem_mimetype, fluxo_mensagens } = body;
+    const { name, message, numbers, instancia, intervalo, intervalo_passos, campanha_id, promocao_id, imagem_base64, imagem_mimetype, fluxo_mensagens } = body;
 
     if (!name || !numbers || numbers.length === 0) {
       return NextResponse.json(
@@ -75,8 +75,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Se tem fluxo_mensagens, usar ele. Senão, usar message antigo
-    const messageFinal = message || (fluxo_mensagens ? JSON.stringify(fluxo_mensagens) : '');
+    // 19/10 — com FLUXO, a mensagem única fica VAZIA (mesma regra do
+    // diálogo de disparos: o robô envia a sequência texto→imagem, não
+    // texto solto — e a coluna não vira JSON crú). Sem fluxo, segue a
+    // mensagem de sempre.
+    const messageFinal = fluxo_mensagens ? '' : (message || '');
 
     // Upload da imagem para Supabase Storage (se fornecida - compatibilidade antiga)
     let imagem_url: string | null = null;
@@ -125,6 +128,9 @@ export async function POST(request: NextRequest) {
         failed: 0,
         instancia: instancia || "STK-3",
         intervalo: intervalo || 5,
+        // 19/10 — pausa entre as mensagens do FLUXO (texto→imagem→...):
+        // o robô da VPS dorme intervalo_passos s entre cada passo.
+        intervalo_passos: intervalo_passos || 2,
         campanha_id: campanha_id || null,
         promocao_id: promocao_id || null,
         imagem_url,

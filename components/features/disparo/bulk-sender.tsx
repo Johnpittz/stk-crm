@@ -92,6 +92,63 @@ export function BulkSender() {
     name: string;
   } | null>(null);
   const [creating, setCreating] = useState(false);
+  // 19/10 (pedido do João) — FLUXO DE MENSAGENS no Avulso, igual ao
+  // Disparo em Massa: sequência texto → imagem → texto, com pausa entre
+  // passos. O robô da VPS já sabe enviar (fluxo_mensagens + intervalo_passos);
+  // faltava só o form.
+  const [fluxoSteps, setFluxoSteps] = useState<Array<{
+    id: string;
+    type: "text" | "image";
+    content?: string;
+    base64?: string;
+    preview?: string;
+    mimetype?: string;
+    name?: string;
+  }>>([]);
+  const [fluxoPausa, setFluxoPausa] = useState(2);
+
+  const adicionarPassoFluxo = (tipo: "text" | "image") => {
+    setFluxoSteps((prev) => [
+      ...prev,
+      { id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, type: tipo },
+    ]);
+  };
+  const removerPassoFluxo = (id: string) =>
+    setFluxoSteps((prev) => prev.filter((s) => s.id !== id));
+  const atualizarPassoTexto = (id: string, content: string) =>
+    setFluxoSteps((prev) => prev.map((s) => (s.id === id ? { ...s, content } : s)));
+  const moverPassoFluxo = (id: string, dir: "up" | "down") =>
+    setFluxoSteps((prev) => {
+      const i = prev.findIndex((s) => s.id === id);
+      if (i === -1) return prev;
+      const j = dir === "up" ? i - 1 : i + 1;
+      if (j < 0 || j >= prev.length) return prev;
+      const novo = [...prev];
+      [novo[i], novo[j]] = [novo[j], novo[i]];
+      return novo;
+    });
+  const selecionarImagemFluxo = (e: React.ChangeEvent<HTMLInputElement>, id: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      alert("Selecione um arquivo de imagem (JPG, PNG, WEBP)");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Imagem muito grande. Máximo: 5MB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () =>
+      setFluxoSteps((prev) =>
+        prev.map((s) =>
+          s.id === id
+            ? { ...s, base64: reader.result as string, preview: reader.result as string, mimetype: file.type, name: file.name }
+            : s
+        )
+      );
+    reader.readAsDataURL(file);
+  };
   // banner "veio da galeria" (PEDIDO 3)
   const [arteDe, setArteDe] = useState<string | null>(null);
   const [instancias, setInstancias] = useState<InstanciaWhatsApp[]>([]);
@@ -201,8 +258,22 @@ export function BulkSender() {
 
   // Criar nova campanha
   const criarCampanha = async () => {
-    if (!newCampaign.name || !newCampaign.message || !newCampaign.numbers)
-      return;
+    const temFluxo = fluxoSteps.length > 0;
+    if (!newCampaign.name || !newCampaign.numbers) return;
+    // fluxo OU mensagem única (o Disparo em Massa já funciona assim)
+    if (!temFluxo && !newCampaign.message) return;
+    if (temFluxo) {
+      for (const passo of fluxoSteps) {
+        if (passo.type === "text" && !passo.content?.trim()) {
+          alert("Escreva o texto de cada passo do fluxo (ou remova o passo).");
+          return;
+        }
+        if (passo.type === "image" && !passo.base64) {
+          alert("Escolha a imagem de cada passo do fluxo (ou remova o passo).");
+          return;
+        }
+      }
+    }
 
     setCreating(true);
     try {
@@ -226,12 +297,26 @@ export function BulkSender() {
         },
         body: JSON.stringify({
           name: newCampaign.name,
-          message: newCampaign.message,
+          // 19/10 — com fluxo, a mensagem única fica vazia (o robô envia
+          // a sequência texto → imagem → ...); sem fluxo, o de sempre.
+          message: temFluxo ? "" : newCampaign.message,
           numbers,
           instancia: newInstance,
           intervalo: newIntervalo,
           imagem_base64: newImage?.base64 || null,
           imagem_mimetype: newImage?.mimetype || null,
+          // 19/10 — sequência de passos (a rota sobe as imagens pro
+          // Storage; o robô da VPS dorme intervalo_passos entre elas)
+          ...(temFluxo
+            ? {
+                intervalo_passos: fluxoPausa,
+                fluxo_mensagens: fluxoSteps.map((s) =>
+                  s.type === "text"
+                    ? { type: "text", content: s.content }
+                    : { type: "image", base64: s.base64, mimetype: s.mimetype }
+                ),
+              }
+            : {}),
         }),
       });
 
@@ -239,6 +324,7 @@ export function BulkSender() {
         setNewCampaign({ name: "", message: "", numbers: "" });
         setNewImage(null);
         setArteDe(null);
+        setFluxoSteps([]);
         fetchCampaigns();
       }
     } catch (err) {
@@ -403,10 +489,132 @@ export function BulkSender() {
               </p>
             </div>
 
-            {/* Mensagem */}
+            {/* 19/10 (pedido do João) — FLUXO DE MENSAGENS: mesmo recurso do
+                Disparo em Massa (texto → imagem → texto), sem planilha */}
             <div>
               <label className="text-xs font-medium text-white/60 mb-1 block">
-                Mensagem
+                Fluxo de Mensagens
+              </label>
+              <p className="text-[11px] text-white/30 mb-2">
+                Monte a sequência: texto → imagem → texto → etc. (o robô manda
+                cada passo com a pausa escolhida)
+              </p>
+
+              {fluxoSteps.length === 0 ? (
+                <p className="text-xs text-white/30 border border-dashed border-white/10 rounded-lg p-3 text-center">
+                  Nenhum passo adicionado — ou use a mensagem única abaixo
+                </p>
+              ) : (
+                <div className="space-y-2 mb-2">
+                  {fluxoSteps.map((passo, idx) => (
+                    <div
+                      key={passo.id}
+                      className="bg-white/5 border border-white/10 rounded-lg p-2"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] uppercase tracking-wide text-white/40">
+                          {idx + 1}. {passo.type === "text" ? "📝 Texto" : "🖼️ Imagem"}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => moverPassoFluxo(passo.id, "up")}
+                            disabled={idx === 0}
+                            className="text-white/40 hover:text-white disabled:opacity-30 text-xs px-1"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            onClick={() => moverPassoFluxo(passo.id, "down")}
+                            disabled={idx === fluxoSteps.length - 1}
+                            className="text-white/40 hover:text-white disabled:opacity-30 text-xs px-1"
+                          >
+                            ↓
+                          </button>
+                          <button
+                            onClick={() => removerPassoFluxo(passo.id)}
+                            className="text-white/40 hover:text-red-400 text-xs px-1"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                      {passo.type === "text" ? (
+                        <textarea
+                          placeholder="Escreva a mensagem deste passo..."
+                          className="w-full h-20 px-2 py-1.5 bg-white/5 border border-white/10 rounded resize-none focus:outline-none focus:ring-1 focus:ring-[#3B64CF] text-white placeholder:text-white/30 text-xs"
+                          value={passo.content || ""}
+                          onChange={(e) => atualizarPassoTexto(passo.id, e.target.value)}
+                        />
+                      ) : passo.preview ? (
+                        <div className="flex items-center gap-2">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={passo.preview}
+                            alt={passo.name || "imagem do passo"}
+                            className="h-14 w-14 object-cover rounded border border-white/10"
+                          />
+                          <span className="text-[10px] text-[#3B64CF] truncate">
+                            ✅ {passo.name}
+                          </span>
+                        </div>
+                      ) : (
+                        <label className="flex items-center gap-2 w-full p-2 border border-dashed border-white/10 rounded cursor-pointer hover:border-[#3B64CF]/50 transition-colors">
+                          <Image className="h-4 w-4 text-white/30" />
+                          <span className="text-xs text-white/30">Escolher imagem</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => selecionarImagemFluxo(e, passo.id)}
+                          />
+                        </label>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => adicionarPassoFluxo("text")}
+                  className="border-white/15 text-white/70 hover:text-white hover:bg-white/10"
+                >
+                  + Texto
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => adicionarPassoFluxo("image")}
+                  className="border-white/15 text-white/70 hover:text-white hover:bg-white/10"
+                >
+                  + Imagem
+                </Button>
+              </div>
+
+              {fluxoSteps.length > 0 && (
+                <div className="mt-2">
+                  <label className="text-[11px] text-white/50 block mb-1">
+                    Pausa entre as mensagens do fluxo (segundos)
+                  </label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={fluxoPausa}
+                    onChange={(e) => setFluxoPausa(Math.max(1, parseInt(e.target.value) || 2))}
+                    className="h-8 text-xs"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Mensagem única (alternativa ao fluxo) */}
+            <div>
+              <label className="text-xs font-medium text-white/60 mb-1 block">
+                Mensagem única {fluxoSteps.length > 0 ? "(o fluxo acima tem prioridade)" : ""}
               </label>
               <textarea
                 placeholder="Digite sua mensagem aqui..."
@@ -487,7 +695,7 @@ export function BulkSender() {
               disabled={
                 creating ||
                 !newCampaign.name ||
-                !newCampaign.message ||
+                (!newCampaign.message && fluxoSteps.length === 0) ||
                 !newCampaign.numbers
               }
               className="w-full bg-[#3B64CF] hover:bg-[#3B64CF]/80 text-white"
