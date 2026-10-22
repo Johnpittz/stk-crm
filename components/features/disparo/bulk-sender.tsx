@@ -41,6 +41,7 @@ interface Campaign {
   createdAt: string;
   created_at?: string;
   tipo?: string | null;
+  campanha_id?: string | null;
   delivered?: number | null;
   read_count?: number | null;
   campanha?: { id: string; nome: string } | null;
@@ -87,13 +88,17 @@ function rotuloStatus(status: string) {
 }
 
 
-/** 22/10 — badge de ORIGEM do disparo (avulso × em massa × remarketing). */
-function rotuloTipo(tipo?: string | null) {
+/** 22/10 — badge de ORIGEM do disparo. Avulso = feito direto na tela de
+ *  Disparo (sem campanha); com campanha = Campanha, salvo quando o tipo
+ *  identifica Em Massa/Remarketing. */
+function rotuloTipo(tipo?: string | null, comCampanha?: boolean) {
+  if (!comCampanha)
+    return { texto: "Avulso", estilo: "bg-amber-500/15 text-amber-300 border-amber-500/30" };
   if (tipo === "remarketing")
     return { texto: "Remarketing", estilo: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" };
   if (tipo === "massa")
     return { texto: "Em Massa", estilo: "bg-violet-500/15 text-violet-300 border-violet-500/30" };
-  return { texto: "Avulso", estilo: "bg-amber-500/15 text-amber-300 border-amber-500/30" };
+  return { texto: "Campanha", estilo: "bg-blue-500/15 text-blue-300 border-blue-500/30" };
 }
 
 export function BulkSender() {
@@ -825,7 +830,7 @@ export function BulkSender() {
                       </p>
                       <div className="space-y-1.5">
                         {recentes.map((c) => {
-                          const origem = rotuloTipo(c.tipo);
+                          const origem = rotuloTipo(c.tipo, !!c.campanha_id);
                           const aberta = linhaExpandida === c.id;
                           const mensagem = (c.message || "").trim();
                           const ehJson = mensagem.startsWith("[");
