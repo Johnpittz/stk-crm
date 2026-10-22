@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Fragment, useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -1605,106 +1605,81 @@ export function CampanhasConteudo({
                           </TableHeader>
                           <TableBody>
                             {campanha.disparos.map((disparo) => (
-                              <TableRow key={disparo.id} className="border-gray-700">
-                                <TableCell className="text-white font-medium cursor-pointer hover:text-emerald-400 transition-colors" onClick={() => abrirDetalheDisparo(disparo)}>
-                                  {disparo.name}
-                                  {disparo.tipo === 'remarketing' && (
-                                    <span className="ml-2 inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 align-middle">
-                                      Remarketing
+                              <Fragment key={disparo.id}>
+                                <TableRow className="border-gray-700">
+                                  <TableCell className="text-white font-medium cursor-pointer hover:text-emerald-400 transition-colors" onClick={() => abrirDetalheDisparo(disparo)}>
+                                    {disparo.name}
+                                    {disparo.tipo === 'remarketing' && (
+                                      <span className="ml-2 inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 align-middle">
+                                        Remarketing
+                                      </span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-gray-300 whitespace-nowrap">
+                                    <span title={disparo.instancia || ''}>
+                                      {(() => {
+                                        const origem = numeroDeOrigem(mapaNumeros, disparo.instancia);
+                                        return origem ? `📞 ${origem}` : <span className="text-gray-500">-</span>;
+                                      })()}
                                     </span>
-                                  )}
-                                </TableCell>
-                                <TableCell className="text-gray-300 whitespace-nowrap">
-                                  <span title={disparo.instancia || ''}>
-                                    {(() => {
-                                      const origem = numeroDeOrigem(mapaNumeros, disparo.instancia);
-                                      return origem ? `📞 ${origem}` : <span className="text-gray-500">-</span>;
-                                    })()}
-                                  </span>
-                                </TableCell>
-                                <TableCell className="text-gray-300">
-                                  {Array.isArray(disparo.numbers) ? disparo.numbers.length - (typeof disparo.numbers[0] === 'string' ? 1 : 0) : 1}
-                                </TableCell>
-                                <TableCell className="text-gray-300">{disparo.sent || 0}</TableCell>
-                                <TableCell className="text-red-400">{disparo.failed || 0}</TableCell>
-                                <TableCell>{getStatusBadge(disparo.status)}</TableCell>
-                                <TableCell className="text-gray-400 text-xs max-w-[150px] truncate" title={disparo.error_log || ''}>
-                                  {disparo.error_log ? (
-                                    <span className="text-red-400">{disparo.error_log.substring(0, 50)}{disparo.error_log.length > 50 ? '...' : ''}</span>
-                                  ) : (
-                                    <span className="text-gray-500">-</span>
-                                  )}
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex gap-1">
-                                    {disparo.status === 'rascunho' && (
-                                      <Button size="sm" variant="ghost" onClick={() => enviarDisparo(disparo.id)} disabled={sending} className="text-emerald-400 hover:text-emerald-300">
-                                        <Send className="h-4 w-4" />
-                                      </Button>
+                                  </TableCell>
+                                  <TableCell className="text-gray-300">
+                                    {Array.isArray(disparo.numbers) ? disparo.numbers.length - (typeof disparo.numbers[0] === 'string' ? 1 : 0) : 1}
+                                  </TableCell>
+                                  <TableCell className="text-gray-300">{disparo.sent || 0}</TableCell>
+                                  <TableCell className="text-red-400">{disparo.failed || 0}</TableCell>
+                                  <TableCell>{getStatusBadge(disparo.status)}</TableCell>
+                                  <TableCell className="text-gray-400 text-xs max-w-[150px] truncate" title={disparo.error_log || ''}>
+                                    {disparo.error_log ? (
+                                      <span className="text-red-400">{disparo.error_log.substring(0, 50)}{disparo.error_log.length > 50 ? '...' : ''}</span>
+                                    ) : (
+                                      <span className="text-gray-500">-</span>
                                     )}
-                                    {(disparo.status === 'running' || disparo.status === 'processing') && (
-                                      <Button size="sm" variant="ghost" onClick={() => pararDisparo(disparo.id)} className="text-red-400 hover:text-red-300">
-                                        <Square className="h-4 w-4" />
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex gap-1">
+                                      {disparo.status === 'rascunho' && (
+                                        <Button size="sm" variant="ghost" onClick={() => enviarDisparo(disparo.id)} disabled={sending} className="text-emerald-400 hover:text-emerald-300">
+                                          <Send className="h-4 w-4" />
+                                        </Button>
+                                      )}
+                                      {(disparo.status === 'running' || disparo.status === 'processing') && (
+                                        <Button size="sm" variant="ghost" onClick={() => pararDisparo(disparo.id)} className="text-red-400 hover:text-red-300">
+                                          <Square className="h-4 w-4" />
+                                        </Button>
+                                      )}
+                                      {(disparo.status === 'running' || disparo.status === 'processing' || disparo.status === 'completed' || disparo.status === 'cancelled') && (
+                                        <Button size="sm" variant="ghost" onClick={() => {
+                                          setLogsDisparoId(disparo.id);
+                                          loadDisparoLogs(disparo.id);
+                                          if (disparo.tipo === 'remarketing') loadResultadoRemarketing(disparo.id);
+                                          else setResultadoRemarketing(null);
+                                        }} className="text-blue-400 hover:text-blue-300">
+                                          <FileText className="h-4 w-4" />
+                                        </Button>
+                                      )}
+                                      {(disparo.status === 'completed' || disparo.status === 'failed' || disparo.status === 'cancelled') && (disparo.failed || 0) > 0 && (
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => reenviarDisparo(disparo.id)}
+                                          disabled={sending}
+                                          title="Reenviar só os contatos que falharam"
+                                          className="text-amber-400 hover:text-amber-300"
+                                        >
+                                          <RotateCcw className="h-4 w-4" />
+                                        </Button>
+                                      )}
+                                      <Button size="sm" variant="ghost" onClick={() => excluirDisparo(disparo.id)} className="text-red-400 hover:text-red-300">
+                                        <Trash2 className="h-4 w-4" />
                                       </Button>
-                                    )}
-                                    {(disparo.status === 'running' || disparo.status === 'processing' || disparo.status === 'completed' || disparo.status === 'cancelled') && (
-                                      <Button size="sm" variant="ghost" onClick={() => {
-                                        setLogsDisparoId(disparo.id);
-                                        loadDisparoLogs(disparo.id);
-                                        if (disparo.tipo === 'remarketing') loadResultadoRemarketing(disparo.id);
-                                        else setResultadoRemarketing(null);
-                                      }} className="text-blue-400 hover:text-blue-300">
-                                        <FileText className="h-4 w-4" />
-                                      </Button>
-                                    )}
-                                    {(disparo.status === 'completed' || disparo.status === 'failed' || disparo.status === 'cancelled') && (disparo.failed || 0) > 0 && (
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => reenviarDisparo(disparo.id)}
-                                        disabled={sending}
-                                        title="Reenviar só os contatos que falharam"
-                                        className="text-amber-400 hover:text-amber-300"
-                                      >
-                                        <RotateCcw className="h-4 w-4" />
-                                      </Button>
-                                    )}
-                                    <Button size="sm" variant="ghost" onClick={() => excluirDisparo(disparo.id)} className="text-red-400 hover:text-red-300">
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      ) : (
-                        <div className="text-center py-8 text-gray-500">
-                          <Send className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                          <p>Nenhum disparo criado para esta campanha</p>
-                          <p className="text-sm mt-1">Clique em &quot;Novo Disparo&quot; para começar</p>
-                        </div>
-                      )}
-                      {stats.totalDisparos > 0 && (
-                        <div className="grid grid-cols-4 gap-4 mt-4">
-                          <div className="bg-gray-700/50 rounded-lg p-3 text-center">
-                            <p className="text-2xl font-bold text-white">{stats.totalEnviados}</p>
-                            <p className="text-gray-400 text-sm">Enviados</p>
-                          </div>
-                          <div className="bg-gray-700/50 rounded-lg p-3 text-center">
-                            <p className="text-2xl font-bold text-green-400">{stats.totalEntregues}</p>
-                            <p className="text-gray-400 text-sm">Entregues</p>
-                          </div>
-                          <div className="bg-gray-700/50 rounded-lg p-3 text-center">
-                            <p className="text-2xl font-bold text-blue-400">{stats.totalLidos}</p>
-                            <p className="text-gray-400 text-sm">Lidos</p>
-                          </div>
-                          <div className="bg-gray-700/50 rounded-lg p-3 text-center">
-                            <p className="text-2xl font-bold text-red-400">{stats.totalFalhas}</p>
-                            <p className="text-gray-400 text-sm">Falhas</p>
-                          </div>
-                        </div>
-                      )}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                                {logsDisparoId === disparo.id && (
+                                  <TableRow className="border-gray-700">
+                                    <TableCell colSpan={8} className="bg-gray-900/50 p-0 align-top">
+                                      <div className="p-3 space-y-3">
                       {logsDisparoId && resultadoRemarketing && (
                         <div className="mt-4 mb-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">
                           <p className="text-emerald-300 text-sm">
@@ -1753,6 +1728,41 @@ export function CampanhasConteudo({
                                 </div>
                               ))
                             )}
+                          </div>
+                        </div>
+                      )}
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                )}
+                              </Fragment>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      ) : (
+                        <div className="text-center py-8 text-gray-500">
+                          <Send className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          <p>Nenhum disparo criado para esta campanha</p>
+                          <p className="text-sm mt-1">Clique em &quot;Novo Disparo&quot; para começar</p>
+                        </div>
+                      )}
+                      {stats.totalDisparos > 0 && (
+                        <div className="grid grid-cols-4 gap-4 mt-4">
+                          <div className="bg-gray-700/50 rounded-lg p-3 text-center">
+                            <p className="text-2xl font-bold text-white">{stats.totalEnviados}</p>
+                            <p className="text-gray-400 text-sm">Enviados</p>
+                          </div>
+                          <div className="bg-gray-700/50 rounded-lg p-3 text-center">
+                            <p className="text-2xl font-bold text-green-400">{stats.totalEntregues}</p>
+                            <p className="text-gray-400 text-sm">Entregues</p>
+                          </div>
+                          <div className="bg-gray-700/50 rounded-lg p-3 text-center">
+                            <p className="text-2xl font-bold text-blue-400">{stats.totalLidos}</p>
+                            <p className="text-gray-400 text-sm">Lidos</p>
+                          </div>
+                          <div className="bg-gray-700/50 rounded-lg p-3 text-center">
+                            <p className="text-2xl font-bold text-red-400">{stats.totalFalhas}</p>
+                            <p className="text-gray-400 text-sm">Falhas</p>
                           </div>
                         </div>
                       )}
