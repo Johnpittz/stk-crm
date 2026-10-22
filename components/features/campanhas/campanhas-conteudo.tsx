@@ -694,8 +694,9 @@ export function CampanhasConteudo({
       };
 
       // M1.3 — auditoria: de onde veio a lista (fica gravado na campanha)
+      // 22/10: gravava 'avulso' até pro modo Massa — badge de origem exigia o real.
+      body.tipo = tipoEnvio;
       if (tipoEnvio === 'remarketing') {
-        body.tipo = 'remarketing';
         body.regra = {
           origem: 'publico_sem_resposta_24h',
           janela_horas: publicoRemarketing.janela_horas ?? 24,
@@ -705,8 +706,6 @@ export function CampanhasConteudo({
           nao_rematar_dias: publicoRemarketing.nao_rematar_dias ?? 7,
           criado_por: 'ui:marketing/campanhas',
         };
-      } else {
-        body.tipo = 'avulso';
       }
 
       if (fluxo_mensagens) {

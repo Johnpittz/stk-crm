@@ -39,6 +39,11 @@ interface Campaign {
   intervalo: number | null;
   imagem_url: string | null;
   createdAt: string;
+  created_at?: string;
+  tipo?: string | null;
+  delivered?: number | null;
+  read_count?: number | null;
+  campanha?: { id: string; nome: string } | null;
 }
 
 interface InstanciaWhatsApp {
@@ -81,12 +86,24 @@ function rotuloStatus(status: string) {
   return "⏳ Pendente";
 }
 
+
+/** 22/10 — badge de ORIGEM do disparo (avulso × em massa × remarketing). */
+function rotuloTipo(tipo?: string | null) {
+  if (tipo === "remarketing")
+    return { texto: "Remarketing", estilo: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" };
+  if (tipo === "massa")
+    return { texto: "Em Massa", estilo: "bg-violet-500/15 text-violet-300 border-violet-500/30" };
+  return { texto: "Avulso", estilo: "bg-amber-500/15 text-amber-300 border-amber-500/30" };
+}
+
 export function BulkSender() {
   // 19/10 (pedido do João) — as 3 opções de disparo NA TELA: Avulso é o
   // form daqui; Em Massa/Remarketing embutem o mesmo formulário do
   // "Novo Disparo" (sem modal), já na aba certa.
   const [abaDisparo, setAbaDisparo] = useState<"avulso" | "massa" | "remarketing">("avulso");
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  // 22/10 — linha da Atividade recente aberta (badge de origem + detalhes)
+  const [linhaExpandida, setLinhaExpandida] = useState<string | null>(null);
   const [newInstance, setNewInstance] = useState("STK-3");
   const [newIntervalo, setNewIntervalo] = useState(5);
   const [newCampaign, setNewCampaign] = useState({
@@ -245,7 +262,12 @@ export function BulkSender() {
 
       if (res.ok) {
         const data = await res.json();
-        setCampaigns(data.campaigns || []);
+        setCampaigns(
+          (data.campaigns || []).map((c: any) => ({
+            ...c,
+            createdAt: c.created_at || c.createdAt,
+          }))
+        );
       }
     } catch (err) {
       console.error("Erro ao carregar campanhas:", err);
@@ -802,24 +824,108 @@ export function BulkSender() {
                         Atividade recente
                       </p>
                       <div className="space-y-1.5">
-                        {recentes.map((c) => (
-                          <div
-                            key={c.id}
-                            className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs"
-                          >
-                            <span className="text-white/70 flex-1 truncate">
-                              {c.name || "(sem nome)"}
-                            </span>
-                            <span className="text-white/30 shrink-0">
-                              {formatarData(c.createdAt)}
-                            </span>
-                            <span className="shrink-0">{rotuloStatus(c.status)}</span>
-                            <span className="text-emerald-400 shrink-0">
-                              ✓ {c.sent}
-                            </span>
-                            <span className="text-red-400 shrink-0">✗ {c.failed}</span>
-                          </div>
-                        ))}
+                        {recentes.map((c) => {
+                          const origem = rotuloTipo(c.tipo);
+                          const aberta = linhaExpandida === c.id;
+                          const mensagem = (c.message || "").trim();
+                          const ehJson = mensagem.startsWith("[");
+                          const contatos = Array.isArray(c.numbers)
+                            ? Math.max(
+                                0,
+                                c.numbers.length -
+                                  (typeof c.numbers[0] === "string" ? 1 : 0)
+                              )
+                            : 0;
+                          return (
+                            <div
+                              key={c.id}
+                              className="bg-white/5 border border-white/10 rounded-lg overflow-hidden"
+                            >
+                              {/* linha clicável: abre/fecha os detalhes */}
+                              <div
+                                className="flex items-center gap-3 px-3 py-2 text-xs cursor-pointer hover:bg-white/10 transition-colors"
+                                onClick={() =>
+                                  setLinhaExpandida(aberta ? null : c.id)
+                                }
+                              >
+                                <span
+                                  className={`shrink-0 px-1.5 py-0.5 rounded border text-[10px] font-semibold ${origem.estilo}`}
+                                >
+                                  {origem.texto}
+                                </span>
+                                <span className="text-white/70 flex-1 truncate">
+                                  {c.name || "(sem nome)"}
+                                </span>
+                                <span className="text-white/30 shrink-0">
+                                  {formatarData(c.createdAt)}
+                                </span>
+                                <span className="shrink-0">
+                                  {rotuloStatus(c.status)}
+                                </span>
+                                <span className="text-emerald-400 shrink-0">
+                                  ✓ {c.sent}
+                                </span>
+                                <span className="text-red-400 shrink-0">
+                                  ✗ {c.failed}
+                                </span>
+                                <span className="text-white/40 shrink-0">
+                                  {aberta ? "▲" : "▼"}
+                                </span>
+                              </div>
+                              {aberta && (
+                                <div className="border-t border-white/10 px-3 py-2 text-xs grid grid-cols-2 gap-x-4 gap-y-1">
+                                  <p className="text-white/40">
+                                    🕒 Criado:{" "}
+                                    <span className="text-white/70">
+                                      {formatarData(c.createdAt)}
+                                    </span>
+                                  </p>
+                                  <p className="text-white/40">
+                                    📱 Instância:{" "}
+                                    <span className="text-white/70">
+                                      {c.instancia || "—"}
+                                    </span>
+                                  </p>
+                                  <p className="text-white/40">
+                                    👥 Contatos:{" "}
+                                    <span className="text-white/70">
+                                      {contatos}
+                                    </span>
+                                  </p>
+                                  <p className="text-white/40">
+                                    ⏱️ Enviar a cada:{" "}
+                                    <span className="text-white/70">
+                                      {c.intervalo ?? 5}s
+                                    </span>
+                                  </p>
+                                  <p className="text-white/40">
+                                    📂 Campanha:{" "}
+                                    <span className="text-white/70">
+                                      {c.campanha?.nome || "— (avulso)"}
+                                    </span>
+                                  </p>
+                                  <p className="text-white/40">
+                                    📊 Entregues/Lidos:{" "}
+                                    <span className="text-white/70">
+                                      {c.delivered ?? "—"} / {c.read_count ?? "—"}
+                                    </span>
+                                  </p>
+                                  <p className="col-span-2 text-white/40">
+                                    💬 Mensagem:{" "}
+                                    <span className="text-white/70">
+                                      {ehJson
+                                        ? "Fluxo de mensagens (sequência texto → imagem)"
+                                        : mensagem ||
+                                          (c.imagem_url
+                                            ? "Imagem única"
+                                            : "—")}
+                                    </span>
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}

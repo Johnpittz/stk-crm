@@ -122,10 +122,11 @@ export async function POST(request: NextRequest) {
       .insert({
         name,
         message: messageFinal,
-        numbers,
-        status: "pending",
-        sent: 0,
-        failed: 0,
+ numbers,
+ status: "pending",
+ tipo: "avulso",
+ sent: 0,
+ failed: 0,
         instancia: instancia || "STK-3",
         intervalo: intervalo || 5,
         // 19/10 — pausa entre as mensagens do FLUXO (texto→imagem→...):
