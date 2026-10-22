@@ -84,7 +84,7 @@ export function CampanhasConteudo({
   const [showNovoDialog, setShowNovoDialog] = useState(false);
   const [showDisparoDialog, setShowDisparoDialog] = useState(false);
   const [campanhaSelecionada, setCampanhaSelecionada] = useState<Campanha | null>(null);
-  const [expandedCampanha, setExpandedCampanha] = useState<string | null>(null);
+  const [campanhaModal, setCampanhaModal] = useState<any>(null);
   const [instances, setInstances] = useState<any[]>([]);
   // PARTE 9 (16/10): mapa sessão → número p/ mostrar a origem de cada disparo
   const mapaNumeros = useMemo(() => mapearNumerosInstancias(instances), [instances]);
@@ -273,7 +273,27 @@ export function CampanhasConteudo({
           return { ...campanha, disparos: disparos || [] };
         })
       );
-      setCampanhas(campanhasComDisparos);
+      // 21/10 - DISPAROS AVULSOS (sem campanha): feitos direto na tela de
+      // Disparo. Sem este agrupador, existiam no banco e sumiam daqui.
+      const { data: avulsos } = await supabase
+        .from('bulk_campaigns')
+        .select('id, name, status, sent, failed, campanha_id, instancia, created_at, error_log, numbers, message')
+        .is('campanha_id', null)
+        .order('created_at', { ascending: false });
+      setCampanhas(
+        avulsos && avulsos.length > 0
+          ? [
+              {
+                id: '__avulsos',
+                nome: 'Disparos avulsos (sem campanha)',
+                descricao: 'Feitos direto na tela de Disparo, fora de uma campanha',
+                status: 'em_andamento',
+                disparos: avulsos,
+              } as any,
+              ...campanhasComDisparos,
+            ]
+          : campanhasComDisparos
+      );
     } catch (error) {
       console.error('Erro ao carregar campanhas:', error);
       toast.error("Não foi possível carregar as campanhas.");
@@ -1516,12 +1536,13 @@ export function CampanhasConteudo({
         ) : (
           campanhas.map((campanha) => {
             const stats = getCampanhaStats(campanha);
-            const isExpanded = expandedCampanha === campanha.id;
+            const aberto = !!campanhaModal && campanhaModal.id === campanha.id;
             return (
               <Card key={campanha.id} className="bg-gray-800/50 border-gray-700">
                 <CardHeader className="cursor-pointer hover:bg-gray-700/30 transition-colors" onClick={() => {
-                  setExpandedCampanha(isExpanded ? null : campanha.id);
-                  if (!isExpanded) { setLogsDisparoId(null); setResultadoRemarketing(null); } // Close log panel when expanding a different campaign
+                  setCampanhaModal(campanha);
+                  setLogsDisparoId(null);
+                  setResultadoRemarketing(null);
                 }}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
@@ -1539,22 +1560,33 @@ export function CampanhasConteudo({
                         <p className="text-gray-400 text-sm">{stats.totalEnviados} mensagens</p>
                       </div>
                       {getStatusBadge(campanha.status)}
-                      {isExpanded ? <ChevronUp className="h-5 w-5 text-gray-400" /> : <ChevronDown className="h-5 w-5 text-gray-400" />}
+                      <span className="text-xs text-gray-500">ver detalhes</span>
+                      {aberto ? <ChevronUp className="h-5 w-5 text-gray-400" /> : <ChevronDown className="h-5 w-5 text-gray-400" />}
                     </div>
                   </div>
                 </CardHeader>
-                {isExpanded && (
-                  <CardContent className="border-t border-gray-700">
+                <Dialog open={!!campanhaModal && campanhaModal.id === campanha.id} onOpenChange={(o) => { if (!o) setCampanhaModal(null); }}>
+                  <DialogContent className="bg-gray-800 border-gray-700 max-w-6xl max-h-[90vh] overflow-y-auto">
+                    <DialogTitle className="text-white flex items-center gap-2">
+                      <Megaphone className="h-5 w-5 text-emerald-400" />
+                      {campanha.nome}
+                    </DialogTitle>
+                    <p className="text-gray-400 text-sm">{campanha.descricao || 'Sem descrição'}</p>
+                    <div className="border-t border-gray-700 pt-4">
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <h3 className="text-white font-medium">Disparos desta Campanha</h3>
                         <div className="flex gap-2">
-                          <Button size="sm" onClick={(e) => { e.stopPropagation(); setCampanhaSelecionada(campanha); setShowDisparoDialog(true); }} className="bg-emerald-600 hover:bg-emerald-700">
-                            <Plus className="h-4 w-4 mr-1" /> Novo Disparo
-                          </Button>
-                          <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); excluirCampanha(campanha.id); }}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {campanha.id !== '__avulsos' && (
+                            <Button size="sm" onClick={(e) => { e.stopPropagation(); setCampanhaSelecionada(campanha); setShowDisparoDialog(true); }} className="bg-emerald-600 hover:bg-emerald-700">
+                              <Plus className="h-4 w-4 mr-1" /> Novo Disparo
+                            </Button>
+                          )}
+                          {campanha.id !== '__avulsos' && (
+                            <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); excluirCampanha(campanha.id); }}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                       {campanha.disparos && campanha.disparos.length > 0 ? (
@@ -1725,8 +1757,9 @@ export function CampanhasConteudo({
                         </div>
                       )}
                     </div>
-                  </CardContent>
-                )}
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </Card>
             );
           })
