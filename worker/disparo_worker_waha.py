@@ -99,6 +99,35 @@ def waha_send(endpoint: str, payload: dict):
     return status, body
 
 
+def waha_get(path: str, params: dict):
+    query = urllib.parse.urlencode(params)
+    return _http("GET", f"{WAHA_URL}{path}?{query}", None,
+                 headers={"X-Api-Key": WAHA_KEY})
+
+
+def resolver_contato(chat_id: str, session: str, consultar=None) -> tuple:
+    """Checagem oficial ANTES de enviar (doc WAHA '🇧🇷 Brazilian numbers'):
+    GET /api/contacts/check-exists devolve numberExists e o chatId certo
+    (resolve o 9 extra e o @lid — é ele que a WAHA manda usar antes do envio).
+
+    Devolve (chat_id, existe):
+      existe=False -> número SEM WhatsApp: pular o contato
+      existe=True  -> usar o chatId que ela devolveu (formato oficial)
+      existe=None  -> checagem falhou -> envia do jeito antigo (com variantes)
+    Diagnóstico 22/10: os 12 'no LID found' de um disparo eram todos
+    numberExists: false — lista com números sem WhatsApp, não bug do robô.
+    """
+    numero = chat_id[:-len("@c.us")] if chat_id.endswith("@c.us") else chat_id
+    consultar = consultar or waha_get
+    status, body = consultar("/api/contacts/check-exists",
+                             {"phone": numero, "session": session})
+    if not isinstance(body, dict) or not (200 <= status < 300):
+        return chat_id, None
+    if body.get("numberExists") is False:
+        return chat_id, False
+    return (body.get("chatId") or chat_id), True
+
+
 # ─── Regras de negócio (testáveis sem rede) ───────────────────────────
 
 def normalizar_digits(v: str) -> str:
@@ -399,6 +428,18 @@ def processar_campanha(campaign: dict) -> None:
             continue
 
         chat_id = formatar_chat_id(telefone)
+        # Oficial: pergunta ao WhatsApp ANTES de enviar — evita o 'no LID
+        # found' de números sem WhatsApp e pega o chatId resolvido (@lid).
+        chat_resolvido, existe = resolver_contato(chat_id, session)
+        if existe is False:
+            failed += 1
+            registrar_log(cid, telefone, 0, "check", False,
+                          "Sem WhatsApp: o número não existe na plataforma (não enviado)")
+            atualizar_contadores(cid, sent, failed)
+            print(f"[Worker] {idx + 1}/{len(numbers)} {telefone} sem WhatsApp — pulando",
+                  file=sys.stderr)
+            continue
+        chat_id = chat_resolvido
         ok_all = True
         for passo in passos:
             endpoint, payload = passo_payload(passo, chat_id, session, nome, telefone)

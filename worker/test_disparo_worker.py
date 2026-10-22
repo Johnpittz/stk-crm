@@ -274,3 +274,43 @@ class TestErroLidGows(unittest.TestCase):
             "5562981598253@c.us", enviar=fake)
         self.assertEqual(status, 500)
         self.assertEqual(usado, "5562981598253@c.us")
+
+
+class TestResolverContato(unittest.TestCase):
+    """22/10 — checagem oficial ANTES de enviar (doc WAHA 🇧🇷: o endpoint
+    check-exists resolve o nono dígito e diz quem não tem WhatsApp).
+    Diagnóstico do dia: os 12 'no LID found' de um disparo eram todos
+    numberExists: false — a lista tinha números sem WhatsApp."""
+
+    def test_sem_whatsapp_devolve_existe_false(self):
+        def fake(path, params):
+            return 200, {"numberExists": False, "chatId": "556282307220@c.us",
+                         "pn": "556282307220@c.us"}
+        chat, existe = w.resolver_contato("5562982307220@c.us", "STK-1", consultar=fake)
+        self.assertIs(existe, False)
+
+    def test_com_whatsapp_usa_o_chat_id_oficial(self):
+        # número de teste do sistema devolve @lid — é nele que tem que enviar
+        def fake(path, params):
+            return 200, {"numberExists": True,
+                         "chatId": "102907500331263@lid",
+                         "pn": "5562999900000@c.us"}
+        chat, existe = w.resolver_contato("5562999990000@c.us", "STK-1", consultar=fake)
+        self.assertIs(existe, True)
+        self.assertEqual(chat, "102907500331263@lid")
+
+    def test_checagem_quebrada_nao_bloqueia_o_envio(self):
+        def fake(path, params):
+            return 0, "timeout"
+        chat, existe = w.resolver_contato("5562999990000@c.us", "STK-1", consultar=fake)
+        self.assertIsNone(existe)          # None = tentar do jeito antigo
+        self.assertEqual(chat, "5562999990000@c.us")
+
+    def test_envia_para_a_sessao_certa(self):
+        vistas = {}
+        def fake(path, params):
+            vistas.update(params)
+            return 200, {"numberExists": True, "chatId": "5562999990000@c.us"}
+        w.resolver_contato("5562999990000@c.us", "STK-7", consultar=fake)
+        self.assertEqual(vistas.get("session"), "STK-7")
+        self.assertEqual(vistas.get("phone"), "5562999990000")
