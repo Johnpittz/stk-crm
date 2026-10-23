@@ -4,7 +4,15 @@
 > Ele existe para que a próxima IA comece a implementar **sem** precisar releer o projeto inteiro nem depender
 > da memória de conversas anteriores. Se este doc e o código divergirem, **vale o código** — e você corrige este doc.
 
-**Última atualização:** 30/09/2026 — **SINCRONIA DE MENSAGENS (relato do João: "o que eu
+**23/10/2026 — MOTOR RECIEE (VALIDAÇÃO DETERMINÍSTICA + EMAIL DA CONCESSIONÁRIA) — novo pacote `lib/reciee/`**
+- **MOTIVO:** o RECIEE no STK só **extraía** dados da fatura (`lib/ia/analisar-fatura.ts`); não havia prova de que a conta estava certa nem email pronto para a distribuidora. Calibração: auditoria real das **29 faturas da UC 000266515901272** (Equatorial GO, B3, NOV/2023→MAI/2026, R$ 152.470,68) — aritmética fecha 100%, os 8 achados foram estruturais (faturas faltantes, datas impressas erradas, troca de medidor).
+- **O QUE ENTRA:** `lib/reciee/` (referências oficiais **por período** — bandeira ANEEL 141 meses, ICMS-GO 17%→19%, PIS/COFINS efetivo, tarifas homologadas Equatorial GO B3; `validarFatura`/`validarSequencia` com 10 verificações e tolerâncias; adaptador de `faturas_reciee`; `montarEmailConcessionaria`) + rota **`POST /api/reciee/clientes/[clienteId]/validar`** que grava os achados em `analises_reciee` (sem migration) e devolve `{ achados, resumo, email }`. Manual: `docs/reciee-validacao.md`.
+- **GATES:** `npm test` **752/752** (1 skip pré-existente) · `tsc --noEmit` limpo · `next build` **EXIT=0** · worker **163 unittest** OK.
+- **Arquivos:** `lib/reciee/{referencias,tipos,indices,validar,adaptadores,email}.ts` + `validar.test.ts` (16), `email.test.ts` (4), `adaptadores.test.ts` (6), `app/api/reciee/clientes/[clienteId]/validar/route.ts`, `docs/reciee-validacao.md`.
+- **PRÓXIMO (ordem):** (1) migration + prompt de IA para gravar `periodo_inicio/fim`, `dias`, `leitura_anterior/atual`, `tarifa_sem_tributos` e itens financeiros — **sem isso a rota não roda** os checks de leitura, ciclo, rateio de bandeira e cadeia (a tabela guarda só consumo/tarifa/tributos/bandeira/total); (2) botão "Validar / gerar email" em `/reciee/[clienteId]`; (3) aba "E-mail para a distribuidora" no relatório XLSX.
+- **NÃO MEXER:** `referencias.ts` embute tabela ANEEL baixada em 06/10/2026 — atualizar só citando fonte e data; o guarda da seção 8 (`indices.ts`) é regra comercial: índice de continuidade **nunca** sai como cobrança, só a frase *"não identificável conclusivamente apenas pela fatura"*.
+
+**Última atualização:** 23/10/2026 (motor RECIEE acima) — **SINCRONIA DE MENSAGENS (relato do João: "o que eu
 mando fora do CRM não aparece dentro") — 2 BUGS ACHADOS E CONSERTEADOS**: **S-01** mensagem
 `fromMe` era arquivada **na conversa errada** porque o parser lia os campos de REMETENTE
 (`senderAlt`/`fromAlt`/`participantAlt`) — numa mensagem nossa o remetente somos nós; o chat

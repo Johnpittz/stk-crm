@@ -4,6 +4,28 @@
 
 ---
 
+## 1.8.45 — 23/10/2026
+
+- **Motor RECIEE: a conta agora é PROVADA, não só extraída.** Novo pacote
+  `lib/reciee/` com as referências oficiais **por período** (bandeira ANEEL
+  mês a mês 2015–2026, ICMS-GO 17% até 31/03/2024 e 19% depois, PIS/COFINS
+  efetivo com ICMS fora da base, tarifas homologadas da Equatorial GO B3) e
+  `validarFatura`/`validarSequencia`: leitura×consumo, quantidade×tarifa,
+  tarifa vs. homologada (ponderando troca de vigência no meio do ciclo),
+  alíquota do período, base de PIS/COFINS, soma=total, ciclo, **bandeira
+  rateada**, cadeia de leituras e **furo de ciclo nomeando o mês que falta**.
+  Calibrado nas 29 faturas reais da UC 000266515901272 (R$ 152.470,68).
+- **Email da concessionária junto do relatório** (`lib/reciee/email.ts`):
+  texto pronto por cliente, só com as seções que tiveram achado, itens
+  financeiros agrupados, documentos pedidos e prazo de 15 dias (art. 22 CDC).
+- **Rota `POST /api/reciee/clientes/[clienteId]/validar`**: lê
+  `faturas_reciee`, roda o motor, grava os achados em `analises_reciee`
+  (sem migration) e devolve `{ achados, resumo, email }`.
+- Guarda da seção 8 preservado: índice de continuidade sai só como `info`
+  com a frase obrigatória, nunca como cobrança.
+- Manual completo: `docs/reciee-validacao.md`. Gates: 752 testes · `tsc`
+  limpo · build EXIT=0 · worker 163 unittest.
+
 ## 1.8.44 — 18/10/2026
 
 - **Análise da Fatura (PDF) quebra em produção — CORRIGIDO** (achado pelo
