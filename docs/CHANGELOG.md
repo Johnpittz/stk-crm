@@ -4,6 +4,19 @@
 
 ---
 
+## 1.8.46 — 23/10/2026
+
+- **Cadastrar com fatura**: o cliente RECIEE nasce da conta, sem formulário.
+  Rota `POST /api/reciee/clientes/criar-com-fatura` lê os PDFs, a IA extrai
+  titular/CNPJ/UC/concessionária/grupo, cria `clientes_reciee` e grava todas
+  as faturas com o extrator determinístico. Tela **`/reciee/novo`** + botões
+  em `/clientes` (ao lado de "Novo Cliente") e no cabeçalho de `/reciee`.
+  O que a fatura não traz fica em branco com aviso — nada é inventado
+  (`lib/reciee/cadastro.ts`, 6 testes).
+- `parsePdf`, `extrairGrupoA` e `extrairGrupoB` movidos da route para
+  `lib/reciee/extrair-pdf.ts` (o Next só deixa route exportar método HTTP).
+- Gates: 758 testes · `tsc` limpo · build EXIT=0 · worker 163 unittest.
+
 ## 1.8.45 — 23/10/2026
 
 - **Motor RECIEE: a conta agora é PROVADA, não só extraída.** Novo pacote

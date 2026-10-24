@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -294,6 +295,13 @@ export default function RecieePage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
+          <Link href="/reciee/novo">
+            <Button variant="outline" className="border-amber-400/40 text-amber-300 hover:text-amber-200">
+              <FileText className="h-4 w-4 mr-2" />
+              Cadastrar com fatura
+            </Button>
+          </Link>
 
           <Dialog open={novoClienteOpen} onOpenChange={setNovoClienteOpen}>
             <DialogTrigger asChild>

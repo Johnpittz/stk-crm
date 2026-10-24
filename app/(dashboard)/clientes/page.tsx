@@ -268,6 +268,16 @@ export default function ClientesPage() {
             <RefreshCw className="h-3 w-3 mr-1" />
             Atualizar
           </Button>
+          <Link href="/reciee/novo">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-sm border-[#1c2e4a] text-amber-300 hover:text-amber-200"
+            >
+              <FileText className="h-3 w-3 mr-1" />
+              Cadastrar com fatura
+            </Button>
+          </Link>
           <Link href="/clientes/novo">
             <Button
               size="sm"

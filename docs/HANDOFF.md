@@ -12,7 +12,14 @@
 - **PRÓXIMO (ordem):** (1) migration + prompt de IA para gravar `periodo_inicio/fim`, `dias`, `leitura_anterior/atual`, `tarifa_sem_tributos` e itens financeiros — **sem isso a rota não roda** os checks de leitura, ciclo, rateio de bandeira e cadeia (a tabela guarda só consumo/tarifa/tributos/bandeira/total); (2) botão "Validar / gerar email" em `/reciee/[clienteId]`; (3) aba "E-mail para a distribuidora" no relatório XLSX.
 - **NÃO MEXER:** `referencias.ts` embute tabela ANEEL baixada em 06/10/2026 — atualizar só citando fonte e data; o guarda da seção 8 (`indices.ts`) é regra comercial: índice de continuidade **nunca** sai como cobrança, só a frase *"não identificável conclusivamente apenas pela fatura"*.
 
-**Última atualização:** 23/10/2026 (motor RECIEE acima) — **SINCRONIA DE MENSAGENS (relato do João: "o que eu
+**23/10/2026 — CADASTRAR COM FATURA (o cliente nasce da conta) + EXTRAÇÃO MOVIDA P/ `lib/reciee/extrair-pdf.ts`**
+- **MOTIVO:** pedido do João: o upload de faturas só aparecia depois que o cliente já existia (form na mão), mas os dados do cliente já estão na fatura.
+- **O QUE ENTRA:** rota **`POST /api/reciee/clientes/criar-com-fatura`** (sobe os PDFs → IA lê a 1ª fatura → cria `clientes_reciee` → grava todas as faturas com o extrator determinístico) + tela **`/reciee/novo`** ("Cadastrar com fatura": nome opcional, PDFs, resultado com avisos do que falta completar) + botões de entrada em `/clientes` (ao lado de "Novo Cliente") e no cabeçalho de `/reciee`. Lógica pura em `lib/reciee/cadastro.ts` (`montarClienteDeFatura`, `camposEmBranco`) — **não inventa dado**: o que a conta não traz fica em branco e vira aviso.
+- **MOVIMENTO NECESSÁRIO:** `parsePdf`/`extrairGrupoA`/`extrairGrupoB` saíram da route para **`lib/reciee/extrair-pdf.ts`** — o Next 15 exige que `app/api/**/route.ts` exporte só método HTTP (exportar `parsePdf` quebrava o `tsc` com TS2344 no typegen).
+- **GATES:** `npm test` **758/758** (1 skip pré-existente) · `tsc --noEmit` limpo · `next build` **EXIT=0** · worker **163 unittest**.
+- **PRÓXIMO:** testar ao vivo com PDF real (a rota usa `XIAOMI_*`/`GEMINI_API_KEY` da Vercel; local sem chave a IA cai no aviso "sem titular") e, se valer, plugar o `validar` no cadastro novo.
+
+**Última atualização:** 23/10/2026 — **SINCRONIA DE MENSAGENS (relato do João: "o que eu
 mando fora do CRM não aparece dentro") — 2 BUGS ACHADOS E CONSERTEADOS**: **S-01** mensagem
 `fromMe` era arquivada **na conversa errada** porque o parser lia os campos de REMETENTE
 (`senderAlt`/`fromAlt`/`participantAlt`) — numa mensagem nossa o remetente somos nós; o chat
