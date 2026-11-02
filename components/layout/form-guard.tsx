@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { acharBotaoSalvar, ehBusca, ehEnterSalvavel, ehFechadorDeModal, podeFecharModal, type ElemLike } from "@/lib/form-guard";
 
 /**
@@ -16,11 +23,17 @@ import { acharBotaoSalvar, ehBusca, ehEnterSalvavel, ehFechadorDeModal, podeFech
  *    - campo de busca continua filtrando (Enter nativo de busca);
  *    - se o form já tem botão submit, o navegador resolve sozinho.
  *
- * 2. "Você tem alterações não salvas. Deseja sair sem salvar?" antes de
- *    sair da página (link, F5 ou fechar aba) com dados digitados.
+ * 2. Aviso "Suas alterações não foram salvas" — modal ESTILIZADO do
+ *    próprio sistema (não é o confirm feio do navegador) — antes de sair
+ *    com dados digitados: link/menu, fechar modal (clique fora, × ou Esc).
+ *    Fechar aba/F5 usa o aviso nativo do navegador (único caso possível).
+ *
+ * 3. Salvar limpa a marcação: quem já salvou não é incomodado.
  */
 
 const AVISO_SAIDA = "Você tem alterações não salvas. Deseja sair sem salvar?";
+
+type Pendencia = { refazer: () => void };
 
 function marcarSujo() {
   document.body.dataset.formSujo = "1";
@@ -35,6 +48,18 @@ function estaSujo() {
 }
 
 export function FormGuard() {
+  const [pendencia, setPendencia] = useState<Pendencia | null>(null);
+  /** espelho síncrono — os handlers de evento leem a ref, não o estado */
+  const pendenciaRef = useRef<Pendencia | null>(null);
+  /** re-executa a ação original sem reperguntar */
+  const ignorarRef = useRef(false);
+
+  const agendar = (refazer: () => void) => {
+    const p = { refazer };
+    pendenciaRef.current = p;
+    setPendencia(p);
+  };
+
   useEffect(() => {
     // ── rastreia alterações digitadas ──────────────────────────────────
     const noInput = (e: Event) => {
@@ -88,64 +113,87 @@ export function FormGuard() {
     };
     document.addEventListener("keydown", noKey);
 
+    // ── helpers do aviso estilizado ────────────────────────────────────
+    /** silêncio enquanto o aviso está na tela (evita perguntar em loop) */
+    const silencioso = () =>
+      ignorarRef.current || pendenciaRef.current !== null;
+
+    const dialogoSujo = (): HTMLElement | null => {
+      const d = document.querySelector('[role="dialog"]') as HTMLElement | null;
+      return d && d.dataset.sujo === "1" ? d : null;
+    };
+
+    /** fecha o modal original via Esc (mecanismo nativo do Radix) sem
+     *  voltar a perguntar — usado quando o usuário escolhe "Sair sem salvar" */
+    const refazerFechamento = () => {
+      ignorarRef.current = true;
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
+      );
+      window.setTimeout(() => {
+        ignorarRef.current = false;
+      }, 500);
+    };
+
+    /** para o evento e abre o modal de aviso; ao confirmar, re-executa */
+    const perguntar = (e: { preventDefault(): void; stopPropagation(): void }, refazer: () => void) => {
+      const pode = podeFecharModal(true, () => {
+        agendar(refazer);
+        return false; // "ainda não pode sair" — o evento é interrompido
+      }, AVISO_SAIDA);
+      if (!pode) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
     // ── aviso ao sair sem salvar (link) ────────────────────────────────
     const noClique = (e: MouseEvent) => {
-      if (!estaSujo()) return;
+      if (silencioso() || !estaSujo()) return;
       const alvo = e.target as HTMLElement | null;
       const link = alvo?.closest?.("a[href]") as HTMLAnchorElement | null;
       if (!link) return;
       if (link.target === "_blank") return;
       const href = link.getAttribute("href") || "";
       if (href.startsWith("http") && !href.includes(window.location.host)) return;
-      if (!window.confirm(AVISO_SAIDA)) {
-        e.preventDefault();
-        e.stopPropagation();
-      } else {
-        limparSujo();
-      }
+      perguntar(e, () => {
+        // re-executa o clique no link com a guarda desligada
+        ignorarRef.current = true;
+        window.setTimeout(() => {
+          ignorarRef.current = false;
+        }, 500);
+        link.click();
+      });
     };
     document.addEventListener("click", noClique, true);
 
-    // ── MODAL com dados digitados: pergunta antes de fechar ────────────
-    const dialogoSujo = (): HTMLElement | null => {
-      const d = document.querySelector('[role="dialog"]') as HTMLElement | null;
-      return d && d.dataset.sujo === "1" ? d : null;
-    };
-
-    const perguntarFecharDialogo = () =>
-      podeFecharModal(true, (msg) => window.confirm(msg), AVISO_SAIDA);
-
     // o Radix fecha com clique no overlay (pointerdown fora do dialog)
     const noPointerFora = (e: PointerEvent) => {
+      if (silencioso()) return;
       const dlg = dialogoSujo();
       if (!dlg) return;
       if (dlg.contains(e.target as Node)) return;
-      if (!perguntarFecharDialogo()) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
+      // clique dentro de QUALQUER diálogo (inclusive o do aviso) não interfere
+      if ((e.target as HTMLElement).closest?.('[role="dialog"]')) return;
+      perguntar(e, refazerFechamento);
     };
     document.addEventListener("pointerdown", noPointerFora, true);
 
     // botão × do modal
     const noCliqueX = (e: MouseEvent) => {
+      if (silencioso()) return;
       const dlg = dialogoSujo();
       if (!dlg || !dlg.contains(e.target as Node)) return;
       if (!ehFechadorDeModal(e.target as unknown as ElemLike)) return;
-      if (!perguntarFecharDialogo()) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
+      perguntar(e, refazerFechamento);
     };
     document.addEventListener("click", noCliqueX, true);
 
     // Esc fecha o modal
     const noEsc = (e: KeyboardEvent) => {
-      if (e.key !== "Escape" || !dialogoSujo()) return;
-      if (!perguntarFecharDialogo()) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
+      if (e.key !== "Escape" || silencioso()) return;
+      if (!dialogoSujo()) return;
+      perguntar(e, refazerFechamento);
     };
     document.addEventListener("keydown", noEsc, true);
 
@@ -185,7 +233,47 @@ export function FormGuard() {
     };
   }, []);
 
-  return null;
+  return (
+    <Dialog
+      open={!!pendencia}
+      onOpenChange={(aberto) => {
+        if (!aberto) setPendencia(null);
+      }}
+    >
+      <DialogContent className="bg-gray-800 border-gray-600 text-white sm:max-w-md rounded-xl shadow-2xl">
+        <DialogHeader>
+          <DialogTitle className="text-white text-lg">
+            Suas alterações não foram salvas
+          </DialogTitle>
+          <DialogDescription className="text-gray-400">
+            Você digitou informações que ainda não foram gravadas no sistema.
+            O que deseja fazer?
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={() => setPendencia(null)}
+            className="rounded-md border border-gray-600 px-4 py-2 text-sm text-gray-300 transition hover:bg-gray-700"
+          >
+            Continuar editando
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const p = pendenciaRef.current;
+              pendenciaRef.current = null;
+              setPendencia(null);
+              p?.refazer();
+            }}
+            className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-500"
+          >
+            Sair sem salvar
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function ehBotao(alvo: ElemLike): boolean {
