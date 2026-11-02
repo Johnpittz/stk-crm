@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,13 +16,43 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  OPÇÕES_ORIGEM,
+  validarOrigem,
+  montarCamposOrigem,
+} from "@/lib/clientes/origem-cliente";
 
 export function ModalNovoCliente() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // PARTE 11 — origem (tipo → subtipo → vendedor/parceiro)
+  const [origemTipo, setOrigemTipo] = useState("");
+  const [origemSubtipo, setOrigemSubtipo] = useState("");
+  const [vendedorId, setVendedorId] = useState("");
+  const [parceiroNome, setParceiroNome] = useState("");
+  const [vendedores, setVendedores] = useState<Array<{ id: string; nome_completo: string }>>([]);
   const router = useRouter();
   const supabase = createClient();
+
+  // lista de vendedores pro vínculo (mesmo /api/vendedores do cadastro completo)
+  useEffect(() => {
+    if (!open) return;
+    let vivo = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/vendedores");
+        const json = await res.json().catch(() => ({}));
+        if (vivo && res.ok) setVendedores(json.vendedores || []);
+      } catch {
+        // silencioso — select fica vazio
+      }
+    })();
+    return () => {
+      vivo = false;
+    };
+  }, [open]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -30,6 +60,20 @@ export function ModalNovoCliente() {
     setError(null);
 
     const formData = new FormData(e.currentTarget);
+
+    // PARTE 11 — origem precisa de subtipo (+ vendedor ou nome do parceiro)
+    const errosOrigem = validarOrigem({
+      origem_tipo: origemTipo || undefined,
+      origem_subtipo: origemSubtipo || undefined,
+      vendedor_responsavel_id: vendedorId || undefined,
+      origem_indicacao_nome: parceiroNome || undefined,
+    });
+    if (errosOrigem.length) {
+      setError(errosOrigem[0]);
+      setLoading(false);
+      return;
+    }
+
     const body = {
       nome_razao_social: formData.get("nome_razao_social") as string,
       cpf_cnpj: formData.get("cpf_cnpj") as string,
@@ -39,6 +83,13 @@ export function ModalNovoCliente() {
       estado: formData.get("estado") as string,
       status: formData.get("status") as string,
       tipo: formData.get("tipo") as string,
+      // grava origem + vendedor vinculado (mesmos campos do cadastro completo)
+      ...montarCamposOrigem({
+        origem_tipo: origemTipo,
+        origem_subtipo: origemSubtipo,
+        vendedor_responsavel_id: vendedorId,
+        origem_indicacao_nome: parceiroNome,
+      }),
     };
 
     const { data: sessionData } = await supabase.auth.getSession();
@@ -97,6 +148,66 @@ export function ModalNovoCliente() {
             <div className="space-y-2">
               <Label htmlFor="nome_razao_social">Nome / Razão Social *</Label>
               <Input id="nome_razao_social" name="nome_razao_social" placeholder="Ex: Rede ABC Ltda" required />
+            </div>
+
+            {/* ═══════ ORIGEM (vendedor/parceiro/marketing) — PARTE 11 ═══════ */}
+            <div className="space-y-3 rounded-md border border-slate-200 p-3">
+              <Label className="text-slate-600">Origem (opcional)</Label>
+              <div className="flex flex-wrap gap-4">
+                {Object.keys(OPÇÕES_ORIGEM).map((t) => (
+                  <label key={t} className="flex items-center gap-1.5 text-sm text-slate-700 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="origem_tipo"
+                      checked={origemTipo === t}
+                      onChange={() => {
+                        setOrigemTipo(t);
+                        setOrigemSubtipo("");
+                        setVendedorId("");
+                        setParceiroNome("");
+                      }}
+                      className="accent-[#3B64CF]"
+                    />
+                    {OPÇÕES_ORIGEM[t].rotulo}
+                  </label>
+                ))}
+              </div>
+              {origemTipo && (
+                <div className="flex flex-wrap gap-4">
+                  {OPÇÕES_ORIGEM[origemTipo].subtipos.map((s) => (
+                    <label key={s} className="flex items-center gap-1.5 text-sm text-slate-500 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="origem_subtipo"
+                        checked={origemSubtipo === s}
+                        onChange={() => setOrigemSubtipo(s)}
+                        className="accent-[#3B64CF]"
+                      />
+                      {OPÇÕES_ORIGEM[origemTipo].sub_rotulos[s] || s}
+                    </label>
+                  ))}
+                </div>
+              )}
+              {origemTipo === "vendedor" && origemSubtipo && (
+                <Select value={vendedorId} onValueChange={setVendedorId}>
+                  <SelectTrigger className="h-10 w-full max-w-xs">
+                    <SelectValue placeholder="Escolha o vendedor (vincula o cliente)..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {vendedores.map((v) => (
+                      <SelectItem key={v.id} value={v.id}>{v.nome_completo}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {origemTipo === "parceiro" && origemSubtipo && (
+                <Input
+                  value={parceiroNome}
+                  onChange={(e) => setParceiroNome(e.target.value)}
+                  placeholder="Nome do parceiro"
+                  className="max-w-xs"
+                />
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">

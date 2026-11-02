@@ -14,11 +14,27 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const data = searchParams.get("data");
   const coluna = searchParams.get("coluna");
+  const vendedorPedido = searchParams.get("vendedor_id");
+
+  // Filtro por vendedor (22/10 — dashboard maleável): gestores escolhem
+  // quem olhar; vendedor comum continua vendo só as suas.
+  let alvoVendedor = user.id;
+  if (vendedorPedido && vendedorPedido !== user.id) {
+    const { data: meuPerfil } = await supabase
+      .from("profiles")
+      .select("cargo")
+      .eq("id", user.id)
+      .maybeSingle();
+    const gestor = ["diretor", "admin", "gerente_comercial"].includes(
+      meuPerfil?.cargo || ""
+    );
+    if (gestor) alvoVendedor = vendedorPedido;
+  }
 
   let query = supabase
     .from("tarefas")
     .select("*, clientes(id, nome_razao_social, telefone, celular)")
-    .eq("vendedor_id", user.id)
+    .eq("vendedor_id", alvoVendedor)
     .order("ordem", { ascending: true })
     .order("hora_inicio", { ascending: true })
     .limit(200);
@@ -42,6 +58,28 @@ export async function GET(request: NextRequest) {
     }
   } catch (queryErr: any) {
     console.warn("[API tarefas] Excecao na query:", queryErr?.message);
+  }
+
+  // nome do vendedor nas tarefas (o dashboard exibe/identifica de quem é)
+  const ids = Array.from(
+    new Set(tarefas.map((t: any) => t.vendedor_id).filter(Boolean))
+  );
+  if (ids.length) {
+    try {
+      const { data: perfis } = await supabase
+        .from("profiles")
+        .select("id, nome_completo, email")
+        .in("id", ids);
+      const nomes: Record<string, string> = {};
+      for (const p of perfis || []) {
+        nomes[p.id] = p.nome_completo || p.email || "";
+      }
+      for (const t of tarefas) {
+        t.vendedor_nome = nomes[t.vendedor_id] || null;
+      }
+    } catch {
+      // best-effort: sem nome, o dashboard mostra "—"
+    }
   }
 
   return NextResponse.json({ tarefas });

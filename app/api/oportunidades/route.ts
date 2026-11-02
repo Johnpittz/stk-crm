@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 
   let query = (clienteFiltro ? createAdminClient() : supabase)
     .from("oportunidades")
-    .select("*, clientes(id, nome_razao_social, telefone, celular)")
+    .select("*, clientes(id, nome_razao_social, telefone, celular, origem_tipo, origem_subtipo, vendedor_responsavel_id)")
     .order("created_at", { ascending: false })
     .limit(200);
 

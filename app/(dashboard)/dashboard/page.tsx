@@ -12,6 +12,7 @@ import {
   Users,
   ArrowDown,
   Clock,
+  SlidersHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatarDuracao } from "@/lib/dashboard/formatar";
@@ -34,6 +35,9 @@ interface Tarefa {
   coluna_kanban: string;
   valor_venda: number | null;
   created_at: string;
+  /** quem ficou com a tarefa — usado no filtro por vendedor (22/10) */
+  vendedor_id?: string | null;
+  vendedor_nome?: string | null;
 }
 
 type LinhaRanking = { id: string; nome: string; media: number; n: number; pior: number };
@@ -132,6 +136,63 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
 
+  // ─── 22/10 — DASHBOARD MALEÁVEL (pedido do João) ─────────────────────
+  // 1) filtro por vendedor (visão de gestão)
+  const [vendedorFiltro, setVendedorFiltro] = useState("");
+  const [vendedores, setVendedores] = useState<
+    Array<{ id: string; nome_completo: string }>
+  >([]);
+  // 2) colunas do funil que o usuário quer ver (preferência salva)
+  const [colunasVisiveis, setColunasVisiveis] = useState<string[]>(() =>
+    colunas.map((c) => c.id)
+  );
+  const [painelColunas, setPainelColunas] = useState(false);
+
+  // preferências persistem entre sessões (localStorage)
+  useEffect(() => {
+    try {
+      const salvo = window.localStorage.getItem("dashboard_colunas");
+      if (salvo) {
+        const lista = JSON.parse(salvo);
+        if (Array.isArray(lista) && lista.length) setColunasVisiveis(lista);
+      }
+    } catch {
+      // sem localStorage — fica com o padrão (todas)
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        "dashboard_colunas",
+        JSON.stringify(colunasVisiveis)
+      );
+    } catch {
+      // silencioso
+    }
+  }, [colunasVisiveis]);
+
+  // lista de vendedores pro filtro (mesmo /api/vendedores do cadastro)
+  useEffect(() => {
+    let vivo = true;
+    fetch("/api/vendedores")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (vivo && d && Array.isArray(d.vendedores)) setVendedores(d.vendedores);
+      })
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  // colunas escolhidas + tarefas do vendedor escolhido
+  const colunasAtivas = colunas.filter((c) => colunasVisiveis.includes(c.id));
+  const tarefasFiltradas = vendedorFiltro
+    ? tarefas.filter((t) => t.vendedor_id === vendedorFiltro)
+    : tarefas;
+  // ─── fim dashboard maleável ───────────────────────────────────────────
+
   const fetchTarefas = useCallback(async () => {
     try {
       const {
@@ -183,13 +244,13 @@ export default function DashboardPage() {
     fetchTempo();
   }, [fetchTempo]);
 
-  // ─── Métricas ───
-  const totalVendas = tarefas.filter((t) => t.coluna_kanban === "comissao_paga").length;
-  const valorTotal = tarefas
+  // ─── Métricas (respeitam o filtro de vendedor) ───
+  const totalVendas = tarefasFiltradas.filter((t) => t.coluna_kanban === "comissao_paga").length;
+  const valorTotal = tarefasFiltradas
     .filter((t) => t.coluna_kanban === "comissao_paga")
     .reduce((s, t) => s + (t.valor_venda || 0), 0);
   const ticketMedio = totalVendas > 0 ? valorTotal / totalVendas : 0;
-  const totalOportunidades = tarefas.length;
+  const totalOportunidades = tarefasFiltradas.length;
   const taxaConversao =
     totalOportunidades > 0
       ? ((totalVendas / totalOportunidades) * 100).toFixed(1)
@@ -200,40 +261,40 @@ export default function DashboardPage() {
     !!tempoResposta &&
     !["admin", "diretor", "gerente_comercial"].includes(tempoResposta.perfil);
 
-  // ─── Contagem por coluna ───
-  const contagemPorColuna = colunas.map((c) => ({
+  // ─── Contagem por coluna (só as colunas visíveis) ───
+  const contagemPorColuna = colunasAtivas.map((c) => ({
     ...c,
-    total: tarefas.filter((t) => t.coluna_kanban === c.id).length,
+    total: tarefasFiltradas.filter((t) => t.coluna_kanban === c.id).length,
   }));
 
   // ─── Valor por coluna (Pipeline) ───
-  const valorPorColuna = colunas.map((c) => ({
+  const valorPorColuna = colunasAtivas.map((c) => ({
     ...c,
-    valor: tarefas
+    valor: tarefasFiltradas
       .filter((t) => t.coluna_kanban === c.id)
       .reduce((s, t) => s + (t.valor_venda || 0), 0),
-    total: tarefas.filter((t) => t.coluna_kanban === c.id).length,
+    total: tarefasFiltradas.filter((t) => t.coluna_kanban === c.id).length,
   }));
 
   const maxValorPipeline = Math.max(...valorPorColuna.map((c) => c.valor), 1);
 
   // ─── Conversão geral ───
-  const totalTopo = tarefas.filter(
+  const totalTopo = tarefasFiltradas.filter(
     (t) => t.coluna_kanban === "recebeu_conta"
   ).length;
-  const totalFundo = tarefas.filter(
+  const totalFundo = tarefasFiltradas.filter(
     (t) => t.coluna_kanban === "comissao_paga"
   ).length;
   const conversaoGeral =
     totalTopo > 0 ? ((totalFundo / totalTopo) * 100).toFixed(1) : "0.0";
 
   // ─── Últimas atividades ───
-  const ultimasAtividades = [...tarefas]
+  const ultimasAtividades = [...tarefasFiltradas]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 5);
 
   // ─── Top oportunidades ───
-  const topOportunidades = [...tarefas]
+  const topOportunidades = [...tarefasFiltradas]
     .filter((t) => t.valor_venda && t.valor_venda > 0)
     .sort((a, b) => (b.valor_venda || 0) - (a.valor_venda || 0))
     .slice(0, 5);
@@ -253,7 +314,7 @@ export default function DashboardPage() {
   );
 
   // ─── Conversão entre etapas ───
-  const conversaoEtapas = colunas.slice(0, -1).map((c, i) => {
+  const conversaoEtapas = colunasAtivas.slice(0, -1).map((c, i) => {
     const deTotal = contagemPorColuna[i].total;
     const paraTotal = contagemPorColuna[i + 1].total;
     const taxa =
@@ -262,7 +323,7 @@ export default function DashboardPage() {
   });
 
   // ─── Valor total no pipeline ───
-  const valorPipelineTotal = tarefas.reduce(
+  const valorPipelineTotal = tarefasFiltradas.reduce(
     (s, t) => s + (t.valor_venda || 0),
     0
   );
@@ -277,6 +338,87 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-4 p-1">
+      {/* ─── 22/10 — DASHBOARD MALEÁVEL: filtro por vendedor + colunas ─── */}
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={vendedorFiltro}
+          onChange={(e) => setVendedorFiltro(e.target.value)}
+          aria-label="Filtrar por vendedor"
+          className="h-9 rounded-md border border-[#1c2e4a] bg-[#14233c] px-3 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#3B64CF]"
+        >
+          <option value="">👥 Todos os vendedores</option>
+          {vendedores.map((v) => (
+            <option key={v.id} value={v.id}>
+              {v.nome_completo}
+            </option>
+          ))}
+        </select>
+
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setPainelColunas((p) => !p)}
+            aria-expanded={painelColunas}
+            className="flex h-9 items-center gap-2 rounded-md border border-[#1c2e4a] bg-[#14233c] px-3 text-sm text-slate-200 transition hover:bg-[#1a2c4d] focus:outline-none focus:ring-2 focus:ring-[#3B64CF]"
+          >
+            <SlidersHorizontal className="h-4 w-4 text-[#3B64CF]" />
+            Colunas ({colunasAtivas.length}/{colunas.length})
+          </button>
+
+          {painelColunas && (
+            <div className="absolute left-0 z-30 mt-1 w-64 rounded-lg border border-[#1c2e4a] bg-[#14233c] p-3 shadow-2xl shadow-black/50">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                Colunas do funil
+              </p>
+              {colunas.map((c) => (
+                <label
+                  key={c.id}
+                  className="flex cursor-pointer items-center gap-2 rounded px-1 py-1.5 text-sm text-slate-300 transition hover:bg-white/5"
+                >
+                  <input
+                    type="checkbox"
+                    checked={colunasVisiveis.includes(c.id)}
+                    onChange={(e) =>
+                      setColunasVisiveis((prev) =>
+                        e.target.checked
+                          ? [...prev, c.id]
+                          : prev.filter((x) => x !== c.id)
+                      )
+                    }
+                    className="accent-[#3B64CF]"
+                  />
+                  <span>
+                    {c.icone} {c.titulo}
+                  </span>
+                </label>
+              ))}
+              <div className="mt-2 flex justify-between border-t border-[#1c2e4a] pt-2">
+                <button
+                  type="button"
+                  onClick={() => setColunasVisiveis(colunas.map((c) => c.id))}
+                  className="text-xs text-slate-400 hover:text-white"
+                >
+                  Mostrar todas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPainelColunas(false)}
+                  className="text-xs text-slate-400 hover:text-white"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {vendedorFiltro && (
+          <span className="rounded-full bg-[#3B64CF]/15 px-3 py-1 text-xs font-medium text-[#7fb8e8]">
+            Filtrado por vendedor
+          </span>
+        )}
+      </div>
+
       {/* ─── Topo: 4 Métricas ─── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {/* Total Vendido */}

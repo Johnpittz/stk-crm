@@ -53,7 +53,28 @@ const origemConfig: Record<string, { icone: string; nome: string; cor: string }>
   indicacao: { icone: "🤝", nome: "Indicação", cor: "bg-purple-500/15 text-purple-400" },
   site: { icone: "🌐", nome: "Site", cor: "bg-blue-500/15 text-blue-400" },
   manual: { icone: "✋", nome: "Manual", cor: "bg-slate-500/15 text-slate-400" },
+  // PARTE 11 — tipos da origem nova do cliente (vendedor/parceiro/marketing)
+  vendedor: { icone: "👤", nome: "Vendedor", cor: "bg-amber-500/15 text-amber-400" },
+  parceiro: { icone: "🤝", nome: "Parceiro", cor: "bg-purple-500/15 text-purple-400" },
+  marketing: { icone: "📣", nome: "Marketing", cor: "bg-sky-500/15 text-sky-400" },
+  interno: { icone: "👤", nome: "V. Interno", cor: "bg-amber-500/15 text-amber-400" },
+  externo: { icone: "👤", nome: "V. Externo", cor: "bg-orange-500/15 text-orange-400" },
 };
+
+/**
+ * Origem mostrada no card (22/10 — pedido do João): a da própria oportunidade
+ * e, se ela não tiver, a DO CLIENTE vinculado (cadastro com origem vendedor).
+ */
+export function origemDoCard(o: {
+  origem_lead?: string | null;
+  clientes?: { origem_tipo?: string | null } | null;
+}): string | null {
+  const propria = (o.origem_lead || "").trim();
+  if (propria && origemConfig[propria]) return propria;
+  const doCliente = (o.clientes?.origem_tipo || "").trim();
+  if (doCliente && origemConfig[doCliente]) return doCliente;
+  return null;
+}
 
 interface Oportunidade {
   id: string;
@@ -76,7 +97,12 @@ interface Oportunidade {
   created_at: string;
   /** Régua do C2 (badge "parada") — vem de `*` na API de oportunidades */
   updated_at?: string | null;
-  clientes: { id: string; nome_razao_social: string } | null;
+  clientes: {
+    id: string;
+    nome_razao_social: string;
+    /** origem do CADASTRO do cliente — fallback do badge no card (22/10) */
+    origem_tipo?: string | null;
+  } | null;
 }
 
 interface Atendimento {
@@ -498,19 +524,23 @@ export function KanbanOportunidades({
 
                                     {/* Tags */}
                                     <div className="px-3 pb-3 flex flex-wrap gap-1.5">
-                                      {/* Origem */}
-                                      {oportunidade.origem_lead && origemConfig[oportunidade.origem_lead] && (
-                                        <Badge
-                                          variant="secondary"
-                                          className={cn(
-                                            "text-[10px] px-2 py-0.5 border-0 font-medium",
-                                            origemConfig[oportunidade.origem_lead].cor
-                                          )}
-                                        >
-                                          {origemConfig[oportunidade.origem_lead].icone}{" "}
-                                          {origemConfig[oportunidade.origem_lead].nome}
-                                        </Badge>
-                                      )}
+                                      {/* Origem — da oportunidade ou do cliente (22/10) */}
+                                      {(() => {
+                                        const origem = origemDoCard(oportunidade);
+                                        if (!origem) return null;
+                                        return (
+                                          <Badge
+                                            variant="secondary"
+                                            className={cn(
+                                              "text-[10px] px-2 py-0.5 border-0 font-medium",
+                                              origemConfig[origem].cor
+                                            )}
+                                          >
+                                            {origemConfig[origem].icone}{" "}
+                                            {origemConfig[origem].nome}
+                                          </Badge>
+                                        );
+                                      })()}
 
                                       {/* Prioridade */}
                                       <Badge
