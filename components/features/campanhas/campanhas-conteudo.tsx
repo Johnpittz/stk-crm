@@ -1460,8 +1460,10 @@ export function CampanhasConteudo({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Campanhas</h1>
-          <p className="text-gray-400">Crie campanhas e gerencie disparos dentro delas</p>
+          <h1 className="text-2xl font-bold text-white">DISPAROS</h1>
+          <p className="text-gray-400">
+            Gerencie seus disparos e acompanhe o resultado de cada envio.
+          </p>
         </div>
         {/* 02/11 (pedido do João): "Nova Campanha" virou "NOVO DISPARO" e
             abre o formulário de disparo — o form inline da tela Disparo

@@ -33,7 +33,7 @@ export default function DisparoPage() {
 
       <section aria-labelledby="sec-campanhas">
         <h2 id="sec-campanhas" className="text-lg font-semibold text-white mb-3">
-          Campanhas
+          DISPAROS
         </h2>
         <CampanhasConteudo />
       </section>

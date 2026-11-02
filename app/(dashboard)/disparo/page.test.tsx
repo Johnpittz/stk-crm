@@ -28,10 +28,10 @@ import DisparoPage from "./page";
 afterEach(() => cleanup());
 
 describe(" tela única /disparo (item 2 + 02/11)", () => {
-  it("NÃO tem mais o form 'Criar disparo' na tela; só painel, campanhas e relatórios", () => {
+  it("NÃO tem mais o form 'Criar disparo' na tela; só painel, disparos e relatórios", () => {
     render(<DisparoPage />);
     expect(screen.queryByRole("heading", { name: /criar disparo/i })).toBeNull();
-    expect(screen.getByRole("heading", { name: /campanhas/i })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /disparos/i })).toBeTruthy();
     expect(screen.getByRole("heading", { name: /relatórios/i })).toBeTruthy();
     expect(screen.getByTestId("sec-campanhas")).toBeTruthy();
     expect(screen.getByTestId("sec-relatorios")).toBeTruthy();
