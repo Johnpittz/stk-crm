@@ -434,13 +434,15 @@ export function BulkSender({ apenasPainel = false }: { apenasPainel?: boolean })
 
   return (
     <div
-      className={`${
+      className={`flex flex-col ${
         // 02/11 (pedido do João): no modo painel o container NÃO ocupa a
-        // tela toda — encolhe com o conteúdo (máx. 65vh) e a rolagem é
-        // interna; o resto da página (Disparos/Relatórios) sobe logo
-        // embaixo.
-        apenasPainel ? "max-h-[65vh]" : "h-[calc(100vh-9rem)]"
-      } flex flex-col overflow-hidden`}
+        // tela toda — encolhe com o conteúdo (máx. 65vh) e a ROLAGEM é
+        // interna (nada é cortado); o resto da página (Disparos/
+        // Relatórios) sobe logo embaixo.
+        apenasPainel
+          ? "max-h-[65vh] overflow-y-auto"
+          : "h-[calc(100vh-9rem)] overflow-hidden"
+      }`}
     >
       {/* 19/10 (pedido do João) — sem header aqui: a página já tem o
           título "Disparo" (sobrava DOIS textos falando de disparo) */}
