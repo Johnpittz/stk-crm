@@ -60,6 +60,17 @@ export function FormGuard() {
     setPendencia(p);
   };
 
+  /** Fecha o aviso. Limpa a ref (senão os handlers ficam em silêncio para
+   *  sempre) e, se for "Sair sem salvar", espera um tick antes de re-executar:
+   *  disparado junto, o aviso ainda está na pilha de camadas do Radix e o
+   *  fechamento (Esc) atinge o próprio aviso em vez do modal original. */
+  const responder = (executarRefazer: boolean) => {
+    const p = pendenciaRef.current;
+    pendenciaRef.current = null;
+    setPendencia(null);
+    if (executarRefazer && p) window.setTimeout(() => p.refazer(), 80);
+  };
+
   useEffect(() => {
     // ── rastreia alterações digitadas ──────────────────────────────────
     const noInput = (e: Event) => {
@@ -237,7 +248,7 @@ export function FormGuard() {
     <Dialog
       open={!!pendencia}
       onOpenChange={(aberto) => {
-        if (!aberto) setPendencia(null);
+        if (!aberto) responder(false);
       }}
     >
       <DialogContent className="bg-gray-800 border-gray-600 text-white sm:max-w-md rounded-xl shadow-2xl">
@@ -253,19 +264,14 @@ export function FormGuard() {
         <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
           <button
             type="button"
-            onClick={() => setPendencia(null)}
+            onClick={() => responder(false)}
             className="rounded-md border border-gray-600 px-4 py-2 text-sm text-gray-300 transition hover:bg-gray-700"
           >
             Continuar editando
           </button>
           <button
             type="button"
-            onClick={() => {
-              const p = pendenciaRef.current;
-              pendenciaRef.current = null;
-              setPendencia(null);
-              p?.refazer();
-            }}
+            onClick={() => responder(true)}
             className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-500"
           >
             Sair sem salvar
