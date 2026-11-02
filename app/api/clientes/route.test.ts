@@ -83,4 +83,21 @@ describe("POST /api/clientes — criação + log", () => {
     expect(res.status).toBe(400);
     expect(cenario.tabelas.cliente_auditoria ?? []).toHaveLength(0);
   });
+
+  it("grava o VÍNCULO de origem do vendedor (garantia do João)", async () => {
+    cenario.estado.usuario = { id: "u1", email: "joao@stk.com" };
+    const res = await POST(
+      req({
+        nome_razao_social: "Cliente Vinculado",
+        origem_tipo: "vendedor",
+        origem_subtipo: "interno",
+        vendedor_responsavel_id: "ven-9",
+      })
+    );
+    expect(res.status).toBe(201);
+    const linha = cenario.tabelas.clientes[0];
+    expect(linha.origem_tipo).toBe("vendedor");
+    expect(linha.origem_subtipo).toBe("interno");
+    expect(linha.vendedor_responsavel_id).toBe("ven-9");
+  });
 });

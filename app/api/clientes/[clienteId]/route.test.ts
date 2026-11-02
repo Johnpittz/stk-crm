@@ -98,4 +98,23 @@ describe("PUT /api/clientes/[clienteId] — edição + log", () => {
     expect(cenario.tabelas.clientes[0].nome_contato).toBe("Ana");
     cenario.estado.tabelaQuebrada = null;
   });
+
+  it("troca o vendedor vinculado (origem) e registra no log", async () => {
+    const res = await PUT(
+      req({
+        origem_tipo: "vendedor",
+        origem_subtipo: "externo",
+        vendedor_responsavel_id: "ven-7",
+      }),
+      params
+    );
+    expect(res.status).toBe(200);
+    const linha = cenario.tabelas.clientes[0];
+    expect(linha.origem_tipo).toBe("vendedor");
+    expect(linha.origem_subtipo).toBe("externo");
+    expect(linha.vendedor_responsavel_id).toBe("ven-7");
+    const logs = cenario.tabelas.cliente_auditoria ?? [];
+    expect(logs[0].campos).toContain("vendedor_responsavel_id");
+    expect(logs[0].campos).toContain("origem_tipo");
+  });
 });
