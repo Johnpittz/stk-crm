@@ -48,27 +48,48 @@ export async function GET(request: NextRequest) {
     if (authError || !user) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
-    const { data: meuPerfil } = await usuarioClient
-      .from("profiles")
-      .select("cargo")
-      .eq("id", user.id)
-      .single();
-    const cargo = meuPerfil?.cargo || "";
-    const visaoAmpla = ["admin", "diretor", "gerente_comercial"].includes(cargo);
+    // (cargo/visaoAmpla vêm do Promise.all abaixo — 02/11 otimização)
 
     const dias = lerDias(request.url);
     const supabase = createAdminClient();
     const desde = new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString();
+
+    // 02/11 (varredura de lentidão): a rota fazia7 chamadas de rede
+    // SEQUENCIAIS (~200ms cada = o F5 de ~1,8s). As independentes sobem
+    // para UMA roundtrip via Promise.all — regra de negócio intocada.
+    const [perfilR, nomesR, produtosR] = await Promise.all([
+      usuarioClient
+        .from("profiles")
+        .select("cargo")
+        .eq("id", user.id)
+        .maybeSingle(),
+      supabase.from("profiles").select("id, nome_completo, email").limit(500),
+      supabase.from("produtos").select("id, nome").limit(200),
+    ]);
+    const cargo = perfilR.data?.cargo || "";
+    const visaoAmpla = ["admin", "diretor", "gerente_comercial"].includes(cargo);
+    if (nomesR.error) throw nomesR.error;
+    if (produtosR.error) throw produtosR.error;
 
     let queryAtendimentos = supabase
       .from("atendimentos")
       .select("id, created_at, instancia, vendedor_id")
       .gte("created_at", desde);
     if (!visaoAmpla) queryAtendimentos = queryAtendimentos.eq("vendedor_id", user.id);
-    const { data: atendimentos, error: erroAt } = await queryAtendimentos
-      .order("created_at", { ascending: false })
-      .limit(LIMITE_ATENDIMENTOS);
+
+    // Fase 3 — dimensão PRODUTO (independente das mensagens: mesmo passo)
+    let queryOpps = supabase
+      .from("oportunidades")
+      .select("atendimento_id, produto_id, resultado, valor_venda, vendedor_id");
+    if (!visaoAmpla) queryOpps = queryOpps.eq("vendedor_id", user.id);
+
+    const [{ data: atendimentos, error: erroAt }, { data: oportunidades, error: erroOpps }] =
+      await Promise.all([
+        queryAtendimentos.order("created_at", { ascending: false }).limit(LIMITE_ATENDIMENTOS),
+        queryOpps.limit(300),
+      ]);
     if (erroAt) throw erroAt;
+    if (erroOpps) throw erroOpps;
 
     const ids = (atendimentos ?? []).map((a) => a.id);
     const instanciaPorAtendimento = new Map<string, string | null>();
@@ -107,31 +128,13 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // nomes de quem respondeu (ranking por vendedor)
-    const { data: profiles, error: erroProfiles } = await supabase
-      .from("profiles")
-      .select("id, nome_completo, email")
-      .limit(500);
-    if (erroProfiles) throw erroProfiles;
+    // nomes de quem respondeu (ranking por vendedor) — já vieram em nomesR
     const nomes: Record<string, string> = {};
-    for (const p of profiles ?? []) {
+    for (const p of nomesR.data ?? []) {
       nomes[p.id] =
         p.nome_completo || (p.email ? String(p.email).split("@")[0] : "") || "Conta sem cadastro";
     }
-
-    // Fase 3 — dimensão PRODUTO (oportunidades → produtos)
-    let queryOpps = supabase
-      .from("oportunidades")
-      .select("atendimento_id, produto_id, resultado, valor_venda, vendedor_id");
-    if (!visaoAmpla) queryOpps = queryOpps.eq("vendedor_id", user.id);
-    const { data: oportunidades, error: erroOpps } = await queryOpps.limit(300);
-    if (erroOpps) throw erroOpps;
-
-    const { data: produtos, error: erroProdutos } = await supabase
-      .from("produtos")
-      .select("id, nome")
-      .limit(200);
-    if (erroProdutos) throw erroProdutos;
+    const produtos = produtosR.data;
 
     const resumo = resumoTempoResposta(respostas, new Date().toISOString());
     return NextResponse.json({

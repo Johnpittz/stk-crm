@@ -28,40 +28,38 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const vendedorPedido = searchParams.get("vendedor_id");
 
+  // 02/11 (varredura de lentidão): UMA única leitura de profile serve para
+  // decidir o filtro de cargo — antes havia até 2 chamadas de profile +
+  // 1 de nomes (roundtrips de rede eram ~1s do tempo do F5).
+  const { data: meuPerfil } = await supabase
+    .from("profiles")
+    .select("cargo")
+    .eq("id", user.id)
+    .maybeSingle();
+  const gestor = ["diretor", "admin", "gerente_comercial"].includes(
+    meuPerfil?.cargo || ""
+  );
+
   let alvoVendedor: string | null = null;
-  if (vendedorPedido && vendedorPedido !== user.id) {
-    const { data: meuPerfil } = await supabase
-      .from("profiles")
-      .select("cargo")
-      .eq("id", user.id)
-      .maybeSingle();
-    const gestor = ["diretor", "admin", "gerente_comercial"].includes(
-      meuPerfil?.cargo || ""
-    );
-    if (gestor) alvoVendedor = vendedorPedido;
+  if (vendedorPedido && vendedorPedido !== user.id && gestor) {
+    alvoVendedor = vendedorPedido;
   }
 
   let query = supabase
     .from("oportunidades")
     .select(
-      "id, titulo, etapa, valor_venda, created_at, vendedor_id, clientes(id, nome_razao_social)"
+      // embed da FK: nome do vendedor vem NA MESMA roundtrip (eliminava
+      // uma 3ª chamada só para popular vendedor_nome)
+      "id, titulo, etapa, valor_venda, created_at, vendedor_id, clientes(id, nome_razao_social), profiles:vendedor_id(nome_completo)"
     )
     .order("created_at", { ascending: false })
     .limit(500);
 
   if (alvoVendedor) {
     query = query.eq("vendedor_id", alvoVendedor);
-  } else if (!vendedorPedido) {
+  } else if (!vendedorPedido && !gestor) {
     // sem filtro explícito: gestores veem tudo; vendedor vê o dele
-    const { data: meuPerfil } = await supabase
-      .from("profiles")
-      .select("cargo")
-      .eq("id", user.id)
-      .maybeSingle();
-    const gestor = ["diretor", "admin", "gerente_comercial"].includes(
-      meuPerfil?.cargo || ""
-    );
-    if (!gestor) query = query.eq("vendedor_id", user.id);
+    query = query.eq("vendedor_id", user.id);
   }
 
   let oportunidades: any[] = [];
@@ -76,22 +74,11 @@ export async function GET(request: NextRequest) {
     console.warn("[API dashboard/funil] exceção:", err?.message);
   }
 
-  // nome do vendedor em cada linha (exibição/identificação)
-  const ids = Array.from(
-    new Set(oportunidades.map((o) => o.vendedor_id).filter(Boolean))
-  );
+  // nome do vendedor vem do embed profiles:vendedor_id (mesma roundtrip)
   const nomes: Record<string, string> = {};
-  if (ids.length) {
-    try {
-      const { data: perfis } = await supabase
-        .from("profiles")
-        .select("id, nome_completo, email")
-        .in("id", ids);
-      for (const p of perfis || []) {
-        nomes[p.id] = p.nome_completo || p.email || "";
-      }
-    } catch {
-      // best-effort
+  for (const o of oportunidades) {
+    if (o.vendedor_id && o.profiles?.nome_completo) {
+      nomes[o.vendedor_id] = o.profiles.nome_completo;
     }
   }
 
