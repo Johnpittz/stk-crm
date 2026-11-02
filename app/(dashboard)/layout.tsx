@@ -2,6 +2,7 @@ import { PerfilAtivoProvider } from "@/lib/perfil-ativo-context";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
+import { FormGuard } from "@/components/layout/form-guard";
 import { createClient } from "@/lib/supabase/server";
 import { UserProfileProvider } from "@/lib/user-profile-context";
 
@@ -63,6 +64,9 @@ export default async function DashboardLayout({
     <PerfilAtivoProvider cargo={user.cargo}>
       <UserProfileProvider user={user}>
         <div className="min-h-screen bg-[#0c1425]">
+          {/* 22/10 — ENTER salva + aviso "sair sem salvar" em todo o sistema
+              (inclusive Marketing): listeners globais do dashboard */}
+          <FormGuard />
           <Sidebar user={user} />
           <main className="min-h-screen transition-all duration-300 ease-in-out ml-64">
             <Header />
