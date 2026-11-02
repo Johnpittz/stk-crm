@@ -1,10 +1,14 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   ehBusca,
   ehEnterSalvavel,
   ehBotaoSalvar,
   acharBotaoSalvar,
+  ehFechadorDeModal,
+  podeFecharModal,
 } from "./form-guard";
+
+const AVISO = "Você tem alterações não salvas. Deseja sair sem salvar?";
 
 /** 22/10 — regras da guarda: ENTER salva no sistema inteiro (inclusive
  * Marketing), mas busca não salva e textarea continua quebrando linha. */
@@ -56,6 +60,31 @@ describe("ehEnterSalvavel", () => {
 
   it("texto editável não salva", () => {
     expect(ehEnterSalvavel({ tagName: "DIV", isContentEditable: true })).toBe(false);
+  });
+});
+
+describe("fechamento de modal com dados digitados (22/10)", () => {
+  it("reconhece o X do modal", () => {
+    expect(ehFechadorDeModal({ tagName: "BUTTON", ariaLabel: "Close" })).toBe(true);
+    expect(ehFechadorDeModal({ tagName: "BUTTON", ariaLabel: "Fechar" })).toBe(true);
+    expect(ehFechadorDeModal({ tagName: "BUTTON", textContent: "\u00d7" })).toBe(true);
+    expect(ehFechadorDeModal({ tagName: "BUTTON", textContent: "Criar Campanha" })).toBe(false);
+    expect(ehFechadorDeModal({ tagName: "DIV", textContent: "\u00d7" })).toBe(false);
+  });
+
+  it("modal limpo fecha sem perguntar", () => {
+    const confirmar = vi.fn(() => true);
+    expect(podeFecharModal(false, confirmar, AVISO)).toBe(true);
+    expect(confirmar).not.toHaveBeenCalled();
+  });
+
+  it("modal com dados digitados pergunta e respeita a resposta", () => {
+    const recusou = vi.fn(() => false);
+    expect(podeFecharModal(true, recusou, AVISO)).toBe(false);
+    expect(recusou).toHaveBeenCalledWith(AVISO);
+
+    const aceitou = vi.fn(() => true);
+    expect(podeFecharModal(true, aceitou, AVISO)).toBe(true);
   });
 });
 

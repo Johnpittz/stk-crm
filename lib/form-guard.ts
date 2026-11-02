@@ -58,6 +58,26 @@ export function ehBotaoSalvar(el: ElemLike): boolean {
   return REGEX_SALVAR.test(texto);
 }
 
+/** Este elemento é o fechador (×) de um modal? */
+export function ehFechadorDeModal(el: ElemLike): boolean {
+  const tag = (el.tagName || "").toUpperCase();
+  if (tag !== "BUTTON") return false;
+  const rotulo = el.ariaLabel || "";
+  if (/\bclose\b|fechar/i.test(rotulo)) return true;
+  const texto = (el.textContent || "").trim();
+  return texto === "\u00d7" || texto.toLowerCase() === "x";
+}
+
+/** Avisa ao fechar modal com dados digitados; devolve true se pode fechar. */
+export function podeFecharModal(
+  temDadosDigitados: boolean,
+  confirmar: (msg: string) => boolean,
+  aviso: string,
+): boolean {
+  if (!temDadosDigitados) return true;
+  return confirmar(aviso);
+}
+
 /** Acha o botão de salvar dentro de um contêiner (form, card, modal…). */
 export function acharBotaoSalvar(
   container: { querySelectorAll: (sel: string) => ArrayLike<ElemLike> },

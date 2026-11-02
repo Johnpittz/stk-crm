@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { acharBotaoSalvar, ehBusca, ehEnterSalvavel, type ElemLike } from "@/lib/form-guard";
+import { acharBotaoSalvar, ehBusca, ehEnterSalvavel, ehFechadorDeModal, podeFecharModal, type ElemLike } from "@/lib/form-guard";
 
 /**
  * FormGuard — 22/10 (pedido do João: "no sistema inteiro, inclusive
@@ -41,6 +41,12 @@ export function FormGuard() {
       const alvo = e.target as ElemLike | null;
       if (alvo && ehBusca(alvo)) return; // digitar na busca não "suja" a página
       marcarSujo();
+      // marca a sujeira também DENTRO do modal aberto (22/10 — pedido do João:
+      // fechar modal com dados digitados tem que perguntar)
+      const dlg = (alvo as unknown as HTMLElement | null)?.closest?.(
+        '[role="dialog"]',
+      ) as HTMLElement | null;
+      if (dlg) dlg.dataset.sujo = "1";
     };
     const noSubmit = () => limparSujo();
 
@@ -100,6 +106,49 @@ export function FormGuard() {
     };
     document.addEventListener("click", noClique, true);
 
+    // ── MODAL com dados digitados: pergunta antes de fechar ────────────
+    const dialogoSujo = (): HTMLElement | null => {
+      const d = document.querySelector('[role="dialog"]') as HTMLElement | null;
+      return d && d.dataset.sujo === "1" ? d : null;
+    };
+
+    const perguntarFecharDialogo = () =>
+      podeFecharModal(true, (msg) => window.confirm(msg), AVISO_SAIDA);
+
+    // o Radix fecha com clique no overlay (pointerdown fora do dialog)
+    const noPointerFora = (e: PointerEvent) => {
+      const dlg = dialogoSujo();
+      if (!dlg) return;
+      if (dlg.contains(e.target as Node)) return;
+      if (!perguntarFecharDialogo()) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    document.addEventListener("pointerdown", noPointerFora, true);
+
+    // botão × do modal
+    const noCliqueX = (e: MouseEvent) => {
+      const dlg = dialogoSujo();
+      if (!dlg || !dlg.contains(e.target as Node)) return;
+      if (!ehFechadorDeModal(e.target as unknown as ElemLike)) return;
+      if (!perguntarFecharDialogo()) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    document.addEventListener("click", noCliqueX, true);
+
+    // Esc fecha o modal
+    const noEsc = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || !dialogoSujo()) return;
+      if (!perguntarFecharDialogo()) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    document.addEventListener("keydown", noEsc, true);
+
     // ── aviso ao sair sem salvar (F5 / fechar aba) ─────────────────────
     const antesSair = (e: BeforeUnloadEvent) => {
       if (!estaSujo()) return;
@@ -108,10 +157,16 @@ export function FormGuard() {
     };
     window.addEventListener("beforeunload", antesSair);
 
-    // limpa o marcador quando um botão de salvar é clicado com o mouse
+    // limpa o marcador quando um botão de salvar é clicado com o mouse —
+    // assim, depois de criar/salvar, o modal fecha sem perguntar
     const noBotao = (e: MouseEvent) => {
       const alvo = e.target as ElemLike | null;
-      if (alvo && ehBotao(alvo)) limparSujo();
+      if (!alvo || !ehBotao(alvo)) return;
+      limparSujo();
+      const dlg = (e.target as HTMLElement).closest?.(
+        '[role="dialog"]',
+      ) as HTMLElement | null;
+      if (dlg) delete dlg.dataset.sujo;
     };
     document.addEventListener("click", noBotao, true);
 
@@ -122,6 +177,9 @@ export function FormGuard() {
       document.removeEventListener("keydown", noKey);
       document.removeEventListener("click", noClique, true);
       document.removeEventListener("click", noBotao, true);
+      document.removeEventListener("pointerdown", noPointerFora, true);
+      document.removeEventListener("click", noCliqueX, true);
+      document.removeEventListener("keydown", noEsc, true);
       window.removeEventListener("beforeunload", antesSair);
       limparSujo();
     };
