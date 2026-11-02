@@ -727,7 +727,14 @@ export default function EditarClientePage() {
                     type="radio"
                     name="origem_tipo"
                     checked={origemTipo === t}
-                    onChange={() => { setOrigemTipo(t); setOrigemSubtipo(""); setVendedorId(""); setParceiroNome(""); }}
+                    onChange={() => {
+                      setOrigemTipo(t);
+                      // vendedor já nasce com subtipo "interno" — o select do
+                      // vendedor aparece na hora (não some atrás de um passo)
+                      setOrigemSubtipo(t === "vendedor" ? "interno" : "");
+                      setVendedorId("");
+                      setParceiroNome("");
+                    }}
                     className="accent-[#3B64CF]"
                   />
                   {OPÇÕES_ORIGEM[t].rotulo}

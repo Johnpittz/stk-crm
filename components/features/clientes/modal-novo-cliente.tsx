@@ -162,7 +162,9 @@ export function ModalNovoCliente() {
                       checked={origemTipo === t}
                       onChange={() => {
                         setOrigemTipo(t);
-                        setOrigemSubtipo("");
+                        // vendedor já nasce com subtipo "interno" (mesma
+                        // regra das telas de cadastro/edição)
+                        setOrigemSubtipo(t === "vendedor" ? "interno" : "");
                         setVendedorId("");
                         setParceiroNome("");
                       }}
