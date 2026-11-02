@@ -6,6 +6,8 @@
  * Disparo" com MASSA-Excel e REMARKETING mora lá) — o BulkSender ganhou
  * botões que abrem aquele diálogo já na aba escolhida; painel de envios
  * fica no lugar da lista antiga; relatórios seguem aqui.
+ * 02/11 (pedido do João): form inline removido — criação SÓ pelo botão
+ * "Novo Disparo" (antes "Nova Campanha"); a tela mostra só o painel.
  */
 import { BulkSender } from "@/components/features/disparo/bulk-sender";
 import CampanhasConteudo from "../marketing/campanhas/page";
@@ -22,11 +24,11 @@ export default function DisparoPage() {
         </p>
       </div>
 
-      <section aria-labelledby="sec-criar">
-        <h2 id="sec-criar" className="text-lg font-semibold text-white mb-3">
-          Criar disparo
-        </h2>
-        <BulkSender />
+      {/* 02/11 (pedido do João): o formulário "Criar disparo" saiu daqui —
+          a criação acontece só no botão "Novo Disparo" (seção Campanhas,
+          mais abaixo). Esta seção fica só com o Painel de Envios. */}
+      <section aria-label="Painel de Envios">
+        <BulkSender apenasPainel />
       </section>
 
       <section aria-labelledby="sec-campanhas">

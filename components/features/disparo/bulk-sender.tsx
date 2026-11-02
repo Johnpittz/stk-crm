@@ -101,10 +101,13 @@ function rotuloTipo(tipo?: string | null, comCampanha?: boolean) {
   return { texto: "Campanha", estilo: "bg-blue-500/15 text-blue-300 border-blue-500/30" };
 }
 
-export function BulkSender() {
+export function BulkSender({ apenasPainel = false }: { apenasPainel?: boolean }) {
   // 19/10 (pedido do João) — as 3 opções de disparo NA TELA: Avulso é o
   // form daqui; Em Massa/Remarketing embutem o mesmo formulário do
   // "Novo Disparo" (sem modal), já na aba certa.
+  // 02/11 (pedido do João): `apenasPainel` = a tela Disparo mostra SÓ o
+  // Painel de Envios; o formulário passou a viver só no botão "Novo
+  // Disparo" (diálogo da seção Campanhas).
   const [abaDisparo, setAbaDisparo] = useState<"avulso" | "massa" | "remarketing">("avulso");
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   // 22/10 — linha da Atividade recente aberta (badge de origem + detalhes)
@@ -439,7 +442,13 @@ export function BulkSender() {
         onValueChange={(v) => setAbaDisparo(v as "avulso" | "massa" | "remarketing")}
         className="flex-1 min-h-0 flex flex-col"
       >
-        <TabsList className="bg-[#0f1d32] border border-white/10 w-full max-w-lg mb-4 shrink-0">
+        <TabsList
+          className={
+            apenasPainel
+              ? "hidden"
+              : "bg-[#0f1d32] border border-white/10 w-full max-w-lg mb-4 shrink-0"
+          }
+        >
           <TabsTrigger
             value="avulso"
             className="flex-1 text-white/60 data-[state=active]:bg-emerald-600 data-[state=active]:text-white"
@@ -461,8 +470,13 @@ export function BulkSender() {
         </TabsList>
 
         <TabsContent value="avulso" className="flex-1 min-h-0 mt-0">
-          <div className="h-full grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Formulário */}
+          <div
+            className={`h-full grid gap-4 ${
+              apenasPainel ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-3"
+            }`}
+          >
+        {/* Formulário (02/11: some no modo apenasPainel) */}
+        {!apenasPainel && (
         <div className="lg:col-span-1 bg-[#0f1d32] border border-white/10 rounded-lg p-4 overflow-y-auto">
           <h2 className="text-lg font-semibold text-white mb-4">
             Nova Campanha
@@ -745,10 +759,15 @@ export function BulkSender() {
             </Button>
           </div>
         </div>
+        )}
 
         {/* 19/10 (pedido do João) — PAINEL DE ENVIOS no lugar da lista de
             campanhas: agregado com os números certos (dashboard) */}
-        <div className="lg:col-span-2 bg-[#0f1d32] border border-white/10 rounded-lg p-4 overflow-hidden flex flex-col">
+        <div
+          className={`bg-[#0f1d32] border border-white/10 rounded-lg p-4 overflow-hidden flex flex-col ${
+            apenasPainel ? "col-span-1 h-full" : "lg:col-span-2"
+          }`}
+        >
           <div className="flex items-baseline justify-between mb-4">
             <h2 className="text-lg font-semibold text-white">Painel de Envios</h2>
             <p className="text-xs text-white/30">

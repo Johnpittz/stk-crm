@@ -522,9 +522,10 @@ export function CampanhasConteudo({
 
   const criarDisparo = async () => {
     // 19/10 — modo em-tela (Disparo): não há campanha de origem escolhida.
-    // Usa/cria a campanha "Disparos Diretos" pra criação nunca travar.
+    // 02/11: vale para o diálogo "Novo Disparo" também — Usa/cria a
+    // campanha "Disparos Diretos" pra criação nunca travar.
     let campanhaAtiva = campanhaSelecionada;
-    if (!campanhaAtiva && exibirSomenteCriar) {
+    if (!campanhaAtiva) {
       const { data: existentes } = await supabase
         .from('campanhas')
         .select('*')
@@ -907,7 +908,11 @@ export function CampanhasConteudo({
             </div>
           ) : (
             <DialogHeader>
-              <DialogTitle className="text-white">Criar Disparo - {campanhaSelecionada?.nome}</DialogTitle>
+              <DialogTitle className="text-white">
+                {campanhaSelecionada
+                  ? `Criar Disparo - ${campanhaSelecionada.nome}`
+                  : "Novo Disparo"}
+              </DialogTitle>
             </DialogHeader>
           )
           }
@@ -1458,69 +1463,20 @@ export function CampanhasConteudo({
           <h1 className="text-2xl font-bold text-white">Campanhas</h1>
           <p className="text-gray-400">Crie campanhas e gerencie disparos dentro delas</p>
         </div>
-        <Dialog open={showNovoDialog} onOpenChange={setShowNovoDialog}>
-          <DialogTrigger asChild>
-            <Button className="bg-emerald-600 hover:bg-emerald-700">
-              <Plus className="h-4 w-4 mr-2" /> Nova Campanha
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="bg-gray-800 border-gray-700">
-            <DialogHeader>
-              <DialogTitle className="text-white">Criar Nova Campanha</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label className="text-gray-300">Nome da Campanha *</Label>
-                <Input value={novaCampanha.nome} onChange={(e) => setNovaCampanha({...novaCampanha, nome: e.target.value})} placeholder="Ex: Black Friday 2026" className="bg-gray-700 border-gray-600 text-white" />
-              </div>
-              <div>
-                <Label className="text-gray-300">Descrição</Label>
-                <Textarea value={novaCampanha.descricao} onChange={(e) => setNovaCampanha({...novaCampanha, descricao: e.target.value})} placeholder="Descreva o objetivo da campanha..." className="bg-gray-700 border-gray-600 text-white" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-gray-300">Tipo</Label>
-                  <Select value={novaCampanha.tipo} onValueChange={(v) => setNovaCampanha({...novaCampanha, tipo: v})}>
-                    <SelectTrigger className="bg-gray-700 border-gray-600 text-white"><SelectValue /></SelectTrigger>
-                    <SelectContent className="bg-gray-700 border-gray-600">
-                      <SelectItem value="promocional">Promocional</SelectItem>
-                      <SelectItem value="lancamento">Lançamento</SelectItem>
-                      <SelectItem value="engajamento">Engajamento</SelectItem>
-                      <SelectItem value="sazonal">Sazonal</SelectItem>
-                      <SelectItem value="outro">Outro</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-gray-300">Status</Label>
-                  <Select value={novaCampanha.status} onValueChange={(v) => setNovaCampanha({...novaCampanha, status: v})}>
-                    <SelectTrigger className="bg-gray-700 border-gray-600 text-white"><SelectValue /></SelectTrigger>
-                    <SelectContent className="bg-gray-700 border-gray-600">
-                      <SelectItem value="rascunho">Rascunho</SelectItem>
-                      <SelectItem value="agendado">Agendado</SelectItem>
-                      <SelectItem value="em_andamento">Em Andamento</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-gray-300">Data Início</Label>
-                  <Input type="date" value={novaCampanha.data_inicio} onChange={(e) => setNovaCampanha({...novaCampanha, data_inicio: e.target.value})} className="bg-gray-700 border-gray-600 text-white" />
-                </div>
-                <div>
-                  <Label className="text-gray-300">Data Fim</Label>
-                  <Input type="date" value={novaCampanha.data_fim} onChange={(e) => setNovaCampanha({...novaCampanha, data_fim: e.target.value})} className="bg-gray-700 border-gray-600 text-white" />
-                </div>
-              </div>
-              <div>
-                <Label className="text-gray-300">Meta de Mensagens</Label>
-                <Input type="number" value={novaCampanha.meta} onChange={(e) => setNovaCampanha({...novaCampanha, meta: parseInt(e.target.value) || 0})} placeholder="0" className="bg-gray-700 border-gray-600 text-white" />
-              </div>
-              <Button onClick={criarCampanha} className="w-full bg-emerald-600 hover:bg-emerald-700">Criar Campanha</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        {/* 02/11 (pedido do João): "Nova Campanha" virou "NOVO DISPARO" e
+            abre o formulário de disparo — o form inline da tela Disparo
+            saiu; a campanha "Disparos Diretos" é criada sozinha pelo
+            criarDisparo() quando não há campanha selecionada. */}
+        <Button
+          onClick={() => {
+            setCampanhaSelecionada(null);
+            resetarDialog();
+            setShowDisparoDialog(true);
+          }}
+          className="bg-emerald-600 hover:bg-emerald-700"
+        >
+          <Plus className="h-4 w-4 mr-2" /> Novo Disparo
+        </Button>
       </div>
 
       <div className="grid gap-4">
