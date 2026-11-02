@@ -134,13 +134,25 @@ export function FormGuard() {
       return d && d.dataset.sujo === "1" ? d : null;
     };
 
-    /** fecha o modal original via Esc (mecanismo nativo do Radix) sem
-     *  voltar a perguntar — usado quando o usuário escolhe "Sair sem salvar" */
+    /** fecha o modal original SEM voltar a perguntar — usado quando o
+     *  usuário escolhe "Sair sem salvar". Clica no × do próprio modal
+     *  (mecanismo nativo do Radix); se não houver, dispara Esc com o alvo
+     *  DENTRO do dialog — Esc com alvo em document é ignorado pelo Radix. */
     const refazerFechamento = () => {
       ignorarRef.current = true;
-      document.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
-      );
+      const dlg = dialogoSujo();
+      const x = dlg
+        ? Array.from(dlg.querySelectorAll("button")).find((b) =>
+            ehFechadorDeModal(b as unknown as ElemLike),
+          )
+        : null;
+      if (x) {
+        x.click();
+      } else {
+        (dlg || document).dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
+        );
+      }
       window.setTimeout(() => {
         ignorarRef.current = false;
       }, 500);
