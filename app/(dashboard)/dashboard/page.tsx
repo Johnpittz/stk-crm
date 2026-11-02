@@ -200,8 +200,11 @@ export default function DashboardPage() {
       } = await supabase.auth.getSession();
       if (!session) return;
 
-      const res = await fetch("/api/tarefas", {
-        headers: { Authorization: `Bearer ${session.access_token}` },
+      // 02/11 — funil real vem de /api/dashboard/funil (oportunidades);
+      // /api/tarefas lê a tabela `tarefas`, que está vazia e sem as
+      // colunas do funil (migration 103 pendente).
+      const res = await fetch("/api/dashboard/funil", {
+        headers: { Authorization: "Bearer " + session.access_token },
       });
       const data = await res.json();
       if (res.ok) setTarefas(data.tarefas || []);
