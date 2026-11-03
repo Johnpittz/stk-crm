@@ -112,6 +112,39 @@ export function BulkSender({ apenasPainel = false }: { apenasPainel?: boolean })
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   // 22/10 — linha da Atividade recente aberta (badge de origem + detalhes)
   const [linhaExpandida, setLinhaExpandida] = useState<string | null>(null);
+  // 02/11 (pedido do João) — conteúdo REAL da linha (mensagem/fluxo) buscado
+  // sob demanda: a lista NÃO traz fluxo_mensagens (28MB de imagens base64).
+  const [conteudoLinha, setConteudoLinha] = useState<
+    Record<string, { message: string; fluxo: any[] | null }>
+  >({});
+  const carregarConteudoLinha = async (id: string) => {
+    if (conteudoLinha[id]) return;
+    try {
+      const { data } = await supabase
+        .from("bulk_campaigns")
+        .select("message, mensagem, fluxo_mensagens")
+        .eq("id", id)
+        .single();
+      if (!data) return;
+      let fluxo: any[] | null = data.fluxo_mensagens || null;
+      if (typeof fluxo === "string") {
+        try {
+          fluxo = JSON.parse(fluxo as any);
+        } catch {
+          fluxo = null;
+        }
+      }
+      setConteudoLinha((prev) => ({
+        ...prev,
+        [id]: {
+          message: (data.message || data.mensagem || "").trim(),
+          fluxo: Array.isArray(fluxo) && fluxo.length ? fluxo : null,
+        },
+      }));
+    } catch {
+      // best-effort: linha continua expansível
+    }
+  };
   const [newInstance, setNewInstance] = useState("STK-3");
   const [newIntervalo, setNewIntervalo] = useState(5);
   const [newCampaign, setNewCampaign] = useState({
@@ -878,9 +911,11 @@ export function BulkSender({ apenasPainel = false }: { apenasPainel?: boolean })
                               {/* linha clicável: abre/fecha os detalhes */}
                               <div
                                 className="flex items-center gap-3 px-3 py-2 text-xs cursor-pointer hover:bg-white/10 transition-colors"
-                                onClick={() =>
-                                  setLinhaExpandida(aberta ? null : c.id)
-                                }
+                                onClick={() => {
+                                  const nova = aberta ? null : c.id;
+                                  setLinhaExpandida(nova);
+                                  if (nova) void carregarConteudoLinha(nova);
+                                }}
                               >
                                 <span
                                   className={`shrink-0 px-1.5 py-0.5 rounded border text-[10px] font-semibold ${origem.estilo}`}
@@ -944,17 +979,61 @@ export function BulkSender({ apenasPainel = false }: { apenasPainel?: boolean })
                                       {c.delivered ?? "—"} / {c.read_count ?? "—"}
                                     </span>
                                   </p>
-                                  <p className="col-span-2 text-white/40">
+                                  <div className="col-span-2 text-white/40">
                                     💬 Mensagem:{" "}
-                                    <span className="text-white/70">
-                                      {ehJson
-                                        ? "Fluxo de mensagens (sequência texto → imagem)"
-                                        : mensagem ||
-                                          (c.imagem_url
-                                            ? "Imagem única"
-                                            : "—")}
-                                    </span>
-                                  </p>
+                                    {(() => {
+                                      // 02/11 — mostrar O CONTEÚDO enviado:
+                                      // fluxo (passos) quando existe; senão o texto.
+                                      const dado = conteudoLinha[c.id];
+                                      let fluxo = dado?.fluxo ?? null;
+                                      if (!fluxo && ehJson) {
+                                        try {
+                                          const arr = JSON.parse(mensagem);
+                                          if (Array.isArray(arr) && arr.length)
+                                            fluxo = arr;
+                                        } catch {
+                                          fluxo = null;
+                                        }
+                                      }
+                                      if (fluxo && fluxo.length) {
+                                        return (
+                                          <div className="mt-1 space-y-1">
+                                            <p className="text-white/50">
+                                              Fluxo com {fluxo.length} passo
+                                              {fluxo.length > 1 ? "s" : ""}:
+                                            </p>
+                                            {fluxo.map((step: any, idx: number) => (
+                                              <div
+                                                key={idx}
+                                                className="flex items-start gap-2 text-white/70"
+                                              >
+                                                <span className="shrink-0">
+                                                  {step.type === "text"
+                                                    ? "📝"
+                                                    : "🖼️"}{" "}
+                                                  #{idx + 1}
+                                                </span>
+                                                <span className="whitespace-pre-wrap">
+                                                  {step.type === "text"
+                                                    ? step.content
+                                                    : "[imagem]"}
+                                                </span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        );
+                                      }
+                                      const texto =
+                                        dado?.message ||
+                                        mensagem ||
+                                        (c.imagem_url ? "Imagem única" : "—");
+                                      return (
+                                        <span className="text-white/70 whitespace-pre-wrap">
+                                          {texto}
+                                        </span>
+                                      );
+                                    })()}
+                                  </div>
                                 </div>
                               )}
                             </div>

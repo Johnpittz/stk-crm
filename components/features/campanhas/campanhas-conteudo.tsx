@@ -118,7 +118,7 @@ export function CampanhasConteudo({
     try {
       const { data } = await supabase
         .from('bulk_campaigns')
-        .select('id, name, status, sent, failed, numbers, instancia, intervalo, intervalo_passos, delay_inicial, imagem_url, error_log, created_at')
+        .select('id, name, status, sent, failed, numbers, instancia, intervalo, intervalo_passos, delay_inicial, imagem_url, error_log, created_at, message, mensagem, meta')
         .eq('id', disparo.id)
         .single();
       setDetalheDisparo(data || disparo);
@@ -151,7 +151,9 @@ export function CampanhasConteudo({
   const [novoDisparo, setNovoDisparo] = useState({
     nome: '', mensagem: '', instanceName: '', phone_from: '',
     intervalo: 5, intervalo_passos: 2, delay_inicial: 0,
-    promocao_id: '', telefone_avulso: ''
+    promocao_id: '', telefone_avulso: '',
+    // 02/11 (pedido do João) — META de mensagens do disparo
+    meta: 0
   });
   
   // Fluxo de mensagens: array de passos { type: 'text'|'image', content?: string, base64?: string, preview?: string, mimetype?: string, url?: string }
@@ -694,6 +696,9 @@ export function CampanhasConteudo({
         imagem_url,
       };
 
+      // 02/11 — META de mensagens (coluna nova `meta`; ver migration 104)
+      if (Number(novoDisparo.meta) > 0) body.meta = Number(novoDisparo.meta);
+
       // M1.3 — auditoria: de onde veio a lista (fica gravado na campanha)
       // 22/10: gravava 'avulso' até pro modo Massa — badge de origem exigia o real.
       body.tipo = tipoEnvio;
@@ -713,7 +718,14 @@ export function CampanhasConteudo({
         body.fluxo_mensagens = fluxo_mensagens;
       }
 
-      const { error } = await supabase.from('bulk_campaigns').insert([body]);
+      let { error } = await supabase.from('bulk_campaigns').insert([body]);
+
+      // 02/11 — se a coluna `meta` ainda não existe no Supabase (migration 104
+      // pendente), repete SEM ela para a criação nunca travar.
+      if (error && body.meta !== undefined && /meta/i.test(error.message || '')) {
+        const { meta, ...semMeta } = body;
+        ({ error } = await supabase.from('bulk_campaigns').insert([semMeta]));
+      }
 
       if (error) throw error;
 
@@ -757,7 +769,7 @@ export function CampanhasConteudo({
 
   const resetarDialog = () => {
     setShowDisparoDialog(false);
-    setNovoDisparo({ nome: '', mensagem: '', instanceName: '', phone_from: '', intervalo: 5, intervalo_passos: 2, delay_inicial: 0, promocao_id: '', telefone_avulso: '' });
+    setNovoDisparo({ nome: '', mensagem: '', instanceName: '', phone_from: '', intervalo: 5, intervalo_passos: 2, delay_inicial: 0, promocao_id: '', telefone_avulso: '', meta: 0 });
     setDisparoImage(null);
     setFluxoSteps([]);
     setContatosImportados([]);
@@ -938,6 +950,17 @@ export function CampanhasConteudo({
               <div>
                 <Label className="text-gray-300">Nome do Disparo *</Label>
                 <Input value={novoDisparo.nome} onChange={(e) => setNovoDisparo({...novoDisparo, nome: e.target.value})} placeholder="Ex: Envio 1 - Clientes Ativos" className="bg-gray-700 border-gray-600 text-white" />
+              </div>
+              <div>
+                <Label className="text-gray-300">Meta de Mensagens</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={novoDisparo.meta || ''}
+                  onChange={(e) => setNovoDisparo({...novoDisparo, meta: parseInt(e.target.value) || 0})}
+                  placeholder="Ex: 100"
+                  className="bg-gray-700 border-gray-600 text-white"
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -1791,6 +1814,28 @@ export function CampanhasConteudo({
                     )}
                   </div>
                 </div>
+                {/* 02/11 — META de mensagens com progresso (quando houver) */}
+                {typeof detalheDisparo.meta === 'number' && detalheDisparo.meta > 0 && (
+                  <div className="bg-gray-700/50 rounded-lg p-3">
+                    <p className="text-gray-400 text-xs mb-2">🎯 Meta de mensagens</p>
+                    <div className="flex items-center gap-4">
+                      <p className="text-white text-lg font-semibold">
+                        {detalheDisparo.sent ?? 0} / {detalheDisparo.meta}
+                      </p>
+                      <div className="flex-1 h-2 bg-gray-600 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-emerald-500 transition-all"
+                          style={{
+                            width: `${Math.min(100, Math.round(((detalheDisparo.sent ?? 0) / detalheDisparo.meta) * 100))}%`,
+                          }}
+                        />
+                      </div>
+                      <span className="text-xs text-gray-400">
+                        {Math.min(100, Math.round(((detalheDisparo.sent ?? 0) / detalheDisparo.meta) * 100))}%
+                      </span>
+                    </div>
+                  </div>
+                )}
                 {/* Fluxo */}
                 {fluxo && fluxo.length > 0 ? (
                   <div className="bg-gray-700/50 rounded-lg p-3">
@@ -1809,6 +1854,15 @@ export function CampanhasConteudo({
                         </div>
                       ))}
                     </div>
+                  </div>
+                ) : (detalheDisparo.message || detalheDisparo.mensagem || '').trim() ? (
+                  // 02/11 (pedido do João): quando NÃO é fluxo (mensagem simples),
+                  // mostrar O QUE FOI ENVIADO em vez de um botão inútil.
+                  <div className="bg-gray-700/50 rounded-lg p-3">
+                    <p className="text-gray-400 text-xs mb-2">💬 Mensagem enviada</p>
+                    <p className="text-gray-300 text-sm whitespace-pre-wrap">
+                      {(detalheDisparo.message || detalheDisparo.mensagem || '').trim()}
+                    </p>
                   </div>
                 ) : (
                   <div className="bg-gray-700/50 rounded-lg p-3 flex items-center justify-between">
