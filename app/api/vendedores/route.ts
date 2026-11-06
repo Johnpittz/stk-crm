@@ -95,16 +95,19 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  // 06/11 (fix do João): o filtro do Dashboard chama ESTA rota sem header
+  // Authorization (usa a sessão por cookie) — antes caía no401 e o dropdown
+  // "vendedores" abria vazio. Aceitamos os DOIS formatos: Bearer (forms com
+  // supabase-js) e sessão de cookie (fetch simples das telas).
   const authHeader = request.headers.get("authorization") || "";
   const token = authHeader.replace("Bearer ", "").trim();
-  if (!token) {
-    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-  }
 
   const supabase = createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+  const { data: { user }, error: authError } = token
+    ? await supabase.auth.getUser(token)
+    : await supabase.auth.getUser();
   if (authError || !user) {
-    return NextResponse.json({ error: "Token inválido" }, { status: 401 });
+    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
 
   // Verifica se usuário é gestor
