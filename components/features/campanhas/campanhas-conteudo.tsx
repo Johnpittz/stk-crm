@@ -175,6 +175,45 @@ export function CampanhasConteudo({
     name: string;
   } | null>(null);
 
+  // 07/11 — fluxo Arte → Disparar (CORREÇÃO): em02/11 o form saiu do
+  // BulkSender para cá, mas quem lia ?arte= continuou sendo ele — a arte
+  // sumia em silêncio. Este componente é o dono do form (disparoImage),
+  // então a leitura da galeria mora aqui: anexa, abre o dialogo na aba
+  // Avulso e limpa a URL.
+  const [arteDe, setArteDe] = useState<string | null>(null);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const arteUrl = params.get("arte");
+    if (!arteUrl) return;
+    let vivo = true;
+    (async () => {
+      try {
+        const resp = await fetch(arteUrl);
+        const blob = await resp.blob();
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        if (!vivo) return;
+        setDisparoImage({
+          base64: dataUrl,
+          preview: dataUrl,
+          mimetype: blob.type || "image/png",
+          name: params.get("arte_titulo") || "arte.png",
+        });
+        setArteDe(params.get("arte_titulo") || "Arte da galeria");
+        setTipoEnvio("avulso");
+        setShowDisparoDialog(true);
+        window.history.replaceState({}, "", window.location.pathname);
+      } catch (err) {
+        console.error("Erro ao carregar a arte para disparo:", err);
+      }
+    })();
+    return () => { vivo = false; };
+  }, []);
+
   // Handler para seleção de imagem no fluxo
   const handleFluxoImageSelect = (e: React.ChangeEvent<HTMLInputElement>, stepId: string) => {
     const file = e.target.files?.[0];
@@ -929,6 +968,13 @@ export function CampanhasConteudo({
           )
           }
           
+          {/* 07/11 — aviso da arte vinda da galeria (Marketing > Criar Artes) */}
+          {arteDe && (
+            <div className="mb-3 rounded-lg border border-emerald-600/40 bg-emerald-600/10 px-3 py-2 text-sm text-emerald-200">
+              🎨 Arte carregada da galeria: <b>{arteDe}</b> — confira a imagem no campo de anexo antes de enviar.
+            </div>
+          )}
+
           <Tabs value={tipoEnvio} onValueChange={(v) => setTipoEnvio(v as 'avulso' | 'massa' | 'remarketing')}>
             {/* 19/10 — na tela de Disparo as abas ficam no topo (bulk):
                 aqui dentro escondemos a cópia (o conteúdo já nasce na aba

@@ -217,7 +217,6 @@ export function BulkSender({ apenasPainel = false }: { apenasPainel?: boolean })
     reader.readAsDataURL(file);
   };
   // banner "veio da galeria" (PEDIDO 3)
-  const [arteDe, setArteDe] = useState<string | null>(null);
   const [instancias, setInstancias] = useState<InstanciaWhatsApp[]>([]);
   const supabase = createClient();
 
@@ -229,35 +228,9 @@ export function BulkSender({ apenasPainel = false }: { apenasPainel?: boolean })
       .catch(() => {});
   }, []);
 
-  // PEDIDO 3 (11/10) — veio da galeria (Marketing > Criar Artes):
-  // ?arte=<url> carrega a imagem pronta no formulário de disparo.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const arteUrl = params.get("arte");
-    if (!arteUrl) return;
-    (async () => {
-      try {
-        const resp = await fetch(arteUrl);
-        const blob = await resp.blob();
-        const reader = new FileReader();
-        reader.onload = () => {
-          const dataUrl = reader.result as string;
-          setNewImage({
-            base64: dataUrl,
-            preview: dataUrl,
-            mimetype: blob.type || "image/png",
-            name: params.get("arte_titulo") || "arte.png",
-          });
-        };
-        reader.readAsDataURL(blob);
-        setArteDe(params.get("arte_titulo") || "Arte da galeria");
-        // limpa a URL para um refresh futuro não recarregar sozinho
-        window.history.replaceState({}, "", "/disparo");
-      } catch (err) {
-        console.error("Erro ao carregar a arte para disparo:", err);
-      }
-    })();
-  }, []);
+  // 07/11 — a leitura de ?arte= saiu daqui: em02/11 o form foi para o
+  // CampanhasConteudo (modal Novo Disparo) e era lá que a arte tinha que
+  // chegar. Ver campanhas-conteudo.tsx (state arteDe).
 
   // Handler para seleção de imagem
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -395,7 +368,6 @@ export function BulkSender({ apenasPainel = false }: { apenasPainel?: boolean })
       if (res.ok) {
         setNewCampaign({ name: "", message: "", numbers: "" });
         setNewImage(null);
-        setArteDe(null);
         setFluxoSteps([]);
         fetchCampaigns();
       }
@@ -718,13 +690,6 @@ export function BulkSender({ apenasPainel = false }: { apenasPainel?: boolean })
                 }
               />
             </div>
-
-            {arteDe && (
-              <div className="text-xs text-[#7ea6ff] bg-[#3B64CF]/10 border border-[#3B64CF]/30 rounded-lg p-2">
-                🎨 Arte carregada da galeria: <b>{arteDe}</b> — confira a imagem abaixo,
-                escreva a mensagem, escolha os números e clique em criar o disparo.
-              </div>
-            )}
 
             {/* Imagem (opcional) */}
             <div>
