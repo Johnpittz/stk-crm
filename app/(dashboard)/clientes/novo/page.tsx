@@ -559,7 +559,15 @@ export default function NovoClientePage() {
               <div className="flex items-center gap-2 flex-wrap">
                 <Select value={vendedorId} onValueChange={setVendedorId}>
                   <SelectTrigger className={`${inputCls} max-w-xs text-white`}>
-                    <SelectValue placeholder="Escolha o vendedor (vincula o cliente)..." />
+                    {/* 07/11 — o nome vem do nosso state: o SelectValue nativo
+                        só resolve o label depois que o item monta (primeira
+                        abertura), o que deixava o auto-selecionar do
+                        "+ Novo vendedor" com aparência de placeholder. */}
+                    <span className="truncate">
+                      {vendedores.find((v) => v.id === vendedorId)
+                        ?.nome_completo ||
+                        "Escolha o vendedor (vincula o cliente)..."}
+                    </span>
                   </SelectTrigger>
                   <SelectContent className="bg-[#0f1d32] border-[#1c2e4a]">
                     {vendedores.map((v) => (
