@@ -235,6 +235,10 @@ export default function NovoClientePage() {
   const [origemTipo, setOrigemTipo] = useState<string>("");
   const [origemSubtipo, setOrigemSubtipo] = useState<string>("");
   const [vendedorId, setVendedorId] = useState("");
+  // 07/11 — id do vendedor criado no dialogo: aplicado no set imediato e
+  // REAPLICADO pelo effect abaixo caso algum re-render zere o state
+  // (comprovado em producao: o valor voltava para "" logo apos o POST).
+  const vendedorPendenteRef = useRef<string | null>(null);
   const [parceiroNome, setParceiroNome] = useState("");
   const [vendedores, setVendedores] = useState<
     Array<{ id: string; nome_completo: string }>
@@ -298,6 +302,7 @@ export default function NovoClientePage() {
           a.nome_completo.localeCompare(b.nome_completo)
         )
       );
+      vendedorPendenteRef.current = novo.id;
       setVendedorId(novo.id); // já deixa selecionado no vínculo
       setNvNome("");
       setNvEmail("");
@@ -331,6 +336,17 @@ export default function NovoClientePage() {
     })();
     return () => { vivo = false; };
   }, []);
+
+  // 07/11 — reaplica o vendedor recem-criado: se algo zerar o state depois
+  // do POST (reset fantasma comprovado em producao), este effect converge
+  // de volta assim que a lista contem o id pendente.
+  useEffect(() => {
+    const pend = vendedorPendenteRef.current;
+    if (pend && vendedorId !== pend && vendedores.some((v) => v.id === pend)) {
+      setVendedorId(pend);
+      vendedorPendenteRef.current = null;
+    }
+  }, [vendedores, vendedorId]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [usinaAberto, setUsinaAberto] = useState(false);
   const [loading, setLoading] = useState(false);
