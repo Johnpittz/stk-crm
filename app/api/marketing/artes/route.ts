@@ -179,6 +179,38 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * 07/11 — renomear a arte (mesma regra do DELETE: dono ou admin/diretor).
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const user = await usuarioLogado();
+    if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+
+    const { id, titulo } = await request.json();
+    if (!id || !titulo?.trim()) return NextResponse.json({ error: "id e titulo obrigatórios" }, { status: 400 });
+
+    const client = createAdminClient();
+    const { data: meuPerfil } = await client
+      .from("profiles")
+      .select("cargo")
+      .eq("id", user.id)
+      .maybeSingle();
+    const ehAdmin = ["admin", "diretor"].includes(meuPerfil?.cargo || "");
+
+    let existe = client.from("artes").select("id").eq("id", id);
+    if (!ehAdmin) existe = existe.eq("created_by", user.id);
+    const { data: alvo } = await existe.maybeSingle();
+    if (!alvo) return NextResponse.json({ error: "Arte não encontrada" }, { status: 404 });
+
+    const { error } = await client.from("artes").update({ titulo: titulo.trim() }).eq("id", id);
+    if (error) throw error;
+    return NextResponse.json({ ok: true });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || "Erro interno" }, { status: 500 });
+  }
+}
+
 export async function DELETE(request: NextRequest) {
   try {
     const user = await usuarioLogado();
