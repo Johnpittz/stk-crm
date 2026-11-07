@@ -66,19 +66,22 @@ export async function POST(request: NextRequest) {
 
   const newUserId = authData.user.id;
 
-  // 4) Atualiza o profile (o trigger já criou, mas garantimos os dados)
-  const { error: updateError } = await supabaseAdmin
-    .from("profiles")
-    .update({
+  // 4) Garante o profile COMO LINHA (07/11 — fix): o update afetava0 linhas
+  // quando o trigger não criava a linha e a rota respondia sucesso — o
+  // vendedor nascia sem perfil (sumia das listagens). Upsert cria ou atualiza.
+  const { error: upsertError } = await supabaseAdmin.from("profiles").upsert(
+    {
+      id: newUserId,
       nome_completo,
       cargo,
       telefone: telefone || null,
-    })
-    .eq("id", newUserId);
+    },
+    { onConflict: "id" }
+  );
 
-  if (updateError) {
+  if (upsertError) {
     return NextResponse.json(
-      { error: updateError.message },
+      { error: upsertError.message },
       { status: 500 }
     );
   }
