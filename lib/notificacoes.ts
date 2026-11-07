@@ -98,14 +98,18 @@ export async function criarNotificacao(
     dados: params.dados ?? {},
   }))
 
-  // 3. Insert
+  // 3. Insert — nunca em silêncio: se o banco recusar (CHECK, RLS,
+  // coluna nova), o log denuncia e o chamador (que costuma ignorar o
+  // resultado) ainda assim fica rastreável no console da Vercel.
   try {
     const { error } = await supabase.from('notificacoes').insert(linhas)
     if (error) {
+      console.warn('[notificacao] insert recusado:', error.message, '| tipo:', params.tipo)
       return { ok: false, enviadas: 0, erro: error.message }
     }
     return { ok: true, enviadas: linhas.length }
   } catch (e: any) {
+    console.warn('[notificacao] falha no insert:', e?.message ?? String(e), '| tipo:', params.tipo)
     return { ok: false, enviadas: 0, erro: e?.message ?? String(e) }
   }
 }

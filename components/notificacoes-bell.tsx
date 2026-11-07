@@ -157,14 +157,18 @@ export function NotificacoesBell() {
   // Busca inicial e polling a cada 120s (pausa quando aba invisível)
   // Reduzido de 60s para 120s para economizar recursos na Vercel (plano free)
   useEffect(() => {
-    // Delay initial fetch to avoid cold start cascade
+    // 07/11 — o fetch só saía depois de15s e o polling tinha virado3min:
+    // usuário via "0" e o sino parecia decorativo (efeito "nunca acende").
+    // Agora busca já na montagem e mantém um intervalo curto; se a rota
+    // demorar (cold start), a própria chamada é a que aquece o serverless.
+    fetchNotificacoes();
     const timer = setTimeout(() => {
       fetchNotificacoes();
-    }, 15000); // 15s delay
+    }, 4000); // segunda tentativa curta, cobre cold start
     let interval: NodeJS.Timeout;
-    
+
     const startPolling = () => {
-      interval = setInterval(fetchNotificacoes, 180000); // Reduced from 120s to 180s
+      interval = setInterval(fetchNotificacoes, 60000); //60s
     };
     
     const handleVisibility = () => {
