@@ -322,9 +322,13 @@ export default function CriarArtesPage() {
       if (res.ok) {
         const novo = tituloEditado.trim();
         setArtes((atual) => atual.map((a) => (a.id === editandoId ? { ...a, titulo: novo } : a)));
+      } else {
+        // sem aviso o título simplesmente "não grava" e o usuário não sabe por quê
+        const j = await res.json().catch(() => ({}) as { error?: string });
+        setErro(j.error || "Não foi possível renomear — só o criador da arte ou um administrador pode.");
       }
     } catch {
-      /* mantém o título antigo; dá pra tentar de novo */
+      setErro("Falha de rede ao renomear — tente de novo.");
     }
     setEditandoId(null);
   }
