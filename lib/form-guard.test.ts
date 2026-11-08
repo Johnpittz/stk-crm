@@ -15,26 +15,27 @@ const AVISO = "Você tem alterações não salvas. Deseja sair sem salvar?";
  *  não podem sujar a página (fazia o "Disparar" esbarrar no aviso). */
 describe("ehExcecaoGuard", () => {
   it("elemento com data-sem-guard é exceção", () => {
-    const sel = document.createElement("select");
-    sel.setAttribute("data-sem-guard", "true");
+    const sel = {
+      hasAttribute: (a: string) => a === "data-sem-guard",
+      closest: () => null,
+    };
     expect(ehExcecaoGuard(sel as never)).toBe(true);
   });
 
   it("filho dentro de um bloco data-sem-guard também é exceção", () => {
-    const bloco = document.createElement("div");
-    bloco.setAttribute("data-sem-guard", "true");
-    const input = document.createElement("input");
-    bloco.appendChild(input);
-    document.body.appendChild(bloco);
-    expect(ehExcecaoGuard(input as never)).toBe(true);
-    bloco.remove();
+    const filho = {
+      hasAttribute: () => false,
+      closest: (sel: string) => (sel === "[data-sem-guard]" ? {} : null),
+    };
+    expect(ehExcecaoGuard(filho as never)).toBe(true);
   });
 
   it("campo comum continua sendo guardado (não é exceção)", () => {
-    const input = document.createElement("input");
-    document.body.appendChild(input);
-    expect(ehExcecaoGuard(input as never)).toBe(false);
-    input.remove();
+    const comum = {
+      hasAttribute: () => false,
+      closest: () => null,
+    };
+    expect(ehExcecaoGuard(comum as never)).toBe(false);
   });
 });
 
