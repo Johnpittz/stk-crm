@@ -36,6 +36,21 @@ export function ehBusca(el: ElemLike): boolean {
   return REGEX_BUSCA.test(rotulo);
 }
 
+/**
+ * 07/11 — exceção data-sem-guard: mudança aqui NÃO é "dado a salvar"
+ * (ex.: filtro da galeria, renomear inline). Sem isso, trocar um filtro
+ * sujava a página e o clique em "Disparar" esbarrava no aviso
+ * "Suas alterações não foram salvas" — falso positivo no fluxo principal.
+ */
+export function ehExcecaoGuard(el: ElemLike): boolean {
+  const node = el as unknown as {
+    hasAttribute?: (a: string) => boolean;
+    closest?: (s: string) => unknown;
+  };
+  if (node.hasAttribute?.("data-sem-guard")) return true;
+  return !!node.closest?.("[data-sem-guard]");
+}
+
 /** O Enter neste elemento deve disparar o salvar? */
 export function ehEnterSalvavel(el: ElemLike): boolean {
   const tag = (el.tagName || "").toUpperCase();

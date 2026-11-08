@@ -701,6 +701,7 @@ export default function CriarArtesPage() {
             </Label>
             <select
               id="filtro-formato"
+              data-sem-guard="true"
               value={filtroFormato}
               onChange={(e) => setFiltroFormato(e.target.value)}
               className="h-8 rounded-md border border-white/10 bg-white/5 px-2 text-xs text-white"
@@ -767,6 +768,7 @@ export default function CriarArtesPage() {
                           <div className="flex gap-1">
                             <Input
                               autoFocus
+                              data-sem-guard="true"
                               value={tituloEditado}
                               onChange={(e) => setTituloEditado(e.target.value)}
                               onKeyDown={(e) => {

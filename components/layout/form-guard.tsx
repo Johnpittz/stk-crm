@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { acharBotaoSalvar, ehBusca, ehEnterSalvavel, ehFechadorDeModal, podeFecharModal, type ElemLike } from "@/lib/form-guard";
+import { acharBotaoSalvar, ehBusca, ehExcecaoGuard, ehEnterSalvavel, ehFechadorDeModal, podeFecharModal, type ElemLike } from "@/lib/form-guard";
 
 /**
  * FormGuard — 22/10 (pedido do João: "no sistema inteiro, inclusive
@@ -76,6 +76,7 @@ export function FormGuard() {
     const noInput = (e: Event) => {
       const alvo = e.target as ElemLike | null;
       if (alvo && ehBusca(alvo)) return; // digitar na busca não "suja" a página
+      if (alvo && ehExcecaoGuard(alvo)) return; // data-sem-guard: filtro/rename não sujam
       marcarSujo();
       // marca a sujeira também DENTRO do modal aberto (22/10 — pedido do João:
       // fechar modal com dados digitados tem que perguntar)

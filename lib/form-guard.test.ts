@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   ehBusca,
+  ehExcecaoGuard,
   ehEnterSalvavel,
   ehBotaoSalvar,
   acharBotaoSalvar,
@@ -9,6 +10,33 @@ import {
 } from "./form-guard";
 
 const AVISO = "Você tem alterações não salvas. Deseja sair sem salvar?";
+
+/** 07/11 — exceção data-sem-guard: filtro da galeria / renomear inline
+ *  não podem sujar a página (fazia o "Disparar" esbarrar no aviso). */
+describe("ehExcecaoGuard", () => {
+  it("elemento com data-sem-guard é exceção", () => {
+    const sel = document.createElement("select");
+    sel.setAttribute("data-sem-guard", "true");
+    expect(ehExcecaoGuard(sel as never)).toBe(true);
+  });
+
+  it("filho dentro de um bloco data-sem-guard também é exceção", () => {
+    const bloco = document.createElement("div");
+    bloco.setAttribute("data-sem-guard", "true");
+    const input = document.createElement("input");
+    bloco.appendChild(input);
+    document.body.appendChild(bloco);
+    expect(ehExcecaoGuard(input as never)).toBe(true);
+    bloco.remove();
+  });
+
+  it("campo comum continua sendo guardado (não é exceção)", () => {
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    expect(ehExcecaoGuard(input as never)).toBe(false);
+    input.remove();
+  });
+});
 
 /** 22/10 — regras da guarda: ENTER salva no sistema inteiro (inclusive
  * Marketing), mas busca não salva e textarea continua quebrando linha. */
