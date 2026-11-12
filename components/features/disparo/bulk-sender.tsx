@@ -940,6 +940,27 @@ export function BulkSender({ apenasPainel = false }: { apenasPainel?: boolean })
                                 <span className="text-red-400 shrink-0">
                                   ✗ {c.failed}
                                 </span>
+                                {/* 12/11 — o ENVIAR junto do proprio disparo
+                                    (pedido: botao no mesmo local onde o disparo
+                                    criado aparece); stopPropagation para nao
+                                    expandir a linha. */}
+                                {["rascunho", "pending", "pendente"].includes(
+                                  c.status
+                                ) && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    title="Enviar disparo"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      void enviarCampanha(c);
+                                    }}
+                                    className="h-5 px-1.5 text-[10px] text-blue-300 hover:text-blue-200 hover:bg-blue-500/20 shrink-0"
+                                  >
+                                    <Send className="h-3 w-3 mr-0.5" />
+                                    Enviar
+                                  </Button>
+                                )}
                                 <span className="text-white/40 shrink-0">
                                   {aberta ? "▲" : "▼"}
                                 </span>
