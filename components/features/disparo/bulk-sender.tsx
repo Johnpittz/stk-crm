@@ -31,7 +31,7 @@ interface Campaign {
   name: string;
   message: string;
   numbers: string[];
-  status: "pending" | "running" | "paused" | "completed" | "failed";
+  status: "pending" | "rascunho" | "running" | "paused" | "completed" | "failed";
   sent: number;
   failed: number;
   instancia: string | null;
@@ -791,7 +791,7 @@ export function BulkSender({ apenasPainel = false }: { apenasPainel?: boolean })
               const recentes = [...campaigns]
                 .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))
                 .slice(0, 6);
-              const pendentes = campaigns.filter((c) => c.status === "pending");
+              const pendentes = campaigns.filter((c) => c.status === "pending" || c.status === "rascunho");
               const ultimaAtividade = campaigns
                 .map((c) => c.createdAt)
                 .filter((d) => !!d && !Number.isNaN(new Date(d).getTime()))
@@ -826,6 +826,44 @@ export function BulkSender({ apenasPainel = false }: { apenasPainel?: boolean })
                       icone={<Timer className="h-4 w-4" />}
                     />
                   </div>
+
+{/* Campanhas criadas e ainda não enviadas — a ação de
+                      disparar continua aqui, sem precisar da lista antiga */}
+                  {pendentes.length > 0 && (
+                    <div className="bg-amber-500/10 border border-amber-400/30 rounded-lg p-3">
+                      <p className="text-xs font-semibold text-amber-300 mb-2">
+                        ⏳ {pendentes.length} disparo(s) criado(s) e ainda não enviados
+                      </p>
+                      <div className="space-y-2">
+                        {pendentes.map((c) => (
+                          <div
+                            key={c.id}
+                            className="flex items-center justify-between gap-2 bg-black/20 rounded px-3 py-2"
+                          >
+                            <span className="text-sm text-white/70 truncate">{c.name}</span>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Button
+                                size="sm"
+                                onClick={() => enviarCampanha(c)}
+                                className="bg-[#3B64CF] hover:bg-[#3B64CF]/80 text-white"
+                              >
+                                <Play className="h-4 w-4 mr-1" />
+                                Enviar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => deletarCampanha(c.id)}
+                                className="text-white/30 hover:text-red-400 hover:bg-red-500/10"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Linha de contexto */}
                   <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-white/40 bg-white/5 border border-white/10 rounded-lg px-4 py-3">
@@ -1008,43 +1046,7 @@ export function BulkSender({ apenasPainel = false }: { apenasPainel?: boolean })
                     </div>
                   )}
 
-                  {/* Campanhas criadas e ainda não enviadas — a ação de
-                      disparar continua aqui, sem precisar da lista antiga */}
-                  {pendentes.length > 0 && (
-                    <div className="bg-amber-500/10 border border-amber-400/30 rounded-lg p-3">
-                      <p className="text-xs font-semibold text-amber-300 mb-2">
-                        ⏳ {pendentes.length} disparo(s) criado(s) e ainda não enviados
-                      </p>
-                      <div className="space-y-2">
-                        {pendentes.map((c) => (
-                          <div
-                            key={c.id}
-                            className="flex items-center justify-between gap-2 bg-black/20 rounded px-3 py-2"
-                          >
-                            <span className="text-sm text-white/70 truncate">{c.name}</span>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <Button
-                                size="sm"
-                                onClick={() => enviarCampanha(c)}
-                                className="bg-[#3B64CF] hover:bg-[#3B64CF]/80 text-white"
-                              >
-                                <Play className="h-4 w-4 mr-1" />
-                                Enviar
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => deletarCampanha(c.id)}
-                                className="text-white/30 hover:text-red-400 hover:bg-red-500/10"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  
 
                   {r.totalCampanhas === 0 && (
                     <div className="flex flex-col items-center justify-center h-40 text-white/30">

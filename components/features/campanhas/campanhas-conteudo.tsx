@@ -768,11 +768,14 @@ export function CampanhasConteudo({
 
       if (error) throw error;
 
-      const msg = tipoEnvio === 'remarketing'
+      // 07/11 — o disparo nasce "rascunho": o aviso diz ONDE enviar,
+      // senão o usuário cria e não acha o botão de Enviar.
+      const dicaEnvio = " Agora clique em ENVIAR no Painel de Envios.";
+      const msg = (tipoEnvio === 'remarketing'
         ? `Remarketing criado! ${contatosFinais.length} conversa(s) de 24h sem resposta.`
         : tipoEnvio === 'avulso'
           ? "Disparo avulso criado!"
-          : `Disparo em massa criado! ${contatosImportados.length} contatos.`;
+          : `Disparo em massa criado! ${contatosImportados.length} contatos.`) + dicaEnvio;
       toast.success(msg);
 
       resetarDialog();
@@ -1665,7 +1668,7 @@ export function CampanhasConteudo({
                                   <TableCell>
                                     <div className="flex gap-1">
                                       {disparo.status === 'rascunho' && (
-                                        <Button size="sm" variant="ghost" onClick={() => enviarDisparo(disparo.id)} disabled={sending} className="text-emerald-400 hover:text-emerald-300">
+                                        <Button size="sm" variant="ghost" title="Enviar disparo" onClick={() => enviarDisparo(disparo.id)} disabled={sending} className="text-emerald-400 hover:text-emerald-300">
                                           <Send className="h-4 w-4" />
                                         </Button>
                                       )}
