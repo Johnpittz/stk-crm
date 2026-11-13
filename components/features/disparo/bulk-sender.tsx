@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Play,
+  Pause,
   Send,
   CheckCircle,
   XCircle,
@@ -400,6 +401,40 @@ export function BulkSender({ apenasPainel = false }: { apenasPainel?: boolean })
       }
     } catch (err) {
       console.error("Erro ao enviar campanha:", err);
+    }
+  };
+
+  // Pausar/retomar (12/11 — pedido): o worker do VPS respeita "paused"
+  // e volta sozinho com "running" (retoma de onde parou).
+  const alterarStatusCampanha = async (
+    campaign: Campaign,
+    novo: "paused" | "running"
+  ) => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const res = await fetch("/api/bulk/status", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ campaignId: campaign.id, status: novo }),
+      });
+
+      if (res.ok) {
+        fetchCampaigns();
+      } else {
+        const erro = await res
+          .json()
+          .catch(() => ({ error: "falha ao alterar status" }));
+        console.error("Erro ao pausar/retomar:", erro.error);
+      }
+    } catch (err) {
+      console.error("Erro ao pausar/retomar:", err);
     }
   };
 
@@ -940,6 +975,37 @@ export function BulkSender({ apenasPainel = false }: { apenasPainel?: boolean })
                                 <span className="text-red-400 shrink-0">
                                   ✗ {c.failed}
                                 </span>
+                                {/* Pausar/retomar no proprio card (12/11) */}
+                                {c.status === "running" && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    title="Pausar disparo"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      void alterarStatusCampanha(c, "paused");
+                                    }}
+                                    className="h-5 px-1.5 text-[10px] text-amber-300 hover:text-amber-200 hover:bg-amber-500/20 shrink-0"
+                                  >
+                                    <Pause className="h-3 w-3 mr-0.5" />
+                                    Pausar
+                                  </Button>
+                                )}
+                                {c.status === "paused" && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    title="Retomar disparo"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      void alterarStatusCampanha(c, "running");
+                                    }}
+                                    className="h-5 px-1.5 text-[10px] text-emerald-300 hover:text-emerald-200 hover:bg-emerald-500/20 shrink-0"
+                                  >
+                                    <Play className="h-3 w-3 mr-0.5" />
+                                    Retomar
+                                  </Button>
+                                )}
                                 {/* 12/11 — o ENVIAR junto do proprio disparo
                                     (pedido: botao no mesmo local onde o disparo
                                     criado aparece); stopPropagation para nao
