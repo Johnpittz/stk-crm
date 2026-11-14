@@ -191,7 +191,7 @@ export function ListaAtendimentosLateral({
                              if (!espelho) return null;
                              return (
                                <span
-                                 className="ml-1.5 inline-flex items-center px-1 py-0 rounded bg-amber-500/15 text-amber-300 text-[8px] font-medium align-middle cursor-help"
+                                 className="ml-1.5 inline-flex items-center px-1 py-0 rounded bg-white/10 text-white/45 text-[8px] font-medium align-middle cursor-help"
                                  title={`Número conectado no WAHA (${espelho.name}) — o que você enviar aqui aparece também na conversa-espelho dele`}
                                >
                                  🔗 {espelho.name}

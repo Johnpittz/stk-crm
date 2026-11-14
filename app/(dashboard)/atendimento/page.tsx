@@ -455,8 +455,8 @@ export default function AtendimentoPage() {
                 title={`Conversas em que o cliente é o último a falar há mais de ${JANELA_SEM_RESPOSTA_HORAS}h`}
                 className={`px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-all inline-flex items-center gap-1 ${
                   apenasSemResposta
-                    ? "bg-amber-500 text-[#0f1d32]"
-                    : "bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+                    ? "bg-[#3B64CF] text-white"
+                    : "bg-white/5 text-amber-400/80 hover:bg-white/10 hover:text-amber-300"
                 }`}
               >
                 <Clock className="h-3 w-3" />
