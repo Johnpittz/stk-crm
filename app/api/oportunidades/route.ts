@@ -30,6 +30,8 @@ export async function GET(request: NextRequest) {
   // "vê só os seus" escondia o card quando o insert caía no vendedor
   // responsável (FK de profiles) e o funil ficava zerado no banco cheio.
   const clienteFiltro = searchParams.get("cliente_id");
+  // 14/11 — painel do atendimento pergunta se a conversa JA esta no funil
+  const atendimentoFiltro = searchParams.get("atendimento_id");
 
   // Verificar se é gestor
   const { data: meuPerfil } = await supabase
@@ -39,7 +41,7 @@ export async function GET(request: NextRequest) {
     .single();
   const isGestor = ["diretor", "admin", "gerente_comercial"].includes(meuPerfil?.cargo || "");
 
-  let query = (clienteFiltro ? createAdminClient() : supabase)
+  let query = (clienteFiltro || atendimentoFiltro ? createAdminClient() : supabase)
     .from("oportunidades")
     .select("*, clientes(id, nome_razao_social, telefone, celular, origem_tipo, origem_subtipo, vendedor_responsavel_id)")
     .order("created_at", { ascending: false })
@@ -47,6 +49,8 @@ export async function GET(request: NextRequest) {
 
   if (clienteFiltro) {
     query = query.eq("cliente_id", clienteFiltro);
+  } else if (atendimentoFiltro) {
+    query = query.eq("atendimento_id", atendimentoFiltro);
   } else if (!isGestor) {
     // Se não é gestor, vê só as suas
     query = query.eq("vendedor_id", user.id);

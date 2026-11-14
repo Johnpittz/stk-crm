@@ -122,6 +122,10 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
   const [verificandoDuplicata, setVerificandoDuplicata] = useState(false);
   const [verificandoTelefone, setVerificandoTelefone] = useState(false);
   const [clienteIdLocal, setClienteIdLocal] = useState<string | null>(null);
+  // 14/11 — "Enviar para o funil" manual, direto da tela de atendimento.
+  const [noFunil, setNoFunil] = useState<boolean | null>(null);
+  const [enviandoFunil, setEnviandoFunil] = useState(false);
+  const [msgFunil, setMsgFunil] = useState<string | null>(null);
 
   // ─── Form Cliente (cadastro básico) ───
   const [formCliente, setFormCliente] = useState({
@@ -202,6 +206,74 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
       setLoadingEtiquetas(false);
     }
   }, [atendimento, supabase]);
+
+  // 14/11 — a conversa já está no funil? (evita duplicar card)
+  useEffect(() => {
+    setNoFunil(null);
+    setMsgFunil(null);
+    if (!atendimento?.id) return;
+    let vivo = true;
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session || !vivo) return;
+        const res = await fetch(
+          `/api/oportunidades?atendimento_id=${atendimento.id}`,
+          { headers: { Authorization: "Bearer " + session.access_token } }
+        );
+        if (!res.ok || !vivo) return;
+        const data = await res.json();
+        if (
+          vivo &&
+          Array.isArray(data.oportunidades) &&
+          data.oportunidades.length > 0
+        ) {
+          setNoFunil(true);
+        }
+      } catch {
+        /* sem rede: deixa o botão tentar */
+      }
+    })();
+    return () => {
+      vivo = false;
+    };
+  }, [atendimento?.id, supabase]);
+
+  // Enviar para o funil manualmente — nasce em "Recebeu a Conta".
+  const enviarParaFunil = async () => {
+    if (enviandoFunil || noFunil || !atendimento) return;
+    setEnviandoFunil(true);
+    setMsgFunil(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch("/api/oportunidades", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + session.access_token,
+        },
+        body: JSON.stringify({
+          cliente_id: clienteIdLocal || atendimento.cliente_id || undefined,
+          atendimento_id: atendimento.id,
+          cliente_nome: nome,
+          titulo: nome || atendimento.telefone_cliente || "Atendimento",
+          descricao: `Enviado manualmente da tela de atendimento — ${telefone}`,
+        }),
+      });
+      if (res.ok) {
+        setNoFunil(true);
+        setMsgFunil("✓ Enviado ao funil — etapa Recebeu a Conta");
+      } else {
+        const erro = await res.json().catch(() => ({ error: "Falha ao enviar" }));
+        setMsgFunil(erro.error || "Não foi possível enviar");
+      }
+    } catch {
+      setMsgFunil("Erro de conexão — tente de novo");
+    } finally {
+      setEnviandoFunil(false);
+    }
+  };
 
   // Verificar se telefone já existe e vincular automaticamente
   const verificarEVDincular = useCallback(async (telefone: string, atendimentoId: string) => {
@@ -674,6 +746,44 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
             <Check className="h-3.5 w-3.5" />
             Concluir
           </Button>
+        )}
+      </div>
+
+      {/* Enviar para o funil (14/11) — manual, direto daqui */}
+      <div className="px-4 pb-3">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void enviarParaFunil()}
+          disabled={enviandoFunil || noFunil === true}
+          className={cn(
+            "w-full text-xs gap-1.5",
+            noFunil
+              ? "border-emerald-500/30 text-emerald-400 cursor-default"
+              : "border-white/15 text-white/70 hover:text-white hover:bg-white/10"
+          )}
+          title={
+            noFunil
+              ? "Esta conversa já tem card no funil"
+              : "Criar oportunidade na etapa Recebeu a Conta"
+          }
+        >
+          {enviandoFunil ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Zap className="h-3.5 w-3.5" />
+          )}
+          {noFunil ? "✓ Está no funil" : "Enviar para o funil"}
+        </Button>
+        {msgFunil && (
+          <p
+            className={cn(
+              "text-[11px] mt-1.5",
+              msgFunil.startsWith("✓") ? "text-emerald-400" : "text-red-400"
+            )}
+          >
+            {msgFunil}
+          </p>
         )}
       </div>
 
