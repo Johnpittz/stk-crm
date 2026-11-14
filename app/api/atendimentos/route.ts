@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     // Query com service_role para bypassar RLS
     let query = supabaseAdmin
       .from("atendimentos")
-      .select("*, clientes(id, nome_razao_social), ultima_mensagem_remetente, nao_lido")
+      .select("*, clientes(id, nome_razao_social, telefone, celular), ultima_mensagem_remetente, nao_lido")
       .order("ultima_mensagem_data", { ascending: false })
       .limit(200);
 

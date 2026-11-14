@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { nomeExibicaoCliente } from "@/lib/atendimentos/nome-exibicao";
+import { nomeExibicaoAtendimento } from "@/lib/atendimentos/nome-exibicao";
 import { SimularWhatsAppModal } from "./simular-whatsapp-modal";
 
 interface Atendimento {
@@ -31,7 +31,7 @@ interface Atendimento {
   vendedor_interagiu: boolean;
   ultima_mensagem_remetente: string | null;
   data_fechamento?: string | null;
-  clientes: { id: string; nome_razao_social: string } | null;
+  clientes: { id: string; nome_razao_social: string; telefone: string | null; celular: string | null } | null;
 }
 
 interface ListaAtendimentosProps {
@@ -139,7 +139,14 @@ export function ListaAtendimentos({ atendimentos, loading, onRefresh, onAbrirCha
                 const hora = a.ultima_mensagem_data
                   ? new Date(a.ultima_mensagem_data).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
                   : "";
-                const iniciais = nomeExibicaoCliente(a.clientes?.nome_razao_social || a.nome_cliente, a.telefone_cliente).substring(0, 2).toUpperCase();
+                // 14/11 — nome só quando o telefone da conversa bate com o do cliente.
+                const nome = nomeExibicaoAtendimento({
+                  nomeClienteVinculado: a.clientes?.nome_razao_social,
+                  telClienteVinculado: a.clientes?.telefone || a.clientes?.celular,
+                  nomeAtendimento: a.nome_cliente,
+                  telefone: a.telefone_cliente,
+                });
+                const iniciais = nome.substring(0, 2).toUpperCase();
 
                 return (
                   <div
@@ -174,7 +181,7 @@ export function ListaAtendimentos({ atendimentos, loading, onRefresh, onAbrirCha
                       {/* Linha topo: nome + hora + badges */}
                       <div className="flex items-center justify-between gap-2">
                         <span className={cn("text-sm truncate", isNaoLido ? "font-bold text-slate-900" : "font-semibold text-slate-700")}>
-                          {nomeExibicaoCliente(a.clientes?.nome_razao_social || a.nome_cliente, a.telefone_cliente)}
+                          {nome}
                         </span>
                         <div className="flex items-center gap-1.5 shrink-0">
                           {hora && (

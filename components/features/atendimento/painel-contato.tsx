@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { nomeExibicaoCliente } from "@/lib/atendimentos/nome-exibicao";
+import { nomeExibicaoAtendimento, telefoneBateComCliente } from "@/lib/atendimentos/nome-exibicao";
 import { ETIQUETAS_DISPONIVEIS } from "@/lib/etiquetas";
 
 // ─── Types ───
@@ -26,8 +26,8 @@ interface Atendimento {
   clientes?: {
     id: string;
     nome_razao_social: string;
-    telefone?: string;
-    celular?: string;
+    telefone?: string | null;
+    celular?: string | null;
     email?: string;
     cpf?: string;
     cnpj_cpf?: string;
@@ -262,7 +262,19 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
 
       // Pré-preencher com dados do atendimento
       const dadosBasicos = {
-        nome_razao_social: atendimento.clientes?.nome_razao_social || atendimento.nome_cliente || "",
+        // 14/11 — só usa o nome do cliente vinculado se o telefone bater
+        // com a conversa; senão, nome salvo no atendimento (nada de
+        // pré-preencher o form com o nome de um cliente errado).
+        nome_razao_social:
+          (atendimento.clientes?.nome_razao_social &&
+          telefoneBateComCliente(
+            atendimento.telefone_cliente,
+            atendimento.clientes?.telefone || atendimento.clientes?.celular
+          )
+            ? atendimento.clientes.nome_razao_social
+            : null) ||
+          atendimento.nome_cliente ||
+          "",
         telefone: atendimento.clientes?.telefone || atendimento.clientes?.celular || atendimento.telefone_cliente || "",
         celular: atendimento.clientes?.celular || "",
         email: atendimento.clientes?.email || "",
@@ -595,7 +607,14 @@ export function PainelContato({ atendimento, onFechar, onMarcarConcluido, onEtiq
     );
   }
 
-  const nome = nomeExibicaoCliente(atendimento?.clientes?.nome_razao_social || atendimento?.nome_cliente, atendimento?.telefone_cliente);
+  // 14/11 — nome só quando o telefone da conversa bate com o do cliente vinculado.
+  const nome = nomeExibicaoAtendimento({
+    nomeClienteVinculado: atendimento?.clientes?.nome_razao_social,
+    telClienteVinculado:
+      atendimento?.clientes?.telefone || atendimento?.clientes?.celular,
+    nomeAtendimento: atendimento?.nome_cliente,
+    telefone: atendimento?.telefone_cliente,
+  });
   const telefone = atendimento?.clientes?.telefone || atendimento?.clientes?.celular || atendimento?.telefone_cliente || "";
   const email = (atendimento?.clientes as any)?.email || "";
   const cpf = (atendimento?.clientes as any)?.cnpj_cpf || "";

@@ -9,7 +9,7 @@ import { Phone, Send, Check, User, MessageCircle, X, ArrowRightLeft, Paperclip, 
 import { createClient } from "@/lib/supabase/client";
 import { encontrarInstanciaConectada } from "@/lib/telefone";
 import { cn } from "@/lib/utils";
-import { nomeExibicaoCliente } from "@/lib/atendimentos/nome-exibicao";
+import { nomeExibicaoAtendimento } from "@/lib/atendimentos/nome-exibicao";
 import { AlertaContaDetectada } from "./alerta-conta-detectada";
 
 interface Mensagem {
@@ -38,7 +38,7 @@ interface Atendimento {
   created_at?: string;
   cliente_id?: string | null;
   instancia?: string | null;
-  clientes?: { id: string; nome_razao_social: string; telefone?: string; celular?: string } | null;
+  clientes?: { id: string; nome_razao_social: string; telefone?: string | null; celular?: string | null } | null;
 }
 
 interface InstanciaWhatsApp {
@@ -689,7 +689,14 @@ export function ChatInline({ atendimento, onMarcarResolvido, onMensagemEnviada, 
     );
   }
 
-  const nomeCliente = nomeExibicaoCliente(atendimento?.clientes?.nome_razao_social || atendimento?.nome_cliente, atendimento?.telefone_cliente);
+  // 14/11 — nome só quando o telefone da conversa bate com o do cliente vinculado.
+  const nomeCliente = nomeExibicaoAtendimento({
+    nomeClienteVinculado: atendimento?.clientes?.nome_razao_social,
+    telClienteVinculado:
+      atendimento?.clientes?.telefone || atendimento?.clientes?.celular,
+    nomeAtendimento: atendimento?.nome_cliente,
+    telefone: atendimento?.telefone_cliente,
+  });
   const telefone = atendimento?.clientes?.telefone || atendimento?.clientes?.celular || atendimento?.telefone_cliente || "";
 
   return (

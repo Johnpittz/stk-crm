@@ -35,7 +35,7 @@ interface Atendimento {
   ultima_mensagem_remetente: string | null;
   data_fechamento?: string | null;
   instancia?: string | null;
-  clientes: { id: string; nome_razao_social: string } | null;
+  clientes: { id: string; nome_razao_social: string; telefone: string | null; celular: string | null } | null;
 }
 
 interface InstanciaWhatsApp {

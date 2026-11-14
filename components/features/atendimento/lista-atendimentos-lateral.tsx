@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { nomeExibicaoCliente } from "@/lib/atendimentos/nome-exibicao";
+import { nomeExibicaoAtendimento } from "@/lib/atendimentos/nome-exibicao";
 import { encontrarInstanciaConectada, type InstanciaConectavel } from "@/lib/telefone";
 import { estaSemResposta, horasDeEspera } from "@/lib/atendimentos/sem-resposta";
 
@@ -22,7 +22,7 @@ interface Atendimento {
   vendedor_interagiu: boolean;
   ultima_mensagem_remetente: string | null;
   data_fechamento?: string | null;
-  clientes: { id: string; nome_razao_social: string } | null;
+  clientes: { id: string; nome_razao_social: string; telefone: string | null; celular: string | null } | null;
 }
 
 interface ListaAtendimentosLateralProps {
@@ -97,14 +97,16 @@ export function ListaAtendimentosLateral({
                 const hora = a.ultima_mensagem_data
                   ? horaAtendimento(a.ultima_mensagem_data)
                   : "";
-                const iniciais = (
-                  a.clientes?.nome_razao_social ||
-                  a.nome_cliente ||
-                  "C"
-                )
-                  .substring(0, 2)
-                  .toUpperCase();
-                const nome = nomeExibicaoCliente(a.clientes?.nome_razao_social || a.nome_cliente, a.telefone_cliente);
+                // 14/11 — nome só quando o telefone da conversa bate com o
+                // do cliente vinculado; senão "CLIENTE - <número>".
+                const nome = nomeExibicaoAtendimento({
+                  nomeClienteVinculado: a.clientes?.nome_razao_social,
+                  telClienteVinculado:
+                    a.clientes?.telefone || a.clientes?.celular,
+                  nomeAtendimento: a.nome_cliente,
+                  telefone: a.telefone_cliente,
+                });
+                const iniciais = nome.substring(0, 2).toUpperCase();
                 // C1 — cliente é o último a falar há mais de 24h? A bola está com a gente.
                 const semResposta = estaSemResposta(a);
                 const horasEspera = horasDeEspera(a);

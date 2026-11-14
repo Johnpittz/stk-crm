@@ -35,7 +35,7 @@ interface Atendimento {
   nao_lido?: boolean;
   created_at?: string;
   cliente_id?: string | null;
-  clientes?: { id: string; nome_razao_social: string; telefone?: string; celular?: string } | null;
+  clientes?: { id: string; nome_razao_social: string; telefone?: string | null; celular?: string | null } | null;
 }
 
 interface AtendimentoChatProps {
