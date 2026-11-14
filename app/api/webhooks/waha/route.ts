@@ -494,13 +494,17 @@ async function buscarClientePorTelefone(telefoneLimpo: string) {
   return clientesCandidatos.find((c: any) => {
     const telLimpo = (c.telefone || "").replace(/\D/g, "");
     const celLimpo = (c.celular || "").replace(/\D/g, "");
+    // 12/11 — endsWith só aceita trecho de >=10 digitos: telefone de
+    // cliente incompleto/curto casava com QUALQUER numero terminando
+    // igual e vinculava atendimentos ao cliente errado (bug da Michele,
+    //27 atendimentos de20 numeros diferentes no mesmo cliente).
     return (
       telLimpo === telefoneLimpo ||
       celLimpo === telefoneLimpo ||
-      telLimpo.endsWith(telefoneLimpo) ||
-      celLimpo.endsWith(telefoneLimpo) ||
-      telefoneLimpo.endsWith(telLimpo) ||
-      telefoneLimpo.endsWith(celLimpo)
+      (telefoneLimpo.length >= 10 && telLimpo.endsWith(telefoneLimpo)) ||
+      (telefoneLimpo.length >= 10 && celLimpo.endsWith(telefoneLimpo)) ||
+      (telLimpo.length >= 10 && telefoneLimpo.endsWith(telLimpo)) ||
+      (celLimpo.length >= 10 && telefoneLimpo.endsWith(celLimpo))
     );
   }) || null;
 }
