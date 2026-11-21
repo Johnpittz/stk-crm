@@ -103,14 +103,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Assunto e texto são obrigatórios" }, { status: 400 });
     }
 
-    const apiKey = (process.env.GEMINI_API_KEY ?? "").trim();
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "GEMINI_API_KEY ausente — cadastre a chave no ambiente da Vercel." },
-        { status: 503 },
-      );
-    }
-
     // ITEM 3 — textos extras (número/opções do cadastro) + posição
     const numeroExtra = typeof body?.numero === "string" ? body.numero.trim() : "";
     const opcoesExtra = Array.isArray(body?.opcoes)
@@ -127,6 +119,21 @@ export async function POST(request: NextRequest) {
       observacoes: body?.observacoes ?? null,
       textoImagem,
     });
+
+    // OPÇÃO2 (18/11) — "Gerar no ChatGPT": devolve SÓ o prompt (custo
+    // zero aqui) para o cliente colar no ChatGPT dele. Nenhuma chamada
+    // de IA é feita neste caminho.
+    if (body?.apenasPrompt) {
+      return NextResponse.json({ prompt });
+    }
+
+    const apiKey = (process.env.GEMINI_API_KEY ?? "").trim();
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "GEMINI_API_KEY ausente — cadastre a chave no ambiente da Vercel." },
+        { status: 503 },
+      );
+    }
 
     // 0) MELHORIA 12/10 — referências ativas (logo/foto) entram no
     // Gemini posicionadas pelo marker {{nome}} ou na frente do texto.

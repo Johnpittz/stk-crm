@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Sparkles, Download, Trash2, Palette, Pencil, Check, RefreshCw } from "lucide-react";
+import { Sparkles, Download, Trash2, Palette, Pencil, Check, RefreshCw, ExternalLink } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { montarPromptArte } from "@/lib/marketing/gerar-prompt";
 import { montarTextoImagem, POSICOES_ARTE } from "@/lib/marketing/textos-imagem";
@@ -60,6 +60,9 @@ export default function CriarArtesPage() {
   const [estilo, setEstilo] = useState(ESTILOS[0]);
   const [observacoes, setObservacoes] = useState("");
   const [gerando, setGerando] = useState(false);
+  // OPÇÃO2 (18/11) — levar o prompt pronto para o ChatGPT do usuário.
+  const [copiandoPrompt, setCopiandoPrompt] = useState(false);
+  const [promptCopiado, setPromptCopiado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [artes, setArtes] = useState<Arte[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -264,6 +267,20 @@ export default function CriarArtesPage() {
     setExcluirPendente({ tipo: "texto", item: { id: t.id, texto: t.texto } });
   }
 
+  /** Mesmo corpo do pedido — usado por gerar() e pelo caminho ChatGPT. */
+  function corpoArte() {
+    return {
+      formato,
+      assunto,
+      texto,
+      estilo: estiloEfetivo || null,
+      observacoes: observacoesEfetivas || null,
+      numero: usarNumero ? numeroSalvo : "",
+      opcoes: opcoesSalvas.filter((o) => opcoesMarcadas.includes(o)),
+      posicao,
+    };
+  }
+
   async function gerar() {
     if (!assunto.trim() || !texto.trim()) {
       setErro("Preencha o ASSUNTO e o TEXTO da arte.");
@@ -275,16 +292,7 @@ export default function CriarArtesPage() {
       const res = await fetch("/api/marketing/artes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          formato,
-          assunto,
-          texto,
-          estilo: estiloEfetivo || null,
-          observacoes: observacoesEfetivas || null,
-          numero: usarNumero ? numeroSalvo : "",
-          opcoes: opcoesSalvas.filter((o) => opcoesMarcadas.includes(o)),
-          posicao,
-        }),
+        body: JSON.stringify(corpoArte()),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Falha ao gerar a arte");
@@ -296,6 +304,41 @@ export default function CriarArtesPage() {
       setErro(e?.message || "Falha ao gerar a arte");
     } finally {
       setGerando(false);
+    }
+  }
+
+  /**
+   * OPÇÃO2 (18/11) — leva o prompt JÁ MONTADO para o ChatGPT do usuário:
+   * monta no servidor (sem gerar imagem, custo zero), copia para a
+   * área de transferência e abre o ChatGPT — ele só dá Ctrl+V.
+   */
+  async function gerarNoChatGPT() {
+    if (!assunto.trim() || !texto.trim()) {
+      setErro("Preencha o ASSUNTO e o TEXTO antes de levar para o ChatGPT.");
+      return;
+    }
+    setCopiandoPrompt(true);
+    setErro(null);
+    setPromptCopiado(false);
+    try {
+      const res = await fetch("/api/marketing/artes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...corpoArte(), apenasPrompt: true }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Não foi possível montar o prompt");
+      try {
+        await navigator.clipboard.writeText(json.prompt);
+        setPromptCopiado(true);
+      } catch {
+        // sem permissão de clipboard: o ChatGPT abre mesmo assim
+      }
+      window.open("https://chatgpt.com/", "_blank", "noopener,noreferrer");
+    } catch (e: any) {
+      setErro(e?.message || "Falha ao montar o prompt");
+    } finally {
+      setCopiandoPrompt(false);
     }
   }
 
@@ -687,7 +730,28 @@ export default function CriarArtesPage() {
               <RefreshCw className="mr-2 h-4 w-4" />
               Criar outra variante
             </Button>
+            {/* OPÇÃO2 (18/11) — leva o prompt pronto para o ChatGPT do
+                usuário: monta no servidor (sem gerar aqui, custo zero),
+                copia e abre o ChatGPT. */}
+            <Button
+              type="button"
+              onClick={gerarNoChatGPT}
+              disabled={gerando || copiandoPrompt}
+              variant="outline"
+              className="border-white/15 text-white/80"
+              title="Monta o prompt pronto, copia e abre o ChatGPT — a imagem é gerada lá, sem custo para o sistema"
+            >
+              <ExternalLink className="mr-2 h-4 w-4" />
+              {copiandoPrompt ? "Montando prompt..." : "Gerar no ChatGPT"}
+            </Button>
           </div>
+          {promptCopiado && (
+            <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
+              ✅ Prompt copiado! Cole no ChatGPT (Ctrl+V) e mande gerar.
+              Obs.: imagens de referência (logo/foto) não acompanham o
+              texto — anexe-as lá se a arte precisar delas.
+            </p>
+          )}
         </CardContent>
       </Card>
 
