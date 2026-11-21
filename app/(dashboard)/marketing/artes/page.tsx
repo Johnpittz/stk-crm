@@ -63,6 +63,32 @@ export default function CriarArtesPage() {
   // OPÇÃO2 (18/11) — levar o prompt pronto para o ChatGPT do usuário.
   const [copiandoPrompt, setCopiandoPrompt] = useState(false);
   const [promptCopiado, setPromptCopiado] = useState(false);
+  // Se o navegador negar a cópia automática, o prompt aparece aqui
+  // (dialog) para o cliente copiar à mão — nunca fica sem ele.
+  const [promptEmergencia, setPromptEmergencia] = useState<string | null>(null);
+
+  /** Copia com fallback: clipboard moderno → execCommand → null. */
+  async function copiarTexto(texto: string): Promise<boolean> {
+    try {
+      await navigator.clipboard.writeText(texto);
+      return true;
+    } catch {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = texto;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        return ok;
+      } catch {
+        return false;
+      }
+    }
+  }
   const [erro, setErro] = useState<string | null>(null);
   const [artes, setArtes] = useState<Arte[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -328,11 +354,12 @@ export default function CriarArtesPage() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Não foi possível montar o prompt");
-      try {
-        await navigator.clipboard.writeText(json.prompt);
+      const copiado = await copiarTexto(json.prompt);
+      if (copiado) {
         setPromptCopiado(true);
-      } catch {
-        // sem permissão de clipboard: o ChatGPT abre mesmo assim
+      } else {
+        // navegador negou a cópia: mostra o prompt para copiar à mão
+        setPromptEmergencia(json.prompt);
       }
       window.open("https://chatgpt.com/", "_blank", "noopener,noreferrer");
     } catch (e: any) {
@@ -752,6 +779,33 @@ export default function CriarArtesPage() {
               texto — anexe-as lá se a arte precisar delas.
             </p>
           )}
+
+          {/* Cópia automática bloqueada pelo navegador: prompt à mostra
+              para o cliente copiar (Ctrl+C) — nunca fica sem ele. */}
+          <Dialog
+            open={!!promptEmergencia}
+            onOpenChange={(ab) => {
+              if (!ab) setPromptEmergencia(null);
+            }}
+          >
+            <DialogContent className="max-w-2xl border-white/10 bg-[#1a2236] text-white">
+              <DialogHeader>
+                <DialogTitle className="text-white">
+                  Prompt pronto para o ChatGPT
+                </DialogTitle>
+              </DialogHeader>
+              <p className="text-xs text-white/50">
+                A cópia automática foi bloqueada pelo navegador — selecione
+                o texto e copie (Ctrl+C), depois cole no ChatGPT (Ctrl+V).
+              </p>
+              <textarea
+                readOnly
+                value={promptEmergencia || ""}
+                onFocus={(e) => e.currentTarget.select()}
+                className="h-64 w-full rounded-lg border border-white/10 bg-black/30 p-3 text-xs text-white/80"
+              />
+            </DialogContent>
+          </Dialog>
         </CardContent>
       </Card>
 
