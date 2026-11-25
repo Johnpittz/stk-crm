@@ -15,8 +15,16 @@
 - Achado-chave: o STK **registra/detecta** usina (form `clientes.usina`, linha "usina", IA da fatura)
   mas **não dimensiona nem gera proposta** — é exatamente a lacuna a preencher (Fase 1: tela de
   estudo de usina → kWp/painéis/economia/payback → PDF + link público → linha/kanban).
-- **Sem código alterado**; nada implementado ainda. Próximo passo: João decidir foco (vender
-  instalar × atender usina existente), portfólio de preços e por onde começar.
+- **FASE 1 ENTREGUE** (decisões do João em25/11: foco vender/instalar · Fase1 completa ·
+  preços com placeholder): `lib/usina/dimensionamento.ts` (cálculo puro TDD),
+  `lib/usina/estudo.ts` (estudo grava na coluna `clientes.usina` — SEM migration, preservando
+  CRI/usina/potencia; `serializarUsina` corrigido p/ não apagar o estudo),
+  `lib/usina/proposta-pdf.ts` (PDF com jspdf),
+  `components/features/usina/estudo-usina-tab.tsx` (aba **Estudo Usina** na pasta do cliente:
+  consumo/tarifa pré-preenchidos, meta, módulo, resultado ao vivo, Salvar/PDF/Funil).
+  Gates: **tsc limpo ·834 testes · build ok** · commit `4276b5d` publicado.
+- Próximos: teste de usabilidade no ar; depois Fase2 (landing de captação + gatilho na IA da
+  fatura) e Fase3 (obra/pós-venda).
 
 ---
 

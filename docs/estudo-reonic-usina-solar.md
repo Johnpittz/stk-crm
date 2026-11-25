@@ -156,7 +156,22 @@ essa ponte de ponta a ponta.
 3. **Preços de componentes:** definir depois — por enquanto **placeholders** (preço digitado
    à mão pelo vendedor, como a própria Reonic permite no "valor do kit").
 
-## 5. Plano de execução da Fase 1 (ordem de construção)
+## 5. Fase 1 — EXECUTADA em25/11 (commit `4276b5d`)
+
+| Item | Status |
+|---|---|
+|1. Catálogo de componentes | ✅ `CATALOGO_MODULOS`/`CATALOGO_INVERSORES` em `lib/usina/dimensionamento.ts` (placeholder, preço a definir) |
+|2. Cálculo TDD | ✅ `lib/usina/dimensionamento.ts` + testes (dimensionamento, economia, payback, CO₂) |
+|3. Tela de estudo | ✅ aba **Estudo Usina** na pasta do cliente (`components/features/usina/estudo-usina-tab.tsx`) |
+|4. Proposta PDF + funil | ✅ `lib/usina/proposta-pdf.ts` (jspdf) + botão "Enviar para o funil" (POST `/api/oportunidades`) |
+|5. Gates | ✅ tsc limpo ·834 testes · build ok · commit `4276b5d` publicado |
+
+- **Persistência sem migration:** o estudo grava na coluna `clientes.usina` (JSON existente) como
+  `{CRI, usina, potencia, estudo}` — `serializarUsina` também foi corrigido para preservar o
+  estudo quando alguém edita os dados da usina (página de edição).
+- **Pendente:** teste de usabilidade com cliques reais no ar (prática do projeto).
+
+## 5bis. Plano original da Fase 1 (referência)
 
 1. Migration: tabela de **catálogo de componentes** (marca, modelo, Wp/kWh, preço, tipo) + seed de exemplo com preço placeholder.
 2. `lib/usina/` **cálculo puro com testes TDD**: dimensionamento (meta → kWp → nº de painéis →
