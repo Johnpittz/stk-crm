@@ -4,6 +4,27 @@
 > Ele existe para que a próxima IA comece a implementar **sem** precisar releer o projeto inteiro nem depender
 > da memória de conversas anteriores. Se este doc e o código divergirem, **vale o código** — e você corrige este doc.
 
+<!-- ==================== BLOCO MAIS NOVO EM CIMA ==================== -->
+
+**24/11/2026 — ARTE REFORMULADA + MENSAGENS CONCERTADAS + ATENDIMENTO E DISPARO FECHADOS (estado para novas sessões/chats)**
+
+- **MARKETING > CRIAR ARTES — REFORMULAÇÃO COMPLETA (pedido e aprovado pelo João; commits `4446817` + `0fc01d0`, deploy ✅):**
+  - **Passo1:** novo campo **"Qual é o objetivo?"** (divulgar, promover, anúncio pago, lançamento, evento, recado, informativo, captação) + nota de que **todos os formatos também servem para WhatsApp**.
+  - **Passo2:** campo virou **"O que você quer?"** com sugestões de1 clique (Anúncio de produto · Promoção · Novidade · Evento · Recado · Informativo) e **Visual com 🔍 busca +31 estilos** (vintage, neon,3D, minimalista, aquarela, anime, HQ...) + **"✍️ Outro (descreva você)"** com campo livre.
+  - **Passo3:** saiu **"Frases prontas do cadastro"**; entraram **"O que mais você quer adicionar?"**, **Cor de preferência**, **Digital ou impressão?**, **Resolução** (aparece só quando impressão:72/150/300 DPI) e **Humano ou equipamento?**.
+  - **Passo4 (análise de gargalos do João):** validação antes de abrir a revisão; prévia do prompt agora é **dentro do modal, ao vivo**; "Criar outra variante" saiu.
+  - **BOTÃO ÚNICO 🚀 "Gerar no ChatGPT"** — sumiram "Criar arte" e "Criar outra variante" (o endpoint do Gemini continua, só saiu da tela) → abre **modal de revisão estilo Google Ads** com **tudo editável** + prompt atualizando a cada tecla → confirmar **copia e abre o ChatGPT** (custo zero). Fallback: se o navegador bloquear a cópia, dialog com o prompt pronto (nunca fica sem).
+  - **PROMPT BASE APRIMORADO** (`lib/marketing/gerar-prompt.ts`, TDD5 novos → **14/14**): objetivo, uso, cor, resolução, sujeito + regras de qualidade (hierarquia, composição com espaço negativo, **"não invente textos"**, letras sem cortar, **"margem de segurança nas bordas"**).
+  - Campos novos viajando: página → `corpoArte()` → rota `POST /api/marketing/artes` (flag `apenasPrompt` devolve só o prompt, sem chamar IA).
+- **MENSAGENS DO ATENDIMENTO PARARAM EM17/11 — CAUSA RAIZ E CONCERTO (24/11):** o trigger da **migration105** (notificações do sino) usava `NEW.vendedor_id` como `user_id` de `notificacoes`, e essa coluna referencia **`auth.users(id)`** — sem login vinculado a FK quebrava e **derrubava a transação inteira do webhook** → HTTP500 → mensagem perdida em silêncio. Prova: payload real respondia `violates foreign key constraint "notificacoes_user_id_fkey"`. Correção: **`supabase/migrations/106_notificacao_fk_guard.sql`** (guarda `EXISTS auth.users` → pula a notificação em vez de quebrar) — **aplicado pelo João em24/11** (provado: mensagem recebida às21:43 caiu no CRM). Observação: quem não tem login não acende o sino (mensagem passa normal).
+- **ATENDIMENTO —3 itens do print do João (commits `2a6b7f4`, `7c54d44`, `ccce286`, `e6702fe`):** (1) nomes duplicados "MICHELE SWISTALSKI" → regra de exibição `lib/atendimentos/nome-exibicao.ts` (TDD11/11) + **19 vínculos errados de telefone desvinculados** (8 legítimos preservados) + webhooks com `endsWith` exigindo ≥10 dígitos; (2) botão **"Enviar para o funil"** no painel direito do atendimento (cria em 📥 Recebeu a Conta, checa "já está no funil"); (3) visual clean: chip "Sem resposta" no azul da marca, badge 🔗 espelho em cinza (âmbar só para espera de resposta).
+- **DISPARO:** botão **▶ Enviar no card** da campanha + seção "⏳ ainda não enviados" (inclui `rascunho`) no topo (`5c429e1`, `69b3d05`) + **Pausar/Retomar** (`41b7e23`, rota `POST /api/bulk/status` idempotente).
+- **SESSÕES WAHA EM24/11:** ✅ **STK-1 (62)95094-949** "Sustentalski Ltda" e **SALAO_1 (62)82735-286** "João Pedro" = WORKING · ❌ **STK-2 (62)99996-1553**, **STK-3 (62)99190-117** e **STK-ADM** (número só aparece ao escanear o QR) = FAILED aguardando **QR Code** em `http://172.16.1.1:3000` — até escanear, essas **não recebem nem enviam nada** (é esperado, não é bug). A **STK-1 recebe normalmente** (webhook/token testados:200).
+- **DISPARO PAUSADO:** campanha **"GD com30% de desconto2"** pausada com **36 falhas /0 enviados** (sessão STK-ADM morta) — **retomar só depois do QR** da STK-ADM (▶ Retomar no card, não repete enviados).
+- **ENTREGA DE APOIO:** Word **"Rotina do CRM - guia de apresentacao.docx"** em `/root/entregas/` (8 telas do CRM sem Marketing,6-passos do dia, roteiro15-20 min, vocabulário) — **7 etapas reais do funil:** 📥 Recebeu a Conta → 📝 Proposta a Ser Feita → 📋 Proposta Apresentada → 🎤 Apresentação Realizada → 📤 Contrato Enviado → ✅ Contrato Assinado → 💰 Comissão Paga.
+- **GATES DE24/11:** `tsc --noEmit` limpo · **798 vitest (85 arquivos)** · `npm run build` EXIT=0 · worker unittest OK · deploys `4446817` e `0fc01d0` success.
+- **PENDÊNCIAS:** (1) **QR das3 sessões** (STK-2/3/ADM); (2) retomar o disparo GD2 depois do QR; (3) migration **`089`** (índices) — conferir no banco quais de103–106 já foram aplicadas antes de mandar a próxima; (4) lentidão aprovada: **Kanban (1.053ms) / Atendimentos (793ms)**; (5) bug antigo: "Sair sem salvar" não fecha o modal original; (6) suíte de usabilidade STK (pedido permanente do João: toda entrega passa por teste de cliques reais).
+
 **23/10/2026 — MOTOR RECIEE (VALIDAÇÃO DETERMINÍSTICA + EMAIL DA CONCESSIONÁRIA) — novo pacote `lib/reciee/`**
 - **MOTIVO:** o RECIEE no STK só **extraía** dados da fatura (`lib/ia/analisar-fatura.ts`); não havia prova de que a conta estava certa nem email pronto para a distribuidora. Calibração: auditoria real das **29 faturas da UC 000266515901272** (Equatorial GO, B3, NOV/2023→MAI/2026, R$ 152.470,68) — aritmética fecha 100%, os 8 achados foram estruturais (faturas faltantes, datas impressas erradas, troca de medidor).
 - **O QUE ENTRA:** `lib/reciee/` (referências oficiais **por período** — bandeira ANEEL 141 meses, ICMS-GO 17%→19%, PIS/COFINS efetivo, tarifas homologadas Equatorial GO B3; `validarFatura`/`validarSequencia` com 10 verificações e tolerâncias; adaptador de `faturas_reciee`; `montarEmailConcessionaria`) + rota **`POST /api/reciee/clientes/[clienteId]/validar`** que grava os achados em `analises_reciee` (sem migration) e devolve `{ achados, resumo, email }`. Manual: `docs/reciee-validacao.md`.
@@ -65,6 +86,12 @@ está** no env do worker (verificado por tamanho, 28/09) — não é mais pendê
 ---
 
 ## 1. Em que situação o projeto está
+
+> **VALE O BLOCO "24/11/2026" NO TOPO DESTE ARQUIVO** — artes reformuladas (botão único
+> "Gerar no ChatGPT" + modal de revisão), mensagens do atendimento concertadas (migration
+> `106` aplicada), atendimento/disparo fechados, **798 testes**, sessões STK-2/3/ADM
+> aguardando QR. O que segue abaixo é o estado de **23/10**, mantido como histórico das
+> fases; em caso de divergência, vale o código.
 
 - Sistema no ar em produção (Vercel + Supabase + WAHA na VPS), 4 números conectados (`STK-1/2/3`, `ROMA_1`), webhook único `/api/webhooks/waha`.
 - **Build local (`npm run build`):** só passa com `/root/stk-crm/.env.local`
@@ -144,6 +171,13 @@ está** no env do worker (verificado por tamanho, 28/09) — não é mais pendê
 4. **Código** — fonte da verdade. Docs antigos (`README.md`, `ARQUITETURA.md`, `PROGRESSO.md`, `PROGRESSO.MD`) estão **desatualizados** (ainda falam "CRM ROMA", dados mock, Evolution como canal ativo) — não usar como referência de estado.
 
 ## 3. Próxima ação (de onde parar)
+
+> **ORDEM EM24/11:** (1) João escaneia o **QR de STK-2, STK-3 e STK-ADM** no WAHA e aí
+> retoma o disparo "GD com30% de desconto2" (está pausado, não repete enviados);
+> (2) ajustes que ele pedir na **reforma das artes** (página `app/(dashboard)/marketing/artes`
+> + `lib/marketing/gerar-prompt.ts` — os campos novos já viajam para o prompt);
+> (3) lentidão **Kanban (1.053ms) / Atendimentos (793ms)** aprovada para corrigir;
+> (4) migration **`089`** de índices. Os pedidos de11/10 abaixo continuam como fila.
 
 ### 3 PEDIDOS DO JOÃO (11/10) — plano completo em `docs/plano-3-pedidos.md`:
 - **PEDIDO 1 ✅** publicado (`47758ad`) · **PEDIDO 2 ✅** publicado
@@ -474,6 +508,8 @@ curl -s -H "X-Api-Key: $K" http://172.16.1.1:3000/api/sessions
 | 06/10/2026 (Passo 1) | **Atendimento: cortesia fora do horário enviada** | Bug adiado em 03/10: o engine compunha a resposta "Retornaremos em breve! 😊" no branch `fora_horario` mas `integrarChatbot` só lia `action` → ninguém enviava e o cliente ficava no silêncio (IA bloqueada pela precedência do chatbot). GREEN: branch agora chama `enviarMensagem` antes de retornar; RED do silêncio + controle em horário comercial em `lib/chatbot/engine-horario.test.ts`. **Gates: 365 vitest + tsc limpo.** | ✅ CONCLUÍDO |
 | 06/10/2026 (Clientes) | **Tela CLIENTES: ajustes + LOG admin + conserto de save** | IE ⟫removido (PJ), campos novos Nome do Contato/Cargo/CPF do Proprietário/Dt Nascimento, "Endereço da Empresa", Bandeira fora, "Tem Usina Solar" SIM abre o form da usina (CRI/nome/kWp → `clientes.usina`), **Log de Alterações** (menu só admin, rota `/api/clientes/log` 401/403, tabela `cliente_auditoria`). Achei e consertei: Editar NÃO salvava (payload `nome_completo` inexistente → PGRST204) e Novo perdia endereço/energia/consumo — agora os dois usam `montarPayloadCliente` + POST/PUT com trilha de auditoria (best-effort). **PENDÊNCIA HUMANA: aplicar `supabase/migrations/094_clientes_contato_log.sql` no SQL Editor** (a 093 também segue pendente). |
 | 06/10/2026 (Status) | Dropdown STATUS = **LEAD/PROSPECT/CLIENTE/CAPTADOR** | Pedido do João; Novo + Editar usam `opcoesStatus` (lib/clientes/status-cliente); valor antigo salvo vira opção extra "(antigo)". Migration 094 **aplicada pelo João** (projeto certo `nizreyg...`) e deploy `dfd2df8`+`ee56696` publicados. |
+
+| 24/11/2026 (Reforma + concertos) | **Artes reformuladas** (passos 1–3 com objetivo/sugestões/busca de31 estilos/cor/meio/resolução/sujeito, prompt base com regras de qualidade, **modal de revisão estilo Google Ads** e **botão único "Gerar no ChatGPT"** — commits `4446817`+`0fc01d0`) · **mensagens do Atendimento paradas desde17/11 concertadas** (trigger da migration105 quebrava a FK de `notificacoes` → derrubava o webhook inteiro → migration **`106` aplicada pelo João**, provado com mensagem às21:43) · 3 itens do print (19 vínculos errados limpos + regra de nome `2a6b7f4`, botão "Enviar para o funil" `ccce286`, cores `e6702fe`) · disparo com **Enviar/Pausar/Retomar** (`5c429e1`,`69b3d05`,`41b7e23`) · **STK-1 recebendo** (webhook/token testados200), **STK-2/3/ADM no QR** · GD2 **pausado** (36 falhas/0 enviados) · guia Word "Rotina do CRM" | ✅ **tsc limpo ·798 vitest · build0 · worker OK · deploys success. Pendências: QR das3 sessões, retomar GD2, migration089, lentidão Kanban/Atendimentos** |
 
 ## 8. Diagnóstico de performance (26/09)
 
