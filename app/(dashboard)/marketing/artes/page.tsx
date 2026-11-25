@@ -472,15 +472,25 @@ export default function CriarArtesPage() {
   }
 
   /**
-   * OPÇÃO2 (18/11) — leva o prompt JÁ MONTADO para o ChatGPT do usuário:
-   * monta no servidor (sem gerar imagem, custo zero), copia para a
-   * área de transferência e abre o ChatGPT — ele só dá Ctrl+V.
+   * REFORMULAÇÃO 24/11 — único botão da tela: abre o MODAL DE REVISÃO
+   * (estilo "criar anúncio no Google") com tudo que a pessoa preencheu,
+   * editável. Só depois de confirmar é que o prompt vai para o ChatGPT.
    */
-  async function gerarNoChatGPT() {
+  function abrirRevisao() {
     if (!assunto.trim() || !texto.trim()) {
-      setErro("Preencha o ASSUNTO e o TEXTO antes de levar para o ChatGPT.");
+      setErro("Preencha o que você quer e o texto da imagem antes de continuar.");
       return;
     }
+    setErro(null);
+    setPromptCopiado(false);
+    setModalRevisao(true);
+  }
+
+  /**
+   * Confirmou o modal: monta o prompt (servidor), copia e abre o
+   * ChatGPT — custo zero aqui; ele só dá Ctrl+V e manda gerar.
+   */
+  async function confirmarChatGPT() {
     setCopiandoPrompt(true);
     setErro(null);
     setPromptCopiado(false);
@@ -495,9 +505,11 @@ export default function CriarArtesPage() {
       const copiado = await copiarTexto(json.prompt);
       if (copiado) {
         setPromptCopiado(true);
+        setModalRevisao(false);
       } else {
         // navegador negou a cópia: mostra o prompt para copiar à mão
         setPromptEmergencia(json.prompt);
+        setModalRevisao(false);
       }
       window.open("https://chatgpt.com/", "_blank", "noopener,noreferrer");
     } catch (e: any) {
@@ -953,46 +965,18 @@ export default function CriarArtesPage() {
               {erro}
             </p>
           )}
-          {gerando && (
-            <div className="rounded-lg border border-[#3B64CF]/40 bg-[#3B64CF]/10 px-3 py-2 text-sm text-[#9db8ff]">
-              ✨ Gerando a arte... pode levar até30 segundos. A galeria lá embaixo recebe a imagem.
-            </div>
-          )}
-
+          {/* REFORMULAÇÃO24/11 — UM botão só: abre o modal de revisão
+              (estilo criar anúncio no Google) antes de ir para o ChatGPT */}
           <div className="flex flex-wrap gap-3">
             <Button
               type="button"
-              onClick={gerar}
-              disabled={gerando}
+              onClick={abrirRevisao}
+              disabled={copiandoPrompt}
               className="bg-[#3B64CF] hover:bg-[#2d50a8] text-white"
-            >
-              <Sparkles className="mr-2 h-4 w-4" />
-              {gerando ? "Gerando..." : "Criar arte"}
-            </Button>
-            <Button
-              type="button"
-              onClick={gerar}
-              disabled={gerando || !jaGerou}
-              variant="outline"
-              className="border-white/15 text-white/80"
-              title={jaGerou ? "Gera uma nova imagem com o mesmo pedido" : "Crie a primeira arte para habilitar"}
-            >
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Criar outra variante
-            </Button>
-            {/* OPÇÃO2 (18/11) — leva o prompt pronto para o ChatGPT do
-                usuário: monta no servidor (sem gerar aqui, custo zero),
-                copia e abre o ChatGPT. */}
-            <Button
-              type="button"
-              onClick={gerarNoChatGPT}
-              disabled={gerando || copiandoPrompt}
-              variant="outline"
-              className="border-white/15 text-white/80"
-              title="Monta o prompt pronto, copia e abre o ChatGPT — a imagem é gerada lá, sem custo para o sistema"
+              title="Revisa tudo que você preenchue e leva o prompt pronto para o ChatGPT"
             >
               <ExternalLink className="mr-2 h-4 w-4" />
-              {copiandoPrompt ? "Montando prompt..." : "Gerar no ChatGPT"}
+              {copiandoPrompt ? "Montando prompt..." : "🚀 Gerar no ChatGPT"}
             </Button>
           </div>
           {promptCopiado && (
@@ -1002,6 +986,198 @@ export default function CriarArtesPage() {
               texto — anexe-as lá se a arte precisar delas.
             </p>
           )}
+
+          {/* MODAL DE REVISÃO24/11 — estilo "criar anúncio no Google":
+              tudo que a pessoa preencheu, EDITÁVEL, + prompt ao vivo. */}
+          <Dialog open={modalRevisao} onOpenChange={setModalRevisao}>
+            <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto border-white/10 bg-[#1a2236] text-white">
+              <DialogHeader>
+                <DialogTitle className="text-white">
+                  🚀 Revise antes de gerar no ChatGPT
+                </DialogTitle>
+              </DialogHeader>
+              <p className="text-xs text-white/50">
+                Tudo abaixo é seu — ajuste o que quiser. Ao confirmar, o prompt é
+                copiado e o ChatGPT abre pronto (é lá que a imagem é gerada, sem
+                custo para o sistema).
+              </p>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <Label>Objetivo</Label>
+                  <select
+                    value={objetivo}
+                    onChange={(e) => setObjetivo(e.target.value)}
+                    className="mt-1 h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white"
+                  >
+                    <option value="" className="bg-[#1a2236]">Selecione o objetivo...</option>
+                    {OBJETIVOS.map((o) => (
+                      <option key={o} value={o} className="bg-[#1a2236]">{o}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label>Formato</Label>
+                  <select
+                    value={formato}
+                    onChange={(e) => setFormato(e.target.value)}
+                    className="mt-1 h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white"
+                  >
+                    {FORMATOS_TELA.map((f) => (
+                      <option key={f.chave} value={f.chave} className="bg-[#1a2236]">
+                        {f.nome} — {f.desc}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <Label>O que você quer</Label>
+                  <Input
+                    value={assunto}
+                    onChange={(e) => setAssunto(e.target.value)}
+                    className="mt-1 bg-white/5 border-white/10"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label>Texto que aparece NA imagem</Label>
+                  <Textarea
+                    value={texto}
+                    onChange={(e) => setTexto(e.target.value)}
+                    rows={2}
+                    className="mt-1 bg-white/5 border-white/10"
+                  />
+                </div>
+                <div>
+                  <Label>Visual</Label>
+                  <select
+                    value={estilo}
+                    onChange={(e) => setEstilo(e.target.value)}
+                    className="mt-1 h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white"
+                  >
+                    {ESTILOS.map((e) => (
+                      <option key={e} value={e} className="bg-[#1a2236]">{e}</option>
+                    ))}
+                  </select>
+                  {estilo === ESTILO_OUTRO && (
+                    <Textarea
+                      value={estiloOutro}
+                      onChange={(e) => setEstiloOutro(e.target.value)}
+                      rows={2}
+                      placeholder="Descreva o visual..."
+                      className="mt-2 bg-white/5 border-white/10"
+                    />
+                  )}
+                </div>
+                <div>
+                  <Label>Cor de preferência</Label>
+                  <select
+                    value={cor}
+                    onChange={(e) => setCor(e.target.value)}
+                    className="mt-1 h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white"
+                  >
+                    {CORES_ARTE.map((c) => (
+                      <option key={c} value={c} className="bg-[#1a2236]">{c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label>Digital ou impressão?</Label>
+                  <select
+                    value={meio}
+                    onChange={(e) => {
+                      setMeio(e.target.value);
+                      if (e.target.value !== "Impressão") setResolucao("");
+                    }}
+                    className="mt-1 h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white"
+                  >
+                    <option value="" className="bg-[#1a2236]">Selecione...</option>
+                    <option value="Digital" className="bg-[#1a2236]">Digital (tela / redes / WhatsApp)</option>
+                    <option value="Impressão" className="bg-[#1a2236]">Impressão (folheto, banner, adesivo)</option>
+                    <option value="Ainda não sei" className="bg-[#1a2236]">Ainda não sei</option>
+                  </select>
+                </div>
+                {meio === "Impressão" && (
+                  <div>
+                    <Label>Resolução (impressão)</Label>
+                    <select
+                      value={resolucao}
+                      onChange={(e) => setResolucao(e.target.value)}
+                      className="mt-1 h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white"
+                    >
+                      <option value="" className="bg-[#1a2236]">Selecione...</option>
+                      {RESOLUCOES.map((r) => (
+                        <option key={r} value={r} className="bg-[#1a2236]">{r}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <div>
+                  <Label>Humano ou equipamento?</Label>
+                  <select
+                    value={sujeito}
+                    onChange={(e) => setSujeito(e.target.value)}
+                    className="mt-1 h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white"
+                  >
+                    <option value="" className="bg-[#1a2236]">Selecione...</option>
+                    <option value="Humano (pessoa)" className="bg-[#1a2236]">Humano (pessoa)</option>
+                    <option value="Equipamento (produto)" className="bg-[#1a2236]">Equipamento (produto)</option>
+                    <option value="Humano e equipamento" className="bg-[#1a2236]">Humano e equipamento</option>
+                    <option value="Sem preferência" className="bg-[#1a2236]">Sem preferência</option>
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <Label>O que mais você quer adicionar?</Label>
+                  <Textarea
+                    value={extraArte}
+                    onChange={(e) => setExtraArte(e.target.value)}
+                    rows={2}
+                    placeholder="Ex: QR code no canto, selo de garantia, nome do vendedor..."
+                    className="mt-1 bg-white/5 border-white/10"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label>Detalhes extras (passo4)</Label>
+                  <Textarea
+                    value={observacoes}
+                    onChange={(e) => setObservacoes(e.target.value)}
+                    rows={2}
+                    placeholder="Ex: fundo escuro, sem texto no topo..."
+                    className="mt-1 bg-white/5 border-white/10"
+                  />
+                </div>
+              </div>
+
+              {/* PROMPT AO VIVO — atualiza a cada tecla */}
+              <div className="rounded-lg border border-white/10 bg-black/30 p-3">
+                <p className="mb-1 text-[11px] font-medium text-white/50">
+                  📋 Prompt que vai ser copiado (atualiza sozinho):
+                </p>
+                <pre className="max-h-40 overflow-auto whitespace-pre-wrap text-[11px] leading-relaxed text-white/70">
+                  {prompt || "Preencha o que você quer e o texto da imagem."}
+                </pre>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  type="button"
+                  onClick={confirmarChatGPT}
+                  disabled={copiandoPrompt}
+                  className="bg-[#3B64CF] hover:bg-[#2d50a8] text-white"
+                >
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  {copiandoPrompt ? "Copiando..." : "🚀 Copiar e abrir o ChatGPT"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="border-white/15 text-white/80"
+                  onClick={() => setModalRevisao(false)}
+                >
+                  ← Voltar e editar
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* Cópia automática bloqueada pelo navegador: prompt à mostra
               para o cliente copiar (Ctrl+C) — nunca fica sem ele. */}
