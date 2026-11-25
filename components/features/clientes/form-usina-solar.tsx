@@ -38,8 +38,27 @@ export function parseUsina(valor: string | null | undefined): DadosUsina {
   }
 }
 
-export function serializarUsina(dados: DadosUsina): string {
-  return JSON.stringify({ CRI: dados.cri, usina: dados.nome, potencia: dados.potencia });
+/**
+ * Serialize os dados da usina preservando chaves extras já gravadas na
+ * coluna (25/11 — `estudo` do Fase1: editar CRI/nome/potência não pode
+ * apagar o estudo salvo). `valorAtual` = JSON atual da coluna (bruto).
+ */
+export function serializarUsina(dados: DadosUsina, valorAtual?: string | null): string {
+  let extras: Record<string, unknown> = {};
+  if (valorAtual) {
+    try {
+      const obj = JSON.parse(valorAtual);
+      if (obj && typeof obj === "object" && !Array.isArray(obj)) extras = obj;
+    } catch {
+      extras = {};
+    }
+  }
+  return JSON.stringify({
+    ...extras,
+    CRI: dados.cri,
+    usina: dados.nome,
+    potencia: dados.potencia,
+  });
 }
 
 interface Props {

@@ -42,8 +42,10 @@ import {
   PlugZap,
   Sun,
   Battery,
+  Calculator,
 } from "lucide-react";
 import { TabLinhaSimples, TabGestaoFatura } from "@/components/features/clientes/tabs-linhas";
+import { EstudoUsinaTab } from "@/components/features/usina/estudo-usina-tab";
 import {
   LINHAS_PASTA,
   type LinhaId,
@@ -180,6 +182,7 @@ type TabId =
   | "gestao_fatura"
   | "mercado_livre"
   | "usina"
+  | "estudo_usina"
   | "atendimentos"
   | "oportunidades";
 
@@ -195,6 +198,8 @@ const TABS: { id: TabId; label: string; icon: any }[] = [
   // FASE B (17/10) — produtos novos com inserção manual
   { id: "mercado_livre", label: "Mercado Livre", icon: Store },
   { id: "usina", label: "Usina Própria", icon: Sun },
+  //25/11 — Fase1 do estudo de usina (demo Reonic): dimensiona e gera proposta
+  { id: "estudo_usina", label: "Estudo Usina", icon: Calculator },
   { id: "atendimentos", label: "Atendimentos", icon: Headphones },
   { id: "oportunidades", label: "Ações em Aberto", icon: TrendingUp },
 ];
@@ -677,6 +682,10 @@ export default function ClienteDetalhePage() {
               onExcluir={(id) => excluirLinha(activeTab, id)}
             />
           )}
+
+        {!tabLoading && activeTab === "estudo_usina" && (
+          <EstudoUsinaTab cliente={cliente} clienteId={clienteId} />
+        )}
 
         {!tabLoading && activeTab === "gestao_fatura" && (
           <TabGestaoFatura

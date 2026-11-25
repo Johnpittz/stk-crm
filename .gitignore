@@ -39,3 +39,7 @@ next-env.d.ts
 /.*.txt
 /__pycache__/
 /worker/__pycache__/
+
+# vídeo grande de estudo (nunca versionar)
+Mini Demo Mi.mp4
+supabase/.temp/

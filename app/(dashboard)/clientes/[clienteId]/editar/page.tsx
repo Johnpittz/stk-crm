@@ -1199,7 +1199,8 @@ export default function EditarClientePage() {
         onOpenChange={setUsinaAberto}
         valor={parseUsina(form.usina)}
         onSalvar={(dados) => {
-          set("usina", serializarUsina(dados));
+          //25/11: passa o JSON bruto p/ preservar o `estudo` já gravado
+          set("usina", serializarUsina(dados, form.usina));
           setUsinaAberto(false);
         }}
       />

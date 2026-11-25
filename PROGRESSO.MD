@@ -7,6 +7,19 @@
 
 ---
 
+## 📌 25/11/2026 — ESTUDO: demo da Reonic → ideia p/ área de usina solar
+
+- Analisei o vídeo `Mini Demo Mi.mp4` (demo da **Reonic**, software de vender/instalar
+  fotovoltaico) por transcrição +26 frames. **Estudo completo em
+  `docs/estudo-reonic-usina-solar.md`** (mapa do funil, o que já temos, gap,3 fases, decisões pendentes).
+- Achado-chave: o STK **registra/detecta** usina (form `clientes.usina`, linha "usina", IA da fatura)
+  mas **não dimensiona nem gera proposta** — é exatamente a lacuna a preencher (Fase 1: tela de
+  estudo de usina → kWp/painéis/economia/payback → PDF + link público → linha/kanban).
+- **Sem código alterado**; nada implementado ainda. Próximo passo: João decidir foco (vender
+  instalar × atender usina existente), portfólio de preços e por onde começar.
+
+---
+
 ## 🏗️ Visão Geral do Sistema
 
 O STK CRM é um sistema de gestão de relacionamento com cliente composto por **4 perfis**:

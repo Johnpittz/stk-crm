@@ -6,6 +6,12 @@
 
 <!-- ==================== BLOCO MAIS NOVO EM CIMA ==================== -->
 
+**25/11/2026 — PENDÊNCIAS DO24/11 SANADAS (confirmado pelo João)**
+
+- **Todas as pendências do bloco24/11 foram resolvidas:** (1) QR das sessões STK-2/STK-3/STK-ADM · (2) retomada do disparo "GD com30% de desconto2" · (3) ajustes da reforma das artes · (4) lentidão do Kanban (1.053ms) e Atendimentos (793ms) · (5) migration `089` de índices aplicada.
+- **Fora do escopo deste chat:** só STK-CRM — outros projetos servem apenas de exemplo/referência (combinado com o João em 25/11).
+- ⚠️ **Leitura do WAHA em 25/11:** STK-1, STK-ADM e SALAO_1 = WORKING · **STK-2 e STK-3 ainda FAILED** · ROMA_1 FAILED (fora do escopo). Se STK-2/STK-3 não estiverem recebendo, reescanear o QR delas.
+
 **24/11/2026 — ARTE REFORMULADA + MENSAGENS CONCERTADAS + ATENDIMENTO E DISPARO FECHADOS (estado para novas sessões/chats)**
 
 - **MARKETING > CRIAR ARTES — REFORMULAÇÃO COMPLETA (pedido e aprovado pelo João; commits `4446817` + `0fc01d0`, deploy ✅):**
@@ -172,12 +178,10 @@ está** no env do worker (verificado por tamanho, 28/09) — não é mais pendê
 
 ## 3. Próxima ação (de onde parar)
 
-> **ORDEM EM24/11:** (1) João escaneia o **QR de STK-2, STK-3 e STK-ADM** no WAHA e aí
-> retoma o disparo "GD com30% de desconto2" (está pausado, não repete enviados);
-> (2) ajustes que ele pedir na **reforma das artes** (página `app/(dashboard)/marketing/artes`
-> + `lib/marketing/gerar-prompt.ts` — os campos novos já viajam para o prompt);
-> (3) lentidão **Kanban (1.053ms) / Atendimentos (793ms)** aprovada para corrigir;
-> (4) migration **`089`** de índices. Os pedidos de11/10 abaixo continuam como fila.
+> **ORDEM EM25/11:** as pendências do24/11 (QR, retomada do disparo GD2, ajustes das artes,
+> lentidão Kanban/Atendimentos, migration `089`) **estão todas sanadas** — ver bloco do topo.
+> Resta: (1) conferir **STK-2 e STK-3**, que seguem FAILED na leitura de25/11 (reescanear o QR
+> se não recebem); (2) novos pedidos do João. Os pedidos de11/10 abaixo continuam como fila.
 
 ### 3 PEDIDOS DO JOÃO (11/10) — plano completo em `docs/plano-3-pedidos.md`:
 - **PEDIDO 1 ✅** publicado (`47758ad`) · **PEDIDO 2 ✅** publicado
@@ -469,7 +473,7 @@ curl -s -H "X-Api-Key: $K" http://172.16.1.1:3000/api/sessions
 ```
 
 - Env do worker/banco: `/root/.stk-worker.env` (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `WAHA_API_URL=http://172.16.1.1:3000`).
-- Migrations: `supabase/migrations/` — **087, 088, 090, 091 e 092 aplicadas; 093 (Fase 6 — `propostas` + bucket de PDFs) e 089 (índices Fase 1) escritas, falta aplicar as duas** no SQL Editor (a `scripts/aplicar-migracao.js` NÃO serve: ela chama a RPC `exec_sql`, que não existe neste projeto; não há `psql`/token de gestão aqui dentro — aplicação é manual, no painel do Supabase).
+- Migrations: `supabase/migrations/` — **087, 088, 090, 091, 092 e `089` (índices, aplicada — confirmado pelo João em 25/11)**; **093** (`propostas` + bucket de PDFs) escrita, **conferir no painel se já foi aplicada** (a `scripts/aplicar-migracao.js` NÃO serve: ela chama a RPC `exec_sql`, que não existe neste projeto; não há `psql`/token de gestão aqui dentro — aplicação é manual, no painel do Supabase).
 - Deploy: `git push origin master` → build automático na Vercel. Confirmar `git remote -v` antes de push.
 - code-server: `https://srv1745477.hstgr.cloud:8080/?folder=/root/stk-crm`
 
@@ -509,7 +513,8 @@ curl -s -H "X-Api-Key: $K" http://172.16.1.1:3000/api/sessions
 | 06/10/2026 (Clientes) | **Tela CLIENTES: ajustes + LOG admin + conserto de save** | IE ⟫removido (PJ), campos novos Nome do Contato/Cargo/CPF do Proprietário/Dt Nascimento, "Endereço da Empresa", Bandeira fora, "Tem Usina Solar" SIM abre o form da usina (CRI/nome/kWp → `clientes.usina`), **Log de Alterações** (menu só admin, rota `/api/clientes/log` 401/403, tabela `cliente_auditoria`). Achei e consertei: Editar NÃO salvava (payload `nome_completo` inexistente → PGRST204) e Novo perdia endereço/energia/consumo — agora os dois usam `montarPayloadCliente` + POST/PUT com trilha de auditoria (best-effort). **PENDÊNCIA HUMANA: aplicar `supabase/migrations/094_clientes_contato_log.sql` no SQL Editor** (a 093 também segue pendente). |
 | 06/10/2026 (Status) | Dropdown STATUS = **LEAD/PROSPECT/CLIENTE/CAPTADOR** | Pedido do João; Novo + Editar usam `opcoesStatus` (lib/clientes/status-cliente); valor antigo salvo vira opção extra "(antigo)". Migration 094 **aplicada pelo João** (projeto certo `nizreyg...`) e deploy `dfd2df8`+`ee56696` publicados. |
 
-| 24/11/2026 (Reforma + concertos) | **Artes reformuladas** (passos 1–3 com objetivo/sugestões/busca de31 estilos/cor/meio/resolução/sujeito, prompt base com regras de qualidade, **modal de revisão estilo Google Ads** e **botão único "Gerar no ChatGPT"** — commits `4446817`+`0fc01d0`) · **mensagens do Atendimento paradas desde17/11 concertadas** (trigger da migration105 quebrava a FK de `notificacoes` → derrubava o webhook inteiro → migration **`106` aplicada pelo João**, provado com mensagem às21:43) · 3 itens do print (19 vínculos errados limpos + regra de nome `2a6b7f4`, botão "Enviar para o funil" `ccce286`, cores `e6702fe`) · disparo com **Enviar/Pausar/Retomar** (`5c429e1`,`69b3d05`,`41b7e23`) · **STK-1 recebendo** (webhook/token testados200), **STK-2/3/ADM no QR** · GD2 **pausado** (36 falhas/0 enviados) · guia Word "Rotina do CRM" | ✅ **tsc limpo ·798 vitest · build0 · worker OK · deploys success. Pendências: QR das3 sessões, retomar GD2, migration089, lentidão Kanban/Atendimentos** |
+| 24/11/2026 (Reforma + concertos) | **Artes reformuladas** (passos1–3 com objetivo/sugestões/busca de31 estilos/cor/meio/resolução/sujeito, prompt base com regras de qualidade, **modal de revisão estilo Google Ads** e **botão único "Gerar no ChatGPT"** — commits `4446817`+`0fc01d0`) · **mensagens do Atendimento paradas desde17/11 concertadas** (trigger da migration105 quebrava a FK de `notificacoes` → derrubava o webhook inteiro → migration **`106` aplicada pelo João**, provado com mensagem às21:43) · 3 itens do print (19 vínculos errados limpos + regra de nome `2a6b7f4`, botão "Enviar para o funil" `ccce286`, cores `e6702fe`) · disparo com **Enviar/Pausar/Retomar** (`5c429e1`,`69b3d05`,`41b7e23`) · **STK-1 recebendo** (webhook/token testados200), **STK-2/3/ADM no QR** · GD2 **pausado** (36 falhas/0 enviados) · guia Word "Rotina do CRM" | ✅ **tsc limpo ·798 vitest · build0 · worker OK · deploys success. Pendências: QR das3 sessões, retomar GD2, migration089, lentidão Kanban/Atendimentos** |
+| 25/11/2026 | Estado | HANDOFF atualizado: **pendências do24/11 todas sanadas conforme o João** (QR, retomada do disparo GD2, ajustes das artes, lentidão Kanban/Atendimentos, migration089) · regra de escopo deste chat: **só STK-CRM** (outros projetos só de exemplo/referência) · leitura do WAHA: STK-ADM voltou WORKING, **STK-2 e STK-3 seguem FAILED** | ✅ doc atualizado |
 
 ## 8. Diagnóstico de performance (26/09)
 
