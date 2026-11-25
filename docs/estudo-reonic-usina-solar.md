@@ -165,6 +165,7 @@ essa ponte de ponta a ponta.
 |3. Tela de estudo | ✅ aba **Estudo Usina** na pasta do cliente (`components/features/usina/estudo-usina-tab.tsx`) |
 |4. Proposta PDF + funil | ✅ `lib/usina/proposta-pdf.ts` (jspdf) + botão "Enviar para o funil" (POST `/api/oportunidades`) |
 |5. Gates | ✅ tsc limpo ·834 testes · build ok · commit `4276b5d` publicado |
+|6. Usabilidade no ar | ✅ **10/10 PASS** — `tests/usabilidade/teste_usabilidade_usina.py` (produção, cliques reais, prova no banco, limpeza) · commit `056f33f` |
 
 - **Persistência sem migration:** o estudo grava na coluna `clientes.usina` (JSON existente) como
   `{CRI, usina, potencia, estudo}` — `serializarUsina` também foi corrigido para preservar o

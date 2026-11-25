@@ -23,8 +23,11 @@
   `components/features/usina/estudo-usina-tab.tsx` (aba **Estudo Usina** na pasta do cliente:
   consumo/tarifa pré-preenchidos, meta, módulo, resultado ao vivo, Salvar/PDF/Funil).
   Gates: **tsc limpo ·834 testes · build ok** · commit `4276b5d` publicado.
-- Próximos: teste de usabilidade no ar; depois Fase2 (landing de captação + gatilho na IA da
-  fatura) e Fase3 (obra/pós-venda).
+- **Usabilidade em produção (25/11):10/10 PASS** —
+  `tests/usabilidade/teste_usabilidade_usina.py` (cliques reais: aba, pré-preenchimento,
+  cálculo ao vivo, salvar com prova no banco, reload restaura, PDF baixado, card no funil,
+  erros bloqueiam, console limpo; cliente de teste apagado no fim) · commit `056f33f`.
+- Próximos: Fase2 (landing de captação + gatilho na IA da fatura) e Fase3 (obra/pós-venda).
 
 ---
 
