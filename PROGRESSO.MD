@@ -7,6 +7,36 @@
 
 ---
 
+## 📌 25/11/2026 — FASE 2 da usina: landing de captação, gatilho da IA e visita técnica
+
+**O que ficou pronto hoje (Fase 2 completa, blocos A/B/C):**
+- **A) Landing pública `app/usina`** ("Descubra quanto sua casa pode economizar") —
+  cliente final sem login, estimativa ao vivo com o mesmo motor do Estudo Usina
+  (tarifa padrão R$0,95/kWh declarada na tela), validação local antes da rede, e
+  `POST /api/leads/usina` (rate-limit5/min, service role) gravando em
+  `leads_marketing` com `origem='site'`, `status='novo'` e **score**
+  (`lib/usina/score-lead.ts`: degrau do gasto mensal + bônus de WhatsApp válido,
+  teto100). As estimativas (kWp, painéis, geração, cobertura) viajam no `notas`.
+- **B) Gatilho da IA da fatura:** `analise-conta-modal.tsx` mostra "📐 Gerar estudo
+  de usina →" quando o produto é `usina_proprietaria` → fecha o modal e vai pra
+  `/clientes/{id}?aba=estudo_usina` (novo `botao-gerar-estudo.tsx`, testável).
+- **C) Aba "Visita Técnica"** na pasta do cliente: checklist6 itens (telhado,
+  quadro, fachada, conta, área, observações) com checkbox + nota, progresso
+  "X/Y completo", gravando em `cliente_pasta_linhas` linha nova `visita_tecnica`
+  (sem migration; `LinhaId` ampliado em `lib/clientes/linhas.ts`).
+
+**Pendências (ações do João):**
+1. **SQL no Supabase (SQL Editor)** — a migration102 limitou o CHECK a6 ids; sem
+   isto, "Salvar" a visita devolve erro tratado na tela:
+   `ALTER TABLE public.cliente_pasta_linhas DROP CONSTRAINT IF EXISTS cliente_pasta_linhas_linha_check;`
+   `ALTER TABLE public.cliente_pasta_linhas ADD CONSTRAINT cliente_pasta_linhas_linha_check CHECK (linha IN ('eletroposto','sigma','bess','gestao_fatura','mercado_livre','usina','visita_tecnica'));`
+   (SQL completo no cabeçalho de `components/features/usina/visita-tecnica-tab.tsx`).
+2. Upload de fotos da visita está **desabilitado ("em construção")**: o bucket
+   `faturas-contas` é privado e a rota de upload atual é exclusiva de fatura.
+
+**Gates:** `npx tsc --noEmit` = 0 · `npm test` = **858 verdes /1 skip (859)** ·
+`npm run build` ok (`/usina` + `/api/leads/usina` publicadas).
+
 ## 📌 25/11/2026 — ESTUDO: demo da Reonic → ideia p/ área de usina solar
 
 - Analisei o vídeo `Mini Demo Mi.mp4` (demo da **Reonic**, software de vender/instalar

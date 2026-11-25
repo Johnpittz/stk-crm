@@ -18,6 +18,7 @@ import {
   temRecebidaHoje,
 } from "@/lib/clientes/analise-conta";
 import { Button } from "@/components/ui/button";
+import { BotaoGerarEstudo } from "@/components/features/usina/botao-gerar-estudo";
 import type { OportunidadeProduto } from "@/lib/ia/regras-produtos";
 import {
   Dialog,
@@ -570,6 +571,11 @@ export function AnaliseContaModal({ clienteId, onClose, aoAtualizar }: Props) {
                       <p className="text-xs text-amber-500/90 mt-0.5">
                         Pendência: {opp.pendencia}
                       </p>
+                    )}
+                    {/* Fase2-B (25/11) — a IA marcou usina própria? o botão
+                        leva direto pro estudo dimensionado. */}
+                    {opp.produto === "usina_proprietaria" && (
+                      <BotaoGerarEstudo clienteId={clienteId} onClose={onClose} />
                     )}
                     {opp.status === "identificada" && (
                       <Button

@@ -14,7 +14,11 @@ export type LinhaId =
   | "bess"
   | "gestao_fatura"
   | "mercado_livre"
-  | "usina";
+  | "usina"
+  // Fase2-C (25/11) — checklist de visita técnica da aba "Visita Técnica".
+  // Só o id textual: os itens são checkboxes/notas, não campos do catálogo,
+  // por isso NÃO entra em LINHAS_PASTA (gravado em cliente_pasta_linhas).
+  | "visita_tecnica";
 
 export type TipoCampo = "texto" | "numero" | "moeda" | "select" | "mes" | "data";
 

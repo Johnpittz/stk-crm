@@ -6,6 +6,27 @@
 
 <!-- ==================== BLOCO MAIS NOVO EM CIMA ==================== -->
 
+**25/11/2026 (tarde) — FASE 2 DA USINA NO AR (captação + gatilho + visita técnica)**
+
+- **Landing pública `/usina`** ("quanto posso economizar"): estimativa ao vivo com
+  `lib/usina/dimensionamento`, validação local, `POST /api/leads/usina`
+  (rate-limit5/min) gravando lead em `leads_marketing` (`origem='site'`,
+  `status='novo'`, **score** de `lib/usina/score-lead.ts` + estimativas no `notas`).
+- **Gatilho da IA da fatura:** no modal de análise, `usina_proprietaria` agora ganha
+  o botão **"📐 Gerar estudo de usina →"** → vai pra `/clientes/{id}?aba=estudo_usina`.
+- **Aba "Visita Técnica"** na pasta do cliente: checklist6 itens + progresso +
+  notas, gravando em `cliente_pasta_linhas` linha `visita_tecnica` (sem migration).
+- **GATES:** `tsc`=0 · **858 verdes/1 skip (859)** · build ok (`/usina` + rota).
+- ⚠️ **PENDÊNCIA NOVA (João, SQL Editor):** rodar o `ALTER TABLE` do CHECK
+  `cliente_pasta_linhas_linha_check` (SQL no cabeçalho de
+  `components/features/usina/visita-tecnica-tab.tsx`) — sem ele, "Salvar" a visita
+  mostra erro tratado (a migration102 limitou o CHECK a6 ids).
+- ⚠️ Upload de fotos da visita: **"em construção"** (bucket `faturas-contas` é
+  privado; rota de upload atual é exclusiva de fatura — precisa rota nova).
+- **QR deferido:** STK-2/STK-3 reiniciadas em25/11 e estão em `SCAN_QR_CODE`
+  (causa mapeada: credencial do WhatsApp Web invalidada/banimento NÃO) — João vai
+  escanear depois; QR expira rápido, pedir "reenviar QR" se cair.
+
 **25/11/2026 — PENDÊNCIAS DO24/11 SANADAS (confirmado pelo João)**
 
 - **Todas as pendências do bloco24/11 foram resolvidas:** (1) QR das sessões STK-2/STK-3/STK-ADM · (2) retomada do disparo "GD com30% de desconto2" · (3) ajustes da reforma das artes · (4) lentidão do Kanban (1.053ms) e Atendimentos (793ms) · (5) migration `089` de índices aplicada.

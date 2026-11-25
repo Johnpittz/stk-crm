@@ -123,7 +123,19 @@ essa ponte de ponta a ponta.
   **cria a oportunidade no kanban** e a linha "usina" da pasta.
 - **Esforço:** S–M por bloco; tudo backend/Next puro, sem dependência externa.
 
-### Fase 2 — Captação e fluxo (o "topo" da Reonic)
+### Fase 2 — Captação e fluxo
+> **✅ EXECUTADA em 25/11/2026** — A) landing pública `/usina` (estimativa ao vivo +
+> lead em `leads_marketing` com origem `site` e score via `lib/usina/score-lead.ts`,
+> rota `POST /api/leads/usina` rate-limitada); B) gatilho na IA da fatura: o modal de
+> análise agora mostra "📐 Gerar estudo de usina →" quando identifica
+> `usina_proprietaria`, levando direto à aba Estudo Usina; C) aba "Visita Técnica"
+> (checklist6 itens + progresso + notas, persistido em `cliente_pasta_linhas` linha
+> `visita_tecnica`).
+> **Pendências da Fase 2:** (1) João rodar no SQL Editor o CHECK do
+> `cliente_pasta_linhas` (SQL no cabeçalho de `visita-tecnica-tab.tsx`) — sem ele,
+> Salvar a visita devolve erro tratado na tela; (2) upload de fotos "em construção"
+> (bucket `faturas-contas` é privado e a rota que sobe é exclusiva de fatura —
+> precisa de rota nova quando priorizar). (o "topo" da Reonic)
 - **Landing pública "quanto posso economizar"** (endereço + gasto mensal) que cai em **Leads com
   score** (scoring já existe no chatbot) e dispara o estudo automaticamente.
 - **Gatilho na IA da fatura**: "identificou usina própria? → botão Gerar estudo" (hoje ela só

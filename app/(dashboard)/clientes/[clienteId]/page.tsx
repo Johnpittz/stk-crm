@@ -43,9 +43,11 @@ import {
   Sun,
   Battery,
   Calculator,
+  ClipboardCheck,
 } from "lucide-react";
 import { TabLinhaSimples, TabGestaoFatura } from "@/components/features/clientes/tabs-linhas";
 import { EstudoUsinaTab } from "@/components/features/usina/estudo-usina-tab";
+import { VisitaTecnicaTab } from "@/components/features/usina/visita-tecnica-tab";
 import {
   LINHAS_PASTA,
   type LinhaId,
@@ -183,6 +185,7 @@ type TabId =
   | "mercado_livre"
   | "usina"
   | "estudo_usina"
+  | "visita_tecnica" // Fase2-C — checklist da visita técnica
   | "atendimentos"
   | "oportunidades";
 
@@ -200,6 +203,8 @@ const TABS: { id: TabId; label: string; icon: any }[] = [
   { id: "usina", label: "Usina Própria", icon: Sun },
   //25/11 — Fase1 do estudo de usina (demo Reonic): dimensiona e gera proposta
   { id: "estudo_usina", label: "Estudo Usina", icon: Calculator },
+  //25/11 — Fase2-C: checklist da visita técnica (estilo Reonic)
+  { id: "visita_tecnica", label: "Visita Técnica", icon: ClipboardCheck },
   { id: "atendimentos", label: "Atendimentos", icon: Headphones },
   { id: "oportunidades", label: "Ações em Aberto", icon: TrendingUp },
 ];
@@ -685,6 +690,10 @@ export default function ClienteDetalhePage() {
 
         {!tabLoading && activeTab === "estudo_usina" && (
           <EstudoUsinaTab cliente={cliente} clienteId={clienteId} />
+        )}
+
+        {!tabLoading && activeTab === "visita_tecnica" && (
+          <VisitaTecnicaTab clienteId={clienteId} />
         )}
 
         {!tabLoading && activeTab === "gestao_fatura" && (
