@@ -118,6 +118,13 @@ export async function POST(request: NextRequest) {
       estilo: body?.estilo ?? null,
       observacoes: body?.observacoes ?? null,
       textoImagem,
+      // REFORMULAÇÃO 24/11 — campos novos dos 4 passos
+      objetivo: typeof body?.objetivo === "string" ? body.objetivo : null,
+      extra: typeof body?.extra === "string" ? body.extra : null,
+      cor: typeof body?.cor === "string" ? body.cor : null,
+      meio: typeof body?.meio === "string" ? body.meio : null,
+      resolucao: typeof body?.resolucao === "string" ? body.resolucao : null,
+      sujeito: typeof body?.sujeito === "string" ? body.sujeito : null,
     });
 
     // OPÇÃO2 (18/11) — "Gerar no ChatGPT": devolve SÓ o prompt (custo

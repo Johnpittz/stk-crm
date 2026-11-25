@@ -45,12 +45,88 @@ const FORMATOS_TELA = [
   { chave: "banner", icone: "🪧", nome: "Banner / anúncio", desc: "Horizontal 1200x628" },
 ];
 
+// REFORMULAÇÃO24/11 — mercado: de5 para30+ estilos com busca.
 const ESTILOS = [
   "Moderno e limpo (padrão)",
   "Elegante",
   "Vibrante e chamativo",
   "Técnico e informativo",
   "Promoção / desconto",
+  "Vintage / retrô",
+  "Minimalista",
+  "Fotográfico realista",
+  "Ilustração / desenho à mão",
+  "Cartoon divertido",
+  "3D / renderização",
+  "Neon futurista",
+  "Aquarela suave",
+  "Corporativo sério",
+  "Rústico artesanal",
+  "Luxo premium",
+  "Pop colorido",
+  "Dramático escuro",
+  "Soft / tons pastel",
+  "Geométrico",
+  "Orgânico / natural",
+  "Esportivo dinâmico",
+  "Infantil / alegre",
+  "Gastronômico apetitoso",
+  "Tecnológico high-tech",
+  "Beleza / cosmético",
+  "Imobiliário / arquitetura",
+  "Moda / lifestyle",
+  "Automotivo",
+  "Boho / praia",
+  "Estilo Japones (anime)",
+  " HQ / quadrinhos",
+  "✍️ Outro (descreva você)",
+];
+const ESTILO_OUTRO = "✍️ Outro (descreva você)";
+
+// PASSO1 — objetivo da peça (novo campo pedido em24/11)
+const OBJETIVOS = [
+  "Divulgar produto ou serviço",
+  "Promover oferta / promoção",
+  "Criar anúncio (pago)",
+  "Anunciar novidade / lançamento",
+  "Convidar para evento",
+  "Recado / atendimento ao cliente",
+  "Informativo / dica do dia",
+  "Captação de clientes (gerar contatos)",
+  "Outro objetivo",
+];
+
+// PASSO2 — sugestões de "o que você quer" (1 clique preenche)
+const SUGESTOES_ASSUNTO = [
+  "Anúncio de produto",
+  "Promoção / oferta",
+  "Novidade / lançamento",
+  "Evento / convite",
+  "Recado ao cliente",
+  "Informativo / dica",
+];
+
+// PASSO3 — preferências novas
+const CORES_ARTE = [
+  "Sem preferência",
+  "Azul",
+  "Verde",
+  "Vermelho",
+  "Amarelo",
+  "Laranja",
+  "Rosa",
+  "Roxo",
+  "Preto",
+  "Branco",
+  "Cinza",
+  "Marrom / bege",
+  "Dourado",
+  "Prata",
+];
+const RESOLUCOES = [
+  "72 DPI — apenas tela (digital)",
+  "150 DPI — impressão comum",
+  "300 DPI — impressão profissional",
 ];
 
 export default function CriarArtesPage() {
@@ -117,9 +193,37 @@ export default function CriarArtesPage() {
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [tituloEditado, setTituloEditado] = useState("");
   const [jaGerou, setJaGerou] = useState(false);
+  // REFORMULAÇÃO24/11 — campos novos dos4 passos (pedido do João)
+  const [objetivo, setObjetivo] = useState("");
+  const [buscaEstilo, setBuscaEstilo] = useState("");
+  const [estiloOutro, setEstiloOutro] = useState("");
+  const [extraArte, setExtraArte] = useState("");
+  const [cor, setCor] = useState("Sem preferência");
+  const [meio, setMeio] = useState("");
+  const [resolucao, setResolucao] = useState("");
+  const [sujeito, setSujeito] = useState("");
+  // Modal de revisão (estilo "criar anúncio no Google") antes do ChatGPT
+  const [modalRevisao, setModalRevisao] = useState(false);
 
-  // "Moderno e limpo (padrão)" = deixar o montador usar o padrão dele
-  const estiloEfetivo = estilo.startsWith("Moderno") ? "" : estilo;
+  // "Moderno e limpo (padrão)" = deixar o montador usar o padrão dele;
+  // "Outro" usa o que a pessoa descreveu no campo ao lado.
+  const estiloEfetivo =
+    estilo === ESTILO_OUTRO
+      ? estiloOutro.trim()
+      : estilo.startsWith("Moderno")
+        ? ""
+        : estilo;
+
+  // Estilos filtrados pela busca (digitou "vintage" já aparece) — a
+  // escolha atual entra mesmo se a busca escondê-la (evita pular sozinho)
+  const estilosFiltrados = useMemo(() => {
+    const termo = buscaEstilo.trim().toLowerCase();
+    const base = !termo
+      ? ESTILOS
+      : ESTILOS.filter((e) => e.toLowerCase().includes(termo));
+    if (estilo && !base.includes(estilo)) return [estilo, ...base];
+    return base;
+  }, [buscaEstilo, estilo]);
 
   const numeroSalvo = textosCadastrados.find((t) => t.tipo === "numero")?.texto || "";
   const opcoesSalvas = textosCadastrados.filter((t) => t.tipo === "opcao").map((t) => t.texto);
@@ -157,9 +261,36 @@ export default function CriarArtesPage() {
   const prompt = useMemo(
     () =>
       assunto.trim() && texto.trim()
-        ? montarPromptArte({ formato, assunto, texto, estilo: estiloEfetivo, observacoes: observacoesEfetivas, textoImagem })
+        ? montarPromptArte({
+            formato,
+            assunto,
+            texto,
+            estilo: estiloEfetivo,
+            observacoes: observacoesEfetivas,
+            textoImagem,
+            // REFORMULAÇÃO 24/11
+            objetivo,
+            extra: extraArte,
+            cor,
+            meio,
+            resolucao,
+            sujeito,
+          })
         : "",
-    [formato, assunto, texto, estiloEfetivo, observacoesEfetivas, textoImagem],
+    [
+      formato,
+      assunto,
+      texto,
+      estiloEfetivo,
+      observacoesEfetivas,
+      textoImagem,
+      objetivo,
+      extraArte,
+      cor,
+      meio,
+      resolucao,
+      sujeito,
+    ],
   );
 
   async function carregar() {
@@ -304,6 +435,13 @@ export default function CriarArtesPage() {
       numero: usarNumero ? numeroSalvo : "",
       opcoes: opcoesSalvas.filter((o) => opcoesMarcadas.includes(o)),
       posicao,
+      // REFORMULAÇÃO 24/11 — campos novos dos 4 passos
+      objetivo: objetivo || null,
+      extra: extraArte || null,
+      cor: cor || null,
+      meio: meio || null,
+      resolucao: meio === "Impressão" ? resolucao || null : null,
+      sujeito: sujeito || null,
     };
   }
 
@@ -420,11 +558,34 @@ export default function CriarArtesPage() {
           <CardTitle className="text-white text-lg">✨ Criar arte —4 passos rápidos</CardTitle>
         </CardHeader>
         <CardContent className="space-y-7">
-          {/* PASSO1 — formato */}
+          {/* PASSO1 — objetivo + formato (REFORMULAÇÃO24/11) */}
           <section>
-            <h3 className="text-white font-semibold">1. Qual formato você quer?</h3>
-            <p className="text-white/40 text-xs mt-1 mb-3">
+            <h3 className="text-white font-semibold">1. Qual o objetivo e o formato?</h3>
+            <div className="mt-2 mb-3">
+              <Label htmlFor="objetivo-arte">Qual é o objetivo desta arte?</Label>
+              <select
+                id="objetivo-arte"
+                value={objetivo}
+                onChange={(e) => setObjetivo(e.target.value)}
+                className="mt-1 h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white"
+              >
+                <option value="" className="bg-[#1a2236]">
+                  Selecione o objetivo...
+                </option>
+                {OBJETIVOS.map((o) => (
+                  <option key={o} value={o} className="bg-[#1a2236]">
+                    {o}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p className="text-white/40 text-xs mb-3">
               Escolha onde a arte vai ser publicada — o tamanho da imagem é ajustado sozinho.
+              <b className="text-white/60">
+                {" "}
+                Todos os formatos também servem para WhatsApp
+              </b>{" "}
+              (grupo, status e conversa) — é só recortar depois se precisar.
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {FORMATOS_TELA.map((f) => {
@@ -465,14 +626,27 @@ export default function CriarArtesPage() {
               <p className="text-white/40 text-xs mt-1">Escreva o básico, em português mesmo.</p>
             </div>
             <div>
-              <Label htmlFor="assunto">Assunto (produto / oferta)</Label>
+              <Label htmlFor="assunto">O que você quer? (o que a peça vai anunciar ou contar)</Label>
               <Input
                 id="assunto"
                 value={assunto}
                 onChange={(e) => setAssunto(e.target.value)}
-                placeholder="Ex: Painéis solares com30% de desconto"
+                placeholder="Ex: anúncio de painéis solares, promoção de fim de ano, convite para a feira..."
                 className="mt-1 bg-white/5 border-white/10"
               />
+              {/* sugestões de1 clique — cobre anúncio, promoção, evento... */}
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {SUGESTOES_ASSUNTO.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setAssunto(s)}
+                    className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-white/60 transition hover:border-[#3B64CF]/60 hover:text-white"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
             </div>
             <div>
               <Label htmlFor="texto-arte">Texto que aparece NA imagem</Label>
@@ -486,29 +660,45 @@ export default function CriarArtesPage() {
               />
             </div>
             <div>
-              <Label htmlFor="estilo-arte">Visual</Label>
+              <Label htmlFor="estilo-busca">Visual — procure pelo jeito que quiser</Label>
+              <Input
+                id="estilo-busca"
+                value={buscaEstilo}
+                onChange={(e) => setBuscaEstilo(e.target.value)}
+                placeholder="🔍 Buscar estilo... (ex: vintage, neon, minimalista,3D, aquarela...)"
+                className="mt-1 bg-white/5 border-white/10"
+              />
               <select
                 id="estilo-arte"
                 value={estilo}
                 onChange={(e) => setEstilo(e.target.value)}
-                className="mt-1 h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white"
+                className="mt-2 h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white"
               >
-                {ESTILOS.map((e) => (
+                {estilosFiltrados.map((e) => (
                   <option key={e} value={e} className="bg-[#1a2236]">
                     {e}
                   </option>
                 ))}
               </select>
+              {estilo === ESTILO_OUTRO && (
+                <Textarea
+                  value={estiloOutro}
+                  onChange={(e) => setEstiloOutro(e.target.value)}
+                  rows={2}
+                  placeholder="Descreva o visual que quer... ex: fundo escuro com brilho dourado, estilo anos80"
+                  className="mt-2 bg-white/5 border-white/10"
+                />
+              )}
             </div>
           </section>
 
           {/* PASSO3 — incluir na arte (é AQUI que mora o cadastro, não lá embaixo) */}
           <section className="space-y-3">
             <div>
-              <h3 className="text-white font-semibold">3. Quer incluir na arte? (opcional)</h3>
+              <h3 className="text-white font-semibold">3. O que mais você quer incluir? (opcional)</h3>
               <p className="text-white/40 text-xs mt-1">
-                Número da empresa ou frases prontas que já existem no cadastro. Marque só o que
-                quiser usar — sem nada marcado, a arte sai com o texto do passo2.
+                Número da empresa e preferências da arte. Sem nada preenchido, a arte sai com o
+                texto do passo2.
               </p>
             </div>
 
@@ -544,54 +734,87 @@ export default function CriarArtesPage() {
               </div>
             </div>
 
+            {/* REFORMULAÇÃO24/11 — "frases prontas" saiu; entram as
+                preferências pedidas (extra, cor, uso, sujeito, resolução) */}
             <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-              <p className="text-xs font-medium text-white/70 mb-2">📝 Frases prontas do cadastro</p>
-              {opcoesSalvas.length === 0 ? (
-                <p className="text-white/40 text-xs mb-2">
-                  Nenhuma frase cadastrada ainda — adicione a primeira abaixo.
-                </p>
-              ) : (
-                <div className="flex flex-wrap gap-x-4 gap-y-2 mb-2">
-                  {opcoesSalvas.map((op) => (
-                    <label key={op} className="flex items-center gap-2 text-sm text-white cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={opcoesMarcadas.includes(op)}
-                        onChange={(e) =>
-                          setOpcoesMarcadas((lista) =>
-                            e.target.checked ? [...lista, op] : lista.filter((x) => x !== op),
-                          )
-                        }
-                        className="accent-[#3B64CF]"
-                      />
-                      {op}
-                    </label>
-                  ))}
-                </div>
-              )}
-              <div className="flex gap-2">
-                <Input
-                  value={opcaoInput}
-                  onChange={(e) => setOpcaoInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      salvarTextoCadastrado("opcao", opcaoInput);
-                    }
-                  }}
-                  placeholder="Nova frase curta (Enter salva)"
-                  className="bg-white/5 border-white/10"
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="border-white/15 text-white/80"
-                  onClick={() => salvarTextoCadastrado("opcao", opcaoInput)}
+              <p className="text-xs font-medium text-white/70 mb-2">
+                ✏️ O que mais você quer adicionar?
+              </p>
+              <Textarea
+                value={extraArte}
+                onChange={(e) => setExtraArte(e.target.value)}
+                rows={2}
+                placeholder="Ex: QR code no canto, selo de garantia, nome do vendedor, horário de funcionamento..."
+                className="bg-white/5 border-white/10"
+              />
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="cor-arte">Cor de preferência</Label>
+                <select
+                  id="cor-arte"
+                  value={cor}
+                  onChange={(e) => setCor(e.target.value)}
+                  className="mt-1 h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white"
                 >
-                  ＋ Adicionar
-                </Button>
+                  {CORES_ARTE.map((c) => (
+                    <option key={c} value={c} className="bg-[#1a2236]">
+                      {c}
+                    </option>
+                  ))}
+                </select>
               </div>
+              <div>
+                <Label htmlFor="meio-arte">Vai ser digital ou impressão?</Label>
+                <select
+                  id="meio-arte"
+                  value={meio}
+                  onChange={(e) => {
+                    setMeio(e.target.value);
+                    if (e.target.value !== "Impressão") setResolucao("");
+                  }}
+                  className="mt-1 h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white"
+                >
+                  <option value="" className="bg-[#1a2236]">Selecione...</option>
+                  <option value="Digital" className="bg-[#1a2236]">Digital (tela / redes / WhatsApp)</option>
+                  <option value="Impressão" className="bg-[#1a2236]">Impressão (folheto, banner, adesivo)</option>
+                  <option value="Ainda não sei" className="bg-[#1a2236]">Ainda não sei</option>
+                </select>
+              </div>
+            </div>
+
+            {meio === "Impressão" && (
+              <div>
+                <Label htmlFor="resolucao-arte">Se for imprimir, qual resolução?</Label>
+                <select
+                  id="resolucao-arte"
+                  value={resolucao}
+                  onChange={(e) => setResolucao(e.target.value)}
+                  className="mt-1 h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white"
+                >
+                  <option value="" className="bg-[#1a2236]">Selecione a resolução...</option>
+                  {RESOLUCOES.map((r) => (
+                    <option key={r} value={r} className="bg-[#1a2236]">{r}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div>
+              <Label htmlFor="sujeito-arte">A arte vai mostrar humano ou equipamento?</Label>
+              <select
+                id="sujeito-arte"
+                value={sujeito}
+                onChange={(e) => setSujeito(e.target.value)}
+                className="mt-1 h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white"
+              >
+                <option value="" className="bg-[#1a2236]">Selecione...</option>
+                <option value="Humano (pessoa)" className="bg-[#1a2236]">Humano (pessoa)</option>
+                <option value="Equipamento (produto)" className="bg-[#1a2236]">Equipamento (produto)</option>
+                <option value="Humano e equipamento" className="bg-[#1a2236]">Humano e equipamento</option>
+                <option value="Sem preferência" className="bg-[#1a2236]">Sem preferência</option>
+              </select>
             </div>
 
             {(usarNumero && numeroSalvo) || opcoesMarcadas.length > 0 ? (

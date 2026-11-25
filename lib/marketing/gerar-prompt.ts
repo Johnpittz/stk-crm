@@ -56,6 +56,13 @@ export interface CamposArte {
   observacoes?: string | null;
   /** ITEM 3 — textos extras (número/opções do cadastro) + posição. */
   textoImagem?: string | null;
+  /** REFORMULAÇÃO 24/11 — campos novos dos 4 passos. */
+  objetivo?: string | null;
+  extra?: string | null;
+  cor?: string | null;
+  meio?: string | null;
+  resolucao?: string | null;
+  sujeito?: string | null;
 }
 
 /**
@@ -71,20 +78,48 @@ export function montarPromptArte(c: CamposArte): string {
     `Crie uma imagem de marketing profissional para ${formato?.nome ?? c.formato} ` +
       `(${formato?.orientacao ?? "1080x1080"}).`,
   );
+  // REFORMULAÇÃO 24/11 — campos novos dos 4 passos
+  if (c.objetivo && c.objetivo.trim()) {
+    linhas.push(`Objetivo: ${c.objetivo.trim()}.`);
+  }
   linhas.push(`Assunto: ${c.assunto.trim()}`);
   linhas.push(
     `A imagem DEVE exibir exatamente este texto, sem erros, sem letras cortadas nem duplicadas: "${c.texto.trim()}"`,
   );
   linhas.push(`Estilo visual: ${(c.estilo ?? "").trim() || ESTILO_PADRAO}.`);
+  if (c.sujeito && c.sujeito.trim()) {
+    linhas.push(`Aparece na arte: ${c.sujeito.trim()}.`);
+  }
+  if (c.cor && c.cor.trim() && c.cor !== "Sem preferência") {
+    linhas.push(`Cor predominante: ${c.cor.trim()}.`);
+  }
+  if (c.extra && c.extra.trim()) {
+    linhas.push(`Adicionar na arte: ${c.extra.trim()}.`);
+  }
+  if (c.meio && c.meio.trim()) {
+    linhas.push(`Uso: ${c.meio.trim()}.`);
+  }
+  if (c.meio === "Impressão" && c.resolucao && c.resolucao.trim()) {
+    linhas.push(`Resolução: ${c.resolucao.trim()}.`);
+  }
   if (c.textoImagem && c.textoImagem.trim()) {
     linhas.push(c.textoImagem.trim());
   }
   if (c.observacoes && c.observacoes.trim()) {
     linhas.push(`Observações do cliente: ${c.observacoes.trim()}`);
   }
+  // PROMPT BASE (mercado) — regras de qualidade para a IA de imagem
   linhas.push(
-    "Regras: composição equilibrada, texto grande e legível, cores consistentes, " +
-      "sem marca d'água, sem logotipos inventados e sem texto além do solicitado.",
+    "Qualidade: hierarquia clara (mensagem principal grande e legível), " +
+      "composição equilibrada com espaço negativo, iluminação natural e foco no essencial.",
+  );
+  linhas.push(
+    "Regras: cores consistentes, sem marca d'água, sem logotipos inventados, " +
+      "não invente textos, letreiros ou frases extras — só o que foi pedido; " +
+      "sem letras cortadas, distorcidas ou duplicadas.",
+  );
+  linhas.push(
+    "Deixe margem de segurança nas bordas: cortes de story, status e WhatsApp podem aparar as pontas.",
   );
   return linhas.join("\n");
 }
