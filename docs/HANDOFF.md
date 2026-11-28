@@ -17,10 +17,11 @@
 - **Aba "Visita Técnica"** na pasta do cliente: checklist6 itens + progresso +
   notas, gravando em `cliente_pasta_linhas` linha `visita_tecnica` (sem migration).
 - **GATES:** `tsc`=0 · **858 verdes/1 skip (859)** · build ok (`/usina` + rota).
-- ⚠️ **PENDÊNCIA NOVA (João, SQL Editor):** rodar o `ALTER TABLE` do CHECK
-  `cliente_pasta_linhas_linha_check` (SQL no cabeçalho de
-  `components/features/usina/visita-tecnica-tab.tsx`) — sem ele, "Salvar" a visita
-  mostra erro tratado (a migration102 limitou o CHECK a6 ids).
+- ✅ **PENDÊNCIA DO SQL RESOLVIDA (João rodou o CHECK em25/11 e foi verificado em
+  produção por cliques reais):** Salvar inseriu (✓ "Checklist salvo na pasta do
+  cliente"), recarregou em `1/6` e o update de volta `0/6` também passou — a aba
+  Visita Técnica está **100% operacional** (antes: erro tratado, migration102
+  limitava o CHECK a6 ids).
 - ⚠️ Upload de fotos da visita: **"em construção"** (bucket `faturas-contas` é
   privado; rota de upload atual é exclusiva de fatura — precisa rota nova).
 - **QR deferido:** STK-2/STK-3 reiniciadas em25/11 e estão em `SCAN_QR_CODE`

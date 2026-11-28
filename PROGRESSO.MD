@@ -26,7 +26,10 @@
   (sem migration; `LinhaId` ampliado em `lib/clientes/linhas.ts`).
 
 **Pendências (ações do João):**
-1. **SQL no Supabase (SQL Editor)** — a migration102 limitou o CHECK a6 ids; sem
+1. ~~**SQL no Supabase (SQL Editor)**~~ ✅ **RODADO E VERIFICADO (25/11):** salvar
+   passou a inserir, reload mostrou `1/6` persistido e o update `0/6` também
+   passou (testado com cliques reais em produção). O que era pra rodar — a
+   migration102 limitou o CHECK a6 ids; sem
    isto, "Salvar" a visita devolve erro tratado na tela:
    `ALTER TABLE public.cliente_pasta_linhas DROP CONSTRAINT IF EXISTS cliente_pasta_linhas_linha_check;`
    `ALTER TABLE public.cliente_pasta_linhas ADD CONSTRAINT cliente_pasta_linhas_linha_check CHECK (linha IN ('eletroposto','sigma','bess','gestao_fatura','mercado_livre','usina','visita_tecnica'));`
